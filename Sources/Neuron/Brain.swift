@@ -81,7 +81,7 @@ public class Brain {
       outputs.append(neuron.get())
     }
     
-    let output = ranked ? outputs : outputs.sorted(by: { $0 > $1 })
+    let output = ranked ? outputs.sorted(by: { $0 > $1 }) : outputs
     
     return output
   }
