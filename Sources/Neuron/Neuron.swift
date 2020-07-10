@@ -7,19 +7,18 @@
 //
 
 import Foundation
-import UIKit
 
 public enum Activation {
   case reLu
   case sigmoid
   case leakyRelu
   
-  public func activate(input: CGFloat) -> CGFloat {
+  public func activate(input: Float) -> Float {
     switch self {
     case .reLu:
       return max(0, input)
     case .sigmoid:
-      return 1.0 / (1.0 + pow(CGFloat(Darwin.M_E), -input))
+      return 1.0 / (1.0 + pow(Float(Darwin.M_E), -input))
     case .leakyRelu:
       return max(0.1 * input, input)
     }
@@ -29,8 +28,8 @@ public enum Activation {
 public class Neuron {
   public var inputs: [NeuroTransmitter] = []
   
-  private var learningRate: CGFloat
-  private var bias: CGFloat
+  private var learningRate: Float
+  private var bias: Float
   private var activationType: Activation
   
   public init(inputs: [NeuroTransmitter] = [], nucleus: Nucleus) {
@@ -45,12 +44,12 @@ public class Neuron {
     self.inputs.append(input)
   }
   
-  public func get() -> CGFloat {
+  public func get() -> Float {
     return self.activation()
   }
   
-  public func activation() -> CGFloat {
-    var sum: CGFloat = 0
+  public func activation() -> Float {
+    var sum: Float = 0
     for i in 0..<self.inputs.count {
       let input = self.inputs[i]
       let weightInput = input.weight
@@ -69,11 +68,11 @@ public class Neuron {
   
   public func clear() {
     for input in inputs {
-      input.weight = CGFloat.random(in: 0...1)
+      input.weight = Float.random(in: 0...1)
     }
   }
   
-  public func adjustWeights(correctValue: CGFloat) {
+  public func adjustWeights(correctValue: Float) {
     for input in inputs {
       let activation = self.activation()
       let delta = correctValue - activation

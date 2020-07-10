@@ -7,15 +7,14 @@
 //
 
 import Foundation
-import UIKit
 
 public struct Nucleus {
-  public var learningRate: CGFloat = 0.1
-  public var bias: CGFloat = 0.1
+  public var learningRate: Float = 0.1
+  public var bias: Float = 0.1
   public var activationType: Activation = .reLu
   
-  public init(learningRate: CGFloat,
-              bias: CGFloat,
+  public init(learningRate: Float,
+              bias: Float,
               activationType: Activation) {
     self.learningRate = learningRate
     self.bias = bias

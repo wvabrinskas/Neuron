@@ -7,12 +7,10 @@
 //
 
 import Foundation
-import UIKit
-
 
 public class Brain {
   
-  private var currentInput: [CGFloat] = []
+  private var currentInput: [Float] = []
   
   private var inputNeurons: [Neuron] = []
   private var outputNeurons: [Neuron] = []
@@ -63,7 +61,7 @@ public class Brain {
     }
   }
   
-  public func feed(input: [CGFloat]) -> [CGFloat] {
+  public func feed(input: [Float]) -> [Float] {
     
     inputNeurons.forEach { (inputNeuron) in
       inputNeuron.inputs.removeAll()
@@ -72,7 +70,7 @@ public class Brain {
       }
     }
     
-    var outputs: [CGFloat] = []
+    var outputs: [Float] = []
     
     self.outputNeurons.forEach { (neuron) in
       outputs.append(neuron.get())
@@ -82,9 +80,9 @@ public class Brain {
     return outputs
   }
   
-  public func get() -> [CGFloat] {
+  public func get() -> [Float] {
     
-    var outputs: [CGFloat] = []
+    var outputs: [Float] = []
     
     self.outputNeurons.forEach { (neuron) in
       outputs.append(neuron.get())
@@ -94,7 +92,7 @@ public class Brain {
     return outputs
   }
   
-  public func train(data: [CGFloat]) {
+  public func train(data: [Float]) {
     guard data.count == self.outputNeurons.count else {
       print("Error: training data count does not match ouput node count, bailing out")
       return
