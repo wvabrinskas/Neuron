@@ -61,7 +61,12 @@ public class Brain {
     }
   }
   
-  public func feed(input: [Float]) -> [Float] {
+  public func getRanked() -> [Float] {
+    let output = self.get()
+    return output.sorted(by: { $0 > $1 })
+  }
+  
+  public func feed(input: [Float], ranked: Bool = false) -> [Float] {
     
     inputNeurons.forEach { (inputNeuron) in
       inputNeuron.inputs.removeAll()
@@ -76,8 +81,9 @@ public class Brain {
       outputs.append(neuron.get())
     }
     
-    print(outputs)
-    return outputs
+    let output = ranked ? outputs.sorted(by: { $0 > $1 }) : outputs
+    
+    return output
   }
   
   public func get() -> [Float] {
@@ -88,7 +94,6 @@ public class Brain {
       outputs.append(neuron.get())
     }
     
-    print(outputs)
     return outputs
   }
   
