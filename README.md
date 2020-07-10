@@ -91,3 +91,13 @@ let out = self.brain.get()
 let out = self.brain.feed(input: data)
 ```
 - Returns `[CGFloat]` using the new inputs and the current weights, aka. feed forward
+
+```
+let outRanked = self.brain.getRanked()
+```
+- Returns `[CGFloat]` using the last known input and returns it ranked by the current weights
+
+```
+let outRanked = self.brain.feed(input: data, ranked: true)
+```
+- Returns `[CGFloat]` using the new inputs and returns it ranked by the current weights
