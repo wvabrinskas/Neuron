@@ -54,3 +54,15 @@ It is fairly simple to setup the neural network `Brain`. This will be the only o
         - More coming soon.... 
         - [Learn more about each](https://missinglink.ai/guides/neural-network-concepts/7-types-neural-network-activation-functions-right/)
 
+#### Training
+Training the `Brain` object is also very simple. You simply pass an array of `CGFloat` to the brain object. 
+`Only rule is that the number of items in the array must match the number of input nodes.`
+
+```
+    DispatchQueue.global(qos: .utility).async {
+        let data: [CGFloat] = [0.1, 0.2, 0.2, 0.2]
+        self.brain.train(data: data)
+    }
+```
+
+- This will take care of weight adjustment and everything for you. You can loop this as many times as you desire to train the brain. 
