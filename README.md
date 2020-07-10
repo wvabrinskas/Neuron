@@ -65,4 +65,19 @@ Training the `Brain` object is also very simple. You simply pass an array of `CG
     }
 ```
 
-- This will take care of weight adjustment and everything for you. You can loop this as many times as you desire to train the brain. 
+- This will take care of weight adjustment, back propagation, and everything else for you. You can loop this as many times as you desire to train the brain. 
+- I recommend doing this on a background thread OFF the main thread to prevent the UI from bogging down. It is a lot of math at once. 
+
+
+#### Retrieving Data
+The `Brain` can use its last input and its current weights to spit back out a result, or you can provide it a new input and it will give you the result using the current weights, aka. feed forward.
+
+```
+let out = self.brain.get()
+```
+- Returns `[CGFloat]` using the last known input and current weights 
+
+```
+let out = self.brain.feed(input: data)
+```
+- Returns `[CGFloat]` using the new inputs and the current weights, aka. feed forward
