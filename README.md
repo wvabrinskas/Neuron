@@ -1,5 +1,6 @@
 # Neuron
 
+![](https://img.shields.io/github/license/wvabrinskas/Neuron)
 ![](https://img.shields.io/badge/swift-5.2-orange)
 ![](https://img.shields.io/badge/iOS-13+-blue)
 
