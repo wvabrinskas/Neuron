@@ -51,3 +51,6 @@ It is fairly simple to setup the neural network `Brain`. This will be the only o
         - `.reLu`
         - `.leakyRelu`
         - `.sigmoid`
+        - More coming soon.... 
+        - [Learn more about each](https://missinglink.ai/guides/neural-network-concepts/7-types-neural-network-activation-functions-right/)
+
