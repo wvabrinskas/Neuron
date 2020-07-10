@@ -83,7 +83,6 @@ public class Brain {
     
     let output = ranked ? outputs : outputs.sorted(by: { $0 > $1 })
     
-    print(output)
     return output
   }
   
