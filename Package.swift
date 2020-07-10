@@ -23,6 +23,7 @@ let package = Package(
         .target(
             name: "Neuron",
             dependencies: []),
+        
         .testTarget(
             name: "NeuronTests",
             dependencies: ["Neuron"]),
