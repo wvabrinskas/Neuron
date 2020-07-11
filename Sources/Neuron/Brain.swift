@@ -70,9 +70,12 @@ public class Brain {
     
     inputNeurons.forEach { (inputNeuron) in
       inputNeuron.inputs.removeAll()
+      var inputs: [NeuroTransmitter] = []
       input.forEach { (value) in
-        inputNeuron.addInput(input: NeuroTransmitter(input: value))
+        inputs.append(value)
       }
+      
+      inputNeuron.replaceInputs(inputs: inputs)
     }
     
     var outputs: [Float] = []
