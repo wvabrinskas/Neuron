@@ -40,6 +40,25 @@ public class Neuron {
     self.inputs = inputs
   }
   
+  public func replaceInputs(inputs: [NeuroTransmitter]) {
+    guard inputs.count == self.inputs.count else {
+      print("Error: Can not replace inputs of different size")
+      return
+    }
+    
+    var newInputs: [NeuroTransmitter] = []
+    
+    for i in 0..<self.inputs.count {
+      let currentInput = self.inputs[i]
+      let newInput = inputs[i]
+      
+      newInput.weight = currentInput.weight
+      newInputs.append(newInput)
+    }
+
+    self.inputs = newInputs
+  }
+  
   public func addInput(input: NeuroTransmitter) {
     self.inputs.append(input)
   }
