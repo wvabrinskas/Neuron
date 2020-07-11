@@ -68,16 +68,8 @@ public class Brain {
   
   public func feed(input: [Float], ranked: Bool = false) -> [Float] {
     
-    inputNeurons.forEach { (inputNeuron) in
-      inputNeuron.inputs.removeAll()
-      var inputs: [NeuroTransmitter] = []
-      input.forEach { (value) in
-        inputs.append(value)
-      }
-      
-      inputNeuron.replaceInputs(inputs: inputs)
-    }
-    
+    self.addInputs(input: input)
+
     var outputs: [Float] = []
     
     self.outputNeurons.forEach { (neuron) in
@@ -107,12 +99,7 @@ public class Brain {
     }
     self.currentInput = data
     
-    inputNeurons.forEach { (inputNeuron) in
-      inputNeuron.inputs.removeAll()
-      data.forEach { (value) in
-        inputNeuron.addInput(input: NeuroTransmitter(input: value))
-      }
-    }
+    self.addInputs(input: data)
     
     for i in 0..<self.outputNeurons.count {
       let outNeuron = self.outputNeurons[i]
@@ -120,6 +107,29 @@ public class Brain {
       outNeuron.adjustWeights(correctValue: value)
     }
     
+  }
+  
+  private func addInputs(input: [Float]) {
+    
+    inputNeurons.forEach { (inputNeuron) in
+      
+      if inputNeuron.inputs.count == 0 {
+        
+        input.forEach { (value) in
+          inputNeuron.addInput(input: NeuroTransmitter(input: value))
+        }
+        
+      } else {
+        var inputs: [NeuroTransmitter] = []
+
+        input.forEach { (value) in
+          inputs.append(NeuroTransmitter(input: value))
+        }
+        
+        inputNeuron.replaceInputs(inputs: inputs)
+      }
+
+    }
   }
   
 }
