@@ -66,7 +66,7 @@ It is fairly simple to setup the neural network `Brain`. This will be the only o
 
 #### Training
 Training the `Brain` object is also very simple. You simply pass an array of `CGFloat` to the brain object. 
-`Only rule is that the number of items in the array must match the number of input nodes.`
+`The only rules are that the number of items in the array must match the number of input nodes and the numbers must be between 0 and 1.`
 
 ```
     DispatchQueue.global(qos: .utility).async {
