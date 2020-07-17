@@ -103,12 +103,10 @@ public class Brain {
     
     self.addInputs(input: data)
     
-    DispatchQueue.global(qos: .utility).async {
-      DispatchQueue.concurrentPerform(iterations: self.outputNeurons.count) { (i) in
-        let outNeuron = self.outputNeurons[i]
-        let value = data[i]
-        outNeuron.adjustWeights(correctValue: value)
-      }
+    DispatchQueue.concurrentPerform(iterations: self.outputNeurons.count) { (i) in
+      let outNeuron = self.outputNeurons[i]
+      let value = data[i]
+      outNeuron.adjustWeights(correctValue: value)
     }
   }
   
