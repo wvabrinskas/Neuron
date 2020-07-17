@@ -94,19 +94,19 @@ public class Brain {
   
   public func train(data: [Float]) {
     guard data.count == self.outputNeurons.count else {
-      print("Error: training data count does not match ouput node count, bailing out")
+      print("🛑 Error: training data count does not match ouput node count, bailing out")
       return
     }
+    
     self.currentInput = data
     
     self.addInputs(input: data)
     
-    for i in 0..<self.outputNeurons.count {
+    DispatchQueue.concurrentPerform(iterations: self.outputNeurons.count) { (i) in
       let outNeuron = self.outputNeurons[i]
       let value = data[i]
       outNeuron.adjustWeights(correctValue: value)
-    }
-    
+    }    
   }
   
   private func addInputs(input: [Float]) {
