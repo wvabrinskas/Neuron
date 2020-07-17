@@ -35,6 +35,7 @@ public class Brain {
       self.outputNeurons.append(outputNeuron)
     }
     
+    //TODO maybe use concurrent perform
     self.hiddenNeurons.forEach { (neuron) in
       let inputDendrites = self.inputNeurons.map({ return NeuroTransmitter(neuron: $0 )})
       neuron.inputs = inputDendrites
@@ -106,7 +107,7 @@ public class Brain {
       let outNeuron = self.outputNeurons[i]
       let value = data[i]
       outNeuron.adjustWeights(correctValue: value)
-    }    
+    }
   }
   
   private func addInputs(input: [Float]) {

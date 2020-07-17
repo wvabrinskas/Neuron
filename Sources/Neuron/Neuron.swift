@@ -92,7 +92,8 @@ public class Neuron {
   }
   
   public func adjustWeights(correctValue: Float) {
-    for input in inputs {
+    DispatchQueue.concurrentPerform(iterations: inputs.count) { (i) in
+      let input = inputs[i]
       let activation = self.activation()
       let delta = correctValue - activation
       let correction = self.learningRate * input.get() * delta
