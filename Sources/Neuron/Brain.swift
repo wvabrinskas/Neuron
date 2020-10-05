@@ -44,17 +44,20 @@ public class Brain {
       }
     }
     
-    //TODO maybe use concurrent perform
-    self.hiddenNeurons.forEach { (neuron) in
-      let inputDendrites = self.inputNeurons.map({ return NeuroTransmitter(neuron: $0 )})
-      neuron.inputs = inputDendrites
-    }
+    queue.waitUntilAllOperationsAreFinished()
     
-    self.outputNeurons.forEach { (neuron) in
-      let hiddenDendrites = self.hiddenNeurons.map({ return NeuroTransmitter(neuron: $0 )})
-      neuron.inputs = hiddenDendrites
+    queue.addBarrierBlock {
+      //TODO maybe use concurrent perform
+      self.hiddenNeurons.forEach { (neuron) in
+        let inputDendrites = self.inputNeurons.map({ return NeuroTransmitter(neuron: $0 )})
+        neuron.inputs = inputDendrites
+      }
+      
+      self.outputNeurons.forEach { (neuron) in
+        let hiddenDendrites = self.hiddenNeurons.map({ return NeuroTransmitter(neuron: $0 )})
+        neuron.inputs = hiddenDendrites
+      }
     }
-    
   }
   
   public func clear() {
