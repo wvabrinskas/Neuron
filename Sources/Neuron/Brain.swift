@@ -20,33 +20,43 @@ public class Brain {
     
     //ugly bruteforce tree creation. will work it out if it works
     //Damn it works....
+    let group = DispatchGroup()
+
     let queue = OperationQueue()
-    queue.maxConcurrentOperationCount = 10
+    queue.maxConcurrentOperationCount = 3
     
-    queue.addBarrierBlock {
+    let inputOperation = BlockOperation {
+      group.enter()
       for _ in 0..<inputs {
         let inputNeuron = Neuron(nucleus: nucleus)
         self.inputNeurons.append(inputNeuron)
       }
+      group.leave()
     }
-
-    queue.addBarrierBlock {
+    
+    let hiddenOperation = BlockOperation {
+      group.enter()
       for _ in 0..<hidden {
         let hiddenNeuron = Neuron(nucleus: nucleus)
         self.hiddenNeurons.append(hiddenNeuron)
       }
+      group.leave()
     }
-     
-    queue.addBarrierBlock {
+    
+    let outputOperation = BlockOperation {
+      group.enter()
       for _ in 0..<outputs {
         let outputNeuron = Neuron(nucleus: nucleus)
         self.outputNeurons.append(outputNeuron)
       }
+      group.leave()
     }
+
+    queue.addOperation(inputOperation)
+    queue.addOperation(hiddenOperation)
+    queue.addOperation(outputOperation)
     
-    queue.waitUntilAllOperationsAreFinished()
-    
-    queue.addBarrierBlock {
+    group.notify(queue: .main) {
       //TODO maybe use concurrent perform
       self.hiddenNeurons.forEach { (neuron) in
         let inputDendrites = self.inputNeurons.map({ return NeuroTransmitter(neuron: $0 )})
