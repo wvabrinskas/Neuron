@@ -23,30 +23,30 @@ public class Brain {
     let queue = OperationQueue()
     queue.maxConcurrentOperationCount = 10
     
-    queue.addBarrierBlock {
+    //queue.addBarrierBlock {
       for _ in 0..<inputs {
         let inputNeuron = Neuron(nucleus: nucleus)
         self.inputNeurons.append(inputNeuron)
       }
-    }
+    //}
 
-    queue.addBarrierBlock {
+    //queue.addBarrierBlock {
       for _ in 0..<hidden {
         let hiddenNeuron = Neuron(nucleus: nucleus)
         self.hiddenNeurons.append(hiddenNeuron)
       }
-    }
+   // }
      
-    queue.addBarrierBlock {
+    //queue.addBarrierBlock {
       for _ in 0..<outputs {
         let outputNeuron = Neuron(nucleus: nucleus)
         self.outputNeurons.append(outputNeuron)
       }
-    }
+   // }
     
-    queue.waitUntilAllOperationsAreFinished()
+   // queue.waitUntilAllOperationsAreFinished()
     
-    queue.addBarrierBlock {
+   // queue.addBarrierBlock {
       //TODO maybe use concurrent perform
       self.hiddenNeurons.forEach { (neuron) in
         let inputDendrites = self.inputNeurons.map({ return NeuroTransmitter(neuron: $0 )})
@@ -57,7 +57,7 @@ public class Brain {
         let hiddenDendrites = self.hiddenNeurons.map({ return NeuroTransmitter(neuron: $0 )})
         neuron.inputs = hiddenDendrites
       }
-    }
+   // }
   }
   
   public func clear() {
