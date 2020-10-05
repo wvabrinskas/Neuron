@@ -20,19 +20,28 @@ public class Brain {
     
     //ugly bruteforce tree creation. will work it out if it works
     //Damn it works....
-    for _ in 0..<inputs {
-      let inputNeuron = Neuron(nucleus: nucleus)
-      self.inputNeurons.append(inputNeuron)
-    }
+    let queue = OperationQueue()
+    queue.maxConcurrentOperationCount = 10
     
-    for _ in 0..<hidden {
-      let hiddenNeuron = Neuron(nucleus: nucleus)
-      self.hiddenNeurons.append(hiddenNeuron)
+    queue.addBarrierBlock {
+      for _ in 0..<inputs {
+        let inputNeuron = Neuron(nucleus: nucleus)
+        self.inputNeurons.append(inputNeuron)
+      }
     }
-    
-    for _ in 0..<outputs {
-      let outputNeuron = Neuron(nucleus: nucleus)
-      self.outputNeurons.append(outputNeuron)
+
+    queue.addBarrierBlock {
+      for _ in 0..<hidden {
+        let hiddenNeuron = Neuron(nucleus: nucleus)
+        self.hiddenNeurons.append(hiddenNeuron)
+      }
+    }
+     
+    queue.addBarrierBlock {
+      for _ in 0..<outputs {
+        let outputNeuron = Neuron(nucleus: nucleus)
+        self.outputNeurons.append(outputNeuron)
+      }
     }
     
     //TODO maybe use concurrent perform
