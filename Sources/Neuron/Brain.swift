@@ -20,54 +20,35 @@ public class Brain {
     
     //ugly bruteforce tree creation. will work it out if it works
     //Damn it works....
-    let group = DispatchGroup()
-
-    let queue = OperationQueue()
-    queue.maxConcurrentOperationCount = 3
     
-    let inputOperation = BlockOperation {
-      group.enter()
-      for _ in 0..<inputs {
-        let inputNeuron = Neuron(nucleus: nucleus)
-        self.inputNeurons.append(inputNeuron)
-      }
-      group.leave()
+    for _ in 0..<inputs {
+      let inputNeuron = Neuron(nucleus: nucleus)
+      self.inputNeurons.append(inputNeuron)
     }
     
-    let hiddenOperation = BlockOperation {
-      group.enter()
-      for _ in 0..<hidden {
-        let hiddenNeuron = Neuron(nucleus: nucleus)
-        self.hiddenNeurons.append(hiddenNeuron)
-      }
-      group.leave()
+    
+    for _ in 0..<hidden {
+      let hiddenNeuron = Neuron(nucleus: nucleus)
+      self.hiddenNeurons.append(hiddenNeuron)
     }
     
-    let outputOperation = BlockOperation {
-      group.enter()
-      for _ in 0..<outputs {
-        let outputNeuron = Neuron(nucleus: nucleus)
-        self.outputNeurons.append(outputNeuron)
-      }
-      group.leave()
-    }
-
-    queue.addOperation(inputOperation)
-    queue.addOperation(hiddenOperation)
-    queue.addOperation(outputOperation)
     
-    group.notify(queue: .main) {
-      //TODO maybe use concurrent perform
-      self.hiddenNeurons.forEach { (neuron) in
-        let inputDendrites = self.inputNeurons.map({ return NeuroTransmitter(neuron: $0 )})
-        neuron.inputs = inputDendrites
-      }
-      
-      self.outputNeurons.forEach { (neuron) in
-        let hiddenDendrites = self.hiddenNeurons.map({ return NeuroTransmitter(neuron: $0 )})
-        neuron.inputs = hiddenDendrites
-      }
+    for _ in 0..<outputs {
+      let outputNeuron = Neuron(nucleus: nucleus)
+      self.outputNeurons.append(outputNeuron)
     }
+    
+    //TODO maybe use concurrent perform
+    self.hiddenNeurons.forEach { (neuron) in
+      let inputDendrites = self.inputNeurons.map({ return NeuroTransmitter(neuron: $0 )})
+      neuron.inputs = inputDendrites
+    }
+    
+    self.outputNeurons.forEach { (neuron) in
+      let hiddenDendrites = self.hiddenNeurons.map({ return NeuroTransmitter(neuron: $0 )})
+      neuron.inputs = hiddenDendrites
+    }
+    
   }
   
   public func clear() {
