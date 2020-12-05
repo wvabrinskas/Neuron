@@ -72,20 +72,27 @@ public class Brain {
     self.addInputs(input: input)
 
     var outputs: [Float] = []
+  
+    var newInputs: [Float] = []
     
     self.inputNeurons.forEach { (neuron) in
-      let result = neuron.get()
-      
-      self.hiddenNeurons.forEach { (hNeuron) in
-        hNeuron.addInput(input: NeuroTransmitter(input: result))
-        let hResult = hNeuron.get()
-        
-        self.outputNeurons.forEach { (oNeuron) in
-          oNeuron.addInput(input: NeuroTransmitter(input: hResult))
-          outputs.append(oNeuron.get())
-        }
-      }
+      newInputs.append(neuron.get())
     }
+    
+    var newHiddenInputs: [Float] = []
+    
+    self.hiddenNeurons.forEach { (hNeuron) in
+      hNeuron.replaceInputs(inputs: newInputs.map({ NeuroTransmitter(input: $0) }))
+      let newHInput = hNeuron.get()
+      newHiddenInputs.append(newHInput)
+    }
+        
+    self.outputNeurons.forEach { (oNeuron) in
+      oNeuron.replaceInputs(inputs: newHiddenInputs.map({ NeuroTransmitter(input: $0) }))
+      let newOOutput = oNeuron.get()
+      outputs.append(newOOutput)
+    }
+    
     let output = ranked ? outputs.sorted(by: { $0 > $1 }) : outputs
     
     return output
