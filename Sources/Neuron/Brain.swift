@@ -96,7 +96,18 @@ public class Brain {
     return outputs
   }
   
-  public func train(data: [Float]) {
+  public func train(data: [Float], correct: Float) {
+    
+    self.currentInput = data
+    self.addInputs(input: data)
+    
+    DispatchQueue.concurrentPerform(iterations: self.outputNeurons.count) { (i) in
+      let outNeuron = self.outputNeurons[i]
+      outNeuron.adjustWeights(correctValue: correct)
+    }
+  }
+  
+  public func autoTrain(data: [Float]) {
     
     self.currentInput = data
     self.addInputs(input: data)
