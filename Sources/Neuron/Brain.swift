@@ -26,12 +26,10 @@ public class Brain {
       self.inputNeurons.append(inputNeuron)
     }
     
-    
     for _ in 0..<hidden {
       let hiddenNeuron = Neuron(nucleus: nucleus)
       self.hiddenNeurons.append(hiddenNeuron)
     }
-    
     
     for _ in 0..<outputs {
       let outputNeuron = Neuron(nucleus: nucleus)
@@ -71,15 +69,23 @@ public class Brain {
   }
   
   public func feed(input: [Float], ranked: Bool = false) -> [Float] {
-    
     self.addInputs(input: input)
 
     var outputs: [Float] = []
     
-    self.outputNeurons.forEach { (neuron) in
-      outputs.append(neuron.get())
+    self.inputNeurons.forEach { (neuron) in
+      let result = neuron.get()
+      
+      self.hiddenNeurons.forEach { (hNeuron) in
+        hNeuron.addInput(input: NeuroTransmitter(input: result))
+        let hResult = hNeuron.get()
+        
+        self.outputNeurons.forEach { (oNeuron) in
+          oNeuron.addInput(input: NeuroTransmitter(input: hResult))
+          outputs.append(oNeuron.get())
+        }
+      }
     }
-    
     let output = ranked ? outputs.sorted(by: { $0 > $1 }) : outputs
     
     return output

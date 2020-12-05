@@ -32,7 +32,7 @@ public class Neuron {
   private var bias: Float
   private var activationType: Activation
   
-  public init(inputs: [NeuroTransmitter] = [], nucleus: Nucleus) {
+  public init(inputs: [NeuroTransmitter] = [],  nucleus: Nucleus) {
     self.learningRate = nucleus.learningRate
     self.bias = nucleus.bias
     self.activationType = nucleus.activationType
