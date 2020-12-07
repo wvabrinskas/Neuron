@@ -26,7 +26,7 @@ public class NeuroTransmitter {
     self.input = input
   }
   
-  public func get() -> Float {
+  public func getNeuronInput() -> Float {
     return self.neuron?.get() ?? self.input
   }
 }
