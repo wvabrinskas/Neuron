@@ -76,7 +76,7 @@ public class Neuron {
     }
     
     sum += bias
-    print(activationType.activate(input: sum))
+
     return activationType.activate(input: sum)
   }
   
