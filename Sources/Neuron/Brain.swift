@@ -68,23 +68,18 @@ public class Brain {
     self.addInputs(input: input)
 
     var outputs: [Float] = []
-  
-    var calculatedInputs: [Float] = []
-    
-    self.inputNeurons.forEach { (neuron) in
-      calculatedInputs.append(neuron.get())
-    }
-    
-    var calculatedHiddenInputs: [Float] = []
+
+    let inputDendrites = self.inputNeurons.map({ return NeuroTransmitter(neuron: $0 )})
     
     self.hiddenNeurons.forEach { (hNeuron) in
-      hNeuron.replaceInputs(inputs: calculatedInputs.map({ NeuroTransmitter(input: $0) }))
-      let newHInput = hNeuron.get()
-      calculatedHiddenInputs.append(newHInput)
+      hNeuron.replaceInputs(inputs: inputDendrites)
     }
         
+    let hiddenDendrites = self.hiddenNeurons.map({ return NeuroTransmitter(neuron: $0 )})
+
     self.outputNeurons.forEach { (oNeuron) in
-      oNeuron.replaceInputs(inputs: calculatedHiddenInputs.map({ NeuroTransmitter(input: $0) }))
+      oNeuron.replaceInputs(inputs: hiddenDendrites)
+      
       let newOOutput = oNeuron.get()
       outputs.append(newOOutput)
     }
