@@ -18,9 +18,6 @@ public class Brain {
   
   public init(inputs: Int, outputs: Int, hidden: Int, nucleus: Nucleus) {
     
-    //ugly bruteforce tree creation. will work it out if it works
-    //Damn it works....
-    
     for _ in 0..<inputs {
       let inputNeuron = Neuron(nucleus: nucleus)
       self.inputNeurons.append(inputNeuron)
@@ -36,7 +33,6 @@ public class Brain {
       self.outputNeurons.append(outputNeuron)
     }
     
-    //TODO maybe use concurrent perform
     self.hiddenNeurons.forEach { (neuron) in
       let inputDendrites = self.inputNeurons.map({ return NeuroTransmitter(neuron: $0 )})
       neuron.inputs = inputDendrites
@@ -73,22 +69,22 @@ public class Brain {
 
     var outputs: [Float] = []
   
-    var newInputs: [Float] = []
+    var calculatedInputs: [Float] = []
     
     self.inputNeurons.forEach { (neuron) in
-      newInputs.append(neuron.get())
+      calculatedInputs.append(neuron.get())
     }
     
-    var newHiddenInputs: [Float] = []
+    var calculatedHiddenInputs: [Float] = []
     
     self.hiddenNeurons.forEach { (hNeuron) in
-      hNeuron.replaceInputs(inputs: newInputs.map({ NeuroTransmitter(input: $0) }))
+      hNeuron.replaceInputs(inputs: calculatedInputs.map({ NeuroTransmitter(input: $0) }))
       let newHInput = hNeuron.get()
-      newHiddenInputs.append(newHInput)
+      calculatedHiddenInputs.append(newHInput)
     }
         
     self.outputNeurons.forEach { (oNeuron) in
-      oNeuron.replaceInputs(inputs: newHiddenInputs.map({ NeuroTransmitter(input: $0) }))
+      oNeuron.replaceInputs(inputs: calculatedHiddenInputs.map({ NeuroTransmitter(input: $0) }))
       let newOOutput = oNeuron.get()
       outputs.append(newOOutput)
     }
