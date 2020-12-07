@@ -32,7 +32,7 @@ public class Neuron {
   private var bias: Float
   private var activationType: Activation
   
-  public init(inputs: [NeuroTransmitter] = [], nucleus: Nucleus) {
+  public init(inputs: [NeuroTransmitter] = [],  nucleus: Nucleus) {
     self.learningRate = nucleus.learningRate
     self.bias = nucleus.bias
     self.activationType = nucleus.activationType
@@ -72,10 +72,11 @@ public class Neuron {
     for i in 0..<self.inputs.count {
       let input = self.inputs[i]
       let weightInput = input.weight
-      sum += weightInput * input.get()
+      sum += weightInput * input.getNeuronInput()
     }
     
     sum += bias
+    print(activationType.activate(input: sum))
     return activationType.activate(input: sum)
   }
   
@@ -92,10 +93,12 @@ public class Neuron {
   }
   
   public func adjustWeights(correctValue: Float) {
-    for input in inputs {
-      let activation = self.activation()
+    let activation = self.activation()
+
+    DispatchQueue.concurrentPerform(iterations: inputs.count) { (i) in
+      let input = inputs[i]
       let delta = correctValue - activation
-      let correction = self.learningRate * input.get() * delta
+      let correction = self.learningRate * input.getNeuronInput() * delta
       input.weight += correction
       input.neuron?.adjustWeights(correctValue: correctValue)
     }

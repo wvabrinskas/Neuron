@@ -18,8 +18,6 @@ public class Brain {
   
   public init(inputs: Int, outputs: Int, hidden: Int, nucleus: Nucleus) {
     
-    //ugly bruteforce tree creation. will work it out if it works
-    //Damn it works....
     for _ in 0..<inputs {
       let inputNeuron = Neuron(nucleus: nucleus)
       self.inputNeurons.append(inputNeuron)
@@ -67,13 +65,23 @@ public class Brain {
   }
   
   public func feed(input: [Float], ranked: Bool = false) -> [Float] {
-    
     self.addInputs(input: input)
 
     var outputs: [Float] = []
+
+    let inputDendrites = self.inputNeurons.map({ return NeuroTransmitter(neuron: $0 )})
     
-    self.outputNeurons.forEach { (neuron) in
-      outputs.append(neuron.get())
+    self.hiddenNeurons.forEach { (hNeuron) in
+      hNeuron.replaceInputs(inputs: inputDendrites)
+    }
+        
+    let hiddenDendrites = self.hiddenNeurons.map({ return NeuroTransmitter(neuron: $0 )})
+
+    self.outputNeurons.forEach { (oNeuron) in
+      oNeuron.replaceInputs(inputs: hiddenDendrites)
+      
+      let newOOutput = oNeuron.get()
+      outputs.append(newOOutput)
     }
     
     let output = ranked ? outputs.sorted(by: { $0 > $1 }) : outputs
@@ -92,21 +100,32 @@ public class Brain {
     return outputs
   }
   
-  public func train(data: [Float]) {
-    guard data.count == self.outputNeurons.count else {
-      print("Error: training data count does not match ouput node count, bailing out")
-      return
-    }
-    self.currentInput = data
+  public func train(data: [Float], correct: Float) {
     
+    self.currentInput = data
     self.addInputs(input: data)
     
-    for i in 0..<self.outputNeurons.count {
+    DispatchQueue.concurrentPerform(iterations: self.outputNeurons.count) { (i) in
+      let outNeuron = self.outputNeurons[i]
+      outNeuron.adjustWeights(correctValue: correct)
+    }
+  }
+  
+  public func autoTrain(data: [Float]) {
+    
+    self.currentInput = data
+    self.addInputs(input: data)
+    
+    guard data.count == self.outputNeurons.count else {
+      print("🛑 Error: training data count does not match ouput node count, bailing out")
+      return
+    }
+    
+    DispatchQueue.concurrentPerform(iterations: self.outputNeurons.count) { (i) in
       let outNeuron = self.outputNeurons[i]
       let value = data[i]
       outNeuron.adjustWeights(correctValue: value)
     }
-    
   }
   
   private func addInputs(input: [Float]) {
