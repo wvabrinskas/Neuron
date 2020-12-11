@@ -48,6 +48,7 @@ It is fairly simple to setup the neural network `Brain`. This will be the only o
     - `inputs` - the number of input nodes
     - `outputs` - the number of output nodes
     - `hidden` - the number of hidden nodes in the single hidden layer
+    - `hiddenLayers` - number of hidden layers. Default: 1
     - `nucleus` - a `Nucleus` object defining the learning properties of each node
 
 - The `Nucleus` object takes in 3 optional properties `learningRate`, `bias`, and `activationType`
@@ -65,18 +66,30 @@ It is fairly simple to setup the neural network `Brain`. This will be the only o
         - [Learn more about each](https://missinglink.ai/guides/neural-network-concepts/7-types-neural-network-activation-functions-right/)
 
 #### Training
+
+##### Auto
 Training the `Brain` object is also very simple. You simply pass an array of `CGFloat` to the brain object. 
 `The only rules are that the number of items in the array must match the number of input nodes and the numbers must be between 0 and 1.`
 
+- Train with the data where the output is expected to be the input data
 ```
     DispatchQueue.global(qos: .utility).async {
         let data: [CGFloat] = [0.1, 0.2, 0.2, 0.2]
-        self.brain.train(data: data)
+        self.brain.autoTrain(data: data)
     }
 ```
 
 - This will take care of weight adjustment, back propagation, and everything else for you. You can loop this as many times as you desire to train the brain. 
 - I recommend doing this on a background thread OFF the main thread to prevent the UI from bogging down. It is a lot of math at once. 
+
+
+###### Manual
+You can also train the `Brain` object by passing an expected value. 
+
+``` func train(data: [Float], correct: Float)```
+
+- `data:` the data to train against as an array of floats
+- `correct:` the correct value that should be expected from the network
 
 
 #### Retrieving Data
