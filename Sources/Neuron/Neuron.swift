@@ -18,7 +18,8 @@ public enum Activation {
     case .reLu:
       return max(0, input)
     case .sigmoid:
-      return 1.0 / (1.0 + pow(Float(Darwin.M_E), -input))
+      let out =  1.0 / (1.0 + pow(Float(Darwin.M_E), -input))
+      return out
     case .leakyRelu:
       return max(0.1 * input, input)
     }
@@ -66,7 +67,7 @@ public class Neuron {
   public func get() -> Float {
     return self.activation()
   }
-  
+   
   public func activation() -> Float {
     var sum: Float = 0
     for i in 0..<self.inputs.count {
