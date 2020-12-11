@@ -19,7 +19,7 @@ public enum Activation {
       return max(0, input)
     case .sigmoid:
       let out =  1.0 / (1.0 + pow(Float(Darwin.M_E), -input))
-      return out > 0.5 ? 1 : 0
+      return out
     case .leakyRelu:
       return max(0.1 * input, input)
     }
