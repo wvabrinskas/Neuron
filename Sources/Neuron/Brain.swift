@@ -143,6 +143,11 @@ public class Brain {
   ///   - data: the data to train against as an array of floats
   ///   - correct: the correct values that should be expected from the network
   public func train(data: [Float], correct: [Float]) {
+    guard correct.count == self.outputLayer().count else {
+      print("🛑 Error: correct data count does not match ouput node count, bailing out")
+      return
+    }
+    
     self.addInputs(input: data)
     
     DispatchQueue.concurrentPerform(iterations: self.outputLayer().count) { (i) in
