@@ -38,7 +38,7 @@ public class Brain {
     //setup inputs
     var newInputNeurons: [Neuron] = []
     
-    for _ in 0..<inputs {
+    for _ in 0..<max(inputs, 1) {
       let inputNeuron = Neuron(nucleus: nucleus)
       newInputNeurons.append(inputNeuron)
     }
@@ -48,7 +48,7 @@ public class Brain {
     if (hiddenLayers > 0) {
       for _ in 0..<hiddenLayers {
         var newHiddenNeurons: [Neuron] = []
-        for _ in 0..<hidden {
+        for _ in 0..<max(hidden, 1) {
           let hiddenNeuron = Neuron(nucleus: nucleus)
           newHiddenNeurons.append(hiddenNeuron)
         }
@@ -58,7 +58,8 @@ public class Brain {
     
     //setup output layer
     var newOutputNeurons: [Neuron] = []
-    for _ in 0..<outputs {
+    
+    for _ in 0..<max(outputs, 1) {
       let outputNeuron = Neuron(nucleus: nucleus)
       newOutputNeurons.append(outputNeuron)
     }
