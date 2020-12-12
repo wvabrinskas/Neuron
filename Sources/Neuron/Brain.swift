@@ -45,13 +45,15 @@ public class Brain {
     neurons.append(newInputNeurons)
     
     //setup hidden layer
-    for _ in 0..<hiddenLayers {
-      var newHiddenNeurons: [Neuron] = []
-      for _ in 0..<hidden {
-        let hiddenNeuron = Neuron(nucleus: nucleus)
-        newHiddenNeurons.append(hiddenNeuron)
+    if (hiddenLayers > 0) {
+      for _ in 0..<hiddenLayers {
+        var newHiddenNeurons: [Neuron] = []
+        for _ in 0..<hidden {
+          let hiddenNeuron = Neuron(nucleus: nucleus)
+          newHiddenNeurons.append(hiddenNeuron)
+        }
+        neurons.append(newHiddenNeurons)
       }
-      neurons.append(newHiddenNeurons)
     }
     
     //setup output layer
