@@ -141,13 +141,13 @@ public class Brain {
   /// Supervised training function
   /// - Parameters:
   ///   - data: the data to train against as an array of floats
-  ///   - correct: the correct value that should be expected from the network
-  public func train(data: [Float], correct: Float) {
+  ///   - correct: the correct values that should be expected from the network
+  public func train(data: [Float], correct: [Float]) {
     self.addInputs(input: data)
     
     DispatchQueue.concurrentPerform(iterations: self.outputLayer().count) { (i) in
       let outNeuron = self.outputLayer()[i]
-      outNeuron.adjustWeights(correctValue: correct)
+      outNeuron.adjustWeights(correctValue: correct[i])
     }
   }
   
