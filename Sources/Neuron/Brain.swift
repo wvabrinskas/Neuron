@@ -139,12 +139,13 @@ public class Brain {
       lobe.updateNucleus(nucleus)
     }
   }
-  
+    
   /// Exports the loss data as a CSV
-  /// - Parameter complete: Completion block called when export is finished
-  public func exportLoss(_ complete: ((_ url: URL?) -> ())?) {
-    let name = "loss-\(Int(Date().timeIntervalSince1970))"
-    complete?(ExportManager.getCSV(filename: name, self.loss))
+  /// - Parameter filename: Name of the file to save and export. defaults to `loss-{timeIntervalSince1970}`
+  /// - Returns: The url of the exported file if successful.
+  public func exportLoss(_ filename: String? = nil) -> URL? {
+    let name = filename ?? "loss-\(Int(Date().timeIntervalSince1970))"
+    return ExportManager.getCSV(filename: name, self.loss)
   }
   
   /// Feeds the network internally preparing for output or training
