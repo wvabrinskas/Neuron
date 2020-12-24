@@ -28,6 +28,19 @@ Feel free to send me suggestions on how to improve this. I would be delighted to
 - https://missinglink.ai/guides/neural-network-concepts/7-types-neural-network-activation-functions-right/
 - https://github.com/nature-of-code/noc-examples-processing/blob/master/chp10_nn/NOC_10_01_SimplePerceptron
 - [Make Your Own Neural Network - Tariq Rashid](https://www.amazon.com/Make-Your-Own-Neural-Network-ebook/dp/B01EER4Z4G)
+- http://www.faqs.org/faqs/ai-faq/neural-nets/part1/preamble.html
+- https://stats.stackexchange.com/questions/181/how-to-choose-the-number-of-hidden-layers-and-nodes-in-a-feedforward-neural-netw
+- https://www.heatonresearch.com/book/
+- http://home.agh.edu.pl/~vlsi/AI/backp_t_en/backprop.html
+- https://medium.com/@yashgarg1232/derivative-of-neural-activation-function-64e9e825b67
+- https://www.datasciencecentral.com/profiles/blogs/matrix-multiplication-in-neural-networks
+- https://deepai.org/machine-learning-glossary-and-terms/softmax-layer //for calculating percentages from sigmoid output
+- https://deepai.org/machine-learning-glossary-and-terms/sigmoid-function
+- https://missinglink.ai/guides/neural-network-concepts/7-types-neural-network-activation-functions-right/
+- https://arxiv.org/abs/1710.05941v1 //Swish activation function paper
+- https://sefiks.com/2018/08/21/swish-as-neural-networks-activation-function/
+- https://www.wandb.com/articles/fundamentals-of-neural-networks
+- https://www.dlology.com/blog/quick-notes-on-how-to-choose-optimizer-in-keras/
 
 
 ## Implementation
