@@ -50,6 +50,9 @@ It is fairly simple to setup the neural network `Brain`. This will be the only o
     - `hidden` - the number of hidden nodes in the single hidden layer
     - `hiddenLayers` - number of hidden layers. Default: 1
     - `nucleus` - a `Nucleus` object defining the learning properties of each node
+- `Brain` has a property for `debug` 
+    - `public var debug: Bool = false`
+    -  When set to true this will print the error caclulated by the network as Mean Sqr Error
 
 - The `Nucleus` object takes in 3 optional properties `learningRate`, `bias`, and `activationType`
     - `learningRate` - how quickly the node will adjust the weights of its inputs to fit the training model 
@@ -62,13 +65,14 @@ It is fairly simple to setup the neural network `Brain`. This will be the only o
         - `.reLu`
         - `.leakyRelu`
         - `.sigmoid`
+        - `.swish`
         - More coming soon.... 
         - [Learn more about each](https://missinglink.ai/guides/neural-network-concepts/7-types-neural-network-activation-functions-right/)
 
 #### Training
 
 ##### Auto
-Training the `Brain` object is also very simple. You simply pass an array of `CGFloat` to the brain object. 
+Training the `Brain` object is also very simple. You simply pass an array of `Float` to the brain object. 
 `The only rules are that the number of items in the array must match the number of input nodes and the numbers must be between 0 and 1.`
 
 - Train with the data where the output is expected to be the input data
@@ -86,31 +90,23 @@ Training the `Brain` object is also very simple. You simply pass an array of `CG
 ###### Manual
 You can also train the `Brain` object by passing an expected value. 
 
-``` func train(data: [Float], correct: Float)```
+``` func train(data: [Float], correct: [Float])```
 
 - `data:` the data to train against as an array of floats
-- `correct:` the correct value that should be expected from the network
+- `correct:` the correct values that should be expected from the network
 
 
 #### Retrieving Data
 The `Brain` can use its last input and its current weights to spit back out a result, or you can provide it a new input and it will give you the result using the current weights, aka. feed forward.
 
 ```
-let out = self.brain.get()
+let out = self.brain.feed(input: data, ranked: Bool = false)
 ```
-- Returns `[CGFloat]` using the last known input and current weights 
+- Returns `[Float]` using the new inputs and the current weights, aka. feed forward.
+- Can retrieve the results ranked by the highest first.
 
-```
-let out = self.brain.feed(input: data)
-```
-- Returns `[CGFloat]` using the new inputs and the current weights, aka. feed forward
-
-```
-let outRanked = self.brain.getRanked()
-```
-- Returns `[CGFloat]` using the last known input and returns it ranked by the current weights
-
-```
-let outRanked = self.brain.feed(input: data, ranked: true)
-```
-- Returns `[CGFloat]` using the new inputs and returns it ranked by the current weights
+### Data Studying
+Using the `Brain` object you can also get the result of the loss functions of each epoch as a `CSV` file using the `exportLoss` function on `Brain`. 
+- `exportLoss(_ filename: String? = nil) -> URL?`
+- `filename:` Name of the file to save and export. defaults to `loss-{timeIntervalSince1970}`
+- Returns the url of the exported file if successful.
