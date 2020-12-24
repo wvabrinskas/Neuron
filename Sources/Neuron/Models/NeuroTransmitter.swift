@@ -10,23 +10,18 @@ import Foundation
 
 /// Object used to create a link between Neruon objects to act as inputs
 public class NeuroTransmitter {
-  public weak var neuron: Neuron?
   public var weight: Float
-  public var input: Float = 0
+  public var inputValue: Float = 0
   
   //as neuron connection
-  public init(neuron: Neuron) {
+  public init() {
     self.weight = Float.random(in: 0...1)
-    self.neuron = neuron
   }
   
   //as standard input
   public init(input: Float) {
     self.weight = Float.random(in: 0...1)
-    self.input = input
+    self.inputValue = input
   }
-  
-  public func getNeuronInput() -> Float {
-    return self.neuron?.get() ?? self.input
-  }
+
 }

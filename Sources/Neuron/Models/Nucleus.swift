@@ -9,10 +9,16 @@
 import Foundation
 
 public struct Nucleus {
+  
   public var learningRate: Float = 0.1
   public var bias: Float = 0.1
   public var activationType: Activation = .reLu
   
+  /// Default initializer for the Nucleus object
+  /// - Parameters:
+  ///   - learningRate: A float describing the learning rate of the network.
+  ///   - bias: A bias to inject into the activation portion of the Neuron.
+  ///   - activationType: The activation function to use.
   public init(learningRate: Float,
               bias: Float,
               activationType: Activation) {
