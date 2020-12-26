@@ -51,9 +51,12 @@ self.lossFunction = lossFunction
 self.lossThreshold = lossThreshold
     //setup inputs
     var newInputNeurons: [Neuron] = []
-
+    let inputNucleus = Nucleus(learningRate: nucleus.learningRate,
+                               bias: nucleus.bias,
+                               activationType: .none)
+    
     for _ in 0..<max(inputs, 1) {
-      let inputNeuron = Neuron(nucleus: nucleus)
+      let inputNeuron = Neuron(nucleus: inputNucleus)
       newInputNeurons.append(inputNeuron)
     }
     self.lobes.append(Lobe(neurons: newInputNeurons))
