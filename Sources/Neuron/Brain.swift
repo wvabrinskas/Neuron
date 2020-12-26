@@ -77,7 +77,7 @@ self.lossThreshold = lossThreshold
     var newOutputNeurons: [Neuron] = []
     
     for _ in 0..<max(outputs, 1) {
-      let outputNeuron = Neuron(nucleus: nucleus)
+      let outputNeuron = Neuron(nucleus: inputNucleus)
       newOutputNeurons.append(outputNeuron)
     }
     self.lobes.append(Lobe(neurons: newOutputNeurons))
