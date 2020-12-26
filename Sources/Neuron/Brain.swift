@@ -25,6 +25,10 @@ public class Brain {
   /// The function to use to calculate the loss of the network
   private var lossFunction: LossFunction
   
+  /// The threshold to compare the validation error with to determine whether or not to stop training.
+  /// Default: 0.001. A number between 0 and 0.1 is usually accepted
+  private var lossThreshold: Float
+  
   private var previousValidationError: Float = 99
   
   /// Creates a Brain object that manages a network of Neuron objects
@@ -39,11 +43,12 @@ public class Brain {
               hidden: Int,
               hiddenLayers: Int = 1,
               nucleus: Nucleus,
-              lossFunction: LossFunction = .meanSquareError) {
-    
-    self.nucleus = nucleus
-    self.lossFunction = lossFunction
-    
+              lossFunction: LossFunction = .meanSquareError,
+              lossThreshold: Float = 0.001) {
+
+self.nucleus = nucleus
+self.lossFunction = lossFunction
+self.lossThreshold = lossThreshold
     //setup inputs
     var newInputNeurons: [Neuron] = []
 
@@ -116,7 +121,7 @@ public class Brain {
       
       //if validation error is greater than pervious then we are complete with training
       //bail out to prevent overfitting
-      let threshold: Float = 0.0002
+      let threshold: Float = self.lossThreshold
       if abs(previousValidationError - errorForValidation) <= threshold {
         
         print("🟢 SUCCESS: training is complete...")
