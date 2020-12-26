@@ -22,6 +22,11 @@ public class Brain {
   /// Neuron matrix in the existing brain object
   private var lobes: [Lobe] = []
   
+  /// The function to use to calculate the loss of the network
+  private var lossFunction: LossFunction
+  
+  private var previousValidationError: Float = 99
+  
   /// Creates a Brain object that manages a network of Neuron objects
   /// - Parameters:
   ///   - inputs: Number of inputs to generate
@@ -33,9 +38,11 @@ public class Brain {
               outputs: Int,
               hidden: Int,
               hiddenLayers: Int = 1,
-              nucleus: Nucleus) {
+              nucleus: Nucleus,
+              lossFunction: LossFunction = .meanSquareError) {
     
     self.nucleus = nucleus
+    self.lossFunction = lossFunction
     
     //setup inputs
     var newInputNeurons: [Neuron] = []
@@ -83,33 +90,58 @@ public class Brain {
   
   /// Train with the data where the output is expected to be the input data
   /// - Parameter data: Input data that contains the expected result
-  public func autoTrain(data: [Float]) {
+  public func autoTrain(data: [Float], validation: [Float] = []) {
     //not sure we need to add inputs here
-    self.train(data: data, correct: data)
+    self.train(data: data, validation: validation, correct: data)
   }
   
   /// Supervised training function
   /// - Parameters:
   ///   - data: the data to train against as an array of floats
   ///   - correct: the correct values that should be expected from the network
-  public func train(data: [Float], correct: [Float]) {
+  public func train(data: [Float],
+                    validation: [Float] = [],
+                    correct: [Float],
+                    complete: ((_ complete: Bool) -> ())? = nil) {
+    
     guard correct.count == self.outputLayer().count else {
       print("🛑 Error: correct data count does not match ouput node count, bailing out")
       return
     }
-    
+  
+    //feed validation data through the network
+    if validation.count > 0 {
+      self.feedInternal(input: validation)
+      let errorForValidation = self.calcErrorForOutput(correct: correct)
+      
+      //if validation error is greater than pervious then we are complete with training
+      //bail out to prevent overfitting
+      let threshold: Float = 0.0002
+      if abs(previousValidationError - errorForValidation) <= threshold {
+        
+        print("🟢 SUCCESS: training is complete...")
+        complete?(true)
+        return
+      }
+      
+      previousValidationError = errorForValidation
+    }
+
     //feed the data through the network
     self.feedInternal(input: data)
     
     //get the error and propagate backwards through
     self.backpropagate(correct)
-    
+    //self.backpropagateOptim(correct)
     //adjust all the weights after back propagation is complete
     self.adjustWeights()
+    
+    complete?(false)
   }
   
   /// Clears the whole network and resets all the weights to a random value
   public func clear() {
+    self.previousValidationError = 999
     self.loss.removeAll()
     //clears the whole matrix
     self.lobes.forEach { (lobe) in
@@ -210,13 +242,14 @@ public class Brain {
     return self.lobes.last?.neurons ?? []
   }
   
-  private func logMeanError(_ calc: Float, correct: Float) {
-    let meanErr = calc - correct
-    let err = pow(meanErr, 2) / 2
-    if debug {
-      print(err)
-    }
-    self.loss.append(err)
+  private func calcTotalLoss(_ predicted: [Float], correct: [Float]) -> Float {
+    let error = self.lossFunction.calculate(predicted, correct: correct)
+    return error
+  }
+  
+  private func calcErrorForOutput(correct: [Float]) -> Float {
+    let predicted: [Float] = self.outputLayer().map({ $0.get() })
+    return self.calcTotalLoss(predicted, correct: correct)
   }
   
   private func backpropagate(_ correctValues: [Float]) {
@@ -226,15 +259,25 @@ public class Brain {
     }
     
     //set output error delta
+    var predicted: [Float] = []
+    
     for i in 0..<correctValues.count {
+      
       let correct = correctValues[i]
       let outputNeuron = self.outputLayer()[i]
       let get = outputNeuron.get()
+      predicted.append(get)
       outputNeuron.delta = correct - get
       
-      logMeanError(get, correct: correct)
     }
     
+    //maybe add to serial background queue
+    let loss = self.calcTotalLoss(predicted, correct: correctValues)
+    if debug {
+      print(loss)
+    }
+    self.loss.append(loss)
+
     //reverse so we can loop through from the beggining of the array starting at the output node
     let reverse: [Lobe] = self.lobes.reversed()
     
@@ -254,6 +297,7 @@ public class Brain {
       }
 
     }
+
   }
   
   private func adjustWeights() {
@@ -263,5 +307,3 @@ public class Brain {
     }
   }
 }
-
- 
