@@ -199,6 +199,7 @@ public class Brain {
       let currentLayer = self.lobes[i].neurons
       
       let copyOfInputs = lastInputs
+      
       lastInputs = currentLayer.map { (neuron) -> NeuroTransmitter in
         if let oldInputs = copyOfInputs {
           neuron.replaceInputs(inputs: oldInputs)
