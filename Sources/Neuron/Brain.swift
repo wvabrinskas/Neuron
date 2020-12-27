@@ -35,6 +35,9 @@ public class Brain {
   /// If the brain object has been compiled and linked properly
   private var compiled: Bool = false
   
+  /// Output modifier for the output layer. ex. softmax
+  private var outputModifier: OutputModifier? = nil
+  
   private var previousValidationError: Float = 99
   
   /// Creates a Brain object that manages a network of Neuron objects
@@ -58,6 +61,12 @@ public class Brain {
   /// - Parameter model: The lobe model describing the layer to be added
   public func add(_ model: LobeModel) {
     self.lobes.append(model.lobe(self.nucleus))
+  }
+  
+  /// Adds an output modifier to the output layer
+  /// - Parameter mod: The modifier to apply to the outputs
+  public func add(modifier mod: OutputModifier) {
+    self.outputModifier = mod
   }
   
   /// Connects all the lobes together in the network builing the complete network
@@ -251,7 +260,20 @@ public class Brain {
       outputs.append(neuron.activation())
     }
     
-    return ranked ? outputs.sorted(by: { $0 > $1 }) : outputs
+    var out = outputs
+    
+    if let mod = self.outputModifier {
+      var modOut: [Float] = []
+      
+      for i in 0..<out.count {
+        let modVal = mod.calculate(index: i, outputs: out)
+        modOut.append(modVal)
+      }
+      
+      out = modOut
+    }
+    
+    return ranked ? out.sorted(by: { $0 > $1 }) : out
   }
   
   /// Adds inputs to the input layer where the NeuroTransmitter links a value
@@ -330,22 +352,7 @@ public class Brain {
         
       }
     }
-    
-//
-//     for i in 0..<reverse.count - 1 {
-//       let currentLayer = reverse[i].neurons
-//       let previousLayer = reverse[i + 1].neurons
-//
-//       for p in 0..<previousLayer.count {
-//         previousLayer[p].delta = 0
-//
-//         for c in 0..<currentLayer.count {
-//           let currentNeuronDelta = currentLayer[c].delta * currentLayer[c].inputs[p].weight
-//           previousLayer[p].delta += currentNeuronDelta
-//         }
-//
-//       }
-//     }
+  
   }
   
   private func adjustWeights() {
