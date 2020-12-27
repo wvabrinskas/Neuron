@@ -20,7 +20,7 @@ public enum LossFunction {
       
       predicted.forEach { (val) in
         let correct = correct[i]
-        let sq = pow(correct - val, 2)
+        let sq = pow(val - correct, 2)
         sums += sq
         i += 1
       }
