@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import Accelerate
 
 public class Neuron {
   
@@ -83,10 +84,10 @@ public class Neuron {
     
     let inputPointers = self.inputs
     
-    DispatchQueue.concurrentPerform(iterations: self.inputs.count) { (i) in
+    for i in 0..<self.inputs.count {
       sum += inputPointers[i].weight * inputPointers[i].inputValue
     }
-
+    
     sum += bias
     
     return self.activationType.activate(input: sum)

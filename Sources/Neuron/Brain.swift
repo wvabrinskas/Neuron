@@ -193,18 +193,31 @@ public class Brain {
   private func feedInternal(input: [Float]) {
     self.addInputs(input: input)
     
-    for i in 0..<self.lobes.count - 1 {
+    var lastInputs: [NeuroTransmitter]?
+    
+    for i in 0..<self.lobes.count {
       let currentLayer = self.lobes[i].neurons
       
-      self.lobes[i + 1].neurons.forEach { (neuron) in
-        
-        //THIS IS THE PART THAT TAKES A WHILE!!!
-        let newInputs = currentLayer.map { (neuron) -> NeuroTransmitter in
-          return NeuroTransmitter(input: neuron.activation())
+      lastInputs = currentLayer.map { (neuron) -> NeuroTransmitter in
+        if let oldInputs = lastInputs {
+          neuron.replaceInputs(inputs: oldInputs)
         }
-        
-        neuron.replaceInputs(inputs: newInputs)
+        return NeuroTransmitter(input: neuron.activation())
       }
+
+//      self.lobes[i + 1].neurons.forEach { (neuron) in
+//        
+//        //THIS IS THE PART THAT TAKES A WHILE!!!
+//        let inputs = neuron.getAllInputs()
+//        let values = inputs.in
+//        let weights = inputs.weight
+//        
+//        let newInputs = currentLayer.map { (neuron) -> NeuroTransmitter in
+//          return NeuroTransmitter(input: neuron.activation())
+//        }
+//        
+//        neuron.replaceInputs(inputs: newInputs)
+//      }
     }
   }
   
