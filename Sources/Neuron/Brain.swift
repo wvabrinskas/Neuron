@@ -14,7 +14,7 @@ public class Brain {
   public var debug: Bool = false
   
   /// The nucleus object that describes the network settings
-  private var nucleus: Nucleus
+  public var nucleus: Nucleus
   
   /// The loss function data from training to be exported
   private var loss: [Float] = []
