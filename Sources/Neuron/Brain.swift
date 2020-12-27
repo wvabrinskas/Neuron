@@ -123,6 +123,9 @@ public class Brain {
         if abs(previousValidationError - errorForValidation) <= threshold {
   
           print("🟢 SUCCESS: training is complete...")
+          if debug {
+            print("training completed time: \(Date().timeIntervalSince(trainingStartDate))")
+          }
           complete?(true)
           return
         }
