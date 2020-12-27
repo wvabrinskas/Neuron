@@ -224,20 +224,6 @@ public class Brain {
         }
         return NeuroTransmitter(input: neuron.activation())
       }
-
-//      self.lobes[i + 1].neurons.forEach { (neuron) in
-//
-//        //THIS IS THE PART THAT TAKES A WHILE!!!
-//        let inputs = neuron.getAllInputs()
-//        let values = inputs.in
-//        let weights = inputs.weight
-//
-//        let newInputs = currentLayer.map { (neuron) -> NeuroTransmitter in
-//          return NeuroTransmitter(input: neuron.activation())
-//        }
-//
-//        neuron.replaceInputs(inputs: newInputs)
-//      }
     }
   }
   
