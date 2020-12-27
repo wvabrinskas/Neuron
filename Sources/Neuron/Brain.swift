@@ -198,24 +198,25 @@ public class Brain {
     for i in 0..<self.lobes.count {
       let currentLayer = self.lobes[i].neurons
       
+      let copyOfInputs = lastInputs
       lastInputs = currentLayer.map { (neuron) -> NeuroTransmitter in
-        if let oldInputs = lastInputs {
+        if let oldInputs = copyOfInputs {
           neuron.replaceInputs(inputs: oldInputs)
         }
         return NeuroTransmitter(input: neuron.activation())
       }
 
 //      self.lobes[i + 1].neurons.forEach { (neuron) in
-//        
+//
 //        //THIS IS THE PART THAT TAKES A WHILE!!!
 //        let inputs = neuron.getAllInputs()
 //        let values = inputs.in
 //        let weights = inputs.weight
-//        
+//
 //        let newInputs = currentLayer.map { (neuron) -> NeuroTransmitter in
 //          return NeuroTransmitter(input: neuron.activation())
 //        }
-//        
+//
 //        neuron.replaceInputs(inputs: newInputs)
 //      }
     }
