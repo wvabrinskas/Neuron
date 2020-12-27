@@ -78,9 +78,20 @@ public class Neuron {
 
   /// Gets the result of the activation function at this node
   /// - Returns: The result of the activation function at this node
-  public func get() -> Float {
-    return self.activation()
+  public func activation() -> Float {
+    var sum: Float = 0
+    
+    let inputPointers = self.inputs
+    
+    DispatchQueue.concurrentPerform(iterations: self.inputs.count) { (i) in
+      sum += inputPointers[i].weight * inputPointers[i].inputValue
+    }
+
+    sum += bias
+    
+    return self.activationType.activate(input: sum)
   }
+  
   
   /// Gets all the inputs as a tuple containing the inputs with their weights
   /// - Returns: A tuple with the inputs as floats and their corresponding weights, in order.
@@ -127,18 +138,6 @@ public class Neuron {
     }
   }
   
-  private func activation() -> Float {
-    var sum: Float = 0
-    
-    let inputPointers = self.inputs
-    for i in 0..<self.inputs.count {
-      sum += inputPointers[i].weight * inputPointers[i].inputValue
-    }
-    
-    sum += bias
-    
-    return self.activationType.activate(input: sum)
-  }
-  
+
 }
 

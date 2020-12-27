@@ -45,10 +45,10 @@ public class Brain {
               nucleus: Nucleus,
               lossFunction: LossFunction = .meanSquareError,
               lossThreshold: Float = 0.001) {
-
-self.nucleus = nucleus
-self.lossFunction = lossFunction
-self.lossThreshold = lossThreshold
+    
+    self.nucleus = nucleus
+    self.lossFunction = lossFunction
+    self.lossThreshold = lossThreshold
     //setup inputs
     var newInputNeurons: [Neuron] = []
     let inputNucleus = Nucleus(learningRate: nucleus.learningRate,
@@ -60,7 +60,7 @@ self.lossThreshold = lossThreshold
       newInputNeurons.append(inputNeuron)
     }
     self.lobes.append(Lobe(neurons: newInputNeurons))
-        
+    
     //setup hidden layer
     if (hiddenLayers > 0) {
       for _ in 0..<hiddenLayers {
@@ -87,7 +87,7 @@ self.lossThreshold = lossThreshold
       if i > 0 {
         let neuronGroup = self.lobes[i].neurons
         let inputNeuronGroup = self.lobes[i-1].neurons
-
+        
         neuronGroup.forEach { (neuron) in
           let dendrites = [NeuroTransmitter](repeating: NeuroTransmitter(), count: inputNeuronGroup.count)
           neuron.inputs = dendrites
@@ -116,7 +116,7 @@ self.lossThreshold = lossThreshold
       print("🛑 Error: correct data count does not match ouput node count, bailing out")
       return
     }
-  
+    
     //feed validation data through the network
     if validation.count > 0 {
       self.feedInternal(input: validation)
@@ -134,7 +134,7 @@ self.lossThreshold = lossThreshold
       
       previousValidationError = errorForValidation
     }
-
+    
     //feed the data through the network
     self.feedInternal(input: data)
     
@@ -156,7 +156,7 @@ self.lossThreshold = lossThreshold
       lobe.clear()
     }
   }
-
+  
   /// Feed-forward through the network to get the result
   /// - Parameters:
   ///   - input: the input array of floats
@@ -179,7 +179,7 @@ self.lossThreshold = lossThreshold
       lobe.updateNucleus(nucleus)
     }
   }
-    
+  
   /// Exports the loss data as a CSV
   /// - Parameter filename: Name of the file to save and export. defaults to `loss-{timeIntervalSince1970}`
   /// - Returns: The url of the exported file if successful.
@@ -198,8 +198,9 @@ self.lossThreshold = lossThreshold
       
       self.lobes[i + 1].neurons.forEach { (neuron) in
         
+        //THIS IS THE PART THAT TAKES A WHILE!!!
         let newInputs = currentLayer.map { (neuron) -> NeuroTransmitter in
-          return NeuroTransmitter(input: neuron.get())
+          return NeuroTransmitter(input: neuron.activation())
         }
         
         neuron.replaceInputs(inputs: newInputs)
@@ -215,12 +216,12 @@ self.lossThreshold = lossThreshold
     var outputs: [Float] = []
     
     self.outputLayer().forEach { (neuron) in
-      outputs.append(neuron.get())
+      outputs.append(neuron.activation())
     }
     
     return ranked ? outputs.sorted(by: { $0 > $1 }) : outputs
   }
-
+  
   /// Adds inputs to the input layer where the NeuroTransmitter links a value
   /// - Parameter input: Input array of floats
   private func addInputs(input: [Float]) {
@@ -256,7 +257,7 @@ self.lossThreshold = lossThreshold
   }
   
   private func calcErrorForOutput(correct: [Float]) -> Float {
-    let predicted: [Float] = self.outputLayer().map({ $0.get() })
+    let predicted: [Float] = self.outputLayer().map({ $0.activation() })
     return self.calcTotalLoss(predicted, correct: correct)
   }
   
@@ -273,7 +274,7 @@ self.lossThreshold = lossThreshold
       
       let correct = correctValues[i]
       let outputNeuron = self.outputLayer()[i]
-      let get = outputNeuron.get()
+      let get = outputNeuron.activation()
       predicted.append(get)
       outputNeuron.delta = correct - get
       
@@ -285,7 +286,7 @@ self.lossThreshold = lossThreshold
       print(loss)
     }
     self.loss.append(loss)
-
+    
     //reverse so we can loop through from the beggining of the array starting at the output node
     let reverse: [Lobe] = self.lobes.reversed()
     
@@ -301,11 +302,25 @@ self.lossThreshold = lossThreshold
           let currentNeuronDelta = currentLayer[c].delta * currentLayer[c].inputs[p].weight
           previousLayer[p].delta += currentNeuronDelta
         }
-
+        
       }
-
     }
-
+    
+//
+//     for i in 0..<reverse.count - 1 {
+//       let currentLayer = reverse[i].neurons
+//       let previousLayer = reverse[i + 1].neurons
+//
+//       for p in 0..<previousLayer.count {
+//         previousLayer[p].delta = 0
+//
+//         for c in 0..<currentLayer.count {
+//           let currentNeuronDelta = currentLayer[c].delta * currentLayer[c].inputs[p].weight
+//           previousLayer[p].delta += currentNeuronDelta
+//         }
+//
+//       }
+//     }
   }
   
   private func adjustWeights() {
