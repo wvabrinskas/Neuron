@@ -16,6 +16,9 @@ public class Brain {
   /// The nucleus object that describes the network settings
   public var nucleus: Nucleus
   
+  /// Number of times to run the training data set
+  public var epochs: Int
+  
   /// The loss function data from training to be exported
   private var loss: [Float] = []
   
@@ -28,9 +31,6 @@ public class Brain {
   /// The threshold to compare the validation error with to determine whether or not to stop training.
   /// Default: 0.001. A number between 0 and 0.1 is usually accepted
   private var lossThreshold: Float
-  
-  /// Number of times to run the training data set
-  private var epochs: Int
   
   /// If the brain object has been compiled and linked properly
   private var compiled: Bool = false
