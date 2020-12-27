@@ -10,11 +10,11 @@ import Foundation
 
 public class Brain {
   
-  /// THe nucleus object that describes the network settings
-  public var nucleus: Nucleus
-  
-  /// When set to true this will print the error caclulated by the network as Mean Sqr Error
+  /// When set to true this will print the error caclulated by the network
   public var debug: Bool = false
+  
+  /// The nucleus object that describes the network settings
+  private var nucleus: Nucleus
   
   /// The loss function data from training to be exported
   private var loss: [Float] = []
@@ -29,59 +29,42 @@ public class Brain {
   /// Default: 0.001. A number between 0 and 0.1 is usually accepted
   private var lossThreshold: Float
   
+  /// Number of times to run the training data set
+  private var epochs: Int
+  
+  /// If the brain object has been compiled and linked properly
+  private var compiled: Bool = false
+  
   private var previousValidationError: Float = 99
   
   /// Creates a Brain object that manages a network of Neuron objects
   /// - Parameters:
-  ///   - inputs: Number of inputs to generate
-  ///   - outputs: Number of outputs to expect
-  ///   - hidden: number of hidden neurons per layer
-  ///   - hiddenLayers: number of hidden layers. Default: 1
-  ///   - nucleus: Nucleus object that describes the learning behavior of the network
-  public init(inputs: Int,
-              outputs: Int,
-              hidden: Int,
-              hiddenLayers: Int = 1,
-              nucleus: Nucleus,
+  ///   - nucleus:  Nucleus object that describes the learning behavior of the network
+  ///   - epochs: Number of times to run the training daya
+  ///   - lossFunction: The loss function to calculate
+  ///   - lossThreshold: The loss threshold to reach when training
+  public init(nucleus: Nucleus,
+              epochs: Int,
               lossFunction: LossFunction = .meanSquareError,
               lossThreshold: Float = 0.001) {
     
     self.nucleus = nucleus
     self.lossFunction = lossFunction
     self.lossThreshold = lossThreshold
-    //setup inputs
-    var newInputNeurons: [Neuron] = []
-    let inputNucleus = Nucleus(learningRate: nucleus.learningRate,
-                               bias: nucleus.bias,
-                               activationType: .none)
-    
-    for _ in 0..<max(inputs, 1) {
-      let inputNeuron = Neuron(nucleus: inputNucleus)
-      newInputNeurons.append(inputNeuron)
+    self.epochs = epochs
+  }
+  
+  /// Adds a layer to the neural network
+  /// - Parameter model: The lobe model describing the layer to be added
+  public func add(_ model: LobeModel) {
+    self.lobes.append(model.lobe(self.nucleus))
+  }
+  
+  /// Connects all the lobes together in the network builing the complete network
+  public func compile() {
+    guard lobes.count > 0 else {
+      fatalError("no lobes to connect bailing out.")
     }
-    self.lobes.append(Lobe(neurons: newInputNeurons))
-    
-    //setup hidden layer
-    if (hiddenLayers > 0) {
-      for _ in 0..<hiddenLayers {
-        var newHiddenNeurons: [Neuron] = []
-        for _ in 0..<max(hidden, 1) {
-          let hiddenNeuron = Neuron(nucleus: nucleus)
-          newHiddenNeurons.append(hiddenNeuron)
-        }
-        self.lobes.append(Lobe(neurons: newHiddenNeurons))
-      }
-    }
-    
-    //setup output layer
-    var newOutputNeurons: [Neuron] = []
-    
-    for _ in 0..<max(outputs, 1) {
-      let outputNeuron = Neuron(nucleus: nucleus)
-      newOutputNeurons.append(outputNeuron)
-    }
-    self.lobes.append(Lobe(neurons: newOutputNeurons))
-    
     //link all the layers generating the matrix
     for i in 0..<lobes.count {
       if i > 0 {
@@ -89,62 +72,80 @@ public class Brain {
         let inputNeuronGroup = self.lobes[i-1].neurons
         
         neuronGroup.forEach { (neuron) in
-          let dendrites = [NeuroTransmitter](repeating: NeuroTransmitter(), count: inputNeuronGroup.count)
+          let dendrites = [NeuroTransmitter](repeating: NeuroTransmitter(),
+                                             count: inputNeuronGroup.count)
           neuron.inputs = dendrites
         }
       }
     }
-  }
-  
-  /// Train with the data where the output is expected to be the input data
-  /// - Parameter data: Input data that contains the expected result
-  public func autoTrain(data: [Float], validation: [Float] = []) {
-    //not sure we need to add inputs here
-    self.train(data: data, validation: validation, correct: data)
+    
+    compiled = true
   }
   
   /// Supervised training function
   /// - Parameters:
-  ///   - data: the data to train against as an array of floats
-  ///   - correct: the correct values that should be expected from the network
-  public func train(data: [Float],
-                    validation: [Float] = [],
-                    correct: [Float],
+  ///   - data: The training data object containing the expected values and the training data
+  ///   - validation: The validation data object containing the expected values and the validation data
+  ///   - complete: Called when training is completed
+  public func train(data: [TrainingData],
+                    validation: [TrainingData] = [],
                     complete: ((_ complete: Bool) -> ())? = nil) {
     
-    guard correct.count == self.outputLayer().count else {
-      print("🛑 Error: correct data count does not match ouput node count, bailing out")
+    guard data.count > 0 else {
+      print("data must contain some data")
+      complete?(false)
       return
     }
     
-    //feed validation data through the network
-    if validation.count > 0 {
-      self.feedInternal(input: validation)
-      let errorForValidation = self.calcErrorForOutput(correct: correct)
-      
-      //if validation error is greater than pervious then we are complete with training
-      //bail out to prevent overfitting
-      let threshold: Float = self.lossThreshold
-      if abs(previousValidationError - errorForValidation) <= threshold {
+    guard compiled == true else {
+      complete?(false)
+      print("please run compile() on the Brain object before training")
+      return
+    }
         
-        print("🟢 SUCCESS: training is complete...")
-        complete?(true)
-        return
+    for i in 0..<epochs {
+      
+      if debug {
+        print("epoch: \(i)")
       }
       
-      previousValidationError = errorForValidation
+      //feed validation data through the network
+      if let validationData = validation.randomElement(), validation.count > 0 {
+        self.feedInternal(input: validationData.data)
+        let errorForValidation = self.calcErrorForOutput(correct: validationData.correct)
+  
+        //if validation error is greater than pervious then we are complete with training
+        //bail out to prevent overfitting
+        let threshold: Float = self.lossThreshold
+        if abs(previousValidationError - errorForValidation) <= threshold {
+  
+          print("🟢 SUCCESS: training is complete...")
+          complete?(true)
+          return
+        }
+  
+        previousValidationError = errorForValidation
+      }
+      
+      //maybe add to serial background queue
+      DispatchQueue.global(qos: .utility).async {
+        /// feed a model and its correct values through the network to calculate the loss
+        let loss = self.calcTotalLoss(self.feed(input: data[0].data),
+                                      correct: data[0].correct)
+        self.loss.append(loss)
+      }
+      
+      //train the network with all the data
+      for d in 0..<data.count {
+        let obj = data[d]
+        if debug {
+          print("data iteration: \(d)")
+        }
+        self.trainIndividual(data: obj)
+      }
     }
     
-    //feed the data through the network
-    self.feedInternal(input: data)
-    
-    //get the error and propagate backwards through
-    self.backpropagate(correct)
-    //self.backpropagateOptim(correct)
-    //adjust all the weights after back propagation is complete
-    self.adjustWeights()
-    
-    complete?(false)
+    complete?(true)
   }
   
   /// Clears the whole network and resets all the weights to a random value
@@ -186,6 +187,24 @@ public class Brain {
   public func exportLoss(_ filename: String? = nil) -> URL? {
     let name = filename ?? "loss-\(Int(Date().timeIntervalSince1970))"
     return ExportManager.getCSV(filename: name, self.loss)
+  }
+  
+  private func trainIndividual(data: TrainingData) {
+    
+    guard data.correct.count == self.outputLayer().count else {
+      print("🛑 Error: correct data count does not match ouput node count, bailing out")
+      return
+    }
+    
+    //feed the data through the network
+    self.feedInternal(input: data.data)
+    
+    //get the error and propagate backwards through
+    self.backpropagate(data.correct)
+    //self.backpropagateOptim(correct)
+    
+    //adjust all the weights after back propagation is complete
+    self.adjustWeights()
   }
   
   /// Feeds the network internally preparing for output or training
@@ -294,13 +313,6 @@ public class Brain {
       outputNeuron.delta = correct - get
       
     }
-    
-    //maybe add to serial background queue
-    let loss = self.calcTotalLoss(predicted, correct: correctValues)
-    if debug {
-      print(loss)
-    }
-    self.loss.append(loss)
     
     //reverse so we can loop through from the beggining of the array starting at the output node
     let reverse: [Lobe] = self.lobes.reversed()
