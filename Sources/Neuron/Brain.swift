@@ -91,6 +91,8 @@ public class Brain {
                     validation: [TrainingData] = [],
                     complete: ((_ complete: Bool) -> ())? = nil) {
     
+    let trainingStartDate = Date()
+    
     guard data.count > 0 else {
       print("data must contain some data")
       complete?(false)
@@ -104,6 +106,7 @@ public class Brain {
     }
         
     for i in 0..<epochs {
+      let epochStartDate = Date()
       
       if debug {
         print("epoch: \(i)")
@@ -142,8 +145,15 @@ public class Brain {
         }
         self.trainIndividual(data: obj)
       }
+      
+      if debug {
+        print("epoch completed time: \(Date().timeIntervalSince(epochStartDate))")
+      }
     }
     
+    if debug {
+      print("training completed time: \(Date().timeIntervalSince(trainingStartDate))")
+    }
     complete?(true)
   }
   
