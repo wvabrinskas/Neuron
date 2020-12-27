@@ -127,13 +127,12 @@ public class Brain {
         previousValidationError = errorForValidation
       }
       
-      //maybe add to serial background queue
-      DispatchQueue.global(qos: .utility).async {
-        /// feed a model and its correct values through the network to calculate the loss
-        let loss = self.calcTotalLoss(self.feed(input: data[0].data),
-                                      correct: data[0].correct)
-        self.loss.append(loss)
-      }
+      //maybe add to serial background queue, dispatch queue crashes
+      /// feed a model and its correct values through the network to calculate the loss
+      let loss = self.calcTotalLoss(self.feed(input: data[0].data),
+                                    correct: data[0].correct)
+      self.loss.append(loss)
+      
       
       //train the network with all the data
       for d in 0..<data.count {
