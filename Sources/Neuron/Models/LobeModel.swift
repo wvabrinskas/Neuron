@@ -8,7 +8,8 @@
 import Foundation
 
 public enum LobeModel {
-  case layer(_ nodes: Int, _ activation: Activation? = nil)
+  
+  case layer(_ nodes: Int, _ activation: Activation? = nil) //a nil activation will use the brain activation
   
   public func lobe(_ nucleus: Nucleus) -> Lobe {
     switch self {
