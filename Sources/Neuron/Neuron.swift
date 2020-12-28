@@ -92,7 +92,7 @@ public class Neuron {
     
     sum += bias
     
-    let out =  self.activationType.activate(input: sum)
+    let out = self.activationType.activate(input: sum)
     
     self.actPrime = self.activationType.derivative(input: out)
     
@@ -122,7 +122,7 @@ public class Neuron {
     for i in 0..<inputs.count {
       let input = self.inputs[i]
 
-      input.weight -= self.learningRate * input.inputValue * delta
+      input.weight -= self.learningRate * input.inputValue * delta * actPrime
       bias -= self.learningRate * delta
     }
   }

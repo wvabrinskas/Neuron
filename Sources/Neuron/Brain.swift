@@ -378,7 +378,7 @@ public class Brain {
           deltaAtLayer += currentNeuronDelta
         }
         
-        previousLayer[p].delta = deltaAtLayer * previousLayer[p].actPrime
+        previousLayer[p].delta = deltaAtLayer
 
       }
       
