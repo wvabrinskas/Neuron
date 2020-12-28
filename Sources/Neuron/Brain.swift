@@ -331,6 +331,9 @@ public class Brain {
       let outputNeuron = self.outputLayer()[i]
       let get = outputNeuron.activation()
       outputNeuron.delta = correct - get
+      if debug {
+        print("out: \(i), predicted: \(get), actual: \(correct)")
+      }
     }
     
     //reverse so we can loop through from the beggining of the array starting at the output node
