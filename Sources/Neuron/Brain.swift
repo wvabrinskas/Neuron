@@ -322,34 +322,44 @@ public class Brain {
     }
     
     //set output error delta
-    var predicted: [Float] = []
-    
     for i in 0..<correctValues.count {
       
       let correct = correctValues[i]
       let outputNeuron = self.outputLayer()[i]
       let get = outputNeuron.activation()
-      predicted.append(get)
       outputNeuron.delta = correct - get
-      
     }
     
     //reverse so we can loop through from the beggining of the array starting at the output node
     let reverse: [Lobe] = self.lobes.reversed()
     
     //- 1 because we dont need to propagate passed the input layer
-    DispatchQueue.concurrentPerform(iterations: reverse.count - 1) { (i) in
+//    DispatchQueue.concurrentPerform(iterations: reverse.count - 1) { (i) in
+//      let currentLayer = reverse[i].neurons
+//      let previousLayer = reverse[i + 1].neurons
+//
+//      DispatchQueue.concurrentPerform(iterations: previousLayer.count) { (p) in
+//        previousLayer[p].delta = 0
+//
+//        DispatchQueue.concurrentPerform(iterations: currentLayer.count) { (c) in
+//          let currentNeuronDelta = currentLayer[c].delta * currentLayer[c].inputs[p].weight
+//          previousLayer[p].delta += currentNeuronDelta
+//        }
+//
+//      }
+//    }
+    
+    for i in 0..<reverse.count - 1 {
       let currentLayer = reverse[i].neurons
       let previousLayer = reverse[i + 1].neurons
       
-      DispatchQueue.concurrentPerform(iterations: previousLayer.count) { (p) in
+      for p in 0..<previousLayer.count {
         previousLayer[p].delta = 0
         
-        DispatchQueue.concurrentPerform(iterations: currentLayer.count) { (c) in
+        for c in 0..<currentLayer.count {
           let currentNeuronDelta = currentLayer[c].delta * currentLayer[c].inputs[p].weight
           previousLayer[p].delta += currentNeuronDelta
         }
-        
       }
     }
   
