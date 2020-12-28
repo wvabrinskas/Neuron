@@ -367,13 +367,17 @@ public class Brain {
       let previousLayer = reverse[i + 1].neurons
       
       for p in 0..<previousLayer.count {
-        previousLayer[p].delta = 0
+        var deltaAtLayer: Float = 0
         
         for c in 0..<currentLayer.count {
+          let currentNode = currentLayer[c]
           
-          let currentNeuronDelta = currentLayer[c].delta * currentLayer[c].inputs[p].weight
-          previousLayer[p].delta += currentNeuronDelta
+          let currentNeuronDelta = currentNode.delta * currentNode.inputs[p].weight
+          deltaAtLayer += currentNeuronDelta
         }
+        
+        previousLayer[p].delta = deltaAtLayer
+
       }
       
     }
