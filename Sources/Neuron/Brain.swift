@@ -308,7 +308,7 @@ public class Brain {
       let inputNode = inputLayer()[i]
       let inputValue = input[i]
       
-      //one input per input node
+      //one input per input node 
       inputNode.addInput(input: NeuroTransmitter(input: inputValue), at: 0)
     }
     
