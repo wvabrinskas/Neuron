@@ -351,7 +351,7 @@ public class Brain {
       let correct = correctValues[i]
       let outputNeuron = outputs[i]
       let get = outputNeuron.activation()
-      outputs[i].delta = correct - get
+      outputs[i].delta = correct - get //will have to do the derivative of the loss function here
       if debug {
         print("out: \(i), predicted: \(get), actual: \(correct)")
       }
@@ -367,7 +367,7 @@ public class Brain {
     for i in 0..<reverse.count - 1 {
       let currentLayer = reverse[i].neurons
       let previousLayer = reverse[i + 1].neurons
-      
+
       for p in 0..<previousLayer.count {
         var deltaAtLayer: Float = 0
         
