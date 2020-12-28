@@ -16,6 +16,7 @@ public class Neuron {
   
   /// Backpropogation delta at this node
   public var delta: Float = 0
+  public var actPrime: Float = 0
 
   private var learningRate: Float
   private var bias: Float
@@ -91,7 +92,11 @@ public class Neuron {
     
     sum += bias
     
-    return self.activationType.activate(input: sum)
+    let out =  self.activationType.activate(input: sum)
+    
+    self.actPrime = self.activationType.derivative(input: out)
+    
+    return out
   }
   
   /// Replaces the Nucleus object describing this Neuron
@@ -116,11 +121,9 @@ public class Neuron {
     //WITH OUT IT MAKES IT MUCH SLOWER BUT WITH IT IT FORMS A RACE CONDITION =(
     for i in 0..<inputs.count {
       let input = self.inputs[i]
-      let activationDer = self.activationType.derivative(input: input.inputValue)
-      
-      let previousWeight = input.weight
-      input.weight = previousWeight - (self.learningRate * activationDer * input.inputValue)
-      bias -= self.learningRate * activationDer
+
+      input.weight -= self.learningRate * input.inputValue * delta
+      bias -= self.learningRate * delta
     }
   }
   
