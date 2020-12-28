@@ -224,11 +224,11 @@ public class Brain {
     self.feedInternal(input: data.data)
     
     //get the error and propagate backwards through
-   // self.backpropagate(data.correct)
+    self.backpropagate(data.correct)
     //self.backpropagateOptim(correct)
     
     //adjust all the weights after back propagation is complete
-    self.adjustWeights()
+    //self.adjustWeights()
   }
   
   /// Feeds the network internally preparing for output or training
