@@ -368,17 +368,16 @@ public class Brain {
       
       for p in 0..<previousLayer.count {
         previousLayer[p].delta = 0
-
+        
         for c in 0..<currentLayer.count {
-
-            let currentNeuronDelta = currentLayer[c].delta * currentLayer[c].inputs[p].weight
-            print("current: \(c), c_delta: \(currentNeuronDelta), p_delta: \(previousLayer[p].delta)")
-            previousLayer[p].delta += currentNeuronDelta
+          
+          let currentNeuronDelta = currentLayer[c].delta * currentLayer[c].inputs[p].weight
+          previousLayer[p].delta += currentNeuronDelta
         }
       }
       
     }
-  
+    
   }
   
   private func adjustWeights() {
