@@ -10,8 +10,8 @@ import Foundation
 
 /// Object used to create a link between Neruon objects to act as inputs
 public class NeuroTransmitter {
-  @TestNaN public var weight: Float
-  @TestNaN public var inputValue: Float = 0
+  public var weight: Float
+  public var inputValue: Float = 0
   
   //as neuron connection
   public init() {
@@ -20,7 +20,7 @@ public class NeuroTransmitter {
   
   //as standard input
   public init(input: Float, weight: Float? = nil) {
-    self.weight = weight ?? Float.random(in: 0...1)
+    self.weight = weight ?? 1337.0
     self.inputValue = input
   }
 

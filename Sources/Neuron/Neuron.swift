@@ -15,7 +15,7 @@ public class Neuron {
   public var inputs: [NeuroTransmitter] = []
   
   /// Backpropogation delta at this node
-  @TestNaN public var delta: Float = 0
+  public var delta: Float = 0
 
   private var learningRate: Float
   private var bias: Float
@@ -84,11 +84,9 @@ public class Neuron {
   /// - Returns: The result of the activation function at this node
   public func activation() -> Float {
     var sum: Float = 0
-    
-    let inputPointers = self.inputs
-    
+        
     for i in 0..<self.inputs.count {
-      sum += inputPointers[i].weight * inputPointers[i].inputValue
+      sum += self.inputs[i].weight * self.inputs[i].inputValue
     }
     
     sum += bias
@@ -96,26 +94,6 @@ public class Neuron {
     return self.activationType.activate(input: sum)
   }
   
-  
-  /// Gets all the inputs as a tuple containing the inputs with their weights
-  /// - Returns: A tuple with the inputs as floats and their corresponding weights, in order.
-  public func getAllInputs() -> (in: [Float], weight: [Float]) {
-    var localInputs: [Float] = []
-    var localWeights: [Float] = []
-
-    for i in 0..<self.inputs.count {
-      let input = self.inputs[i]
-      
-      let get = input.inputValue
-      let weight = input.weight
-      
-      localInputs.append(get)
-      localWeights.append(weight)
-    }
-    
-    return (localInputs, localWeights)
-  }
-    
   /// Replaces the Nucleus object describing this Neuron
   /// - Parameter nucleus: Nucleus object to update with
   public func updateNucleus(nucleus: Nucleus) {
