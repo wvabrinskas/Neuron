@@ -10,8 +10,8 @@ import Foundation
 
 /// Object used to create a link between Neruon objects to act as inputs
 public class NeuroTransmitter {
-  public var weight: Float
-  public var inputValue: Float = 0
+  @TestNaN public var weight: Float
+  @TestNaN public var inputValue: Float = 0
   
   //as neuron connection
   public init() {

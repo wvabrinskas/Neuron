@@ -21,3 +21,19 @@ public extension Range where Element: Strideable {
     return newArray
   }
 }
+
+
+@propertyWrapper
+public struct TestNaN {
+  public var wrappedValue: Float {
+      didSet {
+        if wrappedValue.isNaN {
+          fatalError("number is broken =( ")
+        }
+      }
+  }
+
+  public init(wrappedValue: Float) {
+      self.wrappedValue = wrappedValue
+  }
+}

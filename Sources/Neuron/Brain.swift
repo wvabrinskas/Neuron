@@ -123,6 +123,9 @@ public class Brain {
       
       //feed validation data through the network
       if let validationData = validation.randomElement(), validation.count > 0 {
+        if debug {
+          print("validating....")
+        }
         self.feedInternal(input: validationData.data)
         let errorForValidation = self.calcErrorForOutput(correct: validationData.correct)
   

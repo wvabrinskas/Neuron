@@ -15,7 +15,7 @@ public class Neuron {
   public var inputs: [NeuroTransmitter] = []
   
   /// Backpropogation delta at this node
-  public var delta: Float = 0
+  @TestNaN public var delta: Float = 0
 
   private var learningRate: Float
   private var bias: Float
