@@ -100,6 +100,8 @@ public class Brain {
                     validation: [TrainingData] = [],
                     complete: ((_ complete: Bool) -> ())? = nil) {
     
+    let batchSize = 10
+
     let trainingStartDate = Date()
     
     guard data.count > 0 else {
@@ -159,6 +161,16 @@ public class Brain {
           print("data iteration: \(d)")
         }
         self.trainIndividual(data: obj)
+        
+        if d % batchSize == 0 {
+
+          //get the error and propagate backwards through
+          self.backpropagate(obj.correct)
+          //self.backpropagateOptim(correct)
+          
+          //adjust all the weights after back propagation is complete
+          self.adjustWeights()
+        }
       }
       
       if debug {
@@ -222,13 +234,6 @@ public class Brain {
     
     //feed the data through the network
     self.feedInternal(input: data.data)
-    
-    //get the error and propagate backwards through
-    self.backpropagate(data.correct)
-    //self.backpropagateOptim(correct)
-    
-    //adjust all the weights after back propagation is complete
-    self.adjustWeights()
   }
   
   /// Feeds the network internally preparing for output or training
