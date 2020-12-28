@@ -242,14 +242,14 @@ public class Brain {
       let currentLayer = self.lobes[i].neurons
       
       let copyOfInputs = lastInputs
-      
-      print(lastInputs)
-      
+            
       lastInputs = currentLayer.map { (neuron) -> NeuroTransmitter in
+        let activated = neuron.activation()
         if let oldInputs = copyOfInputs {
           neuron.replaceInputs(inputs: oldInputs)
         }
-        return NeuroTransmitter(input: neuron.activation())
+        //this needs to happen BEFORE
+        return NeuroTransmitter(input: activated)
       }
     }
   }
