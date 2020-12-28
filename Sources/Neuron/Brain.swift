@@ -243,6 +243,8 @@ public class Brain {
       
       let copyOfInputs = lastInputs
       
+      print(lastInputs)
+      
       lastInputs = currentLayer.map { (neuron) -> NeuroTransmitter in
         if let oldInputs = copyOfInputs {
           neuron.replaceInputs(inputs: oldInputs)
