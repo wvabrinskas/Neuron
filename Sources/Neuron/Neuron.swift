@@ -35,20 +35,27 @@ public class Neuron {
   
   /// Replaces all the inputs connected to this neuron with new ones
   /// - Parameter inputs: Input array as [NeuronTransmitter] to replace inputs iwth
-  public func replaceInputs(inputs: [Float]) {
+  public func replaceInputs(inputs: [NeuroTransmitter]) {
     if self.inputs.count == 0 {
-      self.inputs = inputs.map({ NeuroTransmitter(input: $0) })
+      self.inputs = inputs
     }
     
     guard inputs.count == self.inputs.count else {
       print("Error: Can not replace inputs of different size")
       return
     }
-        
+    
+    var newInputs: [NeuroTransmitter] = []
+    
     for i in 0..<self.inputs.count {
-      self.inputs[i].inputValue = inputs[i]
+      let currentInput = self.inputs[i]
+      let newInput = inputs[i]
+      
+      newInput.weight = currentInput.weight
+      newInputs.append(newInput)
     }
 
+    self.inputs = newInputs
   }
   
   /// Adds an input as NeuroTransmitter at a specific index.
@@ -64,6 +71,9 @@ public class Neuron {
     }
     
     if index < self.inputs.count {
+      let oldInput = self.inputs[index]
+      `in`.weight = oldInput.weight
+      
       self.inputs[index] = `in`
     } else {
       self.inputs.append(`in`)

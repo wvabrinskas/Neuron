@@ -244,8 +244,8 @@ public class Brain {
       self.lobes[i + 1].neurons.forEach { (neuron) in
 
         //THIS IS THE PART THAT TAKES A WHILE!!!
-        let newInputs = currentLayer.map { (neuron) -> Float in
-          return neuron.activation()
+        let newInputs = currentLayer.map { (neuron) -> NeuroTransmitter in
+          return NeuroTransmitter(input: neuron.activation())
         }
 
         neuron.replaceInputs(inputs: newInputs)
@@ -265,7 +265,7 @@ public class Brain {
 //
 //      //adjust inputs for next layer
 //    }
-//
+    
 
   }
   
@@ -306,8 +306,12 @@ public class Brain {
     
     for i in 0..<inputLayer().count {
       let inputNode = inputLayer()[i]
-      inputNode.replaceInputs(inputs: input)
+      let inputValue = input[i]
+      
+      //one input per input node
+      inputNode.addInput(input: NeuroTransmitter(input: inputValue), at: 0)
     }
+    
   }
   
   /// Get first layer of neurons

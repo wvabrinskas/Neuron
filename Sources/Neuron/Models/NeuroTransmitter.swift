@@ -19,8 +19,8 @@ public class NeuroTransmitter {
   }
   
   //as standard input
-  public init(input: Float) {
-    self.weight = Float.random(in: 0...1)
+  public init(input: Float, weight: Float? = nil) {
+    self.weight = weight ?? Float.random(in: 0...1)
     self.inputValue = input
   }
 
