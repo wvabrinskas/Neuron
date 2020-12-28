@@ -238,42 +238,44 @@ public class Brain {
   private func feedInternal(input: [Float]) {
     self.addInputs(input: input)
     
-//
-//    for i in 0..<self.lobes.count - 1 {
-//      let currentLayer = self.lobes[i].neurons
-//
-//
-//      self.lobes[i + 1].neurons.forEach { (neuron) in
-//
-//        //THIS IS THE PART THAT TAKES A WHILE!!!
-//        let newInputs = currentLayer.map { (neuron) -> NeuroTransmitter in
-//          return NeuroTransmitter(input: neuron.activation())
-//        }
-//
-//        neuron.replaceInputs(inputs: newInputs)
-//      }
-//
-//    }
 
-    var lastInputs: [NeuroTransmitter]?
-
-    for i in 0..<self.lobes.count {
+    for i in 0..<self.lobes.count - 1 {
       let currentLayer = self.lobes[i].neurons
 
-      let copyInputs = lastInputs
-      
-      lastInputs = currentLayer.map { (neuron) -> NeuroTransmitter in
-        let activated = neuron.activation()
-        
-        if let inputs = copyInputs {
-          neuron.replaceInputs(inputs: inputs)
+
+      self.lobes[i + 1].neurons.forEach { (neuron) in
+
+        //THIS IS THE PART THAT TAKES A WHILE!!!
+        let newInputs = currentLayer.map { (neuron) -> NeuroTransmitter in
+          return NeuroTransmitter(input: neuron.activation())
         }
-        return NeuroTransmitter(input: activated)
+
+        neuron.replaceInputs(inputs: newInputs)
       }
 
-      //adjust inputs for next layer
     }
     
+    //this doesnt work =(
+
+//    var lastInputs: [NeuroTransmitter]?
+//
+//    for i in 0..<self.lobes.count {
+//      let currentLayer = self.lobes[i].neurons
+//
+//      let copyInputs = lastInputs
+//
+//      lastInputs = currentLayer.map { (neuron) -> NeuroTransmitter in
+//        let activated = neuron.activation()
+//
+//        if let inputs = copyInputs {
+//          neuron.replaceInputs(inputs: inputs)
+//        }
+//        return NeuroTransmitter(input: activated)
+//      }
+//
+//      //adjust inputs for next layer
+//    }
+//
 
   }
   
@@ -359,7 +361,7 @@ public class Brain {
       let get = outputNeuron.activation()
       outputs[i].delta = correct - get //will have to do the derivative of the loss function here
       if debug {
-        print("out: \(i), predicted: \(get), actual: \(correct)")
+        //print("out: \(i), predicted: \(get), actual: \(correct)")
       }
     }
     
