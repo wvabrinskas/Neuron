@@ -131,12 +131,15 @@ public class Neuron {
   
   /// Adjusts the weights of all inputs
   public func adjustWeights() {
-    DispatchQueue.concurrentPerform(iterations: inputs.count) { (i) in
+    for i in 0..<inputs.count {
       let input = self.inputs[i]
       let activationDer = self.activationType.derivative(input: input.inputValue)
 
       input.weight += self.learningRate * delta * activationDer  * input.inputValue
     }
+//    DispatchQueue.concurrentPerform(iterations: inputs.count) { (i) in
+//
+//    }
   }
   
 
