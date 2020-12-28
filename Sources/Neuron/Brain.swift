@@ -160,6 +160,7 @@ public class Brain {
         }
         self.trainIndividual(data: obj)
       }
+      self.adjustWeights()
       
       if debug {
         print("epoch completed time: \(Date().timeIntervalSince(epochStartDate))")
@@ -228,7 +229,6 @@ public class Brain {
     //self.backpropagateOptim(correct)
     
     //adjust all the weights after back propagation is complete
-    self.adjustWeights()
   }
   
   /// Feeds the network internally preparing for output or training
