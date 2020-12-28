@@ -236,39 +236,37 @@ public class Brain {
   private func feedInternal(input: [Float]) {
     self.addInputs(input: input)
     
-    var lastInputs: [NeuroTransmitter]?
-    
-    for i in 0..<self.lobes.count - 1 {
-      let currentLayer = self.lobes[i].neurons
-      
-//      let copyOfInputs = lastInputs
 //
-//      lastInputs = currentLayer.map { (neuron) -> NeuroTransmitter in
-//        //this needs to happen BEFORE
-//        let activated = neuron.activation()
+//    for i in 0..<self.lobes.count - 1 {
+//      let currentLayer = self.lobes[i].neurons
 //
-//        if let oldInputs = copyOfInputs {
-//          neuron.replaceInputs(inputs: oldInputs)
+//
+//      self.lobes[i + 1].neurons.forEach { (neuron) in
+//
+//        //THIS IS THE PART THAT TAKES A WHILE!!!
+//        let newInputs = currentLayer.map { (neuron) -> NeuroTransmitter in
+//          return NeuroTransmitter(input: neuron.activation())
 //        }
-//        return NeuroTransmitter(input: activated)
+//
+//        neuron.replaceInputs(inputs: newInputs)
 //      }
 //
-
-      self.lobes[i + 1].neurons.forEach { (neuron) in
-
-        //THIS IS THE PART THAT TAKES A WHILE!!!
-//        let inputs = neuron.getAllInputs()
-//        let values = inputs.in
-//        let weights = inputs.weight
-
-        let newInputs = currentLayer.map { (neuron) -> NeuroTransmitter in
-          return NeuroTransmitter(input: neuron.activation())
-        }
-
-        neuron.replaceInputs(inputs: newInputs)
+//    }
+//
+    var lastInputs: [NeuroTransmitter]?
+    
+    for i in 0..<self.lobes.count {
+      let currentLayer = self.lobes[i].neurons
+      
+      lastInputs = currentLayer.map { (neuron) -> NeuroTransmitter in
+        let activated = neuron.activation()
+        return NeuroTransmitter(input: activated)
       }
-
+      
+      //adjust inputs for next layer
     }
+    
+
   }
   
   /// Get the result of the last layer of the network
@@ -308,11 +306,8 @@ public class Brain {
     
     for i in 0..<inputLayer().count {
       let inputNode = inputLayer()[i]
-      let inputValue = input[i]
-      
-      inputNode.replaceInputs(inputs: [NeuroTransmitter(input: inputValue)])
+      inputNode.replaceInputs(inputs: input)
     }
-    
   }
   
   /// Get first layer of neurons
