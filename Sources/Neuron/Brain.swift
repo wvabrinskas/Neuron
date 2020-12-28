@@ -238,7 +238,7 @@ public class Brain {
     
     var lastInputs: [NeuroTransmitter]?
     
-    for i in 0..<self.lobes.count {
+    for i in 0..<self.lobes.count - 1 {
       let currentLayer = self.lobes[i].neurons
       
 //      let copyOfInputs = lastInputs
