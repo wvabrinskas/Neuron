@@ -359,7 +359,7 @@ public class Brain {
       let get = outputNeuron.activation()
       outputs[i].delta = correct - get //will have to do the derivative of the loss function here
       if debug {
-        //print("out: \(i), predicted: \(get), actual: \(correct)")
+        print("out: \(i), predicted: \(get), actual: \(correct)")
       }
     }
     
