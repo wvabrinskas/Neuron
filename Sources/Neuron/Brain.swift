@@ -161,17 +161,6 @@ public class Brain {
           print("data iteration: \(d)")
         }
         self.trainIndividual(data: obj)
-        //get the error and propagate backwards through
-        self.backpropagate(obj.correct)
-        
-        if d % batchSize == 0 {
-
-
-          //self.backpropagateOptim(correct)
-          
-          //adjust all the weights after back propagation is complete
-          self.adjustWeights()
-        }
       }
       
       if debug {
@@ -235,6 +224,13 @@ public class Brain {
     
     //feed the data through the network
     self.feedInternal(input: data.data)
+    
+    //get the error and propagate backwards through
+    self.backpropagate(data.correct)
+    //self.backpropagateOptim(correct)
+    
+    //adjust all the weights after back propagation is complete
+    self.adjustWeights()
   }
   
   /// Feeds the network internally preparing for output or training
