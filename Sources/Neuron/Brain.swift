@@ -224,7 +224,7 @@ public class Brain {
     self.feedInternal(input: data.data)
     
     //get the error and propagate backwards through
-    self.backpropagate(data.correct)
+   // self.backpropagate(data.correct)
     //self.backpropagateOptim(correct)
     
     //adjust all the weights after back propagation is complete
@@ -308,7 +308,7 @@ public class Brain {
       let inputNode = inputLayer()[i]
       let inputValue = input[i]
       
-      //one input per input node 
+      //one input per input node
       inputNode.addInput(input: NeuroTransmitter(input: inputValue), at: 0)
     }
     
