@@ -116,8 +116,8 @@ public class Neuron {
     //WITH OUT IT MAKES IT MUCH SLOWER BUT WITH IT IT FORMS A RACE CONDITION =(
     for i in 0..<inputs.count {
       let input = self.inputs[i]
-      let activationDer = self.activationType.derivative(input: input.inputValue)
-      input.weight += self.learningRate * delta * activationDer
+      let activationDer = self.activationType.derivative(input: delta)
+      input.weight -= self.learningRate * activationDer
       
     }
   }
