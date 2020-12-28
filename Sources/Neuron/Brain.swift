@@ -351,7 +351,7 @@ public class Brain {
       let correct = correctValues[i]
       let outputNeuron = outputs[i]
       let get = outputNeuron.activation()
-      outputs[i].delta = correct - get
+      outputs[i].delta = self.calcTotalLoss([get], correct: [correct])
       if debug {
         print("out: \(i), predicted: \(get), actual: \(correct)")
       }
