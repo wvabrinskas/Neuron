@@ -228,7 +228,7 @@ public class Brain {
     //self.backpropagateOptim(correct)
     
     //adjust all the weights after back propagation is complete
-    //self.adjustWeights()
+    self.adjustWeights()
   }
   
   /// Feeds the network internally preparing for output or training
@@ -381,9 +381,13 @@ public class Brain {
   }
   
   private func adjustWeights() {
-    DispatchQueue.concurrentPerform(iterations: self.lobes.count) { (i) in
+    for i in 0..<self.lobes.count {
       let lobe = self.lobes[i]
       lobe.adjustWeights()
     }
+//    DispatchQueue.concurrentPerform(iterations: self.lobes.count) { (i) in
+//      let lobe = self.lobes[i]
+//      lobe.adjustWeights()
+//    }
   }
 }
