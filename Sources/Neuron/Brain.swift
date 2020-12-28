@@ -337,20 +337,8 @@ public class Brain {
     let reverse: [Lobe] = self.lobes.reversed()
     
     //- 1 because we dont need to propagate passed the input layer
-//    DispatchQueue.concurrentPerform(iterations: reverse.count - 1) { (i) in
-//      let currentLayer = reverse[i].neurons
-//      let previousLayer = reverse[i + 1].neurons
-//      
-//      DispatchQueue.concurrentPerform(iterations: previousLayer.count) { (p) in
-//        previousLayer[p].delta = 0
-//        
-//        DispatchQueue.concurrentPerform(iterations: currentLayer.count) { (c) in
-//          let currentNeuronDelta = currentLayer[c].delta * currentLayer[c].inputs[p].weight
-//          previousLayer[p].delta += currentNeuronDelta
-//        }
-//        
-//      }
-//    }
+    //DISPATCH QUEUE BREAKS EVERYTHING NEED BETTER OPTIMIZATION =(
+    //WITH OUT IT MAKES IT MUCH SLOWER BUT WITH IT IT FORMS A RACE CONDITION =(
     
     for i in 0..<reverse.count - 1 {
       let currentLayer = reverse[i].neurons

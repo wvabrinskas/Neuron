@@ -131,15 +131,14 @@ public class Neuron {
   
   /// Adjusts the weights of all inputs
   public func adjustWeights() {
+    //DISPATCH QUEUE BREAKS EVERYTHING NEED BETTER OPTIMIZATION =(
+    //WITH OUT IT MAKES IT MUCH SLOWER BUT WITH IT IT FORMS A RACE CONDITION =(
     for i in 0..<inputs.count {
       let input = self.inputs[i]
       let activationDer = self.activationType.derivative(input: input.inputValue)
 
       input.weight += self.learningRate * delta * activationDer  * input.inputValue
     }
-//    DispatchQueue.concurrentPerform(iterations: inputs.count) { (i) in
-//
-//    }
   }
   
 
