@@ -160,7 +160,6 @@ public class Brain {
         }
         self.trainIndividual(data: obj)
       }
-      self.adjustWeights()
       
       if debug {
         print("epoch completed time: \(Date().timeIntervalSince(epochStartDate))")
@@ -229,6 +228,7 @@ public class Brain {
     //self.backpropagateOptim(correct)
     
     //adjust all the weights after back propagation is complete
+    self.adjustWeights()
   }
   
   /// Feeds the network internally preparing for output or training
@@ -349,7 +349,7 @@ public class Brain {
       let correct = correctValues[i]
       let outputNeuron = outputs[i]
       let get = outputNeuron.activation()
-      outputs[i].delta = correct - get
+      outputs[i].delta = self.calcTotalLoss([get], correct: [correct])
       if debug {
         print("out: \(i), predicted: \(get), actual: \(correct)")
       }
