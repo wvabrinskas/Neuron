@@ -119,7 +119,7 @@ public class Neuron {
       let activationDer = self.activationType.derivative(input: input.inputValue)
       
       let previousWeight = input.weight
-      input.weight = previousWeight - (self.learningRate * activationDer)
+      input.weight = previousWeight - (self.learningRate * activationDer * input.inputValue)
       bias -= self.learningRate * activationDer
     }
   }
