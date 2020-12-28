@@ -242,14 +242,12 @@ public class Brain {
     for i in 0..<self.lobes.count - 1 {
       let currentLayer = self.lobes[i].neurons
 
-
+      //THIS IS THE PART THAT TAKES A WHILE!!!
+      let newInputs = currentLayer.map { (neuron) -> NeuroTransmitter in
+        return NeuroTransmitter(input: neuron.activation())
+      }
+      
       self.lobes[i + 1].neurons.forEach { (neuron) in
-
-        //THIS IS THE PART THAT TAKES A WHILE!!!
-        let newInputs = currentLayer.map { (neuron) -> NeuroTransmitter in
-          return NeuroTransmitter(input: neuron.activation())
-        }
-
         neuron.replaceInputs(inputs: newInputs)
       }
 
@@ -264,6 +262,13 @@ public class Brain {
 //
 //      let copyInputs = lastInputs
 //
+//      currentLayer.forEach { (neuron) in
+//        let activated = neuron.activation()
+//        if let inputs = copyInputs {
+//          neuron.replaceInputs(inputs: inputs)
+//        }
+//      }
+//
 //      lastInputs = currentLayer.map { (neuron) -> NeuroTransmitter in
 //        let activated = neuron.activation()
 //
@@ -275,7 +280,7 @@ public class Brain {
 //
 //      //adjust inputs for next layer
 //    }
-//
+
 
   }
   
