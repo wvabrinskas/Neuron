@@ -372,6 +372,7 @@ public class Brain {
         for c in 0..<currentLayer.count {
 
             let currentNeuronDelta = currentLayer[c].delta * currentLayer[c].inputs[p].weight
+            print("current: \(c), c_delta: \(currentNeuronDelta), p_delta: \(previousLayer[p].delta)")
             previousLayer[p].delta += currentNeuronDelta
         }
       }
@@ -385,9 +386,5 @@ public class Brain {
       let lobe = self.lobes[i]
       lobe.adjustWeights()
     }
-//    DispatchQueue.concurrentPerform(iterations: self.lobes.count) { (i) in
-//      let lobe = self.lobes[i]
-//      lobe.adjustWeights()
-//    }
   }
 }
