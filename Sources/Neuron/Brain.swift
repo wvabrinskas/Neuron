@@ -324,13 +324,14 @@ public class Brain {
       return
     }
     
+    let outputs = self.outputLayer()
     //set output error delta
     for i in 0..<correctValues.count {
       
       let correct = correctValues[i]
-      let outputNeuron = self.outputLayer()[i]
+      let outputNeuron = outputs[i]
       let get = outputNeuron.activation()
-      outputNeuron.delta = correct - get
+      outputs[i].delta = correct - get
       if debug {
         print("out: \(i), predicted: \(get), actual: \(correct)")
       }
