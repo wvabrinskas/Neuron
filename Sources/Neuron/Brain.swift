@@ -339,7 +339,7 @@ public class Brain {
       if let mod = self.outputModifier {
         get = mod.calculate(index: i, outputs: outs)
       }
-    
+    //
       let outputNeuron = self.outputLayer()[i]
       outputNeuron.delta = self.lossFunction.derivative(get, correct: correct)
       if debug {
