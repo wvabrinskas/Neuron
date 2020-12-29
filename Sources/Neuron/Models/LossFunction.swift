@@ -42,7 +42,7 @@ public enum LossFunction {
         i += 1
       }
       
-      return -(sums / Float(correct.count))
+      return -(sums)
     }
 
   }
