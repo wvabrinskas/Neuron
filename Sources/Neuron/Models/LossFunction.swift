@@ -34,11 +34,11 @@ public enum LossFunction {
       
       predicted.forEach { (out) in
         let correctVal = correct[i]
-//        if correct.count > 2 {
-//          sums += correctVal * log(out)
-//        } else {
+        if correct.count > 1 {
+          sums += correctVal * log(out)
+        } else {
           sums += (correctVal * log(out)) + (1 - correctVal) * log(1.0 - out)
-       // }
+        }
         i += 1
       }
       
@@ -52,7 +52,7 @@ public enum LossFunction {
     case .meanSquareError:
       return correct - predicted
     case .crossEntropy:
-      return predicted - correct
+      return correct - predicted
     }
   }
 }
