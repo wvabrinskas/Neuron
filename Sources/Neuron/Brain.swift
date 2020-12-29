@@ -123,6 +123,19 @@ public class Brain {
         print("epoch: \(i)")
       }
       
+      //train the network with all the data
+      for d in 0..<data.count {
+        let obj = data[d]
+        if debug {
+          print("data iteration: \(d)")
+        }
+        self.trainIndividual(data: obj)
+      }
+      
+      if debug {
+        print("epoch completed time: \(Date().timeIntervalSince(epochStartDate))")
+      }
+      
       //feed validation data through the network
       if let validationData = validation.randomElement(), validation.count > 0 {
         if debug {
@@ -153,19 +166,6 @@ public class Brain {
                                     correct: data[0].correct)
       self.loss.append(loss)
       
-      
-      //train the network with all the data
-      for d in 0..<data.count {
-        let obj = data[d]
-        if debug {
-          print("data iteration: \(d)")
-        }
-        self.trainIndividual(data: obj)
-      }
-      
-      if debug {
-        print("epoch completed time: \(Date().timeIntervalSince(epochStartDate))")
-      }
     }
     
     if debug {
@@ -252,36 +252,6 @@ public class Brain {
       }
 
     }
-    
-    //this doesnt work =(
-
-//    var lastInputs: [NeuroTransmitter]?
-//
-//    for i in 0..<self.lobes.count {
-//      let currentLayer = self.lobes[i].neurons
-//
-//      let copyInputs = lastInputs
-//
-//      currentLayer.forEach { (neuron) in
-//        let activated = neuron.activation()
-//        if let inputs = copyInputs {
-//          neuron.replaceInputs(inputs: inputs)
-//        }
-//      }
-//
-//      lastInputs = currentLayer.map { (neuron) -> NeuroTransmitter in
-//        let activated = neuron.activation()
-//
-//        if let inputs = copyInputs {
-//          neuron.replaceInputs(inputs: inputs)
-//        }
-//        return NeuroTransmitter(input: activated)
-//      }
-//
-//      //adjust inputs for next layer
-//    }
-
-
   }
   
   /// Get the result of the last layer of the network
