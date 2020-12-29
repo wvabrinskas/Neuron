@@ -328,24 +328,20 @@ public class Brain {
       return
     }
     
-    let outputs = self.outputLayer()
     //set output error delta
-    var outs: [Float]?
-    if let mod = self.outputModifier, mod == .softmax {
-      outs = self.outputLayer().map({ $0.activation() })
-    }
+    let outs: [Float] = self.outputLayer().map({ $0.activation() })
     
     for i in 0..<correctValues.count {
       
       let correct = correctValues[i]
-      let outputNeuron = outputs[i]
-      var get = outputNeuron.activation()
+      var get = outs[i]
       
-      if let softMaxOuts = outs, let mod = self.outputModifier {
-        get = mod.calculate(index: i, outputs: softMaxOuts)
+      if let mod = self.outputModifier {
+        get = mod.calculate(index: i, outputs: outs)
       }
-      
-      outputs[i].delta = self.lossFunction.derivative(get, correct: correct)
+    
+      let outputNeuron = self.outputLayer()[i]
+      outputNeuron.delta = self.lossFunction.derivative(get, correct: correct)
       if debug {
         print("out: \(i), predicted: \(get), actual: \(correct)")
       }
