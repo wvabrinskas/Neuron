@@ -52,7 +52,7 @@ public enum LossFunction {
     case .meanSquareError:
       return correct - predicted
     case .crossEntropy:
-      return correct - predicted
+      return predicted - correct
     }
   }
 }
