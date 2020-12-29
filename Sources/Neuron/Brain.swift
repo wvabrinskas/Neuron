@@ -331,15 +331,15 @@ public class Brain {
     //set output error delta
     let outs: [Float] = self.outputLayer().map({ $0.activation() })
     
-    for i in 0..<correctValues.count {
+    for i in 0..<outs.count {
       
       let correct = correctValues[i]
       var get = outs[i]
       
-      if let mod = self.outputModifier {
-        get = mod.calculate(index: i, outputs: outs)
-      }
-    //
+//      if let mod = self.outputModifier {
+//        get = mod.calculate(index: i, outputs: outs)
+//      }
+//    //
       let outputNeuron = self.outputLayer()[i]
       outputNeuron.delta = self.lossFunction.derivative(get, correct: correct)
       if debug {
