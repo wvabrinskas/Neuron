@@ -330,12 +330,14 @@ public class Brain {
     
     let outputs = self.outputLayer()
     //set output error delta
+    
     for i in 0..<correctValues.count {
       
       let correct = correctValues[i]
       let outputNeuron = outputs[i]
       let get = outputNeuron.activation()
-      outputs[i].delta = correct - get //will have to do the derivative of the loss function here
+      
+      outputs[i].delta =  self.lossFunction.derivative(get, correct: correct)
       if debug {
         print("out: \(i), predicted: \(get), actual: \(correct)")
       }
