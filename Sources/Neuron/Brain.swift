@@ -119,8 +119,8 @@ public class Brain {
     for i in 0..<epochs {
       //maybe add to serial background queue, dispatch queue crashes
       /// feed a model and its correct values through the network to calculate the loss
-      let loss = self.calcTotalLoss(self.feed(input: data[Int.random(in: 0..<data.count - 1)].data),
-                                    correct: data[Int.random(in: 0..<data.count - 1)].correct)
+      let loss = self.calcTotalLoss(self.feed(input: data[0].data),
+                                    correct: data[0].correct)
       self.loss.append(loss)
       
       
