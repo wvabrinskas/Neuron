@@ -39,7 +39,7 @@ public enum LossFunction {
         i += 1
       }
       
-      return -(sums)
+      return -(sums / correct.count)
     }
 
   }
