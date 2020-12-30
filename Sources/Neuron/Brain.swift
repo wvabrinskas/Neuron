@@ -268,17 +268,17 @@ public class Brain {
     
     var out = outputs
     
-    if let mod = self.outputModifier {
-      var modOut: [Float] = []
-      
-      for i in 0..<out.count {
-        let modVal = mod.calculate(index: i, outputs: out)
-        modOut.append(modVal)
-      }
-      
-      out = modOut
-    }
-    
+//    if let mod = self.outputModifier {
+//      var modOut: [Float] = []
+//
+//      for i in 0..<out.count {
+//        let modVal = mod.calculate(index: i, outputs: out)
+//        modOut.append(modVal)
+//      }
+//
+//      out = modOut
+//    }
+//
     return ranked ? out.sorted(by: { $0 > $1 }) : out
   }
   
