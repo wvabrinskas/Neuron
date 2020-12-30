@@ -268,17 +268,17 @@ public class Brain {
     
     var out = outputs
     
-//    if let mod = self.outputModifier {
-//      var modOut: [Float] = []
-//
-//      for i in 0..<out.count {
-//        let modVal = mod.calculate(index: i, outputs: out)
-//        modOut.append(modVal)
-//      }
-//
-//      out = modOut
-//    }
-//
+    if let mod = self.outputModifier {
+      var modOut: [Float] = []
+      
+      for i in 0..<out.count {
+        let modVal = mod.calculate(index: i, outputs: out)
+        modOut.append(modVal)
+      }
+      
+      out = modOut
+    }
+    
     return ranked ? out.sorted(by: { $0 > $1 }) : out
   }
   
@@ -337,7 +337,7 @@ public class Brain {
       let get = outs[i]
       
       let outputNeuron = self.outputLayer()[i]
-      outputNeuron.delta = self.lossFunction.derivative(get, correct: correct)
+      outputNeuron.delta = correct - get//self.lossFunction.derivative(get, correct: correct)
       if debug {
         print("out: \(i), predicted: \(get), actual: \(correct) delta: \(outputNeuron.delta)")
       }
