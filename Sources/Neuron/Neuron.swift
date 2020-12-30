@@ -92,7 +92,9 @@ public class Neuron {
     sum += bias
     
     let out = self.activationType.activate(input: sum)
-        
+    if self.activationType == .sigmoid {
+      print("sum: \(sum) act: \(out)")
+    }
     return out
   }
   
