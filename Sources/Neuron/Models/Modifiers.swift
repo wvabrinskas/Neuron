@@ -22,4 +22,5 @@ public enum OutputModifier: Int, CaseIterable {
       return pow(Float(Darwin.M_E), outputs[index]) / sum
     }
   }
+
 }
