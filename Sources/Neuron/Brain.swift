@@ -290,12 +290,11 @@ public class Brain {
       return
     }
     
-    for _ in 0..<inputLayer().count {
-      let inputValues = input.map({ NeuroTransmitter(input: $0) })
+    for i in 0..<inputLayer().count {
+      let inputNode = inputLayer()[i]
+      let inputValue = input[i]
       
-      inputLayer().forEach { (inNode) in
-        inNode.replaceInputs(inputs: inputValues)
-      }
+      inputNode.addInput(input: NeuroTransmitter(input: inputValue), at: 0)
     }
     
   }
