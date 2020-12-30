@@ -20,7 +20,7 @@ public class Brain {
   public var epochs: Int
   
   /// The loss function data from training to be exported
-  private var loss: [Float] = []
+  public var loss: [Float] = []
   
   /// Neuron matrix in the existing brain object
   private var lobes: [Lobe] = []
@@ -318,7 +318,7 @@ public class Brain {
   }
   
   private func calcErrorForOutput(correct: [Float]) -> Float {
-    let predicted: [Float] = self.outputLayer().map({ $0.activation() })
+    let predicted: [Float] = self.get()
     return self.calcTotalLoss(predicted, correct: correct)
   }
   
@@ -329,17 +329,14 @@ public class Brain {
     }
     
     //set output error delta
-    let outs: [Float] = self.outputLayer().map({ $0.activation() })
+    //get() will apply softmax or other output modifier
+    let outs: [Float] = self.get()
     
     for i in 0..<outs.count {
       
       let correct = correctValues[i]
-      var get = outs[i]
+      let get = outs[i]
       
-//      if let mod = self.outputModifier {
-//        get = mod.calculate(index: i, outputs: outs)
-//      }
-//    //
       let outputNeuron = self.outputLayer()[i]
       outputNeuron.delta = self.lossFunction.derivative(get, correct: correct)
       if debug {
