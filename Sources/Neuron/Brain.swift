@@ -330,12 +330,11 @@ public class Brain {
     //set output error delta
     //get() will apply softmax or other output modifier
     let outs: [Float] = self.get()
-    let newOuts = self.outputLayer().map({ $0.activation() })
     
     for i in 0..<outs.count {
       
       let correct = correctValues[i]
-      let get = newOuts[i]
+      let get = outs[i]
       
       let outputNeuron = self.outputLayer()[i]
       outputNeuron.delta = self.lossFunction.derivative(get, correct: correct)
