@@ -19,6 +19,7 @@ public class Neuron {
 
   private var learningRate: Float
   private var bias: Float
+  private var biasWeight: Float = Float.random(in: 0...1)
   private var activationType: Activation
   
   /// Default initializer. Creates a Neuron object
@@ -89,7 +90,7 @@ public class Neuron {
       sum += self.inputs[i].weight * self.inputs[i].inputValue
     }
     
-    sum += bias
+    sum += (bias * biasWeight)
     
     let out = self.activationType.activate(input: sum)
     if self.activationType == .sigmoid {
@@ -124,7 +125,7 @@ public class Neuron {
       let der = self.activationType.derivative(input: input.inputValue)
 
       input.weight += self.learningRate * input.inputValue * delta * der
-      bias += self.learningRate * delta
+      biasWeight += self.learningRate * delta
     }
   }
   
