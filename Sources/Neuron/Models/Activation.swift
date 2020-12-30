@@ -48,7 +48,6 @@ public enum Activation: Int, CaseIterable {
     case .leakyRelu:
       return self.activate(input: input) >= 0.01 ? 1 : 0
     case .swish:
-      //y’ = (e-x(x + 1) + 1)/(1+e-x)^2
       let e = Float(Darwin.M_E)
       let x = input
       return (pow(e, -x) * (x + 1) + 1) / pow((1 + pow(e, -x)), 2)
