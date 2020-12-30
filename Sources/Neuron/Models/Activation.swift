@@ -51,7 +51,7 @@ public enum Activation: Int, CaseIterable {
       //y’ = (e-x(x + 1) + 1)/(1+e-x)^2
       let e = Float(Darwin.M_E)
       let x = input
-      return (e - x * (x + 1) + 1) / (pow(1 + e - x, 2))
+      return (pow(e, -x) * (x + 1) + 1) / pow((1 + pow(e, -x)), 2)
     case .none:
       return input
     }
