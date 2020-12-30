@@ -19,7 +19,7 @@ public enum OutputModifier: Int, CaseIterable {
         sum += pow(Float(Darwin.M_E), output)
       }
       
-      return 1
+      return pow(Float(Darwin.M_E), outputs[index]) / sum
     }
   }
 
