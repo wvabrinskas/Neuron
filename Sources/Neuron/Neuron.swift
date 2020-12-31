@@ -98,9 +98,9 @@ public class Neuron {
     
     let out = self.activationType.activate(input: sum)
     self.previousActivation = out
-    if self.activationType == .sigmoid {
-      print("sum: \(sum) act: \(out)")
-    }
+//    if self.activationType == .sigmoid {
+//      print("sum: \(sum) act: \(out)")
+//    }
     return out
   }
   
