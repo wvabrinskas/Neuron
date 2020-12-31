@@ -44,7 +44,7 @@ public enum Activation: Int, CaseIterable {
       return self.activate(input: input) >= 0 ? 1 : 0
     case .sigmoid:
       let sig = self.activate(input: input)
-      return sig * (1 - sig)
+      return input * (1 - input)
     case .leakyRelu:
       return self.activate(input: input) >= 0.01 ? 1 : 0
     case .swish:
