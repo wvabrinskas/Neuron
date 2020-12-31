@@ -16,12 +16,12 @@ public class Neuron {
   
   /// Backpropogation delta at this node
   public var delta: Float = 0
+  public var derivative: Float = 0
 
   private var learningRate: Float
   private var bias: Float
   private var biasWeight: Float = Float.random(in: 0...1)
   private var activationType: Activation
-  private var derivative: Float = 0
   
   /// Default initializer. Creates a Neuron object
   /// - Parameters:
@@ -98,7 +98,7 @@ public class Neuron {
     if self.activationType == .sigmoid {
       print("sum: \(sum) act: \(out)")
     }
-    self.derivative = self.activationType.derivative(input: sum)
+    self.derivative = self.activationType.derivative(input: out)
     return out
   }
   
@@ -127,7 +127,7 @@ public class Neuron {
       
       //let der = self.activationType.derivative(input: input.inputValue)
 
-      input.weight -= self.learningRate * input.inputValue * delta * self.derivative
+      input.weight -= self.learningRate * input.inputValue * delta
       biasWeight -= self.learningRate * delta
     }
   }
