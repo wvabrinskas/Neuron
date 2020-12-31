@@ -32,14 +32,23 @@ public enum LossFunction {
     case .crossEntropy:
       var i = 0
       var sums: Float = 0
+      var logSums: Float = 0
+      
+      predicted.forEach { (out) in
+        logSums += pow(Float(Darwin.M_E), out)
+      }
       
       predicted.forEach { (out) in
         let correctVal = correct[i]
-        sums += (correctVal * log(out)) + (1 - correctVal) * log(1.0 - out)
+        if predicted.count > 1 {
+          sums += correctVal * (out - log(logSums))
+        } else {
+          sums += (correctVal * log(out)) + (1 - correctVal) * log(1.0 - out)
+        }
         i += 1
       }
       
-      return sums * -(1 / Float(predicted.count))
+      return -sums
     }
 
   }
