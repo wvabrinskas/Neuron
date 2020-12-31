@@ -126,7 +126,7 @@ public class Neuron {
     for i in 0..<inputs.count {
       let input = self.inputs[i]
       
-      let der = self.activationType.derivative(input: input.inputValue)
+      let der = self.activationType.derivative(input: self.activation())
 
       input.weight += self.learningRate * input.inputValue * delta * der
       biasWeight += self.learningRate * delta
