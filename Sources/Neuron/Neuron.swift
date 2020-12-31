@@ -16,7 +16,6 @@ public class Neuron {
   
   /// Backpropogation delta at this node
   public var delta: Float = 0
-  public var derivative: Float = 0
 
   private var learningRate: Float
   private var bias: Float
@@ -82,7 +81,9 @@ public class Neuron {
     }
   }
   
-
+  public func derivative() -> Float {
+    return self.activationType.derivative(input: self.activation())
+  }
   /// Gets the result of the activation function at this node
   /// - Returns: The result of the activation function at this node
   public func activation() -> Float {
@@ -98,7 +99,6 @@ public class Neuron {
     if self.activationType == .sigmoid {
       print("sum: \(sum) act: \(out)")
     }
-    self.derivative = self.activationType.derivative(input: out)
     return out
   }
   
