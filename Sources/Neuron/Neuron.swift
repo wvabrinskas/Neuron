@@ -128,7 +128,8 @@ public class Neuron {
       let input = self.inputs[i]
       
       //let der = self.activationType.derivative(input: input.inputValue)
-
+      
+      //INVERSE -= to += FOR MSE... ??? idk why
       input.weight -= self.learningRate * input.inputValue * delta
       biasWeight -= self.learningRate * delta
     }
