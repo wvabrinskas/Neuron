@@ -329,7 +329,7 @@ public class Brain {
     
     //set output error delta
     //get() will apply softmax or other output modifier
-    let outs: [Float] = self.outputLayer().map( { $0.activation() } )
+    let outs: [Float] = self.get()
     
     for i in 0..<outs.count {
       
