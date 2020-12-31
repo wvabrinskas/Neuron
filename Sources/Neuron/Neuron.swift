@@ -98,7 +98,7 @@ public class Neuron {
     if self.activationType == .sigmoid {
       print("sum: \(sum) act: \(out)")
     }
-    self.derivative = self.activationType.derivative(input: out)
+    self.derivative = self.activationType.derivative(input: sum)
     return out
   }
   
