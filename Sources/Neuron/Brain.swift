@@ -341,14 +341,9 @@ public class Brain {
     for i in 0..<correctValues.count {
       
       let correct = correctValues[i]
-      var get = outs[i]//self.outputLayer()[i].activation()
+      let get = outs[i]//self.outputLayer()[i].activation()
       
       let outputNeuron = self.outputLayer()[i]
-      
-      //softmax test
-      if let mod = self.outputModifier, mod == .softmax {
-        get = get * (1 - get)
-      }
       
       outputNeuron.delta = self.lossFunction.derivative(get, correct: correct)
       if debug {
