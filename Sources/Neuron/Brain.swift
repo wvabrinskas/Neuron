@@ -329,12 +329,7 @@ public class Brain {
     
     //set output error delta
     //get() will apply softmax or other output modifier
-  
-    var outs: [Float] = []
-    
-    self.outputLayer().forEach { (neuron) in
-      outs.append(neuron.activation())
-    }
+    let outs: [Float] = self.get()
     
     for i in 0..<outs.count {
       
