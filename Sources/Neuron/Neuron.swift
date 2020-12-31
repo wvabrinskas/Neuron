@@ -21,6 +21,7 @@ public class Neuron {
   private var bias: Float
   private var biasWeight: Float = Float.random(in: 0...1)
   private var activationType: Activation
+  private var previousActivation: Float = 0
   
   /// Default initializer. Creates a Neuron object
   /// - Parameters:
@@ -82,7 +83,7 @@ public class Neuron {
   }
   
   public func derivative() -> Float {
-    return self.activationType.derivative(input: self.activation())
+    return self.activationType.derivative(input: previousActivation)
   }
   /// Gets the result of the activation function at this node
   /// - Returns: The result of the activation function at this node
@@ -96,6 +97,7 @@ public class Neuron {
     sum += (bias * biasWeight)
     
     let out = self.activationType.activate(input: sum)
+    self.previousActivation = out
     if self.activationType == .sigmoid {
       print("sum: \(sum) act: \(out)")
     }
