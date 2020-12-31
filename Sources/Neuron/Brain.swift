@@ -119,9 +119,9 @@ public class Brain {
     for i in 0..<epochs {
       //maybe add to serial background queue, dispatch queue crashes
       /// feed a model and its correct values through the network to calculate the loss
-//      let loss = self.calcTotalLoss(self.feed(input: data[0].data),
-//                                    correct: data[0].correct)
-//      self.loss.append(loss)
+      let loss = self.calcTotalLoss(self.feed(input: data[0].data),
+                                    correct: data[0].correct)
+      self.loss.append(loss)
       
       
       let epochStartDate = Date()
@@ -341,9 +341,14 @@ public class Brain {
     for i in 0..<correctValues.count {
       
       let correct = correctValues[i]
-      let get = outs[i]//self.outputLayer()[i].activation()
+      var get = outs[i]//self.outputLayer()[i].activation()
       
       let outputNeuron = self.outputLayer()[i]
+      
+      //softmax test
+      if let mod = self.outputModifier, mod == .softmax {
+        get = get * (1 - get)
+      }
       
       outputNeuron.delta = self.lossFunction.derivative(get, correct: correct)
       if debug {
