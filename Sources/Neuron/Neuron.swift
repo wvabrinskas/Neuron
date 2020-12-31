@@ -80,6 +80,10 @@ public class Neuron {
       self.inputs.append(`in`)
     }
   }
+  
+  public func derivative() -> Float {
+    return self.activationType.derivative(input: self.activation())
+  }
 
   /// Gets the result of the activation function at this node
   /// - Returns: The result of the activation function at this node
