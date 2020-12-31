@@ -36,14 +36,14 @@ public enum LossFunction {
       predicted.forEach { (out) in
         let correctVal = correct[i]
         if predicted.count > 1 {
-          sums += -correctVal * log2(out)
+          sums += -correctVal * log(out)
         } else {
           sums += (correctVal * log(out)) + (1 - correctVal) * log(1.0 - out)
         }
         i += 1
       }
       
-      return sums /// Float(predicted.count)
+      return sums / Float(predicted.count)
     }
 
   }
