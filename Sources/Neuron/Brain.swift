@@ -335,10 +335,13 @@ public class Brain {
 //      outs.append(neuron.activation())
 //    }
 //
+    
+    let outs = self.get()
+    
     for i in 0..<correctValues.count {
       
       let correct = correctValues[i]
-      let get = self.outputLayer()[i].activation()
+      let get = outs[i]//self.outputLayer()[i].activation()
       
       let outputNeuron = self.outputLayer()[i]
       
