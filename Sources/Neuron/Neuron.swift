@@ -22,17 +22,19 @@ public class Neuron {
   private var biasWeight: Float = Float.random(in: 0...1)
   private var activationType: Activation
   private var previousActivation: Float = 0
+  private var layer: LobeModel.LayerType
   
   /// Default initializer. Creates a Neuron object
   /// - Parameters:
   ///   - inputs: Array of inputs as NeuroTransmitter that contain the values to be used as inputs
   ///   - nucleus: Nucleus object describing things like learning rate, bias, and activation type
-  public init(inputs: [NeuroTransmitter] = [],  nucleus: Nucleus) {
+  public init(inputs: [NeuroTransmitter] = [],  nucleus: Nucleus, layer: LobeModel.LayerType) {
     self.learningRate = nucleus.learningRate
     self.bias = nucleus.bias
     self.activationType = nucleus.activationType
     
     self.inputs = inputs
+    self.layer = layer
   }
   
   /// Replaces all the inputs connected to this neuron with new ones
@@ -98,7 +100,8 @@ public class Neuron {
     
     let out = self.activationType.activate(input: sum)
     self.previousActivation = out
-    if self.activationType == .sigmoid {
+    
+    if self.layer == .output {
       print("sum: \(sum) act: \(out)")
     }
     return out

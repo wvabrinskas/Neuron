@@ -9,11 +9,15 @@ import Foundation
 
 public enum LobeModel {
   
-  case layer(_ nodes: Int, _ activation: Activation? = nil) //a nil activation will use the brain activation
+  public enum LayerType: CaseIterable {
+    case input, hidden, output
+  }
+  
+  case layer(_ nodes: Int, _ activation: Activation? = nil, _ layer: LayerType) //a nil activation will use the brain activation
   
   public func lobe(_ nucleus: Nucleus) -> Lobe {
     switch self {
-    case let .layer(nodes, act):
+    case let .layer(nodes, act, layer):
       var nuc = nucleus
       if let activation = act {
         nuc = Nucleus(learningRate: nucleus.learningRate,
@@ -22,7 +26,7 @@ public enum LobeModel {
       }
       var neurons: [Neuron] = []
       for _ in 0..<nodes {
-        let neuron = Neuron(nucleus: nuc)
+        let neuron = Neuron(nucleus: nuc, layer: layer)
         neurons.append(neuron)
       }
       return Lobe(neurons: neurons)
