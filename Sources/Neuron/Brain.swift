@@ -119,9 +119,9 @@ public class Brain {
     for i in 0..<epochs {
       //maybe add to serial background queue, dispatch queue crashes
       /// feed a model and its correct values through the network to calculate the loss
-      let loss = self.calcTotalLoss(self.feed(input: data[0].data),
-                                    correct: data[0].correct)
-      self.loss.append(loss)
+//      let loss = self.calcTotalLoss(self.feed(input: data[0].data),
+//                                    correct: data[0].correct)
+//      self.loss.append(loss)
       
       
       let epochStartDate = Date()
@@ -145,26 +145,26 @@ public class Brain {
       
       //feed validation data through the network
       if let validationData = validation.randomElement(), validation.count > 0 {
-        if debug {
-          print("validating....")
-        }
-        self.feedInternal(input: validationData.data)
-        let errorForValidation = self.calcErrorForOutput(correct: validationData.correct)
-  
-        //if validation error is greater than pervious then we are complete with training
-        //bail out to prevent overfitting
-        let threshold: Float = self.lossThreshold
-        if abs(previousValidationError - errorForValidation) <= threshold {
-  
-          print("🟢 SUCCESS: training is complete...")
-          if debug {
-            print("training completed time: \(Date().timeIntervalSince(trainingStartDate))")
-          }
-          complete?(true)
-          return
-        }
-  
-        previousValidationError = errorForValidation
+//        if debug {
+//          print("validating....")
+//        }
+//        self.feedInternal(input: validationData.data)
+//        let errorForValidation = self.calcErrorForOutput(correct: validationData.correct)
+//
+//        //if validation error is greater than pervious then we are complete with training
+//        //bail out to prevent overfitting
+//        let threshold: Float = self.lossThreshold
+//        if abs(previousValidationError - errorForValidation) <= threshold {
+//
+//          print("🟢 SUCCESS: training is complete...")
+//          if debug {
+//            print("training completed time: \(Date().timeIntervalSince(trainingStartDate))")
+//          }
+//          complete?(true)
+//          return
+//        }
+//
+//        previousValidationError = errorForValidation
       }
       
     }
@@ -268,16 +268,16 @@ public class Brain {
     
     var out = outputs
     
-    if let mod = self.outputModifier {
-      var modOut: [Float] = []
-      
-      for i in 0..<out.count {
-        let modVal = mod.calculate(index: i, outputs: out)
-        modOut.append(modVal)
-      }
-      
-      out = modOut
-    }
+//    if let mod = self.outputModifier {
+//      var modOut: [Float] = []
+//
+//      for i in 0..<out.count {
+//        let modVal = mod.calculate(index: i, outputs: out)
+//        modOut.append(modVal)
+//      }
+//
+//      out = modOut
+//    }
     
     return ranked ? out.sorted(by: { $0 > $1 }) : out
   }
@@ -329,14 +329,22 @@ public class Brain {
     
     //set output error delta
     //get() will apply softmax or other output modifier
-//    var outs: [Float] = []
+    var outs: [Float] = self.get()
 //
 //    self.outputLayer().forEach { (neuron) in
 //      outs.append(neuron.activation())
 //    }
-//
-    
-    let outs = self.get()
+        
+    if let mod = self.outputModifier {
+      var modOut: [Float] = []
+      
+      for i in 0..<outs.count {
+        let modVal = mod.calculate(index: i, outputs: outs)
+        modOut.append(modVal)
+      }
+      
+      outs = modOut
+    }
     
     for i in 0..<correctValues.count {
       
