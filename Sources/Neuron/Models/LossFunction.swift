@@ -61,7 +61,7 @@ public enum LossFunction {
        grad = grad/m
        return grad
        */
-      return predicted - 1
+      return predicted - correct
     }
   }
 }
