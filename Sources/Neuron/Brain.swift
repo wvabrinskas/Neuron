@@ -363,7 +363,7 @@ public class Brain {
           deltaAtLayer += currentNeuronDelta
         }
         
-        previousLayer[p].delta = deltaAtLayer * previousLayer[p].derivative()
+        previousLayer[p].delta = deltaAtLayer// * previousLayer[p].derivative()
 
       }
       
