@@ -335,7 +335,7 @@ public class Brain {
       
       let outputNeuron = self.outputLayer()[i]
       
-      outputNeuron.delta = self.lossFunction.derivative(predicted, correct: target)
+      outputNeuron.delta = target - predicted//self.lossFunction.derivative(predicted, correct: target)
       if debug {
         print("out: \(i), predicted: \(predicted), actual: \(target) delta: \(outputNeuron.delta)")
       }
