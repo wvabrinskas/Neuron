@@ -93,7 +93,7 @@ public class Neuron {
     var sum: Float = 0
         
     for i in 0..<self.inputs.count {
-      if self.inputs[i].inputValue > 1 {
+      if self.inputs[i].inputValue > 10 {
         print("INPUT :\(self.inputs[i].inputValue) type:\(self.layer)")
         fatalError("over one")
       }
