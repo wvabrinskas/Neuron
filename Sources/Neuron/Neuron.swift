@@ -38,28 +38,22 @@ public class Neuron {
   }
   
   /// Replaces all the inputs connected to this neuron with new ones
-  /// - Parameter inputs: Input array as [NeuronTransmitter] to replace inputs iwth
-  public func replaceInputs(inputs: [NeuroTransmitter]) {
+  /// - Parameter inputs: Input array as [Float] to replace inputs iwth
+  public func replaceInputs(inputs: [Float]) {
     if self.inputs.count == 0 {
-      self.inputs = inputs
+      self.inputs = inputs.map({ NeuroTransmitter(input: $0) })
     }
     
     guard inputs.count == self.inputs.count else {
       print("Error: Can not replace inputs of different size")
       return
     }
-    
-    var newInputs: [NeuroTransmitter] = []
-    
+        
     for i in 0..<self.inputs.count {
       let currentInput = self.inputs[i]
       let newInput = inputs[i]
-      
-      newInput.weight = currentInput.weight
-      newInputs.append(newInput)
+      currentInput.inputValue = newInput
     }
-
-    self.inputs = newInputs
   }
   
   /// Adds an input as NeuroTransmitter at a specific index.
@@ -68,20 +62,15 @@ public class Neuron {
   /// - Parameters:
   ///   - in: NeuroTransmitter to insert
   ///   - index: Optional index to insert the input.
-  public func addInput(input in: NeuroTransmitter, at index: Int? = nil) {
-    guard let index = index else {
-      self.inputs.append(`in`)
+  public func addInput(input in: Float, at index: Int? = nil) {
+    guard let index = index, index < self.inputs.count else {
+      let neuroTransmitter = NeuroTransmitter(input: `in`)
+      self.inputs.append(neuroTransmitter)
       return
     }
     
-    if index < self.inputs.count {
-      let oldInput = self.inputs[index]
-      `in`.weight = oldInput.weight
-      
-      self.inputs[index] = `in`
-    } else {
-      self.inputs.append(`in`)
-    }
+    let oldInput = self.inputs[index]
+    oldInput.inputValue = `in`
   }
   
   public func derivative() -> Float {

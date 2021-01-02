@@ -11,14 +11,7 @@ import Foundation
 /// Object used to create a link between Neruon objects to act as inputs
 public class NeuroTransmitter {
   public var weight: Float
-  public var inputValue: Float = 0 {
-    didSet {
-      if inputValue > 10 {
-        print("self:\(self) input:\(inputValue) weight: \(self.weight)")
-        fatalError("over one")
-      }
-    }
-  }
+  public var inputValue: Float = 0
   
   //as neuron connection
   public init() {

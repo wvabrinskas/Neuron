@@ -242,8 +242,8 @@ public class Brain {
       let currentLayer = self.lobes[i].neurons
 
       //THIS IS THE PART THAT TAKES A WHILE!!!
-      let newInputs = currentLayer.map { (neuron) -> NeuroTransmitter in
-        return NeuroTransmitter(input: neuron.activation())
+      let newInputs = currentLayer.map { (neuron) -> Float in
+        return neuron.activation()
       }
       
       self.lobes[i + 1].neurons.forEach { (neuron) in
@@ -292,7 +292,7 @@ public class Brain {
       let inputNode = inputLayer()[i]
       let inputValue = input[i]
       
-      inputNode.addInput(input: NeuroTransmitter(input: inputValue), at: 0)
+      inputNode.addInput(input: inputValue, at: 0)
     }
     
   }
