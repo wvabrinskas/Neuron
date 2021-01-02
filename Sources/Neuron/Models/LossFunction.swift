@@ -54,7 +54,14 @@ public enum LossFunction {
     case .meanSquareError:
       return correct - predicted
     case .crossEntropy:
-      return predicted - correct
+      /*
+       m = y.shape[0]
+       grad = softmax(X)
+       grad[range(m),y] -= 1
+       grad = grad/m
+       return grad
+       */
+      return predicted - 1
     }
   }
 }

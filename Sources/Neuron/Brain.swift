@@ -100,8 +100,6 @@ public class Brain {
                     validation: [TrainingData] = [],
                     complete: ((_ complete: Bool) -> ())? = nil) {
     
-    let batchSize = 10
-
     let trainingStartDate = Date()
     
     guard data.count > 0 else {
@@ -332,12 +330,12 @@ public class Brain {
     
     for i in 0..<correctValues.count {
       
-      let correct = correctValues[i]
-      let get = outs[i]//self.outputLayer()[i].activation()
+      let target = correctValues[i]
+      let predicted = outs[i]//self.outputLayer()[i].activation()
       
       let outputNeuron = self.outputLayer()[i]
       
-      outputNeuron.delta = self.lossFunction.derivative(get, correct: correct)
+      outputNeuron.delta = self.lossFunction.derivative(predicted, correct: target)
       if debug {
         //print("out: \(i), predicted: \(get), actual: \(correct) delta: \(outputNeuron.delta)")
       }
@@ -359,8 +357,9 @@ public class Brain {
         
         for c in 0..<currentLayer.count {
           let currentNode = currentLayer[c]
+          let currentInput = currentNode.inputs[p]
           
-          let currentNeuronDelta = currentNode.delta * currentNode.inputs[p].weight
+          let currentNeuronDelta = currentNode.delta * currentInput.weight
           deltaAtLayer += currentNeuronDelta
         }
         
