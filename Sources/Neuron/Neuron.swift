@@ -93,7 +93,10 @@ public class Neuron {
     var sum: Float = 0
         
     for i in 0..<self.inputs.count {
-      print("INPUT :\(self.inputs[i].inputValue)")
+      if self.inputs[i].inputValue > 1 {
+        print("INPUT :\(self.inputs[i].inputValue) type:\(self.layer)")
+        fatalError("over one")
+      }
       sum += self.inputs[i].weight * self.inputs[i].inputValue
     }
     
