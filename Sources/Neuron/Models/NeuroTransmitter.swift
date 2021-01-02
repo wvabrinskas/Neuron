@@ -14,7 +14,7 @@ public class NeuroTransmitter {
   public var inputValue: Float = 0 {
     didSet {
       if inputValue > 10 {
-        print("INPUT :\(inputValue) type:\(self.layer)")
+        print("self:\(self) input:\(inputValue) weight: \(self.weight)")
         fatalError("over one")
       }
     }
