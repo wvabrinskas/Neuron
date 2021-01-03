@@ -90,9 +90,6 @@ public class Neuron {
     let out = self.activationType.activate(input: sum)
     self.previousActivation = out
     
-    if self.layer == .output {
-      print("sum: \(sum) act: \(out)")
-    }
     return out
   }
   

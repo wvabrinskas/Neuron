@@ -294,7 +294,7 @@ public class Brain {
       
       inputNode.addInput(input: inputValue, at: 0)
     }
-    
+
   }
   
   /// Get first layer of neurons
