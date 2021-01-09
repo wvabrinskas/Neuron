@@ -337,7 +337,7 @@ public class Brain {
       
       outputNeuron.delta = self.lossFunction.derivative(predicted, correct: target)
       if debug {
-        print("out: \(i), predicted: \(predicted), actual: \(target) delta: \(outputNeuron.delta)")
+        print("out: \(i), raw: \(outputNeuron.activation()) predicted: \(predicted), actual: \(target) delta: \(outputNeuron.delta)")
       }
     }
     
