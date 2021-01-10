@@ -13,6 +13,7 @@ public enum Activation: Int, CaseIterable {
   case sigmoid
   case leakyRelu
   case swish
+  case tanh
   case none
   
   /// Runs the activation function calculation based on the case of self.
@@ -30,6 +31,13 @@ public enum Activation: Int, CaseIterable {
     case .swish:
       let sigmoid =  1.0 / (1.0 + pow(Float(Darwin.M_E), -input))
       return input * sigmoid
+    case .tanh:
+      let e = Float(Darwin.M_E)
+      let x = input
+      
+      let num = pow(e, x) - pow(e, -x)
+      let denom = pow(e, x) + pow(e, -x)
+      return num / denom
     case .none:
       return input
     }
@@ -51,6 +59,15 @@ public enum Activation: Int, CaseIterable {
       let e = Float(Darwin.M_E)
       let x = input
       return (pow(e, -x) * (x + 1) + 1) / pow((1 + pow(e, -x)), 2)
+    case .tanh:
+      let e = Float(Darwin.M_E)
+      let x = input
+      
+      let num = pow(e, x) - pow(e, -x)
+      let denom = pow(e, x) + pow(e, -x)
+      let tan = num / denom
+      
+      return 1 - (pow(tan, 2))
     case .none:
       return input
     }
@@ -62,13 +79,15 @@ public enum Activation: Int, CaseIterable {
   public func asString() -> String {
     switch self {
     case .leakyRelu:
-      return "Leaky ReLU"
+      return "Leaky ReLu"
     case .reLu:
-      return "ReLU"
+      return "ReLu"
     case .sigmoid:
       return "Sigmoid"
     case .swish:
       return "Swish"
+    case .tanh:
+      return "Tanh"
     case .none:
       return "None"
     }
