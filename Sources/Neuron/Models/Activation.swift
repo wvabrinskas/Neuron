@@ -53,7 +53,7 @@ public enum Activation: Int, CaseIterable {
       let sig = self.activate(input: input)
       return sig * (1 - sig)
     case .leakyRelu:
-      return input >= 0.01 ? 1 : 0
+      return input >= 0 ? 1 : 0.01
     case .swish:
       let e = Float(Darwin.M_E)
       let x = input
