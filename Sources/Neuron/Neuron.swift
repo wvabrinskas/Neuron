@@ -111,12 +111,9 @@ public class Neuron {
     //DISPATCH QUEUE BREAKS EVERYTHING NEED BETTER OPTIMIZATION =(
     //WITH OUT IT MAKES IT MUCH SLOWER BUT WITH IT IT FORMS A RACE CONDITION =(
     for i in 0..<inputs.count {
-      let input = self.inputs[i]
-      
-      //let der = self.activationType.derivative(input: input.inputValue)
-      
+            
       //INVERSE -= to += FOR MSE... ??? idk why
-      input.weight -= self.learningRate * input.inputValue * delta
+      self.inputs[i].weight -= self.learningRate * self.inputs[i].inputValue * delta
       biasWeight -= self.learningRate * delta
     }
   }
