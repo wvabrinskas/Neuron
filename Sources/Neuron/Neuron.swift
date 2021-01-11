@@ -50,9 +50,7 @@ public class Neuron {
     }
         
     for i in 0..<self.inputs.count {
-      let currentInput = self.inputs[i]
-      let newInput = inputs[i]
-      currentInput.inputValue = newInput
+      self.inputs[i].inputValue = inputs[i]
     }
   }
   
@@ -69,8 +67,7 @@ public class Neuron {
       return
     }
     
-    let oldInput = self.inputs[index]
-    oldInput.inputValue = `in`
+    self.inputs[index].inputValue = `in`
   }
   
   public func derivative() -> Float {
