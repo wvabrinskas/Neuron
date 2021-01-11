@@ -28,10 +28,14 @@ public class Neuron {
   /// - Parameters:
   ///   - inputs: Array of inputs as NeuroTransmitter that contain the values to be used as inputs
   ///   - nucleus: Nucleus object describing things like learning rate, bias, and activation type
-  public init(inputs: [NeuroTransmitter] = [],  nucleus: Nucleus, layer: LobeModel.LayerType) {
+  public init(inputs: [NeuroTransmitter] = [],
+              nucleus: Nucleus,
+              activation: Activation,
+              layer: LobeModel.LayerType) {
+    
     self.learningRate = nucleus.learningRate
     self.bias = nucleus.bias
-    self.activationType = nucleus.activationType
+    self.activationType = activation
     
     self.inputs = inputs
     self.layer = layer
@@ -108,7 +112,6 @@ public class Neuron {
   public func updateNucleus(nucleus: Nucleus) {
     self.learningRate = nucleus.learningRate
     self.bias = nucleus.bias
-    self.activationType = nucleus.activationType
   }
   
   /// Clears this node of all its weights and
