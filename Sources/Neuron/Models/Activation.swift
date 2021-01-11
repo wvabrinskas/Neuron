@@ -35,9 +35,8 @@ public enum Activation: Int, CaseIterable {
       let e = Float(Darwin.M_E)
       let x = input
       
-      let num = pow(e, x) - pow(e, -x)
-      let denom = pow(e, x) + pow(e, -x)
-      return num / denom
+      let denom = 1 + pow(e, -2 * x)
+      return (2 / denom) - 1
     case .none:
       return input
     }
@@ -60,13 +59,7 @@ public enum Activation: Int, CaseIterable {
       let x = input
       return (pow(e, -x) * (x + 1) + 1) / pow((1 + pow(e, -x)), 2)
     case .tanh:
-      let e = Float(Darwin.M_E)
-      let x = input
-      
-      let num = pow(e, x) - pow(e, -x)
-      let denom = pow(e, x) + pow(e, -x)
-      let tan = num / denom
-      
+      let tan = self.activate(input: input)
       return 1 - (pow(tan, 2))
     case .none:
       return input
