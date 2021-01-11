@@ -48,12 +48,12 @@ public enum Activation: Int, CaseIterable {
   public func derivative(input: Float) -> Float {
     switch self {
     case .reLu:
-      return self.activate(input: input) >= 0 ? 1 : 0
+      return input >= 0 ? 1 : 0
     case .sigmoid:
       let sig = self.activate(input: input)
       return sig * (1 - sig)
     case .leakyRelu:
-      return self.activate(input: input) >= 0.01 ? 1 : 0
+      return input >= 0.01 ? 1 : 0
     case .swish:
       let e = Float(Darwin.M_E)
       let x = input
@@ -62,7 +62,7 @@ public enum Activation: Int, CaseIterable {
       let tan = self.activate(input: input)
       return 1 - (pow(tan, 2))
     case .none:
-      return input
+      return 1
     }
   }
   
