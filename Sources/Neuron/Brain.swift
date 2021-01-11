@@ -289,10 +289,8 @@ public class Brain {
     }
     
     for i in 0..<inputLayer().count {
-      let inputNode = inputLayer()[i]
       let inputValue = input[i]
-      
-      inputNode.addInput(input: inputValue, at: 0)
+      inputLayer()[i].replaceInputs(inputs: [inputValue])
     }
 
   }
