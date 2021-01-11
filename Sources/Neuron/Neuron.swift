@@ -73,17 +73,30 @@ public class Neuron {
   public func derivative() -> Float {
     return self.activationType.derivative(input: previousActivation)
   }
-  /// Gets the result of the activation function at this node
+  /// Gets the result of the activation function at this node. If the layer type is of input
+  /// this will return the first input in the array of inputs
   /// - Returns: The result of the activation function at this node
   public func activation() -> Float {
+    //if input layer just pass the value along to hidden layer
+    if self.layer == .input {
+      guard self.inputs.count > 0 else {
+        return 0
+      }
+      
+      let input = self.inputs[0].inputValue
+      self.previousActivation = input
+      return input
+    }
+    
     var sum: Float = 0
         
+    //dont add bias or sum of weights to input activation
     for i in 0..<self.inputs.count {
       sum += self.inputs[i].weight * self.inputs[i].inputValue
     }
     
     sum += (bias * biasWeight)
-    
+  
     let out = self.activationType.activate(input: sum)
     self.previousActivation = out
     
