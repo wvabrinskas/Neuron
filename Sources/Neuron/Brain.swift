@@ -60,6 +60,10 @@ public class Brain {
   /// Adds a layer to the neural network
   /// - Parameter model: The lobe model describing the layer to be added
   public func add(_ model: LobeModel) {
+    ///TODO:
+    ///maybe auto assign input layer and only add hidden layers?
+    ///kind of redundant to specify a layer as being input when the first in the
+    ///array is considereing the input layer.
     self.lobes.append(model.lobe(self.nucleus))
   }
   
@@ -149,10 +153,10 @@ public class Brain {
         self.feedInternal(input: validationData.data)
         let errorForValidation = self.calcErrorForOutput(correct: validationData.correct)
   
-        //if validation error is greater than pervious then we are complete with training
+        //if validation error is greater than previous then we are complete with training
         //bail out to prevent overfitting
         let threshold: Float = self.lossThreshold
-        if abs(previousValidationError - errorForValidation) <= threshold {
+        if previousValidationError - errorForValidation < 0 {
   
           print("🟢 SUCCESS: training is complete...")
           if debug {
