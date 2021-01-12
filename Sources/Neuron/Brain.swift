@@ -164,7 +164,7 @@ public class Brain {
             print("validating....")
           }
           
-          if self.averageError(i) <= threshold {
+          if self.averageError() <= threshold {
     
             print("🟢 SUCCESS: training is complete...")
             if debug {
@@ -190,14 +190,14 @@ public class Brain {
     complete?(true)
   }
   
-  private func averageError(_ epoch: Int) -> Float {
+  private func averageError() -> Float {
     var sum: Float = 0
     
     previousValidationErrors.forEach { (error) in
       sum += error
     }
     
-    return sum / Float(epoch)
+    return sum / Float(previousValidationErrors.count)
   }
   
   /// Clears the whole network and resets all the weights to a random value
