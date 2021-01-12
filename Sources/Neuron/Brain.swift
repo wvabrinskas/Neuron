@@ -176,7 +176,7 @@ public class Brain {
           previousValidationErrors.removeAll()
           
         } else {
-          previousValidationErrors.append(errorForValidation - previousValidationError)
+          previousValidationErrors.append(abs(errorForValidation - previousValidationError))
         }
         
         previousValidationError = errorForValidation
