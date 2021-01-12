@@ -156,7 +156,7 @@ public class Brain {
         //if validation error is greater than previous then we are complete with training
         //bail out to prevent overfitting
         let threshold: Float = self.lossThreshold
-        if previousValidationError - errorForValidation < 0 {
+        if previousValidationError - errorForValidation < threshold {
   
           print("🟢 SUCCESS: training is complete...")
           if debug {
