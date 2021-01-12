@@ -38,7 +38,7 @@ public class Brain {
   /// Output modifier for the output layer. ex. softmax
   private var outputModifier: OutputModifier? = nil
   
-  private var previousValidationError: Float = 99
+  private var previousValidationErrors: [Float] = []
   
   /// Creates a Brain object that manages a network of Neuron objects
   /// - Parameters:
@@ -104,6 +104,8 @@ public class Brain {
                     validation: [TrainingData] = [],
                     complete: ((_ complete: Bool) -> ())? = nil) {
     
+    previousValidationErrors.removeAll()
+
     let trainingStartDate = Date()
     
     guard data.count > 0 else {
@@ -117,7 +119,9 @@ public class Brain {
       print("please run compile() on the Brain object before training")
       return
     }
-        
+    
+    var previousValidationError: Float = 0
+    
     for i in 0..<epochs {
       //maybe add to serial background queue, dispatch queue crashes
       /// feed a model and its correct values through the network to calculate the loss
@@ -147,25 +151,34 @@ public class Brain {
       
       //feed validation data through the network
       if let validationData = validation.randomElement(), validation.count > 0 {
-        if debug {
-          print("validating....")
-        }
+
         self.feedInternal(input: validationData.data)
         let errorForValidation = self.calcErrorForOutput(correct: validationData.correct)
   
         //if validation error is greater than previous then we are complete with training
         //bail out to prevent overfitting
         let threshold: Float = self.lossThreshold
-        if previousValidationError - errorForValidation < threshold {
-  
-          print("🟢 SUCCESS: training is complete...")
+        //only append if % 10 != 0
+        if i % 5 == 0 {
           if debug {
-            print("training completed time: \(Date().timeIntervalSince(trainingStartDate))")
+            print("validating....")
           }
-          complete?(true)
-          return
+          
+          if self.averageError(i) <= threshold {
+    
+            print("🟢 SUCCESS: training is complete...")
+            if debug {
+              print("training completed time: \(Date().timeIntervalSince(trainingStartDate))")
+            }
+            complete?(true)
+            return
+          }
+          previousValidationErrors.removeAll()
+          
+        } else {
+          previousValidationErrors.append(errorForValidation - previousValidationError)
         }
-  
+        
         previousValidationError = errorForValidation
       }
       
@@ -177,9 +190,19 @@ public class Brain {
     complete?(true)
   }
   
+  private func averageError(_ epoch: Int) -> Float {
+    var sum: Float = 0
+    
+    previousValidationErrors.forEach { (error) in
+      sum += error
+    }
+    
+    return sum / Float(epoch)
+  }
+  
   /// Clears the whole network and resets all the weights to a random value
   public func clear() {
-    self.previousValidationError = 999
+    self.previousValidationErrors = []
     self.loss.removeAll()
     //clears the whole matrix
     self.lobes.forEach { (lobe) in
