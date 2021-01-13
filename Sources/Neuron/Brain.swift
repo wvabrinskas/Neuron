@@ -363,7 +363,7 @@ public class Brain {
     for i in 0..<correctValues.count {
       
       let target = correctValues[i]
-      let predicted = outs[i]//self.outputLayer()[i].activation()
+      let predicted = outs[i]
       
       let outputNeuron = self.outputLayer()[i]
       
