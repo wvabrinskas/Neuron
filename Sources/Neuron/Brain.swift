@@ -262,22 +262,44 @@ public class Brain {
   /// Feeds the network internally preparing for output or training
   /// - Parameter input: the input data to feed the network
   private func feedInternal(input: [Float]) {
-    self.addInputs(input: input)
+    //self.addInputs(input: input)
     
-
-    for i in 0..<self.lobes.count - 1 {
+    var x = input
+    
+    for i in 0..<self.lobes.count {
       let currentLayer = self.lobes[i].neurons
+      var newInputs: [Float] = []
 
-      //THIS IS THE PART THAT TAKES A WHILE!!!
-      let newInputs = currentLayer.map { (neuron) -> Float in
-        return neuron.activation()
-      }
-      
-      self.lobes[i + 1].neurons.forEach { (neuron) in
-        neuron.replaceInputs(inputs: newInputs)
+      for c in 0..<currentLayer.count {
+        let neuron = currentLayer[c]
+        
+        //input layer isn't fully connected and just passes the input value with
+        //no activation function
+        if i == 0 {
+          neuron.replaceInputs(inputs: [input[c]])
+        } else {
+          neuron.replaceInputs(inputs: x)
+        }
+        
+        newInputs.append(neuron.activation())
       }
 
+      x = newInputs
     }
+//
+//    for i in 0..<self.lobes.count - 1 {
+//      let currentLayer = self.lobes[i].neurons
+//
+//      //THIS IS THE PART THAT TAKES A WHILE!!!
+//      let newInputs = currentLayer.map { (neuron) -> Float in
+//        return neuron.activation()
+//      }
+//
+//      self.lobes[i + 1].neurons.forEach { (neuron) in
+//        neuron.replaceInputs(inputs: newInputs)
+//      }
+//
+//    }
   }
   
   /// Get the result of the last layer of the network
