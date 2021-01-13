@@ -350,48 +350,72 @@ public class Brain {
       return
     }
     
+    
+//    for i in 0..<correctValues.count {
+//
+//      let target = correctValues[i]
+//      let predicted = outs[i]//self.outputLayer()[i].activation()
+//
+//      let outputNeuron = self.outputLayer()[i]
+//
+//      outputNeuron.delta = self.lossFunction.derivative(predicted, correct: target)
+//      if debug {
+//        print("out: \(i), raw: \(outputNeuron.activation()) predicted: \(predicted), actual: \(target) delta: \(outputNeuron.delta)")
+//      }
+//    }
+    
     //set output error delta
     let outs = self.get()
     
-    for i in 0..<correctValues.count {
+    //only change the hot index
+    if let hotIndex = correctValues.firstIndex(of: 1.0) {
+      let target = correctValues[hotIndex]
+      let predicted = outs[hotIndex]//self.outputLayer()[i].activation()
       
-      let target = correctValues[i]
-      let predicted = outs[i]//self.outputLayer()[i].activation()
-      
-      let outputNeuron = self.outputLayer()[i]
+      let outputNeuron = self.outputLayer()[hotIndex]
       
       outputNeuron.delta = self.lossFunction.derivative(predicted, correct: target)
       if debug {
-        print("out: \(i), raw: \(outputNeuron.activation()) predicted: \(predicted), actual: \(target) delta: \(outputNeuron.delta)")
+        print("out: \(hotIndex), raw: \(outputNeuron.activation()) predicted: \(predicted), actual: \(target) delta: \(outputNeuron.delta)")
       }
-    }
     
-    //reverse so we can loop through from the beggining of the array starting at the output node
-    let reverse: [Lobe] = self.lobes.reversed()
     
-    //- 1 because we dont need to propagate passed the input layer
-    //DISPATCH QUEUE BREAKS EVERYTHING NEED BETTER OPTIMIZATION =(
-    //WITH OUT IT MAKES IT MUCH SLOWER BUT WITH IT IT FORMS A RACE CONDITION =(
-    
-    for i in 0..<reverse.count - 1 {
-      let currentLayer = reverse[i].neurons
-      let previousLayer = reverse[i + 1].neurons
+      //reverse so we can loop through from the beggining of the array starting at the output node
+      let reverse: [Lobe] = self.lobes.reversed()
 
-      for p in 0..<previousLayer.count {
-        var deltaAtLayer: Float = 0
-        
-        for c in 0..<currentLayer.count {
-          let currentNode = currentLayer[c]
-          let currentInput = currentNode.inputs[p]
+      
+      for i in 0..<reverse.count - 1 {
+        let currentLayer = reverse[i].neurons
+        let previousLayer = reverse[i + 1].neurons
+
+        for p in 0..<previousLayer.count {
+          var deltaAtLayer: Float = 0
           
-          let currentNeuronDelta = currentNode.delta * currentInput.weight
-          deltaAtLayer += currentNeuronDelta
+          if i == 0 { // in output layer
+              
+              let currentNode = currentLayer[hotIndex]
+              let currentInput = currentNode.inputs[p]
+              
+              let currentNeuronDelta = currentNode.delta * currentInput.weight
+              deltaAtLayer += currentNeuronDelta
+            
+          } else {
+            
+            for c in 0..<currentLayer.count {
+              let currentNode = currentLayer[c]
+              let currentInput = currentNode.inputs[p]
+              
+              let currentNeuronDelta = currentNode.delta * currentInput.weight
+              deltaAtLayer += currentNeuronDelta
+            }
+            
+          }
+
+          previousLayer[p].delta = deltaAtLayer * previousLayer[p].derivative()
+
         }
         
-        previousLayer[p].delta = deltaAtLayer * previousLayer[p].derivative()
-
       }
-      
     }
     
   }
