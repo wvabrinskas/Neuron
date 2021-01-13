@@ -123,12 +123,6 @@ public class Brain {
     var previousValidationError: Float = 0
     
     for i in 0..<epochs {
-      //maybe add to serial background queue, dispatch queue crashes
-      /// feed a model and its correct values through the network to calculate the loss
-      let loss = self.calcTotalLoss(self.feed(input: data[0].data),
-                                    correct: data[0].correct)
-      self.loss.append(loss)
-      
       
       let epochStartDate = Date()
       
@@ -145,7 +139,14 @@ public class Brain {
         self.trainIndividual(data: obj)
       }
       
+      //maybe add to serial background queue, dispatch queue crashes
+      /// feed a model and its correct values through the network to calculate the loss
+      let loss = self.calcTotalLoss(self.feed(input: data[0].data),
+                                    correct: data[0].correct)
+      self.loss.append(loss)
+      
       if debug {
+        print("loss at epoch \(i): \(loss)")
         print("epoch completed time: \(Date().timeIntervalSince(epochStartDate))")
       }
       
@@ -176,7 +177,7 @@ public class Brain {
           previousValidationErrors.removeAll()
           
         } else {
-          previousValidationErrors.append(abs(errorForValidation - previousValidationError))
+          previousValidationErrors.append(abs(errorForValidation))
         }
         
         previousValidationError = errorForValidation
@@ -262,8 +263,6 @@ public class Brain {
   /// Feeds the network internally preparing for output or training
   /// - Parameter input: the input data to feed the network
   private func feedInternal(input: [Float]) {
-    //self.addInputs(input: input)
-    
     var x = input
     
     for i in 0..<self.lobes.count {
@@ -286,20 +285,6 @@ public class Brain {
 
       x = newInputs
     }
-//
-//    for i in 0..<self.lobes.count - 1 {
-//      let currentLayer = self.lobes[i].neurons
-//
-//      //THIS IS THE PART THAT TAKES A WHILE!!!
-//      let newInputs = currentLayer.map { (neuron) -> Float in
-//        return neuron.activation()
-//      }
-//
-//      self.lobes[i + 1].neurons.forEach { (neuron) in
-//        neuron.replaceInputs(inputs: newInputs)
-//      }
-//
-//    }
   }
   
   /// Get the result of the last layer of the network
