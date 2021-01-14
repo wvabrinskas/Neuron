@@ -25,15 +25,15 @@ public class Brain {
   /// Neuron matrix in the existing brain object
   public var lobes: [Lobe] = []
   
+  /// If the brain object has been compiled and linked properly
+  public var compiled: Bool = false
+  
   /// The function to use to calculate the loss of the network
   private var lossFunction: LossFunction
   
   /// The threshold to compare the validation error with to determine whether or not to stop training.
   /// Default: 0.001. A number between 0 and 0.1 is usually accepted
   private var lossThreshold: Float
-  
-  /// If the brain object has been compiled and linked properly
-  private var compiled: Bool = false
   
   /// Output modifier for the output layer. ex. softmax
   private var outputModifier: OutputModifier? = nil
