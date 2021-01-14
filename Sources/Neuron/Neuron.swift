@@ -21,7 +21,7 @@ public class Neuron {
   private var bias: Float
   private var biasWeight: Float = Float.random(in: 0...1)
   private var activationType: Activation
-  private var previousActivation: Float = 0
+  private var activationDerivative: Float = 0
   private var layer: LobeModel.LayerType
   
   /// Default initializer. Creates a Neuron object
@@ -75,7 +75,7 @@ public class Neuron {
   }
   
   public func derivative() -> Float {
-    return self.activationType.derivative(input: previousActivation)
+    return activationDerivative
   }
   /// Gets the result of the activation function at this node. If the layer type is of input
   /// this will return the first input in the array of inputs
@@ -88,7 +88,7 @@ public class Neuron {
       }
       
       let input = self.inputs[0].inputValue
-      self.previousActivation = input
+      self.activationDerivative = 1
       return input
     }
     
@@ -102,7 +102,7 @@ public class Neuron {
     sum += (bias * biasWeight)
   
     let out = self.activationType.activate(input: sum)
-    self.previousActivation = sum
+    self.activationDerivative = self.activationType.derivative(input: sum)
     
     return out
   }
