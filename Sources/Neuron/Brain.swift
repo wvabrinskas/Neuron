@@ -10,113 +10,210 @@ import Foundation
 
 public class Brain {
   
-  /// THe nucleus object that describes the network settings
-  public var nucleus: Nucleus
-  
-  /// When set to true this will print the error caclulated by the network as Mean Sqr Error
+  /// When set to true this will print the error caclulated by the network
   public var debug: Bool = false
   
+  /// The nucleus object that describes the network settings
+  public var nucleus: Nucleus
+  
+  /// Number of times to run the training data set
+  public var epochs: Int
+  
   /// The loss function data from training to be exported
-  private var loss: [Float] = []
+  public var loss: [Float] = []
   
   /// Neuron matrix in the existing brain object
-  private var lobes: [Lobe] = []
+  public var lobes: [Lobe] = []
+  
+  /// If the brain object has been compiled and linked properly
+  public var compiled: Bool = false
+  
+  /// The function to use to calculate the loss of the network
+  private var lossFunction: LossFunction
+  
+  /// The threshold to compare the validation error with to determine whether or not to stop training.
+  /// Default: 0.001. A number between 0 and 0.1 is usually accepted
+  private var lossThreshold: Float
+  
+  /// Output modifier for the output layer. ex. softmax
+  private var outputModifier: OutputModifier? = nil
+  
+  private var previousValidationErrors: [Float] = []
   
   /// Creates a Brain object that manages a network of Neuron objects
   /// - Parameters:
-  ///   - inputs: Number of inputs to generate
-  ///   - outputs: Number of outputs to expect
-  ///   - hidden: number of hidden neurons per layer
-  ///   - hiddenLayers: number of hidden layers. Default: 1
-  ///   - nucleus: Nucleus object that describes the learning behavior of the network
-  public init(inputs: Int,
-              outputs: Int,
-              hidden: Int,
-              hiddenLayers: Int = 1,
-              nucleus: Nucleus) {
+  ///   - nucleus:  Nucleus object that describes the learning behavior of the network
+  ///   - epochs: Number of times to run the training daya
+  ///   - lossFunction: The loss function to calculate
+  ///   - lossThreshold: The loss threshold to reach when training
+  public init(nucleus: Nucleus,
+              epochs: Int,
+              lossFunction: LossFunction = .meanSquareError,
+              lossThreshold: Float = 0.001) {
     
     self.nucleus = nucleus
-    
-    //setup inputs
-    var newInputNeurons: [Neuron] = []
-
-    for _ in 0..<max(inputs, 1) {
-      let inputNeuron = Neuron(nucleus: nucleus)
-      newInputNeurons.append(inputNeuron)
+    self.lossFunction = lossFunction
+    self.lossThreshold = lossThreshold
+    self.epochs = epochs
+  }
+  
+  /// Adds a layer to the neural network
+  /// - Parameter model: The lobe model describing the layer to be added
+  public func add(_ model: LobeModel) {
+    ///TODO:
+    ///maybe auto assign input layer and only add hidden layers?
+    ///kind of redundant to specify a layer as being input when the first in the
+    ///array is considereing the input layer.
+    self.lobes.append(model.lobe(self.nucleus))
+  }
+  
+  /// Adds an output modifier to the output layer
+  /// - Parameter mod: The modifier to apply to the outputs
+  public func add(modifier mod: OutputModifier) {
+    self.outputModifier = mod
+  }
+  
+  private func dendrite() -> NeuroTransmitter {
+    return NeuroTransmitter()
+  }
+  /// Connects all the lobes together in the network builing the complete network
+  public func compile() {
+    guard lobes.count > 0 else {
+      fatalError("no lobes to connect bailing out.")
     }
-    self.lobes.append(Lobe(neurons: newInputNeurons))
-        
-    //setup hidden layer
-    if (hiddenLayers > 0) {
-      for _ in 0..<hiddenLayers {
-        var newHiddenNeurons: [Neuron] = []
-        for _ in 0..<max(hidden, 1) {
-          let hiddenNeuron = Neuron(nucleus: nucleus)
-          newHiddenNeurons.append(hiddenNeuron)
-        }
-        self.lobes.append(Lobe(neurons: newHiddenNeurons))
-      }
-    }
-    
-    //setup output layer
-    var newOutputNeurons: [Neuron] = []
-    
-    for _ in 0..<max(outputs, 1) {
-      let outputNeuron = Neuron(nucleus: nucleus)
-      newOutputNeurons.append(outputNeuron)
-    }
-    self.lobes.append(Lobe(neurons: newOutputNeurons))
-    
     //link all the layers generating the matrix
     for i in 0..<lobes.count {
       if i > 0 {
         let neuronGroup = self.lobes[i].neurons
         let inputNeuronGroup = self.lobes[i-1].neurons
-
+        
         neuronGroup.forEach { (neuron) in
-          let dendrites = [NeuroTransmitter](repeating: NeuroTransmitter(), count: inputNeuronGroup.count)
+          var dendrites: [NeuroTransmitter] = []
+          
+          for _ in 0..<inputNeuronGroup.count {
+            dendrites.append(NeuroTransmitter())
+          }
+
           neuron.inputs = dendrites
         }
       }
     }
-  }
-  
-  /// Train with the data where the output is expected to be the input data
-  /// - Parameter data: Input data that contains the expected result
-  public func autoTrain(data: [Float]) {
-    //not sure we need to add inputs here
-    self.train(data: data, correct: data)
+    
+    compiled = true
   }
   
   /// Supervised training function
   /// - Parameters:
-  ///   - data: the data to train against as an array of floats
-  ///   - correct: the correct values that should be expected from the network
-  public func train(data: [Float], correct: [Float]) {
-    guard correct.count == self.outputLayer().count else {
-      print("🛑 Error: correct data count does not match ouput node count, bailing out")
+  ///   - data: The training data object containing the expected values and the training data
+  ///   - validation: The validation data object containing the expected values and the validation data
+  ///   - complete: Called when training is completed
+  public func train(data: [TrainingData],
+                    validation: [TrainingData] = [],
+                    complete: ((_ complete: Bool) -> ())? = nil) {
+    
+    previousValidationErrors.removeAll()
+
+    let trainingStartDate = Date()
+    
+    guard data.count > 0 else {
+      print("data must contain some data")
+      complete?(false)
       return
     }
     
-    //feed the data through the network
-    self.feedInternal(input: data)
+    guard compiled == true else {
+      complete?(false)
+      print("please run compile() on the Brain object before training")
+      return
+    }
+        
+    for i in 0..<epochs {
+      
+      let epochStartDate = Date()
+      
+      if debug {
+        print("epoch: \(i)")
+      }
+      
+      //train the network with all the data
+      for d in 0..<data.count {
+        let obj = data[d]
+        if debug {
+          print("data iteration: \(d)")
+        }
+        self.trainIndividual(data: obj)
+      }
+      
+      //maybe add to serial background queue, dispatch queue crashes
+      /// feed a model and its correct values through the network to calculate the loss
+      let loss = self.calcAverageLoss(self.feed(input: data[0].data),
+                                      correct: data[0].correct)
+      self.loss.append(loss)
+      
+      if debug {
+        print("loss at epoch \(i): \(loss)")
+        print("epoch completed time: \(Date().timeIntervalSince(epochStartDate))")
+      }
+      
+      //feed validation data through the network
+      if let validationData = validation.randomElement(), validation.count > 0 {
+
+        self.feedInternal(input: validationData.data)
+        let errorForValidation = self.calcAverageErrorForOutput(correct: validationData.correct)
+  
+        //if validation error is greater than previous then we are complete with training
+        //bail out to prevent overfitting
+        let threshold: Float = self.lossThreshold
+        //only append if % 10 != 0
+        if i % 5 == 0 {
+          if debug {
+            print("validating....")
+          }
+          
+          if self.averageError() <= threshold {
     
-    //get the error and propagate backwards through
-    self.backpropagate(correct)
+            print("🟢 SUCCESS: training is complete...")
+            if debug {
+              print("training completed time: \(Date().timeIntervalSince(trainingStartDate))")
+            }
+            complete?(true)
+            return
+          }
+          previousValidationErrors.removeAll()
+          
+        } else {
+          previousValidationErrors.append(abs(errorForValidation))
+        }
+      }
+      
+    }
     
-    //adjust all the weights after back propagation is complete
-    self.adjustWeights()
+    if debug {
+      print("training completed time: \(Date().timeIntervalSince(trainingStartDate))")
+    }
+    complete?(true)
+  }
+  
+  private func averageError() -> Float {
+    var sum: Float = 0
+    
+    previousValidationErrors.forEach { (error) in
+      sum += error
+    }
+    
+    return sum / Float(previousValidationErrors.count)
   }
   
   /// Clears the whole network and resets all the weights to a random value
   public func clear() {
+    self.previousValidationErrors = []
     self.loss.removeAll()
     //clears the whole matrix
     self.lobes.forEach { (lobe) in
       lobe.clear()
     }
   }
-
+  
   /// Feed-forward through the network to get the result
   /// - Parameters:
   ///   - input: the input array of floats
@@ -125,7 +222,7 @@ public class Brain {
   public func feed(input: [Float], ranked: Bool = false) -> [Float] {
     self.feedInternal(input: input)
     
-    let out = self.get(ranked: ranked)
+    let out = self.get()
     return out
   }
   
@@ -139,7 +236,7 @@ public class Brain {
       lobe.updateNucleus(nucleus)
     }
   }
-    
+  
   /// Exports the loss data as a CSV
   /// - Parameter filename: Name of the file to save and export. defaults to `loss-{timeIntervalSince1970}`
   /// - Returns: The url of the exported file if successful.
@@ -148,22 +245,47 @@ public class Brain {
     return ExportManager.getCSV(filename: name, self.loss)
   }
   
+  private func trainIndividual(data: TrainingData) {
+    
+    guard data.correct.count == self.outputLayer().count else {
+      print("🛑 Error: correct data count does not match ouput node count, bailing out")
+      return
+    }
+    
+    //feed the data through the network
+    self.feedInternal(input: data.data)
+    
+    //get the error and propagate backwards through
+    self.backpropagate(data.correct)
+    //self.backpropagateOptim(correct)
+    
+    //adjust all the weights after back propagation is complete
+    self.adjustWeights()
+  }
+  
   /// Feeds the network internally preparing for output or training
   /// - Parameter input: the input data to feed the network
   private func feedInternal(input: [Float]) {
-    self.addInputs(input: input)
+    var x = input
     
-    for i in 0..<self.lobes.count - 1 {
+    for i in 0..<self.lobes.count {
       let currentLayer = self.lobes[i].neurons
-      
-      self.lobes[i + 1].neurons.forEach { (neuron) in
+      var newInputs: [Float] = []
+
+      for c in 0..<currentLayer.count {
+        let neuron = currentLayer[c]
         
-        let newInputs = currentLayer.map { (neuron) -> NeuroTransmitter in
-          return NeuroTransmitter(input: neuron.get())
+        //input layer isn't fully connected and just passes the input value with
+        //no activation function
+        if i == 0 {
+          neuron.replaceInputs(inputs: [input[c]])
+        } else {
+          neuron.replaceInputs(inputs: x)
         }
         
-        neuron.replaceInputs(inputs: newInputs)
+        newInputs.append(neuron.activation())
       }
+      x = newInputs
     }
   }
   
@@ -175,27 +297,23 @@ public class Brain {
     var outputs: [Float] = []
     
     self.outputLayer().forEach { (neuron) in
-      outputs.append(neuron.get())
+      outputs.append(neuron.activation())
     }
     
-    return ranked ? outputs.sorted(by: { $0 > $1 }) : outputs
-  }
-
-  /// Adds inputs to the input layer where the NeuroTransmitter links a value
-  /// - Parameter input: Input array of floats
-  private func addInputs(input: [Float]) {
-    guard input.count == self.inputLayer().count else {
-      print("🛑 Error: input data count does not match input node count, bailing out")
-      return
-    }
+    var out = outputs
     
-    for i in 0..<inputLayer().count {
-      let inputNode = inputLayer()[i]
-      let inputValue = input[i]
+    if let mod = self.outputModifier {
+      var modOut: [Float] = []
       
-      inputNode.replaceInputs(inputs: [NeuroTransmitter(input: inputValue)])
+      for i in 0..<out.count {
+        let modVal = mod.calculate(index: i, outputs: out)
+        modOut.append(modVal)
+      }
+      
+      out = modOut
     }
     
+    return ranked ? out.sorted(by: { $0 > $1 }) : out
   }
   
   /// Get first layer of neurons
@@ -210,13 +328,22 @@ public class Brain {
     return self.lobes.last?.neurons ?? []
   }
   
-  private func logMeanError(_ calc: Float, correct: Float) {
-    let meanErr = calc - correct
-    let err = pow(meanErr, 2) / 2
-    if debug {
-      print(err)
+  private func calcAverageLoss(_ predicted: [Float], correct: [Float]) -> Float {
+    var sum: Float = 0
+    
+    for i in 0..<predicted.count {
+      let predicted = predicted[i]
+      let correct = correct[i]
+      let error = self.lossFunction.calculate(predicted, correct: correct)
+      sum += error
     }
-    self.loss.append(err)
+    
+    return sum / Float(predicted.count)
+  }
+  
+  private func calcAverageErrorForOutput(correct: [Float]) -> Float {
+    let predicted: [Float] = self.get()
+    return self.calcAverageLoss(predicted, correct: correct)
   }
   
   private func backpropagate(_ correctValues: [Float]) {
@@ -226,41 +353,55 @@ public class Brain {
     }
     
     //set output error delta
-    for i in 0..<correctValues.count {
-      let correct = correctValues[i]
-      let outputNeuron = self.outputLayer()[i]
-      let get = outputNeuron.get()
-      outputNeuron.delta = correct - get
+    let outs = self.get()
+
+    for i in 0..<self.outputLayer().count {
+      let target = correctValues[i]
+      let predicted = outs[i]
       
-      logMeanError(get, correct: correct)
+      let outputNeuron = self.outputLayer()[i]
+      
+      outputNeuron.delta = self.lossFunction.derivative(predicted, correct: target)
+      
+      if debug {
+        print("out: \(i), raw: \(outputNeuron.activation()) predicted: \(predicted), actual: \(target) delta: \(outputNeuron.delta)")
+      }
     }
     
     //reverse so we can loop through from the beggining of the array starting at the output node
     let reverse: [Lobe] = self.lobes.reversed()
     
     //- 1 because we dont need to propagate passed the input layer
+    //DISPATCH QUEUE BREAKS EVERYTHING NEED BETTER OPTIMIZATION =(
+    //WITH OUT IT MAKES IT MUCH SLOWER BUT WITH IT IT FORMS A RACE CONDITION =(
+    
     for i in 0..<reverse.count - 1 {
       let currentLayer = reverse[i].neurons
       let previousLayer = reverse[i + 1].neurons
-      
+
       for p in 0..<previousLayer.count {
-        previousLayer[p].delta = 0
+        var deltaAtLayer: Float = 0
         
         for c in 0..<currentLayer.count {
-          let currentNeuronDelta = currentLayer[c].delta * currentLayer[c].inputs[p].weight
-          previousLayer[p].delta += currentNeuronDelta
+          let currentNode = currentLayer[c]
+          let currentInput = currentNode.inputs[p]
+          
+          let currentNeuronDelta = currentNode.delta * currentInput.weight
+          deltaAtLayer += currentNeuronDelta
         }
-      }
+        
+        previousLayer[p].delta = deltaAtLayer
 
+      }
+      
     }
+    
   }
   
   private func adjustWeights() {
-    DispatchQueue.concurrentPerform(iterations: self.lobes.count) { (i) in
+    for i in 0..<self.lobes.count {
       let lobe = self.lobes[i]
       lobe.adjustWeights()
     }
   }
 }
-
- 

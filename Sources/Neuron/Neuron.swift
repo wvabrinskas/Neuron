@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import Accelerate
 
 public class Neuron {
   
@@ -18,43 +19,43 @@ public class Neuron {
 
   private var learningRate: Float
   private var bias: Float
+  private var biasWeight: Float = Float.random(in: 0...1)
   private var activationType: Activation
+  private var activationDerivative: Float = 0
+  private var layer: LobeModel.LayerType
   
   /// Default initializer. Creates a Neuron object
   /// - Parameters:
   ///   - inputs: Array of inputs as NeuroTransmitter that contain the values to be used as inputs
   ///   - nucleus: Nucleus object describing things like learning rate, bias, and activation type
-  public init(inputs: [NeuroTransmitter] = [],  nucleus: Nucleus) {
+  public init(inputs: [NeuroTransmitter] = [],
+              nucleus: Nucleus,
+              activation: Activation,
+              layer: LobeModel.LayerType) {
+    
     self.learningRate = nucleus.learningRate
     self.bias = nucleus.bias
-    self.activationType = nucleus.activationType
+    self.activationType = activation
     
     self.inputs = inputs
+    self.layer = layer
   }
   
   /// Replaces all the inputs connected to this neuron with new ones
-  /// - Parameter inputs: Input array as [NeuronTransmitter] to replace inputs iwth
-  public func replaceInputs(inputs: [NeuroTransmitter]) {
+  /// - Parameter inputs: Input array as [Float] to replace inputs iwth
+  public func replaceInputs(inputs: [Float]) {
     if self.inputs.count == 0 {
-      self.inputs = inputs
+      self.inputs = inputs.map({ NeuroTransmitter(input: $0) })
     }
     
     guard inputs.count == self.inputs.count else {
       print("Error: Can not replace inputs of different size")
       return
     }
-    
-    var newInputs: [NeuroTransmitter] = []
-    
+        
     for i in 0..<self.inputs.count {
-      let currentInput = self.inputs[i]
-      let newInput = inputs[i]
-      
-      newInput.weight = currentInput.weight
-      newInputs.append(newInput)
+      self.inputs[i].inputValue = inputs[i]
     }
-
-    self.inputs = newInputs
   }
   
   /// Adds an input as NeuroTransmitter at a specific index.
@@ -63,50 +64,54 @@ public class Neuron {
   /// - Parameters:
   ///   - in: NeuroTransmitter to insert
   ///   - index: Optional index to insert the input.
-  public func addInput(input in: NeuroTransmitter, at index: Int? = nil) {
-    guard let index = index else {
-      self.inputs.append(`in`)
+  public func addInput(input in: Float, at index: Int? = nil) {
+    guard let index = index, index < self.inputs.count else {
+      let neuroTransmitter = NeuroTransmitter(input: `in`)
+      self.inputs.append(neuroTransmitter)
       return
     }
     
-    if index < self.inputs.count {
-      self.inputs[index] = `in`
-    } else {
-      self.inputs.append(`in`)
-    }
-  }
-
-  /// Gets the result of the activation function at this node
-  /// - Returns: The result of the activation function at this node
-  public func get() -> Float {
-    return self.activation()
+    self.inputs[index].inputValue = `in`
   }
   
-  /// Gets all the inputs as a tuple containing the inputs with their weights
-  /// - Returns: A tuple with the inputs as floats and their corresponding weights, in order.
-  public func getAllInputs() -> (in: [Float], weight: [Float]) {
-    var localInputs: [Float] = []
-    var localWeights: [Float] = []
-
-    for i in 0..<self.inputs.count {
-      let input = self.inputs[i]
+  public func derivative() -> Float {
+    return activationDerivative
+  }
+  /// Gets the result of the activation function at this node. If the layer type is of input
+  /// this will return the first input in the array of inputs
+  /// - Returns: The result of the activation function at this node
+  public func activation() -> Float {
+    //if input layer just pass the value along to hidden layer
+    if self.layer == .input {
+      guard self.inputs.count > 0 else {
+        return 0
+      }
       
-      let get = input.inputValue
-      let weight = input.weight
-      
-      localInputs.append(get)
-      localWeights.append(weight)
+      let input = self.inputs[0].inputValue
+      self.activationDerivative = self.activationType.derivative(input: input)
+      return input
     }
     
-    return (localInputs, localWeights)
-  }
+    var sum: Float = 0
+        
+    //dont add bias or sum of weights to input activation
+    for i in 0..<self.inputs.count {
+      sum += self.inputs[i].weight * self.inputs[i].inputValue
+    }
     
+    sum += (bias * biasWeight)
+  
+    let out = self.activationType.activate(input: sum)
+    self.activationDerivative = self.activationType.derivative(input: sum)
+    
+    return out
+  }
+  
   /// Replaces the Nucleus object describing this Neuron
   /// - Parameter nucleus: Nucleus object to update with
   public func updateNucleus(nucleus: Nucleus) {
     self.learningRate = nucleus.learningRate
     self.bias = nucleus.bias
-    self.activationType = nucleus.activationType
   }
   
   /// Clears this node of all its weights and
@@ -119,26 +124,16 @@ public class Neuron {
   
   /// Adjusts the weights of all inputs
   public func adjustWeights() {
-    DispatchQueue.concurrentPerform(iterations: inputs.count) { (i) in
-      let input = self.inputs[i]
-      let activationDer = self.activationType.derivative(input: input.inputValue)
+    //DISPATCH QUEUE BREAKS EVERYTHING NEED BETTER OPTIMIZATION =(
+    //WITH OUT IT MAKES IT MUCH SLOWER BUT WITH IT IT FORMS A RACE CONDITION =(
+    for i in 0..<inputs.count {
+            
+      //INVERSE -= to += FOR MSE... ??? idk why
+      self.inputs[i].weight -= self.learningRate * self.inputs[i].inputValue * delta * self.derivative()
+      biasWeight -= self.learningRate * delta
+    }
+  }
+  
 
-      input.weight += self.learningRate * delta * activationDer  * input.inputValue
-    }
-  }
-  
-  private func activation() -> Float {
-    var sum: Float = 0
-    
-    let inputPointers = self.inputs
-    for i in 0..<self.inputs.count {
-      sum += inputPointers[i].weight * inputPointers[i].inputValue
-    }
-    
-    sum += bias
-    
-    return self.activationType.activate(input: sum)
-  }
-  
 }
 
