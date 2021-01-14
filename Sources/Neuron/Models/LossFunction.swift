@@ -13,35 +13,17 @@ public enum LossFunction {
   case meanSquareError
   case crossEntropy
   
-  public func calculate(_ predicted: [Float], correct: [Float]) -> Float {
+  public func calculate(_ predicted: Float, correct: Float) -> Float {
     
     switch self {
     case .meanSquareError:
-      var i = 0
-      var sums: Float = 0
-      
-      predicted.forEach { (val) in
-        let correct = correct[i]
-        let sq = pow(val - correct, 2)
-        sums += sq
-        i += 1
-      }
-      
-      return sums / Float(correct.count)
+      let sq = pow(predicted - correct, 2)
+      return sq
       
     case .crossEntropy:
-      var i = 0
-      var sums: Float = 0
-      
-      predicted.forEach { (out) in
-        let correctVal = correct[i]
-        let p = correctVal == 0 ? 1 - out : out
-        sums += (correctVal * log(p))
-        
-        i += 1
-      }
-      
-      return -sums
+      let p = correct == 0 ? 1 - predicted : predicted
+      let result = (correct * log(p))
+      return -result
     }
 
   }

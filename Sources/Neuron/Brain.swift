@@ -119,9 +119,7 @@ public class Brain {
       print("please run compile() on the Brain object before training")
       return
     }
-    
-    var previousValidationError: Float = 0
-    
+        
     for i in 0..<epochs {
       
       let epochStartDate = Date()
@@ -141,8 +139,8 @@ public class Brain {
       
       //maybe add to serial background queue, dispatch queue crashes
       /// feed a model and its correct values through the network to calculate the loss
-      let loss = self.calcTotalLoss(self.feed(input: data[0].data),
-                                    correct: data[0].correct)
+      let loss = self.calcAverageLoss(self.feed(input: data[0].data),
+                                      correct: data[0].correct)
       self.loss.append(loss)
       
       if debug {
@@ -154,7 +152,7 @@ public class Brain {
       if let validationData = validation.randomElement(), validation.count > 0 {
 
         self.feedInternal(input: validationData.data)
-        let errorForValidation = self.calcErrorForOutput(correct: validationData.correct)
+        let errorForValidation = self.calcAverageErrorForOutput(correct: validationData.correct)
   
         //if validation error is greater than previous then we are complete with training
         //bail out to prevent overfitting
@@ -179,8 +177,6 @@ public class Brain {
         } else {
           previousValidationErrors.append(abs(errorForValidation))
         }
-        
-        previousValidationError = errorForValidation
       }
       
     }
@@ -326,14 +322,22 @@ public class Brain {
     return self.lobes.last?.neurons ?? []
   }
   
-  private func calcTotalLoss(_ predicted: [Float], correct: [Float]) -> Float {
-    let error = self.lossFunction.calculate(predicted, correct: correct)
-    return error
+  private func calcAverageLoss(_ predicted: [Float], correct: [Float]) -> Float {
+    var sum: Float = 0
+    
+    for i in 0..<predicted.count {
+      let predicted = predicted[i]
+      let correct = correct[i]
+      let error = self.lossFunction.calculate(predicted, correct: correct)
+      sum += error
+    }
+    
+    return sum / Float(predicted.count)
   }
   
-  private func calcErrorForOutput(correct: [Float]) -> Float {
+  private func calcAverageErrorForOutput(correct: [Float]) -> Float {
     let predicted: [Float] = self.get()
-    return self.calcTotalLoss(predicted, correct: correct)
+    return self.calcAverageLoss(predicted, correct: correct)
   }
   
   private func backpropagate(_ correctValues: [Float]) {
@@ -351,7 +355,9 @@ public class Brain {
       
       let outputNeuron = self.outputLayer()[i]
       
-      outputNeuron.delta = self.lossFunction.derivative(predicted, correct: target) * outputNeuron.derivative()
+      outputNeuron.delta = self.lossFunction.derivative(predicted, correct: target) *
+                           self.lossFunction.calculate(predicted, correct: target)
+      
       if debug {
         print("out: \(i), raw: \(outputNeuron.activation()) predicted: \(predicted), actual: \(target) delta: \(outputNeuron.delta)")
       }
