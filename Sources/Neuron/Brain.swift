@@ -314,21 +314,6 @@ public class Brain {
     return ranked ? out.sorted(by: { $0 > $1 }) : out
   }
   
-  /// Adds inputs to the input layer where the NeuroTransmitter links a value
-  /// - Parameter input: Input array of floats
-  private func addInputs(input: [Float]) {
-    guard input.count == self.inputLayer().count else {
-      print("🛑 Error: input data count does not match input node count, bailing out")
-      return
-    }
-    
-    for i in 0..<inputLayer().count {
-      let inputValue = input[i]
-      inputLayer()[i].replaceInputs(inputs: [inputValue])
-    }
-
-  }
-  
   /// Get first layer of neurons
   /// - Returns: Input layer as array of Neuron objects
   private func inputLayer() -> [Neuron] {
@@ -360,14 +345,13 @@ public class Brain {
     //set output error delta
     let outs = self.get()
     
-    for i in 0..<correctValues.count {
-      
+    for i in 0..<self.outputLayer().count {
       let target = correctValues[i]
       let predicted = outs[i]
       
       let outputNeuron = self.outputLayer()[i]
       
-      outputNeuron.delta = self.lossFunction.derivative(predicted, correct: target) * outputNeuron.derivative()
+      outputNeuron.delta = self.lossFunction.derivative(predicted, correct: target) * target
       if debug {
         print("out: \(i), raw: \(outputNeuron.activation()) predicted: \(predicted), actual: \(target) delta: \(outputNeuron.delta)")
       }
