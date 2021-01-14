@@ -88,7 +88,7 @@ public class Neuron {
       }
       
       let input = self.inputs[0].inputValue
-      self.activationDerivative = 1
+      self.activationDerivative = self.activationType.derivative(input: input)
       return input
     }
     
