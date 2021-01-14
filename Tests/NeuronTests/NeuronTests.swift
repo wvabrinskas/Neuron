@@ -2,13 +2,46 @@ import XCTest
 @testable import Neuron
 
 final class NeuronTests: XCTestCase {
-    func testExample() {
-        // This is an example of a functional test case.
-        // Use XCTAssert and related functions to verify your tests produce the correct
-        // results.
+  
+  private lazy var brain: Brain = {
+    
+    let nucleus = Nucleus(learningRate: 0.001,
+                          bias: 0.001)
+    
+    let outputs = 3
+    let inputs = outputs + 1 //acounting for alpha
+    
+    let brain = Brain(nucleus: nucleus,
+                      epochs: 10,
+                      lossFunction: .crossEntropy,
+                      lossThreshold: 0.001)
+    
+    brain.add(.layer(inputs, .none, .input)) //input  layer
+    brain.add(.layer(5, .reLu, .hidden)) //hidden layer
+    brain.add(.layer(outputs, Activation.none, .output)) //output layer
+    
+    brain.add(modifier: .softmax)
+    
+    brain.debug = true
+    
+    return brain
+  }()
+  
+  //checks to see if the neurontransmitter objects are unique
+  func testNeuronConnectionObjects() {
+    brain.compile()
+    
+    brain.lobes.forEach { (lobe) in
+      lobe.neurons.forEach { (neuron) in
+        neuron.inputs.forEach { (connection) in
+          let count = neuron.inputs.filter({ $0 == connection })
+          XCTAssertTrue(count.count == 1, "Multiples of the same NeuroTransmitter")
+        }
+      }
     }
-
-    static var allTests = [
-        ("testExample", testExample),
-    ]
+  }
+  
+  static var allTests = [
+    ("testNeuronConnectionObjects", testNeuronConnectionObjects),
+  ]
 }

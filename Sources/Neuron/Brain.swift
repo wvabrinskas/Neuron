@@ -23,7 +23,7 @@ public class Brain {
   public var loss: [Float] = []
   
   /// Neuron matrix in the existing brain object
-  private var lobes: [Lobe] = []
+  public var lobes: [Lobe] = []
   
   /// The function to use to calculate the loss of the network
   private var lossFunction: LossFunction
@@ -88,8 +88,12 @@ public class Brain {
         let inputNeuronGroup = self.lobes[i-1].neurons
         
         neuronGroup.forEach { (neuron) in
-          let dendrites = [NeuroTransmitter](repeating: dendrite(),
-                                             count: inputNeuronGroup.count)
+          var dendrites: [NeuroTransmitter] = []
+          
+          for _ in 0..<inputNeuronGroup.count {
+            dendrites.append(NeuroTransmitter())
+          }
+
           neuron.inputs = dendrites
         }
       }
