@@ -348,15 +348,15 @@ public class Brain {
     
     //set output error delta
     let outs = self.get()
-    
+    let totalError = self.calcAverageErrorForOutput(correct: correctValues)
+
     for i in 0..<self.outputLayer().count {
       let target = correctValues[i]
       let predicted = outs[i]
       
       let outputNeuron = self.outputLayer()[i]
       
-      outputNeuron.delta = self.lossFunction.derivative(predicted, correct: target) *
-                           self.lossFunction.calculate(predicted, correct: target)
+      outputNeuron.delta = self.lossFunction.derivative(predicted, correct: target) * totalError
       
       if debug {
         print("out: \(i), raw: \(outputNeuron.activation()) predicted: \(predicted), actual: \(target) delta: \(outputNeuron.delta)")
