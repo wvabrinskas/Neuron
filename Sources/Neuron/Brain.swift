@@ -356,7 +356,7 @@ public class Brain {
       
       let outputNeuron = self.outputLayer()[i]
       
-      outputNeuron.delta = totalError
+      outputNeuron.delta = self.lossFunction.calculate(predicted, correct: target)
       
       if debug {
         print("out: \(i), raw: \(outputNeuron.activation()) predicted: \(predicted), actual: \(target) delta: \(outputNeuron.delta)")
