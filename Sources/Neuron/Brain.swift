@@ -73,6 +73,9 @@ public class Brain {
     self.outputModifier = mod
   }
   
+  private func dendrite() -> NeuroTransmitter {
+    return NeuroTransmitter()
+  }
   /// Connects all the lobes together in the network builing the complete network
   public func compile() {
     guard lobes.count > 0 else {
@@ -85,7 +88,7 @@ public class Brain {
         let inputNeuronGroup = self.lobes[i-1].neurons
         
         neuronGroup.forEach { (neuron) in
-          let dendrites = [NeuroTransmitter](repeating: NeuroTransmitter(),
+          let dendrites = [NeuroTransmitter](repeating: dendrite(),
                                              count: inputNeuronGroup.count)
           neuron.inputs = dendrites
         }
