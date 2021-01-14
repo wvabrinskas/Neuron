@@ -102,7 +102,7 @@ public class Neuron {
     sum += (bias * biasWeight)
   
     let out = self.activationType.activate(input: sum)
-    self.previousActivation = out
+    self.previousActivation = sum
     
     return out
   }
