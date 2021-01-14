@@ -215,7 +215,10 @@ public class Brain {
   public func feed(input: [Float], ranked: Bool = false) -> [Float] {
     self.feedInternal(input: input)
     
-    let out = self.get(ranked: ranked)
+    let out = self.get()
+    if debug {
+      print("actual: \(out)")
+    }
     return out
   }
   
@@ -278,7 +281,9 @@ public class Brain {
         
         newInputs.append(neuron.activation())
       }
-
+      if debug {
+        print("inputs: \(newInputs)")
+      }
       x = newInputs
     }
   }
@@ -292,6 +297,10 @@ public class Brain {
     
     self.outputLayer().forEach { (neuron) in
       outputs.append(neuron.activation())
+    }
+    
+    if debug {
+      print("raw: \(outputs)")
     }
     
     var out = outputs
