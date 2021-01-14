@@ -223,9 +223,6 @@ public class Brain {
     self.feedInternal(input: input)
     
     let out = self.get()
-    if debug {
-      print("actual: \(out)")
-    }
     return out
   }
   
@@ -288,9 +285,6 @@ public class Brain {
         
         newInputs.append(neuron.activation())
       }
-      if debug {
-        print("inputs: \(newInputs)")
-      }
       x = newInputs
     }
   }
@@ -304,10 +298,6 @@ public class Brain {
     
     self.outputLayer().forEach { (neuron) in
       outputs.append(neuron.activation())
-    }
-    
-    if debug {
-      print("raw: \(outputs)")
     }
     
     var out = outputs
