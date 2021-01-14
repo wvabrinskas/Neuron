@@ -129,8 +129,8 @@ public class Neuron {
     for i in 0..<inputs.count {
             
       //INVERSE -= to += FOR MSE... ??? idk why
-      self.inputs[i].weight -= self.learningRate * self.inputs[i].inputValue * delta
-      biasWeight -= self.learningRate * delta
+      self.inputs[i].weight += self.learningRate * self.inputs[i].inputValue * delta * self.derivative()
+      biasWeight += self.learningRate * delta
     }
   }
   
