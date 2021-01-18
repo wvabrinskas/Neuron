@@ -16,6 +16,7 @@ let package = Package(
             targets: ["Neuron"]),
     ],
     dependencies: [
+        .package(url: "https://github.com/wvabrinskas/Logger.git", from: "1.0.3")
         // Dependencies declare other packages that this package depends on.
         // .package(url: /* package url */, from: "1.0.0"),
     ],
@@ -24,7 +25,9 @@ let package = Package(
         // Targets can depend on other targets in this package, and on products in packages which this package depends on.
         .target(
             name: "Neuron",
-            dependencies: []),
+            dependencies: [
+            "Logger"
+            ]),
         
         .testTarget(
             name: "NeuronTests",

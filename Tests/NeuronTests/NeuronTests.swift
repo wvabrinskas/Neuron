@@ -22,8 +22,7 @@ final class NeuronTests: XCTestCase {
     brain.add(.layer(outputs, Activation.none, .output)) //output layer
     
     brain.add(modifier: .softmax)
-    
-    brain.debug = true
+    brain.logLevel = .high
     
     return brain
   }()

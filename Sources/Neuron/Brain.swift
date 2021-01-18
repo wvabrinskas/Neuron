@@ -7,12 +7,12 @@
 //
 
 import Foundation
+import Logger
 
-public class Brain {
-  
-  /// When set to true this will print the error caclulated by the network
-  public var debug: Bool = false
-  
+public class Brain: Logger {
+  /// The verbosity of the printed logs
+  public var logLevel: LogLevel = .none
+    
   /// The nucleus object that describes the network settings
   public var nucleus: Nucleus
   
@@ -131,16 +131,14 @@ public class Brain {
       
       let epochStartDate = Date()
       
-      if debug {
-        print("epoch: \(i)")
-      }
-      
+      self.log(type: .message, priority: .low, message: "epoch: \(i)")
+
       //train the network with all the data
       for d in 0..<data.count {
         let obj = data[d]
-        if debug {
-          print("data iteration: \(d)")
-        }
+
+        self.log(type: .message, priority: .high, message: "data iteration: \(d)")
+
         self.trainIndividual(data: obj)
       }
       
@@ -150,11 +148,12 @@ public class Brain {
                                       correct: data[0].correct)
       self.loss.append(loss)
       
-      if debug {
-        print("loss at epoch \(i): \(loss)")
-        print("epoch completed time: \(Date().timeIntervalSince(epochStartDate))")
-      }
+      self.log(type: .message, priority: .low, message: "loss at epoch \(i): \(loss)")
       
+      self.log(type: .message,
+               priority: .high,
+               message: "epoch completed time: \(Date().timeIntervalSince(epochStartDate))")
+    
       //feed validation data through the network
       if let validationData = validation.randomElement(), validation.count > 0 {
 
@@ -166,16 +165,18 @@ public class Brain {
         let threshold: Float = self.lossThreshold
         //only append if % 10 != 0
         if i % 5 == 0 {
-          if debug {
-            print("validating....")
-          }
+          
+          self.log(type: .message, priority: .medium, message: "validating....")
           
           if self.averageError() <= threshold {
-    
-            print("🟢 SUCCESS: training is complete...")
-            if debug {
-              print("training completed time: \(Date().timeIntervalSince(trainingStartDate))")
-            }
+            
+            self.log(type: .success, priority: .alwaysShow, message: "SUCCESS: training is complete...")
+
+            self.log(type: .success,
+                     priority: .high,
+                     message: "training completed time: \(Date().timeIntervalSince(trainingStartDate))")
+
+            
             complete?(true)
             return
           }
@@ -188,9 +189,10 @@ public class Brain {
       
     }
     
-    if debug {
-      print("training completed time: \(Date().timeIntervalSince(trainingStartDate))")
-    }
+    self.log(type: .success,
+             priority: .high,
+             message: "training completed time: \(Date().timeIntervalSince(trainingStartDate))")
+
     complete?(true)
   }
   
@@ -248,7 +250,9 @@ public class Brain {
   private func trainIndividual(data: TrainingData) {
     
     guard data.correct.count == self.outputLayer().count else {
-      print("🛑 Error: correct data count does not match ouput node count, bailing out")
+      self.log(type: .error,
+               priority: .alwaysShow,
+               message: "Error: correct data count does not match ouput node count, bailing out")
       return
     }
     
@@ -348,7 +352,10 @@ public class Brain {
   
   private func backpropagate(_ correctValues: [Float]) {
     guard correctValues.count == self.outputLayer().count else {
-      print("🛑 Error: correct data count does not match ouput node count, bailing out")
+      
+      self.log(type: .error,
+               priority: .alwaysShow,
+               message: "Error: correct data count does not match ouput node count, bailing out")
       return
     }
     
@@ -363,9 +370,10 @@ public class Brain {
       
       outputNeuron.delta = self.lossFunction.derivative(predicted, correct: target)
       
-      if debug {
-        print("out: \(i), raw: \(outputNeuron.activation()) predicted: \(predicted), actual: \(target) delta: \(outputNeuron.delta)")
-      }
+      self.log(type: .message,
+               priority: .medium,
+               message: "out: \(i), raw: \(outputNeuron.activation()) predicted: \(predicted), actual: \(target) delta: \(outputNeuron.delta)")
+
     }
     
     //reverse so we can loop through from the beggining of the array starting at the output node
