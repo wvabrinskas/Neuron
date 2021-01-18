@@ -132,14 +132,20 @@ public class Brain: Logger {
       let epochStartDate = Date()
       
       self.log(type: .message, priority: .low, message: "epoch: \(i)")
-
+      
+      var percentComplete: Int = 0
       //train the network with all the data
       for d in 0..<data.count {
+        percentComplete = Int(Float(d / data.count) * 100)
+        
         let obj = data[d]
+        
+        self.log(type: .message, priority: .alwaysShow, message: "\(percentComplete)%")
 
-        self.log(type: .message, priority: .high, message: "data iteration: \(d)")
+        self.log(type: .message, priority: .medium, message: "data iteration: \(d)")
 
         self.trainIndividual(data: obj)
+        
       }
       
       //maybe add to serial background queue, dispatch queue crashes
