@@ -136,7 +136,7 @@ public class Brain: Logger {
       var percentComplete: Float = 0
       //train the network with all the data
       for d in 0..<data.count {
-        percentComplete = Float(d / data.count)
+        percentComplete = Float(d) / Float(data.count)
         
         let obj = data[d]
         
