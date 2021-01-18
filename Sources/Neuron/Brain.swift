@@ -204,7 +204,7 @@ public class Brain: Logger {
 
         self.feedInternal(input: validationData.data)
         let errorForValidation = self.calcAverageErrorForOutput(correct: validationData.correct)
-  
+
         //if validation error is greater than previous then we are complete with training
         //bail out to prevent overfitting
         let threshold: Float = self.lossThreshold
@@ -229,6 +229,7 @@ public class Brain: Logger {
           }
         }
         
+        self.log(type: .message, priority: .low, message: "val error at epoch \(i): \(errorForValidation)")
         if previousValidationErrors.count == checkBatchCount {
           previousValidationErrors.removeFirst()
         }
