@@ -27,7 +27,7 @@ public enum LobeModel {
         let neuron = Neuron(nucleus: nuc, activation: act, layer: layer)
         neurons.append(neuron)
       }
-      return Lobe(neurons: neurons)
+      return Lobe(neurons: neurons, layer: layer)
     }
   }
 }

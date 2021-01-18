@@ -15,10 +15,12 @@ public class Lobe {
   /// Neurons in the Lobe object
   public var neurons: [Neuron] = []
   
+  public var layer: LobeModel.LayerType
   /// default initializer
   /// - Parameter neurons: Neruons to control
-  public init(neurons: [Neuron]) {
+  public init(neurons: [Neuron], layer: LobeModel.LayerType) {
     self.neurons = neurons
+    self.layer = layer
   }
   
   /// Adjusts all the weights in all the neurons in this Lobe

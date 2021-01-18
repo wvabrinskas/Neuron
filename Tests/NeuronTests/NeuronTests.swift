@@ -34,6 +34,7 @@ final class NeuronTests: XCTestCase {
   let inputs = 4
   let hidden = 5
   let outputs = 3
+  let numOfHiddenLayers = 2
   
   private lazy var brain: Brain = {
     
@@ -46,7 +47,11 @@ final class NeuronTests: XCTestCase {
                       lossThreshold: 0.001)
     
     brain.add(.layer(inputs, .none, .input)) //input  layer
-    brain.add(.layer(hidden, .reLu, .hidden)) //hidden layer
+    
+    for _ in 0..<numOfHiddenLayers {
+      brain.add(.layer(hidden, .reLu, .hidden)) //hidden layer
+    }
+    
     brain.add(.layer(outputs, Activation.none, .output)) //output layer
     
     brain.add(modifier: .softmax)
@@ -63,6 +68,27 @@ final class NeuronTests: XCTestCase {
   }
   
   func testNumberOfLobesMatches() {
+    let inputLayer = self.brain.lobes.filter({ $0.layer == .input })
+    let hiddenLayers = self.brain.lobes.filter({ $0.layer == .hidden })
+    let outputLayer = self.brain.lobes.filter({ $0.layer == .output })
+
+    XCTAssertTrue(inputLayer.count == 1, "Should only have 1 first layer")
+
+    if let first = inputLayer.first {
+      XCTAssertTrue(first.neurons.count == inputs, "Input layer count does not match model")
+    }
+    
+    XCTAssertTrue(hiddenLayers.count == numOfHiddenLayers, "Number of hidden layers does not match model")
+    
+    hiddenLayers.forEach { (layer) in
+      XCTAssertTrue(layer.neurons.count == hidden, "Hidden layer count does not match model")
+    }
+    
+    XCTAssertTrue(outputLayer.count == 1, "Should only have 1 first layer")
+
+    if let first = outputLayer.first {
+      XCTAssertTrue(first.neurons.count == outputs, "Output layer count does not match model")
+    }
     
   }
   
