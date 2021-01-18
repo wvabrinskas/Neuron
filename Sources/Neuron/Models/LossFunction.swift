@@ -22,7 +22,7 @@ public enum LossFunction {
       
     case .crossEntropy:
       let p = correct == 0 ? 1 - predicted : predicted
-      let result = (correct * log(p))
+      let result = (correct * log(p + 1e-10))
       return -result
     }
 
