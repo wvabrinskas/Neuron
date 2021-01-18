@@ -50,7 +50,8 @@ final class NeuronTests: XCTestCase {
     let brain = Brain(nucleus: nucleus,
                       epochs: 10,
                       lossFunction: .crossEntropy,
-                      lossThreshold: 0.001)
+                      lossThreshold: 0.001,
+                      initializer: .xavierNormal)
     
     brain.add(.layer(inputs, .none, .input)) //input  layer
     

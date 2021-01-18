@@ -43,7 +43,7 @@ public class Brain: Logger {
   private var previousValidationErrors: [Float] = []
   
   /// The initializer to generate the layer weights
-  private var initializer: Inializers
+  private var initializer: Initializers
 
   /// Initialized layer weights for unit test purposes only
   internal var layerWeights: [[Float]] = []
@@ -61,7 +61,7 @@ public class Brain: Logger {
               epochs: Int,
               lossFunction: LossFunction = .meanSquareError,
               lossThreshold: Float = 0.001,
-              initializer: Inializers = .xavierNormal) {
+              initializer: Initializers = .xavierNormal) {
     
     self.nucleus = nucleus
     self.lossFunction = lossFunction
@@ -269,9 +269,8 @@ public class Brain: Logger {
   /// Feed-forward through the network to get the result
   /// - Parameters:
   ///   - input: the input array of floats
-  ///   - ranked: whether the network should sort the output by highest first
   /// - Returns: The result of the feed forward through the network as an array of Floats
-  public func feed(input: [Float], ranked: Bool = false) -> [Float] {
+  public func feed(input: [Float]) -> [Float] {
     self.feedInternal(input: input)
     
     let out = self.get()

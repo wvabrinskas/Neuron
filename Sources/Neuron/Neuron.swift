@@ -45,7 +45,7 @@ public class Neuron {
   /// - Parameter inputs: Input array as [Float] to replace inputs with
   /// - Parameter initializer: The initialier to generate the weights
 
-  public func replaceInputs(inputs: [Float], initializer: Inializers = .xavierNormal) {
+  public func replaceInputs(inputs: [Float], initializer: Initializers = .xavierNormal) {
     if self.inputs.count == 0 {
       
       self.inputs = inputs.map({ (value) -> NeuroTransmitter in

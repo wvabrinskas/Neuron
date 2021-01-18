@@ -8,25 +8,204 @@
 ![](https://img.shields.io/badge/watchOS-6+-darkcyan?style=flat-square)
 ![](https://img.shields.io/badge/tvOS-13+-darkcyan?style=flat-square)
 
-## Introduction
-Neuron is a swift package I developed to help learn how to make neural networks. It is far from perfect and I am still learning. There is A LOT to learn here and I've just scratched the surface. As of right now this package provides a way to get started in machine learning. It allows for multiple input and outputs as well as customizing the number of nodes in each of the hidden layers you specify. 
+# Introduction
+Neuron is a swift package I developed to help learn how to make neural networks. It is far from perfect and I am still learning. There is A LOT to learn here and I've just scratched the surface. As of right now this package provides a way to get started in machine learning.
 
 <img width="500" src="images/network.png">
 
 #### Disclaimer
 This is very much a `BETA` project and to only be used as a learning tool as of now.
 
-#### Support 
+## Support 
 - [Twitter](https://twitter.com/wvabrinskas)
 
 Feel free to send me suggestions on how to improve this. I would be delighted to learn more!! You can also feel free to assign issues here as well. 
 
-#### Resources 
+# Implementation
 
-- https://towardsdatascience.com/multi-layer-neural-networks-with-sigmoid-function-deep-learning-for-rookies-2-bf464f09eb7f?gi=5b433900266a
-- https://towardsdatascience.com/how-does-back-propagation-in-artificial-neural-networks-work-c7cad873ea74
-- https://missinglink.ai/guides/neural-network-concepts/7-types-neural-network-activation-functions-right/
-- https://github.com/nature-of-code/noc-examples-processing/blob/master/chp10_nn/NOC_10_01_SimplePerceptron
+- Sample Project - https://github.com/wvabrinskas/Swift-Neural-Network
+
+## The Brain
+It is fairly simple to setup the neural network `Brain`. This will be the only object you interface with. 
+
+### Initialization
+```  
+  private lazy var brain: Brain = {
+    
+    let nucleus = Nucleus(learningRate: 0.001,
+                          bias: 0.001)
+    
+    let brain = Brain(nucleus: nucleus,
+                      epochs: 10,
+                      lossFunction: .crossEntropy,
+                      lossThreshold: 0.001, 
+                      initializer: .xavierNormal)
+    
+    brain.add(.layer(inputs, .none, .input))
+    
+    for _ in 0..<numOfHiddenLayers {
+      brain.add(.layer(hidden, .reLu, .hidden)) 
+    }
+    
+    brain.add(.layer(outputs, Activation.none, .output))
+    
+    brain.add(modifier: .softmax)
+    brain.logLevel = .high
+    
+    return brain
+  }()
+```
+
+The `Brain` class is the main interactive class for dealing with the neural network.
+The brain object also supports different log levels so you can see what's going on in the console. 
+
+`brain.logLevel = .low` 
+
+```
+  //show no logs
+  case none
+  
+  //show only success logs
+  case low
+  
+  //show only success and loading logs
+  case medium
+  
+  //show all logs
+  case high
+```
+
+Nucleus
+- It first takes in a `Nucleus` object that defines the learning rate and bias for the network.   
+- When defining a `bias` it is NOT applied to the input layer. 
+- The `Nucleus` object takes in 2 properties `learningRate` and `bias`
+    - `learningRate` - how quickly the node will adjust the weights of its inputs to fit the training model 
+        - Usually between `0` and `1`. 
+    - `bias` - the offset of adjustment to the weight adjustment calculation. 
+        - Usually between `0` and `1`. 
+
+Epochs
+- The number of times to run through the training data. 
+- The brain object may not hit the max number of epochs before training is finished if there is validation data passed and it reaches the defined loss threshold. 
+
+Loss Function 
+- The loss function of the network. This will determine the loss of each epoch as well as the loss of the validation data set. 
+```
+  case meanSquareError
+  case crossEntropy
+```
+- Currently the network only supports Mean Squared Error and Cross Entropy loss functions 
+
+Loss Threshold
+- The loss value the network should reach over an average of 5 epochs. 
+
+Initializer 
+- The initializer function the brain object should use to generate the weight values for each layer. 
+```
+  ///Generates weights based on a normal gaussian distribution. Mean = 0 sd = 1
+  case xavierNormal
+
+  ///Generates weights based on a uniform distribution
+  case xavierUniform
+```
+- Currently the network supports Xavier normal distribution and Xavier uniform distribution 
+
+Optimizer
+- coming soon....
+
+## Adding Layers 
+The brain object allows for adding layers in a module way through the `add` function. 
+```
+  public func add(_ model: LobeModel)
+```
+The `LobeModel` enum contains a case for adding a layer. 
+```
+  case layer(_ nodes: Int, _ activation: Activation = .none, _ layer: LayerType)
+```
+
+Nodes
+- the number of nodes at the layer 
+
+Activation
+- the activation function to be used at the layer 
+- **NOTE: If the layer is of type `.input` the activation function will be ignored**
+
+Layer 
+- the type of layer being specified. (Will soon be automated....)
+```
+  public enum LayerType: CaseIterable {
+    case input, hidden, output
+  }
+  ```
+
+### Modifiers 
+The network also supports adding an output activation modifier such as softmax 
+
+```
+  public func add(modifier mod: OutputModifier) {
+    self.outputModifier = mod
+  }
+```
+
+- Calling `add(modifier)` on the brain object will add the specified output activation to the output layer. 
+- Currently the network on supports Softmax 
+```
+  case softmax
+```
+
+## Compiling the network
+After adding all the specified layers and modifiers do not forget to call `compile()` on the brain object. This will connect all the layers together using the proper initializer and get the network ready for training. 
+
+
+## Training
+You can also train the `Brain` object by passing an expected value. 
+
+```
+public func train(data: [TrainingData],
+                    validation: [TrainingData] = [],
+                    complete: ((_ complete: Bool) -> ())? = nil)
+```
+
+- `data:` An array of `TrainingData` objects to be used as the training data set. 
+- `validation:` An array of `TrainingData` objects to be used as the validation data set. 
+- `complete` A block called when the network has finished training. 
+
+Training Data 
+- This is the object that contains the inputs and expected output for that input
+```
+public struct TrainingData {
+  public var data: [Float]
+  public var correct: [Float]
+  
+  public init(data dat: [Float], correct cor: [Float]) {
+    self.data = dat
+    self.correct = cor
+  }
+}
+```
+Data
+- An array of values that should match the number of inputs into the network
+
+Correct
+- A array of values that the network should target and should match the number of outputs of the network
+
+#### Retrieving Data
+The `Brain` can use its last input and its current weights to spit back out a result, or you can provide it a new input and it will give you the result using the current weights, aka. feed forward.
+
+```
+let out = self.brain.feed(input: data)
+```
+- Returns `[Float]` using the new inputs and the current weights, aka. feed forward.
+
+### Data Studying
+Using the `Brain` object you can also get the result of the loss functions of each epoch as a `CSV` file using the `exportLoss` function on `Brain`. 
+- `exportLoss(_ filename: String? = nil) -> URL?`
+- `filename:` Name of the file to save and export. defaults to `loss-{timeIntervalSince1970}`
+- Returns the url of the exported file if successful.
+
+
+### Resources 
+
 - [Make Your Own Neural Network - Tariq Rashid](https://www.amazon.com/Make-Your-Own-Neural-Network-ebook/dp/B01EER4Z4G)
 - http://www.faqs.org/faqs/ai-faq/neural-nets/part1/preamble.html
 - https://stats.stackexchange.com/questions/181/how-to-choose-the-number-of-hidden-layers-and-nodes-in-a-feedforward-neural-netw
@@ -34,92 +213,75 @@ Feel free to send me suggestions on how to improve this. I would be delighted to
 - http://home.agh.edu.pl/~vlsi/AI/backp_t_en/backprop.html
 - https://medium.com/@yashgarg1232/derivative-of-neural-activation-function-64e9e825b67
 - https://www.datasciencecentral.com/profiles/blogs/matrix-multiplication-in-neural-networks
-- https://deepai.org/machine-learning-glossary-and-terms/softmax-layer //for calculating percentages from sigmoid output
-- https://deepai.org/machine-learning-glossary-and-terms/sigmoid-function
-- https://missinglink.ai/guides/neural-network-concepts/7-types-neural-network-activation-functions-right/
-- https://arxiv.org/abs/1710.05941v1 //Swish activation function paper
 - https://sefiks.com/2018/08/21/swish-as-neural-networks-activation-function/
 - https://www.wandb.com/articles/fundamentals-of-neural-networks
 - https://www.dlology.com/blog/quick-notes-on-how-to-choose-optimizer-in-keras/
+- https://towardsdatascience.com/multi-layer-neural-networks-with-sigmoid-function-deep-learning-for-rookies-2-bf464f09eb7f?gi=5b433900266a
+- https://towardsdatascience.com/how-does-back-propagation-in-artificial-neural-networks-work-c7cad873ea74
+- https://github.com/nature-of-code/noc-examples-processing/blob/master/chp10_nn/NOC_10_01_SimplePerceptron/Perceptron.pde
+- http://www.faqs.org/faqs/ai-faq/neural-nets/part1/preamble.html
+- https://stats.stackexchange.com/questions/181/how-to-choose-the-number-of-hidden-layers-and-nodes-in-a-feedforward-neural-netw
+- https://www.heatonresearch.com/book/
+- https://medium.com/@yashgarg1232/derivative-of-neural-activation-function-64e9e825b67
+- https://www.datasciencecentral.com/profiles/blogs/matrix-multiplication-in-neural-networks
+- https://deepai.org/machine-learning-glossary-and-terms/softmax-layer 
+- https://deepai.org/machine-learning-glossary-and-terms/sigmoid-function
+- https://missinglink.ai/guides/neural-network-concepts/7-types-neural-network-activation-functions-right/
+- https://arxiv.org/abs/1710.05941v1
+- https://sefiks.com/2018/08/21/swish-as-neural-networks-activation-function/
+- https://www.wandb.com/articles/fundamentals-of-neural-networks
+- https://www.dlology.com/blog/quick-notes-on-how-to-choose-optimizer-in-keras/
+- https://stackoverflow.com/questions/2976452/whats-is-the-difference-between-train-validation-and-test-set-in-neural-netwo
+- https://www.kdnuggets.com/2017/09/neural-network-foundations-explained-activation-function.html#:~:text=Activation%20functions%20reside%20within%20neurons,values%20within%20a%20manageable%20range.
+- https://towardsdatascience.com/regression-models-with-multiple-target-variables-8baa75aacd
+- https://stats.stackexchange.com/questions/265905/derivative-of-softmax-with-respect-to-weights
+- https://www.mldawn.com/the-derivative-of-softmaxz-function-w-r-t-z/
+- https://towardsdatascience.com/optimizers-for-training-neural-network-59450d71caf6
+- https://ruder.io/optimizing-gradient-descent/index.html#adam
+- https://machinelearningmastery.com/multi-label-classification-with-deep-learning/
+- https://medium.com/datathings/neural-networks-and-backpropagation-explained-in-a-simple-way-f540a3611f5e
+- http://page.mi.fu-berlin.de/rojas/neural/chapter/K7.pdf
+- https://gombru.github.io/2018/05/23/cross_entropy_loss/
+- https://ml-cheatsheet.readthedocs.io/en/latest/loss_functions.html#cross-entropy
+- https://peltarion.com/knowledge-center/documentation/modeling-view/build-an-ai-model/loss-functions/binary-crossentropy
+- https://sefiks.com/2017/12/17/a-gentle-introduction-to-cross-entropy-loss-function/
+- https://datascience.stackexchange.com/questions/27421/when-are-weights-updated-in-cnn
+- https://www.jeremyjordan.me/neural-networks-training/
+- https://medium.com/@pdquant/all-the-backpropagation-derivatives-d5275f727f60
+- https://machinelearningmastery.com/implement-backpropagation-algorithm-scratch-python/
+- https://www.cs.swarthmore.edu/~meeden/cs81/s10/BackPropDeriv.pdf
+- https://www.ics.uci.edu/~pjsadows/notes.pdf
+- https://stackabuse.com/creating-a-neural-network-from-scratch-in-python-multi-class-classification/
 
+Cross Entropy + Softmax
+- https://medium.com/data-science-bootcamp/understand-cross-entropy-loss-in-minutes-9fb263caee9a
+- https://medium.com/data-science-bootcamp/understand-the-softmax-function-in-minutes-f3a59641e86d
+- https://deepnotes.io/softmax-crossentropy
 
-## Implementation
+Videos: 
+- https://developers.google.com/machine-learning/crash-course/multi-class-neural-networks/softmax
 
-- Sample Project - https://github.com/wvabrinskas/Swift-Neural-Network
+Cost Function vs Loss Function: 
+- https://datascience.stackexchange.com/questions/65197/a-cross-entropy-loss-explanation-in-simple-words
+- https://towardsdatascience.com/what-is-loss-function-1e2605aeb904
 
-### The Brain
-It is fairly simple to setup the neural network `Brain`. This will be the only object you interface with. 
+Gradient Clipping: 
+- https://towardsdatascience.com/what-is-gradient-clipping-b8e815cdfb48
 
-#### Initialization
-```  
-  private lazy var brain: Brain = {
-    let nucleus = Nucleus(learningRate: 0.05, bias: 0.01, activationType: .sigmoid)
-    return Brain(inputs: 4, outputs: 4, hidden: 4, nucleus: nucleus)
-  }()
-```
-- The `Brain` object takes in 4 properties, `inputs`, `outputs`, `hidden`, and `nucleus`
-    - `inputs` - the number of input nodes
-    - `outputs` - the number of output nodes
-    - `hidden` - the number of hidden nodes in the single hidden layer
-    - `hiddenLayers` - number of hidden layers. Default: 1
-    - `nucleus` - a `Nucleus` object defining the learning properties of each node
-- `Brain` has a property for `debug` 
-    - `public var debug: Bool = false`
-    -  When set to true this will print the error caclulated by the network as Mean Sqr Error
+Activation Functions: 
+- https://towardsdatascience.com/activation-functions-neural-networks-1cbd9f8d91d6
 
-- The `Nucleus` object takes in 3 optional properties `learningRate`, `bias`, and `activationType`
-    - `learningRate` - how quickly the node will adjust the weights of its inputs to fit the training model 
-        - Usually between `0` and `1`. 
-        - Default `0.1`
-    - `bias` - the offset of adjustment to the weight adjustment calculation. 
-        - Usually between `0` and `1`. 
-        - Default `0.1`
-    - `activationType` - an enum defining the activation equation to use for the system. Options are: 
-        - `.reLu`
-        - `.leakyRelu`
-        - `.sigmoid`
-        - `.swish`
-        - More coming soon.... 
-        - [Learn more about each](https://missinglink.ai/guides/neural-network-concepts/7-types-neural-network-activation-functions-right/)
+Backpropagation: 
+- http://home.agh.edu.pl/~vlsi/AI/backp_t_en/backprop.html
+- https://ml-cheatsheet.readthedocs.io/en/latest/backpropagation.html
+- https://stats.stackexchange.com/questions/268561/example-of-backpropagation-for-neural-network-with-softmax-and-sigmoid-activatio
 
-#### Training
+Validation: 
+- https://elitedatascience.com/overfitting-in-machine-learning
+- https://machinelearningmastery.com/early-stopping-to-avoid-overtraining-neural-network-models/
 
-##### Auto
-Training the `Brain` object is also very simple. You simply pass an array of `Float` to the brain object. 
-`The only rules are that the number of items in the array must match the number of input nodes and the numbers must be between 0 and 1.`
+Classification: 
+- https://becominghuman.ai/making-a-simple-neural-network-classification-2449da88c77e
 
-- Train with the data where the output is expected to be the input data
-```
-    DispatchQueue.global(qos: .utility).async {
-        let data: [CGFloat] = [0.1, 0.2, 0.2, 0.2]
-        self.brain.autoTrain(data: data)
-    }
-```
-
-- This will take care of weight adjustment, back propagation, and everything else for you. You can loop this as many times as you desire to train the brain. 
-- I recommend doing this on a background thread OFF the main thread to prevent the UI from bogging down. It is a lot of math at once. 
-
-
-###### Manual
-You can also train the `Brain` object by passing an expected value. 
-
-``` func train(data: [Float], correct: [Float])```
-
-- `data:` the data to train against as an array of floats
-- `correct:` the correct values that should be expected from the network
-
-
-#### Retrieving Data
-The `Brain` can use its last input and its current weights to spit back out a result, or you can provide it a new input and it will give you the result using the current weights, aka. feed forward.
-
-```
-let out = self.brain.feed(input: data, ranked: Bool = false)
-```
-- Returns `[Float]` using the new inputs and the current weights, aka. feed forward.
-- Can retrieve the results ranked by the highest first.
-
-### Data Studying
-Using the `Brain` object you can also get the result of the loss functions of each epoch as a `CSV` file using the `exportLoss` function on `Brain`. 
-- `exportLoss(_ filename: String? = nil) -> URL?`
-- `filename:` Name of the file to save and export. defaults to `loss-{timeIntervalSince1970}`
-- Returns the url of the exported file if successful.
+Weight Initialization
+- https://prateekvishnu.medium.com/xavier-and-he-normal-he-et-al-initialization-8e3d7a087528
