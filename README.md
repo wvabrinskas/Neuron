@@ -156,8 +156,7 @@ The network also supports adding an output activation modifier such as softmax
 ## Compiling the network
 After adding all the specified layers and modifiers do not forget to call `compile()` on the brain object. This will connect all the layers together using the proper initializer and get the network ready for training. 
 
-
-## Training
+# Training
 You can also train the `Brain` object by passing an expected value. 
 
 ```
@@ -189,22 +188,22 @@ Data
 Correct
 - A array of values that the network should target and should match the number of outputs of the network
 
-#### Retrieving Data
-The `Brain` can use its last input and its current weights to spit back out a result, or you can provide it a new input and it will give you the result using the current weights, aka. feed forward.
+# Retrieving Data
+Pass in new data to feed through the network and get a result. 
 
 ```
 let out = self.brain.feed(input: data)
 ```
 - Returns `[Float]` using the new inputs and the current weights, aka. feed forward.
 
-### Data Studying
+# Data Studying
 Using the `Brain` object you can also get the result of the loss functions of each epoch as a `CSV` file using the `exportLoss` function on `Brain`. 
 - `exportLoss(_ filename: String? = nil) -> URL?`
 - `filename:` Name of the file to save and export. defaults to `loss-{timeIntervalSince1970}`
 - Returns the url of the exported file if successful.
 
 
-### Resources 
+# Resources 
 
 - [Make Your Own Neural Network - Tariq Rashid](https://www.amazon.com/Make-Your-Own-Neural-Network-ebook/dp/B01EER4Z4G)
 - http://www.faqs.org/faqs/ai-faq/neural-nets/part1/preamble.html
