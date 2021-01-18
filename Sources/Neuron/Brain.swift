@@ -61,7 +61,7 @@ public class Brain: Logger {
               epochs: Int,
               lossFunction: LossFunction = .meanSquareError,
               lossThreshold: Float = 0.001,
-              initializer: Inializers = .xavierUniform) {
+              initializer: Inializers = .xavierNormal) {
     
     self.nucleus = nucleus
     self.lossFunction = lossFunction
