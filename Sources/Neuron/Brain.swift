@@ -139,7 +139,7 @@ public class Brain: Logger {
         
         let obj = data[d]
         
-        if d % 5 == 0 {
+        if d % 20 == 0 {
           percentComplete = Float(d) / Float(data.count)
           self.log(type: .message, priority: .medium, message: "\(percentComplete.percent())%")
         }
