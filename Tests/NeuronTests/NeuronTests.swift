@@ -36,6 +36,12 @@ final class NeuronTests: XCTestCase {
   let outputs = 3
   let numOfHiddenLayers = 2
   
+  static var allTests = [
+    ("testNeuronConnectionObjects", testNeuronConnectionObjects),
+    ("testWeightNumbers", testWeightNumbers),
+    ("testNumberOfLobesMatches", testNumberOfLobesMatches)
+  ]
+  
   private lazy var brain: Brain = {
     
     let nucleus = Nucleus(learningRate: 0.001,
@@ -118,7 +124,5 @@ final class NeuronTests: XCTestCase {
     }
   }
   
-  static var allTests = [
-    ("testNeuronConnectionObjects", testNeuronConnectionObjects),
-  ]
+
 }
