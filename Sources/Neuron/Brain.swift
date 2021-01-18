@@ -140,9 +140,9 @@ public class Brain: Logger {
         
         let obj = data[d]
         
-        self.log(type: .message, priority: .alwaysShow, message: "\(percentComplete.percent())%")
+        self.log(type: .message, priority: .medium, message: "\(percentComplete.percent())%")
 
-        self.log(type: .message, priority: .medium, message: "data iteration: \(d)")
+        self.log(type: .message, priority: .high, message: "data iteration: \(d)")
 
         self.trainIndividual(data: obj)
         
@@ -377,7 +377,7 @@ public class Brain: Logger {
       outputNeuron.delta = self.lossFunction.derivative(predicted, correct: target)
       
       self.log(type: .message,
-               priority: .medium,
+               priority: .high,
                message: "out: \(i), raw: \(outputNeuron.activation()) predicted: \(predicted), actual: \(target) delta: \(outputNeuron.delta)")
 
     }
