@@ -8,13 +8,21 @@
 import Foundation
 
 public enum Inializers {
-  case xavier
+  case xavierNormal, xavierUniform
   
   public func calculate(m: Int, h: Int) -> Float {
-    //w=np.random.randn(layer_size[l],layer_size[l-1])*np.sqrt(2/(layer_size[l-1]+layer_size[l]))
+    switch self {
     
-    let range = m > h ? Float(h)...Float(m) : Float(m)...Float(h)
-    let random = Float.random(in: range)
-    return random * Float(sqrt(2 / (Double(m) + Double(h))))
+    case .xavierNormal:
+      let range = m > h ? Float(h)...Float(m) : Float(m)...Float(h)
+      let random = Float.random(in: range)
+      return random * Float(sqrt(2 / (Double(m) + Double(h))))
+      
+    case .xavierUniform:
+      let random = Float.random(in: -1...1)
+      return random * Float(sqrt(6.0 / (Double(m) + Double(h))))
+    }
+    
+  
   }
 }

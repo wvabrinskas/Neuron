@@ -43,6 +43,9 @@ public class Brain: Logger {
   
   /// The initializer to generate the layer weights
   private var initializer: Inializers
+
+  /// Initialized layer weights for unit test purposes only
+  internal var layerWeights: [[Float]] = []
   
   /// Creates a Brain object that manages a network of Neuron objects
   /// - Parameters:
@@ -54,7 +57,7 @@ public class Brain: Logger {
               epochs: Int,
               lossFunction: LossFunction = .meanSquareError,
               lossThreshold: Float = 0.001,
-              initializer: Inializers = .xavier) {
+              initializer: Inializers = .xavierUniform) {
     
     self.nucleus = nucleus
     self.lossFunction = lossFunction
@@ -96,11 +99,16 @@ public class Brain: Logger {
         neuronGroup.forEach { (neuron) in
           var dendrites: [NeuroTransmitter] = []
           
+          var weights: [Float] = []
+          
           for _ in 0..<inputNeuronGroup.count {
             let weight = self.initializer.calculate(m: neuronGroup.count, h: inputNeuronGroup.count)
             let transmitter = NeuroTransmitter(weight: weight)
             dendrites.append(transmitter)
+            weights.append(weight)
           }
+          
+          self.layerWeights.append(weights)
 
           neuron.inputs = dendrites
         }
