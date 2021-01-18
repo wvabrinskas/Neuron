@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import GameplayKit
 
 public enum Inializers {
   case xavierNormal, xavierUniform
@@ -19,10 +20,8 @@ public enum Inializers {
       return random * Float(sqrt(2 / (Double(m) + Double(h))))
       
     case .xavierUniform:
-      let random = Float.random(in: -1...1)
-      return random * Float(sqrt(6.0 / (Double(m) + Double(h))))
+      return Brain.dist.nextFloat() * Float(sqrt(6.0 / (Double(m) + Double(h))))
     }
     
-  
   }
 }

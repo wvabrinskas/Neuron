@@ -31,9 +31,9 @@ extension Array where Element: Numeric {
 
 final class NeuronTests: XCTestCase {
 
-  let outputs = 3
   let inputs = 4
   let hidden = 5
+  let outputs = 3
   
   private lazy var brain: Brain = {
     
@@ -66,7 +66,7 @@ final class NeuronTests: XCTestCase {
     
   }
   
-  func testWeights() {
+  func testWeightNumbers() {
     var flattenedWeights: [Float] = []
     
     for layer in brain.layerWeights {
@@ -75,6 +75,9 @@ final class NeuronTests: XCTestCase {
       }
     }
     
+    let expected = inputs + (inputs * hidden) + (hidden * outputs)
+    XCTAssertTrue(flattenedWeights.count == expected,
+                  "got: \(flattenedWeights.count) expected: \(expected)")
   }
   
   //checks to see if the neurontransmitter objects are unique

@@ -8,6 +8,7 @@
 
 import Foundation
 import Logger
+import GameplayKit
 
 public class Brain: Logger {
   /// The verbosity of the printed logs
@@ -47,6 +48,9 @@ public class Brain: Logger {
   /// Initialized layer weights for unit test purposes only
   internal var layerWeights: [[Float]] = []
   
+  /// Distribution for initialization
+  internal static let dist = NormalDistribution()
+
   /// Creates a Brain object that manages a network of Neuron objects
   /// - Parameters:
   ///   - nucleus:  Nucleus object that describes the learning behavior of the network
@@ -112,6 +116,23 @@ public class Brain: Logger {
 
           neuron.inputs = dendrites
         }
+        
+      } else {
+        //first layer weight initialization
+        let neuronGroup = self.lobes[i].neurons
+        
+        var weights: [Float] = []
+        for n in 0..<neuronGroup.count {
+          
+          let weight = self.initializer.calculate(m: neuronGroup.count, h: neuronGroup.count)
+          let transmitter = NeuroTransmitter(weight: weight)
+          
+          //first layer only has one input per input value
+          neuronGroup[n].inputs = [transmitter]
+          
+          weights.append(weight)
+        }
+        self.layerWeights.append(weights)
       }
     }
     
@@ -310,8 +331,9 @@ public class Brain: Logger {
         //input layer isn't fully connected and just passes the input value with
         //no activation function
         if i == 0 {
-          neuron.replaceInputs(inputs: [input[c]])
+          neuron.replaceInputs(inputs: [input[c]], initializer: self.initializer)
         } else {
+          //should already be initialized
           neuron.replaceInputs(inputs: x)
         }
         

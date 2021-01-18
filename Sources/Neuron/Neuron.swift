@@ -42,10 +42,18 @@ public class Neuron {
   }
   
   /// Replaces all the inputs connected to this neuron with new ones
-  /// - Parameter inputs: Input array as [Float] to replace inputs iwth
-  public func replaceInputs(inputs: [Float]) {
+  /// - Parameter inputs: Input array as [Float] to replace inputs with
+  /// - Parameter initializer: The initialier to generate the weights
+
+  public func replaceInputs(inputs: [Float], initializer: Inializers = .xavierUniform) {
     if self.inputs.count == 0 {
-      self.inputs = inputs.map({ NeuroTransmitter(input: $0) })
+      
+      self.inputs = inputs.map({ (value) -> NeuroTransmitter in
+        let t = NeuroTransmitter(input: value)
+        let weight = initializer.calculate(m: inputs.count, h: inputs.count)
+        t.weight = weight
+        return t
+      })
     }
     
     guard inputs.count == self.inputs.count else {
