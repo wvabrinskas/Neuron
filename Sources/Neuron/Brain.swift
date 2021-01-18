@@ -227,13 +227,13 @@ public class Brain: Logger {
             complete?(true)
             return
           }
-        } else {
-          //shift out first item in array
-          if previousValidationErrors.count == checkBatchCount {
-            previousValidationErrors.removeFirst()
-          }
-          previousValidationErrors.append(abs(errorForValidation))
         }
+        
+        if previousValidationErrors.count == checkBatchCount {
+          previousValidationErrors.removeFirst()
+        }
+        previousValidationErrors.append(abs(errorForValidation))
+        
       }
       
     }
