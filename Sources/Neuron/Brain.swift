@@ -38,7 +38,11 @@ public class Brain: Logger {
   /// Output modifier for the output layer. ex. softmax
   private var outputModifier: OutputModifier? = nil
   
+  /// The previous set of validation errors
   private var previousValidationErrors: [Float] = []
+  
+  /// The initializer to generate the layer weights
+  private var initializer: Inializers
   
   /// Creates a Brain object that manages a network of Neuron objects
   /// - Parameters:
@@ -49,12 +53,14 @@ public class Brain: Logger {
   public init(nucleus: Nucleus,
               epochs: Int,
               lossFunction: LossFunction = .meanSquareError,
-              lossThreshold: Float = 0.001) {
+              lossThreshold: Float = 0.001,
+              initializer: Inializers = .xavier) {
     
     self.nucleus = nucleus
     self.lossFunction = lossFunction
     self.lossThreshold = lossThreshold
     self.epochs = epochs
+    self.initializer = initializer
   }
   
   /// Adds a layer to the neural network
@@ -91,7 +97,9 @@ public class Brain: Logger {
           var dendrites: [NeuroTransmitter] = []
           
           for _ in 0..<inputNeuronGroup.count {
-            dendrites.append(NeuroTransmitter())
+            let weight = self.initializer.calculate(m: neuronGroup.count, h: inputNeuronGroup.count)
+            let transmitter = NeuroTransmitter(weight: weight)
+            dendrites.append(transmitter)
           }
 
           neuron.inputs = dendrites
@@ -172,7 +180,9 @@ public class Brain: Logger {
         //bail out to prevent overfitting
         let threshold: Float = self.lossThreshold
         //only append if % 10 != 0
-        if i % 5 == 0 {
+        let checkBatchCount = 5
+        
+        if i % checkBatchCount == 0 {
           
           self.log(type: .message, priority: .medium, message: "validating....")
           
@@ -188,9 +198,11 @@ public class Brain: Logger {
             complete?(true)
             return
           }
-          previousValidationErrors.removeAll()
-          
         } else {
+          //shift out first item in array
+          if previousValidationErrors.count == checkBatchCount {
+            previousValidationErrors.removeFirst()
+          }
           previousValidationErrors.append(abs(errorForValidation))
         }
       }

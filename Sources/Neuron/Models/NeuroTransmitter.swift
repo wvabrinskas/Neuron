@@ -18,15 +18,11 @@ public class NeuroTransmitter: Equatable {
   public static func == (lhs: NeuroTransmitter, rhs: NeuroTransmitter) -> Bool {
     lhs.id == rhs.id
   }
-  //as neuron connection
-  public init() {
-    self.weight = Float.random(in: 0...1)
-  }
   
   //as standard input
-  public init(input: Float, weight: Float? = nil) {
-    self.weight = weight ?? Float.random(in: 0...1)
-    self.inputValue = input
+  public init(input: Float? = nil, weight: Float? = nil) {
+    self.weight = weight ?? Float.random(in: -1...1)
+    self.inputValue = input ?? 0
   }
 
 }
