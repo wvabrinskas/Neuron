@@ -133,14 +133,14 @@ public class Brain: Logger {
       
       self.log(type: .message, priority: .low, message: "epoch: \(i)")
       
-      var percentComplete: Int = 0
+      var percentComplete: Float = 0
       //train the network with all the data
       for d in 0..<data.count {
-        percentComplete = Int(Float(d / data.count) * 100)
+        percentComplete = Float(d / data.count)
         
         let obj = data[d]
         
-        self.log(type: .message, priority: .alwaysShow, message: "\(percentComplete)%")
+        self.log(type: .message, priority: .alwaysShow, message: "\(percentComplete.percent())%")
 
         self.log(type: .message, priority: .medium, message: "data iteration: \(d)")
 
