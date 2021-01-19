@@ -34,7 +34,7 @@ final class NeuronTests: XCTestCase {
   let inputs = 4
   let hidden = 5
   let outputs = 3
-  let numOfHiddenLayers = 2
+  let numOfHiddenLayers = 1
   
   static var allTests = [
     ("testNeuronConnectionObjects", testNeuronConnectionObjects),
@@ -74,6 +74,17 @@ final class NeuronTests: XCTestCase {
     XCTAssertTrue(brain.compiled, "Brain not initialized")
   }
   
+  func flattenedWeights() -> [Float] {
+    var flattenedWeights: [Float] = []
+    
+    for layer in brain.layerWeights {
+      layer.forEach { (float) in
+        flattenedWeights.append(float)
+      }
+    }
+    return flattenedWeights
+  }
+  
   func testNumberOfLobesMatches() {
     let inputLayer = self.brain.lobes.filter({ $0.layer == .input })
     let hiddenLayers = self.brain.lobes.filter({ $0.layer == .hidden })
@@ -100,14 +111,6 @@ final class NeuronTests: XCTestCase {
   }
   
   func testWeightNumbers() {
-    var flattenedWeights: [Float] = []
-    
-    for layer in brain.layerWeights {
-      layer.forEach { (float) in
-        flattenedWeights.append(float)
-      }
-    }
-    
     var expected = inputs
 
     for n in 0..<numOfHiddenLayers {
@@ -120,8 +123,10 @@ final class NeuronTests: XCTestCase {
     
     expected += (hidden * outputs)
     
-    XCTAssertTrue(flattenedWeights.count == expected,
-                  "got: \(flattenedWeights.count) expected: \(expected)")
+    let flattenedWeightsArray = flattenedWeights()
+    
+    XCTAssertTrue(flattenedWeightsArray.count == expected,
+                  "got: \(flattenedWeightsArray.count) expected: \(expected)")
   }
   
   //checks to see if the neurontransmitter objects are unique
@@ -137,9 +142,64 @@ final class NeuronTests: XCTestCase {
   }
   
   func testMetal() {
-    let weights = self.brain.layerWeights
+//    let weights = self.brain.layerWeights
+//    let inputLayerWeights = weights.first ?? []
+//
+//    var inputs: [Float] = []
+//    self.brain.lobes.first?.neurons.forEach({ (neuron) in
+//      let nInputs = neuron.inputs.map({ $0.inputValue })
+//      inputs.append(contentsOf: nInputs)
+//    })
+//
+//    let ins: [Float] = [1.0, 1.0, 1.0, 1.0]
+//
     
+    var m1: [Float] = []
+    var m2: [Float] = []
+
+    for _ in 0..<1000 {
+      m1.append(Float.random(in: 0...1))
+      m2.append(Float.random(in: 0...1))
+    }
+    
+    let date = Date()
+    
+      let out = MetalManager.shared.massiveMatrix(nodeCount: 1, inputValues: m1, weights: m2)
+    
+    
+    print(Date().timeIntervalSince(date))
   }
   
 
+  func testNonMetal() {
+    @discardableResult
+    func dot(m1: [Float], m2: [Float]) -> Float {
+      guard m1.count == m2.count else {
+        return 0
+      }
+      
+      var sum: Float = 0
+      for i in 0..<m1.count {
+        sum += m1[i] * m2[i]
+      }
+      
+      return sum
+    }
+
+    var m1: [Float] = []
+    var m2: [Float] = []
+
+    for _ in 0..<1000 {
+      m1.append(Float.random(in: 0...1))
+      m2.append(Float.random(in: 0...1))
+    }
+
+    let date = Date()
+    
+    for _ in 0..<1000 {
+      dot(m1: m1, m2: m2)
+    }
+
+    print(Date().timeIntervalSince(date))
+  }
 }
