@@ -108,7 +108,18 @@ final class NeuronTests: XCTestCase {
       }
     }
     
-    let expected = inputs + (inputs * hidden) + (hidden * outputs)
+    var expected = inputs
+
+    for n in 0..<numOfHiddenLayers {
+      if n == 0 {
+        expected += (inputs * hidden)
+      } else {
+        expected += (hidden * hidden)
+      }
+    }
+    
+    expected += (hidden * outputs)
+    
     XCTAssertTrue(flattenedWeights.count == expected,
                   "got: \(flattenedWeights.count) expected: \(expected)")
   }
@@ -123,6 +134,11 @@ final class NeuronTests: XCTestCase {
         }
       }
     }
+  }
+  
+  func testMetal() {
+    let weights = self.brain.layerWeights
+    
   }
   
 
