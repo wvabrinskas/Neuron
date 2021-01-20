@@ -34,13 +34,17 @@ final class NeuronTests: XCTestCase {
   let inputs = 4 //UIColor values rgba
   let hidden = 5
   let outputs = ColorType.allCases.count
-  let numOfHiddenLayers = 2
+  let numOfHiddenLayers = 1
+  
+  let lossThreshold: Float = 0.001
+  let testingLossThreshold: Float = 0.01
   
   static var allTests = [
     ("testNeuronConnectionObjects", testNeuronConnectionObjects),
     ("testWeightNumbers", testWeightNumbers),
     ("testNumberOfLobesMatches", testNumberOfLobesMatches),
-    ("testFeedIsntSame", testFeedIsntSame)
+    ("testFeedIsntSame", testFeedIsntSame),
+    ("testTraining", testTraining)
   ]
   
   private lazy var brain: Brain = {
@@ -49,9 +53,9 @@ final class NeuronTests: XCTestCase {
                           bias: 0.001)
     
     let brain = Brain(nucleus: nucleus,
-                      epochs: 100,
+                      epochs: 150,
                       lossFunction: .crossEntropy,
-                      lossThreshold: 0.001,
+                      lossThreshold: lossThreshold,
                       initializer: .xavierNormal)
     
     brain.add(.layer(inputs, .none, .input)) //input  layer
@@ -63,7 +67,7 @@ final class NeuronTests: XCTestCase {
     brain.add(.layer(outputs, Activation.none, .output)) //output layer
     
     brain.add(modifier: .softmax)
-    brain.logLevel = .low
+    brain.logLevel = .none
     
     return brain
   }()
@@ -154,7 +158,7 @@ final class NeuronTests: XCTestCase {
   func testFeedIsntSame() {
     var previous: [Float] = [Float](repeating: 0.0, count: self.inputs)
     
-    for _ in 0..<10 {
+    for i in 0..<10 {
       var inputs: [Float] = []
       for _ in 0..<self.inputs {
         inputs.append(Float.random(in: 0...1))
@@ -162,7 +166,7 @@ final class NeuronTests: XCTestCase {
       
       let out = self.brain.feed(input: inputs)
       
-      print(out)
+      print("Feed \(i): \(out)")
       XCTAssertTrue(previous != out, "Result is the same check code...")
       previous = out
     }
@@ -170,10 +174,27 @@ final class NeuronTests: XCTestCase {
   }
   
   func testTraining() {
+    print("Training....")
     self.brain.train(data: self.trainingData, validation: self.validationData) { (complete) in
-      var dir: Float = 0
-      self.brain.loss.forEach { (loss) in
-        print(loss)
+      let lastFive = self.brain.loss[self.brain.loss.count - 5..<self.brain.loss.count]
+      var sum: Float = 0
+      lastFive.forEach { (last) in
+        sum += last
+      }
+      let average = sum / 5
+      XCTAssertTrue(average <= self.testingLossThreshold, "Network did not learn, average loss was \(average)")
+    }
+    
+    for i in 0..<ColorType.allCases.count {
+      let color = ColorType.allCases[i]
+      
+      let out = self.brain.feed(input: color.color())
+      print("Guess \(color.string): \(out)")
+      
+      XCTAssert(out.max() != nil, "No max value. Training failed")
+
+      if let max = out.max(), let first = out.firstIndex(of: max) {
+        XCTAssertTrue(first == i, "Color \(color.string) could not be identified")
       }
     }
   }

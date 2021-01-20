@@ -10,6 +10,17 @@ import Foundation
 public enum ColorType: Int, CaseIterable {
   case red, green, blue
   
+  public var string: String {
+    switch self {
+    case .blue:
+      return "blue"
+    case .red:
+      return "red"
+    case .green:
+      return "green"
+    }
+  }
+
   public func correctValues() -> [Float] {
     var returnArray = [Float](repeating: 0.0, count: ColorType.allCases.count)
     
