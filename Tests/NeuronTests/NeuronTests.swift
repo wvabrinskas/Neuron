@@ -31,24 +31,25 @@ extension Array where Element: Numeric {
 
 final class NeuronTests: XCTestCase {
 
-  let inputs = 4
+  let inputs = 4 //UIColor values rgba
   let hidden = 5
-  let outputs = 3
+  let outputs = ColorType.allCases.count
   let numOfHiddenLayers = 2
   
   static var allTests = [
     ("testNeuronConnectionObjects", testNeuronConnectionObjects),
     ("testWeightNumbers", testWeightNumbers),
-    ("testNumberOfLobesMatches", testNumberOfLobesMatches)
+    ("testNumberOfLobesMatches", testNumberOfLobesMatches),
+    ("testFeedIsntSame", testFeedIsntSame)
   ]
   
   private lazy var brain: Brain = {
     
-    let nucleus = Nucleus(learningRate: 0.001,
+    let nucleus = Nucleus(learningRate: 0.01,
                           bias: 0.001)
     
     let brain = Brain(nucleus: nucleus,
-                      epochs: 10,
+                      epochs: 100,
                       lossFunction: .crossEntropy,
                       lossThreshold: 0.001,
                       initializer: .xavierNormal)
@@ -62,16 +63,41 @@ final class NeuronTests: XCTestCase {
     brain.add(.layer(outputs, Activation.none, .output)) //output layer
     
     brain.add(modifier: .softmax)
-    brain.logLevel = .high
+    brain.logLevel = .low
     
     return brain
   }()
   
+  public var trainingData: [TrainingData] = []
+  public var validationData: [TrainingData] = []
   
   override func setUp() {
     super.setUp()
     brain.compile()
     XCTAssertTrue(brain.compiled, "Brain not initialized")
+    
+    self.buildTrainingData()
+  }
+  
+  
+  func buildTrainingData() {
+    let num = 100
+
+    for _ in 0..<num {
+      trainingData.append(TrainingData(data: ColorType.red.color(), correct: ColorType.red.correctValues()))
+      validationData.append(TrainingData(data: ColorType.red.color(), correct: ColorType.red.correctValues()))
+    }
+    
+    for _ in 0..<num {
+      trainingData.append(TrainingData(data: ColorType.green.color(), correct: ColorType.green.correctValues()))
+      validationData.append(TrainingData(data: ColorType.green.color(), correct: ColorType.green.correctValues()))
+    }
+    
+    for _ in 0..<num {
+      trainingData.append(TrainingData(data: ColorType.blue.color(), correct: ColorType.blue.correctValues()))
+      validationData.append(TrainingData(data: ColorType.blue.color(), correct: ColorType.blue.correctValues()))
+    }
+    
   }
   
   func testNumberOfLobesMatches() {
@@ -125,5 +151,30 @@ final class NeuronTests: XCTestCase {
     }
   }
   
-
+  func testFeedIsntSame() {
+    var previous: [Float] = [Float](repeating: 0.0, count: self.inputs)
+    
+    for _ in 0..<10 {
+      var inputs: [Float] = []
+      for _ in 0..<self.inputs {
+        inputs.append(Float.random(in: 0...1))
+      }
+      
+      let out = self.brain.feed(input: inputs)
+      
+      print(out)
+      XCTAssertTrue(previous != out, "Result is the same check code...")
+      previous = out
+    }
+    
+  }
+  
+  func testTraining() {
+    self.brain.train(data: self.trainingData, validation: self.validationData) { (complete) in
+      var dir: Float = 0
+      self.brain.loss.forEach { (loss) in
+        print(loss)
+      }
+    }
+  }
 }
