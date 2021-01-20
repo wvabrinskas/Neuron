@@ -141,65 +141,9 @@ final class NeuronTests: XCTestCase {
     }
   }
   
-  func testMetal() {
-//    let weights = self.brain.layerWeights
-//    let inputLayerWeights = weights.first ?? []
-//
-//    var inputs: [Float] = []
-//    self.brain.lobes.first?.neurons.forEach({ (neuron) in
-//      let nInputs = neuron.inputs.map({ $0.inputValue })
-//      inputs.append(contentsOf: nInputs)
-//    })
-//
-//    let ins: [Float] = [1.0, 1.0, 1.0, 1.0]
-//
-    
-    var m1: [Float] = []
-    var m2: [Float] = []
+  func testFeed() {
+    let inputs: [Float] = [1.0, 0.0, 1.0, 0.0]
+    XCTAssertTrue(self.inputs == inputs.count, "Test data doesn't match")
 
-    for _ in 0..<1000 {
-      m1.append(Float.random(in: 0...1))
-      m2.append(Float.random(in: 0...1))
-    }
-    
-    let date = Date()
-    
-      let out = MetalManager.shared.massiveMatrix(nodeCount: 1, inputValues: m1, weights: m2)
-    
-    
-    print(Date().timeIntervalSince(date))
-  }
-  
-
-  func testNonMetal() {
-    @discardableResult
-    func dot(m1: [Float], m2: [Float]) -> Float {
-      guard m1.count == m2.count else {
-        return 0
-      }
-      
-      var sum: Float = 0
-      for i in 0..<m1.count {
-        sum += m1[i] * m2[i]
-      }
-      
-      return sum
-    }
-
-    var m1: [Float] = []
-    var m2: [Float] = []
-
-    for _ in 0..<1000 {
-      m1.append(Float.random(in: 0...1))
-      m2.append(Float.random(in: 0...1))
-    }
-
-    let date = Date()
-    
-    for _ in 0..<1000 {
-      dot(m1: m1, m2: m2)
-    }
-
-    print(Date().timeIntervalSince(date))
   }
 }
