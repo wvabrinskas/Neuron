@@ -9,14 +9,13 @@ import Foundation
 
 /// The model that defines how to construct a Lobe object
 public struct LobeModel {
-  private var nodes: Int
-  private var activation: Activation = .none
-  private var bias: Float = 0
-  private var layer: LayerType
-  
+  internal var nodes: Int
+  internal var activation: Activation = .none
+  internal var bias: Float = 0
+  internal var layer: LayerType
   
   /// The type that the layer should be
-  public enum LayerType: Int, CaseIterable, Codable {
+  public enum LayerType: String, CaseIterable, Codable {
     case input, hidden, output
   }
   
@@ -29,17 +28,5 @@ public struct LobeModel {
     self.activation = activation
     self.bias = bias
     self.layer = layer
-  }
-  
-  internal func lobe(_ learningRate: Float) -> Lobe {
-    let nuc = Nucleus(learningRate: learningRate,
-                      bias: bias)
-    
-    var neurons: [Neuron] = []
-    for _ in 0..<nodes {
-      let neuron = Neuron(nucleus: nuc, activation: activation, layer: layer)
-      neurons.append(neuron)
-    }
-    return Lobe(neurons: neurons, layer: layer)
   }
 }

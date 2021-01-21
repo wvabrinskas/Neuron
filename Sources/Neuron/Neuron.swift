@@ -16,12 +16,13 @@ public class Neuron {
   
   /// Backpropogation delta at this node
   public var delta: Float = 0
+  
+  internal var activationType: Activation
+  internal var bias: Float
+  internal var layer: LobeModel.LayerType
 
   private var learningRate: Float = 0.01
-  private var bias: Float
-  private var activationType: Activation
   private var activationDerivative: Float = 0
-  private var layer: LobeModel.LayerType
   
   /// Default initializer. Creates a Neuron object
   /// - Parameters:

@@ -14,13 +14,31 @@ public class Lobe {
   
   /// Neurons in the Lobe object
   public var neurons: [Neuron] = []
-  
   public var layer: LobeModel.LayerType
+  public var activation: Activation = .none
+    
   /// default initializer
   /// - Parameter neurons: Neruons to control
-  public init(neurons: [Neuron], layer: LobeModel.LayerType) {
+  public init(neurons: [Neuron],
+              layer: LobeModel.LayerType,
+              activation: Activation = .none) {
     self.neurons = neurons
     self.layer = layer
+    self.activation = activation
+  }
+  
+  public init(model: LobeModel, learningRate: Float) {
+    let nuc = Nucleus(learningRate: learningRate,
+                      bias: model.bias)
+
+    var neurons: [Neuron] = []
+    for _ in 0..<model.nodes {
+      let neuron = Neuron(nucleus: nuc, activation: activation, layer: model.layer)
+      neurons.append(neuron)
+    }
+    self.neurons = neurons
+    self.activation = model.activation
+    self.layer = model.layer
   }
   
   /// Adjusts all the weights in all the neurons in this Lobe

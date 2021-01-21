@@ -87,15 +87,19 @@ public class Brain: Logger {
   
   internal func compile(model: ExportModel) {
     
+    //go through each layer
     model.layers.forEach { (layer) in
       
+      var neurons: [Neuron] = []
+      
+      //go through each node in layer
       for i in 0..<layer.nodes {
         precondition(i < layer.weights.count && i < layer.bias.count)
 
-        var neurons: [Neuron] = []
-          
         let weight = layer.weights[i]
         let bias = layer.bias[i]
+        //map each weight
+        
         let dendrites = weight.map({ NeuroTransmitter(weight: $0) })
         
         let nucleus = Nucleus(learningRate: self.learningRate, bias: bias)
@@ -106,16 +110,50 @@ public class Brain: Logger {
                             layer: layer.type)
         
         neurons.append(neuron)
-        
-      
-        let lobe = Lobe(neurons: neurons, layer: .input)
-        self.lobes.append(lobe)
       }
       
+      let lobe = Lobe(neurons: neurons,
+                      layer: layer.type,
+                      activation: layer.activation)
+      
+      self.lobes.append(lobe)
     }
     
-    
     self.compiled = true
+  }
+  
+  /// Returns a model that can be imported later
+  /// - Returns: The url to download the SModel file
+  public func exportModel() -> URL? {
+    
+    let learningRate = self.learningRate
+    var layers: [Layer] = []
+    //link all the layers generating the matrix
+    for i in 0..<self.lobes.count {
+      let lobe = self.lobes[i]
+      
+      var weights: [[Float]] = []
+      var biases: [Float] = []
+      lobe.neurons.forEach { (neuron) in
+        weights.append(neuron.inputs.map({ $0.weight }))
+        biases.append(neuron.bias)
+      }
+      //set to 0
+      if lobe.layer == .input {
+        biases = [Float](repeating: 0, count: lobe.neurons.count)
+      }
+      
+      let layer = Layer(activation: lobe.activation,
+                        nodes: lobe.neurons.count,
+                        weights: weights,
+                        type: lobe.layer,
+                        bias: biases)
+      
+      layers.append(layer)
+    }
+    
+    let model = ExportModel(layers: layers, learningRate: learningRate)
+    return ExportManager.getModel(filename: "model", model: model)
   }
   
   /// Adds a layer to the neural network
@@ -125,7 +163,7 @@ public class Brain: Logger {
     ///maybe auto assign input layer and only add hidden layers?
     ///kind of redundant to specify a layer as being input when the first in the
     ///array is considereing the input layer.
-    self.lobes.append(model.lobe(self.learningRate))
+    self.lobes.append(Lobe(model: model, learningRate: self.learningRate))
   }
   
   /// Adds an output modifier to the output layer

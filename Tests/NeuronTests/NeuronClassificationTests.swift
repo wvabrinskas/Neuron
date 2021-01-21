@@ -29,7 +29,7 @@ extension Array where Element: Numeric {
   }}
 }
 
-final class NeuronClassificationTests: XCTestCase {
+final class NeuronClassificationTests: XCTestCase, ModelBuilder {
 
   let inputs = 4 //UIColor values rgba
   let hidden = 5
@@ -38,13 +38,15 @@ final class NeuronClassificationTests: XCTestCase {
   
   let lossThreshold: Float = 0.001
   let testingLossThreshold: Float = 0.2 //if below 0.2 considered trained
-  
+    
   static var allTests = [
     ("testNeuronConnectionObjects", testNeuronConnectionObjects),
     ("testWeightNumbers", testWeightNumbers),
     ("testNumberOfLobesMatches", testNumberOfLobesMatches),
     ("testFeedIsntSame", testFeedIsntSame),
-    ("testTraining", testTraining)
+    ("testTraining", testTraining),
+    ("testXport", testXport)
+
   ]
   
   private lazy var brain: Brain = {
@@ -75,10 +77,14 @@ final class NeuronClassificationTests: XCTestCase {
   
   override func setUp() {
     super.setUp()
-    brain.compile()
-    XCTAssertTrue(brain.compiled, "Brain not initialized")
     
-    self.buildTrainingData()
+    if !brain.compiled {
+      print("setting up")
+      brain.compile()
+      XCTAssertTrue(brain.compiled, "Brain not initialized")
+      
+      self.buildTrainingData()
+    }
   }
   
   
@@ -195,5 +201,24 @@ final class NeuronClassificationTests: XCTestCase {
         XCTAssertTrue(first == i, "Color \(color.string) could not be identified")
       }
     }
+  }
+  
+  //executes in alphabetical order
+  func testXport() {
+    print("Training for export....")
+
+    self.brain.train(data: self.trainingData, validation: self.validationData) { (complete) in
+      let lastFive = self.brain.loss[self.brain.loss.count - 5..<self.brain.loss.count]
+      var sum: Float = 0
+      lastFive.forEach { (last) in
+        sum += last
+      }
+      let average = sum / 5
+      XCTAssertTrue(average <= self.testingLossThreshold, "Network did not learn, average loss was \(average)")
+    }
+    
+    let url = self.brain.exportModel()
+    print("model: \(url)")
+    XCTAssertTrue(url != nil, "Could not build exported model")
   }
 }
