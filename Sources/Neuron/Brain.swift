@@ -218,6 +218,7 @@ public class Brain: Logger {
           if self.averageError() <= threshold {
             
             self.log(type: .success, priority: .alwaysShow, message: "SUCCESS: training is complete...")
+            self.log(type: .message, priority: .alwaysShow, message: "Loss: \(self.loss.last ?? 0)")
 
             self.log(type: .success,
                      priority: .high,
@@ -240,8 +241,10 @@ public class Brain: Logger {
     }
     
     self.log(type: .success,
-             priority: .high,
+             priority: .alwaysShow,
              message: "training completed time: \(Date().timeIntervalSince(trainingStartDate))")
+    
+    self.log(type: .message, priority: .alwaysShow, message: "Loss: \(self.loss.last ?? 0)")
 
     complete?(true)
   }

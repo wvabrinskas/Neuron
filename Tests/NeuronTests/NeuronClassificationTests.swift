@@ -29,7 +29,7 @@ extension Array where Element: Numeric {
   }}
 }
 
-final class NeuronTests: XCTestCase {
+final class NeuronClassificationTests: XCTestCase {
 
   let inputs = 4 //UIColor values rgba
   let hidden = 5
@@ -53,7 +53,7 @@ final class NeuronTests: XCTestCase {
                           bias: 0.001)
     
     let brain = Brain(nucleus: nucleus,
-                      epochs: 150,
+                      epochs: 200,
                       lossFunction: .crossEntropy,
                       lossThreshold: lossThreshold,
                       initializer: .xavierNormal)
