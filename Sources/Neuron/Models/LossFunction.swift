@@ -17,7 +17,7 @@ public enum LossFunction {
     
     switch self {
     case .meanSquareError:
-      let sq = pow(predicted - correct, 2)
+      let sq = pow(correct - predicted, 2)
       return sq
       
     case .crossEntropy:

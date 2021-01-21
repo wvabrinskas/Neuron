@@ -6,7 +6,7 @@ import Foundation
 import GameplayKit
 
 /// Weight initializer methods
-public enum Initializers {
+public enum Initializers: String, Codable {
   ///Generates weights based on a normal gaussian distribution. Mean = 0 sd = 1
   case xavierNormal
   ///Generates weights based on a uniform distribution

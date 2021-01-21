@@ -17,9 +17,8 @@ public class Neuron {
   /// Backpropogation delta at this node
   public var delta: Float = 0
 
-  private var learningRate: Float
+  private var learningRate: Float = 0.01
   private var bias: Float
-  private var biasWeight: Float = Float.random(in: 0...1)
   private var activationType: Activation
   private var activationDerivative: Float = 0
   private var layer: LobeModel.LayerType
@@ -29,18 +28,18 @@ public class Neuron {
   ///   - inputs: Array of inputs as NeuroTransmitter that contain the values to be used as inputs
   ///   - nucleus: Nucleus object describing things like learning rate, bias, and activation type
   public init(inputs: [NeuroTransmitter] = [],
-              nucleus: Nucleus,
+              nucleus: Nucleus? = nil,
+              bias: Float? = nil,
+              learningRate: Float? = nil,
               activation: Activation,
               layer: LobeModel.LayerType) {
     
-    self.learningRate = nucleus.learningRate
-    self.bias = nucleus.bias
+    self.learningRate = learningRate == nil ? (nucleus?.learningRate ?? 0.01) : (learningRate ?? 0.01)
+    self.bias = bias == nil ? (nucleus?.bias ?? 0) : (bias ?? 0)
     self.activationType = activation
-    
     self.inputs = inputs
     self.layer = layer
   }
-  
   /// Replaces all the inputs connected to this neuron with new ones
   /// - Parameter inputs: Input array as [Float] to replace inputs with
   /// - Parameter initializer: The initialier to generate the weights
@@ -107,7 +106,7 @@ public class Neuron {
       sum += self.inputs[i].weight * self.inputs[i].inputValue
     }
     
-    sum += (bias * biasWeight)
+    sum += bias
   
     let out = self.activationType.activate(input: sum)
     self.activationDerivative = self.activationType.derivative(input: sum)
@@ -138,7 +137,7 @@ public class Neuron {
             
       //INVERSE -= to += FOR MSE... ??? idk why
       self.inputs[i].weight -= self.learningRate * self.inputs[i].inputValue * delta * self.derivative()
-      biasWeight -= self.learningRate * delta
+      bias -= self.learningRate * delta
     }
   }
   

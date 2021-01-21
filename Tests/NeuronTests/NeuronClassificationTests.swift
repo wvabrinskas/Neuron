@@ -48,23 +48,21 @@ final class NeuronClassificationTests: XCTestCase {
   ]
   
   private lazy var brain: Brain = {
+    let bias: Float = 0.001
     
-    let nucleus = Nucleus(learningRate: 0.01,
-                          bias: 0.001)
-    
-    let brain = Brain(nucleus: nucleus,
+    let brain = Brain(learningRate: 0.01,
                       epochs: 200,
                       lossFunction: .crossEntropy,
                       lossThreshold: lossThreshold,
                       initializer: .xavierNormal)
     
-    brain.add(.layer(inputs, .none, .input)) //input  layer
+    brain.add(.init(nodes: inputs, bias: bias, layer: .input)) //input layer
     
     for _ in 0..<numOfHiddenLayers {
-      brain.add(.layer(hidden, .reLu, .hidden)) //hidden layer
+      brain.add(.init(nodes: hidden, activation: .reLu, bias: bias, layer: .hidden)) //hidden layer
     }
     
-    brain.add(.layer(outputs, Activation.none, .output)) //output layer
+    brain.add(.init(nodes: outputs, bias: bias, layer: .output)) //output layer
     
     brain.add(modifier: .softmax)
     brain.logLevel = .none

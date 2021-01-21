@@ -13,13 +13,12 @@ import GameplayKit
 public class Brain: Logger {
   /// The verbosity of the printed logs
   public var logLevel: LogLevel = .none
-    
-  /// The nucleus object that describes the network settings
-  public var nucleus: Nucleus
   
   /// Number of times to run the training data set
   public var epochs: Int
-  
+
+  public var learningRate: Float
+
   /// The loss function data from training to be exported
   public var loss: [Float] = []
   
@@ -44,30 +43,79 @@ public class Brain: Logger {
   
   /// The initializer to generate the layer weights
   private var initializer: Initializers
-
+  
   /// Initialized layer weights for unit test purposes only
   internal var layerWeights: [[Float]] = []
   
   /// Distribution for initialization
   internal static let dist = NormalDistribution()
-
+  
   /// Creates a Brain object that manages a network of Neuron objects
   /// - Parameters:
   ///   - nucleus:  Nucleus object that describes the learning behavior of the network
   ///   - epochs: Number of times to run the training daya
   ///   - lossFunction: The loss function to calculate
   ///   - lossThreshold: The loss threshold to reach when training
-  public init(nucleus: Nucleus,
+  public init(learningRate: Float,
               epochs: Int,
               lossFunction: LossFunction = .meanSquareError,
               lossThreshold: Float = 0.001,
               initializer: Initializers = .xavierNormal) {
     
-    self.nucleus = nucleus
+    self.learningRate = learningRate
     self.lossFunction = lossFunction
     self.lossThreshold = lossThreshold
     self.epochs = epochs
     self.initializer = initializer
+  }
+  
+  public init(model: ExportModel,
+              epochs: Int,
+              lossFunction: LossFunction = .crossEntropy,
+              lossThreshold: Float = 0.001,
+              initializer: Initializers = .xavierNormal) {
+    
+    self.learningRate = model.learningRate
+    self.epochs = epochs
+    self.lossFunction = lossFunction
+    self.lossThreshold = lossThreshold
+    self.initializer = initializer
+    
+    //generate weight layers
+    self.compile(model: model)
+  }
+  
+  internal func compile(model: ExportModel) {
+    
+    model.layers.forEach { (layer) in
+      
+      for i in 0..<layer.nodes {
+        precondition(i < layer.weights.count && i < layer.bias.count)
+
+        var neurons: [Neuron] = []
+          
+        let weight = layer.weights[i]
+        let bias = layer.bias[i]
+        let dendrites = weight.map({ NeuroTransmitter(weight: $0) })
+        
+        let nucleus = Nucleus(learningRate: self.learningRate, bias: bias)
+        
+        let neuron = Neuron(inputs: dendrites,
+                            nucleus: nucleus,
+                            activation: layer.activation,
+                            layer: layer.type)
+        
+        neurons.append(neuron)
+        
+      
+        let lobe = Lobe(neurons: neurons, layer: .input)
+        self.lobes.append(lobe)
+      }
+      
+    }
+    
+    
+    self.compiled = true
   }
   
   /// Adds a layer to the neural network
@@ -77,7 +125,7 @@ public class Brain: Logger {
     ///maybe auto assign input layer and only add hidden layers?
     ///kind of redundant to specify a layer as being input when the first in the
     ///array is considereing the input layer.
-    self.lobes.append(model.lobe(self.nucleus))
+    self.lobes.append(model.lobe(self.learningRate))
   }
   
   /// Adds an output modifier to the output layer
@@ -86,9 +134,6 @@ public class Brain: Logger {
     self.outputModifier = mod
   }
   
-  private func dendrite() -> NeuroTransmitter {
-    return NeuroTransmitter()
-  }
   /// Connects all the lobes together in the network builing the complete network
   public func compile() {
     guard lobes.count > 0 else {
@@ -113,7 +158,7 @@ public class Brain: Logger {
           }
           
           self.layerWeights.append(weights)
-
+          
           neuron.inputs = dendrites
         }
         
@@ -149,7 +194,7 @@ public class Brain: Logger {
                     complete: ((_ complete: Bool) -> ())? = nil) {
     
     previousValidationErrors.removeAll()
-
+    
     let trainingStartDate = Date()
     
     guard data.count > 0 else {
@@ -163,7 +208,7 @@ public class Brain: Logger {
       print("please run compile() on the Brain object before training")
       return
     }
-        
+    
     for i in 0..<epochs {
       
       let epochStartDate = Date()
@@ -180,9 +225,9 @@ public class Brain: Logger {
           percentComplete = Float(d) / Float(data.count)
           self.log(type: .message, priority: .medium, message: "\(percentComplete.percent())%")
         }
-
+        
         self.log(type: .message, priority: .high, message: "data iteration: \(d)")
-
+        
         self.trainIndividual(data: obj)
         
       }
@@ -198,13 +243,13 @@ public class Brain: Logger {
       self.log(type: .message,
                priority: .high,
                message: "epoch completed time: \(Date().timeIntervalSince(epochStartDate))")
-    
+      
       //feed validation data through the network
       if let validationData = validation.randomElement(), validation.count > 0 {
-
+        
         self.feedInternal(input: validationData.data)
         let errorForValidation = self.calcAverageErrorForOutput(correct: validationData.correct)
-
+        
         //if validation error is greater than previous then we are complete with training
         //bail out to prevent overfitting
         let threshold: Float = self.lossThreshold
@@ -219,11 +264,11 @@ public class Brain: Logger {
             
             self.log(type: .success, priority: .alwaysShow, message: "SUCCESS: training is complete...")
             self.log(type: .message, priority: .alwaysShow, message: "Loss: \(self.loss.last ?? 0)")
-
+            
             self.log(type: .success,
                      priority: .high,
                      message: "training completed time: \(Date().timeIntervalSince(trainingStartDate))")
-
+            
             
             complete?(true)
             return
@@ -245,7 +290,7 @@ public class Brain: Logger {
              message: "training completed time: \(Date().timeIntervalSince(trainingStartDate))")
     
     self.log(type: .message, priority: .alwaysShow, message: "Loss: \(self.loss.last ?? 0)")
-
+    
     complete?(true)
   }
   
@@ -283,9 +328,7 @@ public class Brain: Logger {
   
   /// Update the settings for each lobe and each neuron
   /// - Parameter nucleus: Object that describes the network behavior
-  public func updateNucleus(_ nucleus: Nucleus) {
-    self.nucleus = nucleus
-    
+  public func updateNucleus(_ nucleus: Nucleus) {    
     self.lobes.forEach { (lobe) in
       lobe.updateNucleus(nucleus)
     }
@@ -327,7 +370,7 @@ public class Brain: Logger {
     for i in 0..<self.lobes.count {
       let currentLayer = self.lobes[i].neurons
       var newInputs: [Float] = []
-
+      
       for c in 0..<currentLayer.count {
         let neuron = currentLayer[c]
         
@@ -414,7 +457,7 @@ public class Brain: Logger {
     
     //set output error delta
     let outs = self.get()
-
+    
     for i in 0..<self.outputLayer().count {
       let target = correctValues[i]
       let predicted = outs[i]
@@ -426,7 +469,7 @@ public class Brain: Logger {
       self.log(type: .message,
                priority: .high,
                message: "out: \(i), raw: \(outputNeuron.activation()) predicted: \(predicted), actual: \(target) delta: \(outputNeuron.delta)")
-
+      
     }
     
     //reverse so we can loop through from the beggining of the array starting at the output node
@@ -439,7 +482,7 @@ public class Brain: Logger {
     for i in 0..<reverse.count - 1 {
       let currentLayer = reverse[i].neurons
       let previousLayer = reverse[i + 1].neurons
-
+      
       for p in 0..<previousLayer.count {
         var deltaAtLayer: Float = 0
         
@@ -452,7 +495,7 @@ public class Brain: Logger {
         }
         
         previousLayer[p].delta = deltaAtLayer
-
+        
       }
       
     }
