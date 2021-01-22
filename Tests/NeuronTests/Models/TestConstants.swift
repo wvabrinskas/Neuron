@@ -14,6 +14,6 @@ public struct TestConstants {
   public static let outputs = ColorType.allCases.count
   public static let numOfHiddenLayers = 1
   public static let lossThreshold: Float = 0.001
-  public static let testingLossThreshold: Float = 0.2 //if below 0.2 considered trained
+  public static let testingLossThreshold: Float = 0.25 //if below 0.2 considered trained
   public static let samplePretrainedModel: String = "sample_color_model"
 }
