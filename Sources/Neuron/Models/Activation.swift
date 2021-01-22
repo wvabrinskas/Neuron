@@ -8,7 +8,7 @@
 
 import Foundation
 
-public enum Activation: Int, CaseIterable {
+public enum Activation: String, CaseIterable, Codable {
   case reLu
   case sigmoid
   case leakyRelu

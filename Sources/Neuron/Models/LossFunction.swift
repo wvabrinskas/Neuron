@@ -17,12 +17,12 @@ public enum LossFunction {
     
     switch self {
     case .meanSquareError:
-      let sq = pow(predicted - correct, 2)
+      let sq = pow(correct - predicted, 2)
       return sq
       
     case .crossEntropy:
       let p = correct == 0 ? 1 - predicted : predicted
-      let result = (correct * log(p + 1e-10))
+      let result = (correct * log2(p + 1e-10))
       return -result
     }
 

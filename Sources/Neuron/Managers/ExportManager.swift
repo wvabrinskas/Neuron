@@ -27,9 +27,7 @@ public struct ExportManager {
     do {
       
       let path = try fileManager.url(for: .documentDirectory, in: .allDomainsMask, appropriateFor: nil , create: false )
-      
       let fileName = "\(filename).csv"
-      
       let fileURL = path.appendingPathComponent(fileName)
       
       try stringData.write(to: fileURL, atomically: true , encoding: .utf8)
@@ -42,5 +40,29 @@ public struct ExportManager {
       
     }
 
+  }
+  
+  public static func getModel<T: Codable>(filename: String = "model", model: T) -> URL? {
+    let fileManager = FileManager.default
+
+    do {
+      let encoder = JSONEncoder()
+      encoder.outputFormatting = .prettyPrinted
+      let dict = try encoder.encode(model)
+      
+      let path = try fileManager.url(for: .documentDirectory, in: .allDomainsMask, appropriateFor: nil, create: false)
+      let fileName = "\(filename).smodel"
+      
+      let fileURL = path.appendingPathComponent(fileName)
+      
+      try dict.write(to: fileURL)
+      
+      return fileURL
+      
+    } catch {
+      print("error creating file")
+      return nil
+      
+    }
   }
 }
