@@ -44,7 +44,7 @@ public class Brain: Logger {
   /// The initializer to generate the layer weights
   private var initializer: Initializers
   
-  private var model: ExportModel?
+  internal var model: ExportModel?
   
   /// Initialized layer weights for unit test purposes only
   internal var layerWeights: [[Float]] = []

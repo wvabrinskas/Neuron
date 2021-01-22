@@ -10,7 +10,7 @@ import Foundation
 
 internal protocol ModelBuilder {
   func build<TModel: Decodable>(_ json: [AnyHashable : Any]?) -> Result<TModel?, Error>
-  func getJSON<T>(_ file: String) -> Result<T?, Error>
+  func getJSON<T>(_ file: URL) -> Result<T?, Error>
 }
 
 internal enum BuildError: Error {
@@ -44,10 +44,9 @@ internal extension ModelBuilder {
     }
   }
   
-  func getJSON<T>(_ file: String) -> Result<T?, Error> {
+  func getJSON<T>(_ url: URL) -> Result<T?, Error> {
     do {
-      let fileURL = URL(fileURLWithPath: file)
-      let data = try Data(contentsOf: fileURL, options: .mappedIfSafe)
+      let data = try Data(contentsOf: url, options: .mappedIfSafe)
       let json = try? JSONSerialization.jsonObject(with: data, options: .allowFragments)
       return .success(json as? T)
     } catch {

@@ -8,9 +8,9 @@
 import Foundation
 
 public struct PretrainedModel: ModelBuilder {
-  public var fileURL: String
+  public var fileURL: URL
   
-  public init(url file: String) {
+  public init(url file: URL) {
     self.fileURL = file
   }
   

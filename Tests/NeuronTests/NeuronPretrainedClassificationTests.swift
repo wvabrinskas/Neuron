@@ -47,7 +47,7 @@ final class NeuronPretrainedClassificationTests: XCTestCase, BaseTestConfig {
   
   func importPretrainedModel() {
     do {
-      let fileURL = try Resource(name: TestConstants.samplePretrainedModel, type: "smodel").url.absoluteString
+      let fileURL = try Resource(name: TestConstants.samplePretrainedModel, type: "smodel").url
       
       let model = PretrainedModel(url: fileURL)
       
@@ -59,6 +59,7 @@ final class NeuronPretrainedClassificationTests: XCTestCase, BaseTestConfig {
       
       brain?.add(modifier: .softmax)
       self.brain = brain
+      self.model = brain?.model
       
       brain?.compile()
       
