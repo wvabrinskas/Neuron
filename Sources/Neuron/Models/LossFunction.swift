@@ -31,7 +31,8 @@ public enum LossFunction {
   public func derivative(_ predicted: Float, correct: Float) -> Float {
     switch self {
     case .meanSquareError:
-      return correct - predicted
+      //−1∗(2(y−p)
+      return -1 * (2 * (correct - predicted))
     case .crossEntropy:
       return predicted - correct
     }
