@@ -1,4 +1,6 @@
-# Neuron
+<img width="100" src="images/neuron.png"> 
+
+# Neuron 
 
 ![](https://img.shields.io/github/v/tag/wvabrinskas/Neuron?style=flat-square)
 ![](https://img.shields.io/github/license/wvabrinskas/Neuron?style=flat-square)
