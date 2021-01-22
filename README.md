@@ -18,8 +18,8 @@ Neuron is a swift package I developed to help learn how to make neural networks.
 #### Disclaimer
 This is very much a `BETA` project and to only be used as a learning tool as of now.
 
-## Support 
-- [Twitter](https://twitter.com/wvabrinskas)
+# Support 
+[<img width="100" src="images/twitter.png"> ](https://twitter.com/wvabrinskas)
 
 Feel free to send me suggestions on how to improve this. I would be delighted to learn more!! You can also feel free to assign issues here as well. 
 
