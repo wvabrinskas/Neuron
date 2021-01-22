@@ -19,7 +19,7 @@ public class Neuron {
   
   internal var activationType: Activation
   internal var bias: Float
-  internal var layer: LobeModel.LayerType
+  internal var layer: LobeModel.LayerType = .output
 
   private var learningRate: Float = 0.01
   private var activationDerivative: Float = 0
@@ -30,14 +30,12 @@ public class Neuron {
   ///   - nucleus: Nucleus object describing things like learning rate, bias, and activation type
   public init(inputs: [NeuroTransmitter] = [],
               nucleus: Nucleus,
-              activation: Activation,
-              layer: LobeModel.LayerType) {
+              activation: Activation) {
     
     self.learningRate = nucleus.learningRate
     self.bias = nucleus.bias
     self.activationType = activation
     self.inputs = inputs
-    self.layer = layer
   }
   
   /// Replaces all the inputs connected to this neuron with new ones

@@ -161,16 +161,18 @@ public class Brain: Logger {
         
         let neuron = Neuron(inputs: dendrites,
                             nucleus: nucleus,
-                            activation: layer.activation,
-                            layer: layer.type)
+                            activation: layer.activation)
+        
+        neuron.layer = layer.type
         
         neurons.append(neuron)
         self.layerWeights.append(weights)
       }
       
       let lobe = Lobe(neurons: neurons,
-                      layer: layer.type,
                       activation: layer.activation)
+      
+      lobe.layer = layer.type
       
       self.lobes.append(lobe)
     }
@@ -191,10 +193,16 @@ public class Brain: Logger {
     //link all the layers generating the matrix
     for i in 0..<lobes.count {
       if i > 0 {
+        let lobe = self.lobes[i]
+        let layerType: LobeModel.LayerType = i + 1 == lobes.count ? .output : .hidden
+        lobe.layer = layerType
+        
         let neuronGroup = self.lobes[i].neurons
         let inputNeuronGroup = self.lobes[i-1].neurons
         
         neuronGroup.forEach { (neuron) in
+          neuron.layer = layerType
+          
           var dendrites: [NeuroTransmitter] = []
           
           var weights: [Float] = []
@@ -212,8 +220,10 @@ public class Brain: Logger {
         }
         
       } else {
+        
         //first layer weight initialization with 0 since it's just the input layer
         let neuronGroup = self.lobes[i].neurons
+        self.lobes[i].layer = .input
         
         var weights: [Float] = []
         for n in 0..<neuronGroup.count {
@@ -222,6 +232,7 @@ public class Brain: Logger {
           
           //first layer only has one input per input value
           neuronGroup[n].inputs = [transmitter]
+          neuronGroup[n].layer = .input
           
           weights.append(0)
         }

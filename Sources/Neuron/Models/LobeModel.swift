@@ -12,7 +12,6 @@ public struct LobeModel {
   internal var nodes: Int
   internal var activation: Activation = .none
   internal var bias: Float = 0
-  internal var layer: LayerType
   
   /// The type that the layer should be
   public enum LayerType: String, CaseIterable, Codable {
@@ -22,11 +21,9 @@ public struct LobeModel {
   //creates a Lobe object with the defining Nucleus
   public init(nodes: Int,
               activation: Activation = .none,
-              bias: Float = 0,
-              layer: LayerType) {
+              bias: Float = 0) {
     self.nodes = nodes
     self.activation = activation
     self.bias = bias
-    self.layer = layer
   }
 }

@@ -26,13 +26,13 @@ final class NeuronBaseTests: XCTestCase, BaseTestConfig {
                       lossThreshold: TestConstants.lossThreshold,
                       initializer: .xavierNormal)
     
-    brain.add(.init(nodes: TestConstants.inputs, bias: bias, layer: .input)) //input layer
+    brain.add(.init(nodes: TestConstants.inputs, bias: bias)) //input layer
     
     for _ in 0..<TestConstants.numOfHiddenLayers {
-      brain.add(.init(nodes: TestConstants.hidden, activation: .reLu, bias: bias, layer: .hidden)) //hidden layer
+      brain.add(.init(nodes: TestConstants.hidden, activation: .reLu, bias: bias)) //hidden layer
     }
     
-    brain.add(.init(nodes: TestConstants.outputs, bias: bias, layer: .output)) //output layer
+    brain.add(.init(nodes: TestConstants.outputs, bias: bias)) //output layer
     
     brain.add(modifier: .softmax)
     brain.logLevel = .none
