@@ -1,26 +1,34 @@
 import XCTest
 @testable import Neuron
 
-final class NeuronPretrainedClassificationTests: XCTestCase, ModelBuilder {
+extension Array where Element: Comparable {
+  func compare(_ compare: [Element]) -> Bool {
+    guard self.count == compare.count else {
+      return false
+    }
+    
+    var returnValue = false
+    
+    for i in 0..<self.count {
+      let selfVal = self[i]
+      let compVal = compare[i]
+      returnValue = selfVal == compVal
+    }
+    
+    return returnValue
+  }
+}
 
-  let inputs = 4 //UIColor values rgba
-  let hidden = 5
-  let outputs = ColorType.allCases.count
-  let numOfHiddenLayers = 1
-  
-  let lossThreshold: Float = 0.001
-  let testingLossThreshold: Float = 0.2 //if below 0.2 considered trained
-  
+final class NeuronPretrainedClassificationTests: XCTestCase, BaseTestConfig, ModelBuilder {
+
   static var allTests = [
-    ("testCNeuronConnectionObjects", testCNeuronConnectionObjects),
-    ("testWeightNumbers", testBWeightNumbers),
-    ("testANumberOfLobesMatches", testANumberOfLobesMatches),
-    ("testFeedIsntSame", testDFeedIsntSame),
-    ("testGuess", testEGuess),
-
+    ("testWeightNumbers", testWeightNumbers),
+    ("testANumberOfLobesMatches", testNumberOfLobesMatches),
+    ("testGuess", testGuess),
   ]
   
-  private var brain: Brain?
+  public var brain: Brain?
+  public var model: ExportModel?
   
   public var trainingData: [TrainingData] = []
   public var validationData: [TrainingData] = []
@@ -42,17 +50,45 @@ final class NeuronPretrainedClassificationTests: XCTestCase, ModelBuilder {
        let model: ExportModel = self.build(modelJson) {
      
       let brain = Brain(model: model,
-                        epochs: 100,
+                        epochs: 200,
                         lossFunction: .crossEntropy,
-                        lossThreshold: 0.001,
-                        initializer: .xavierUniform)
+                        lossThreshold: TestConstants.lossThreshold,
+                        initializer: .xavierNormal)
       
       brain.add(modifier: .softmax)
       self.brain = brain
+      
+      brain.compile()
+      self.model = model
     }
   }
+  
+  func testWeightsInModel() {
+    XCTAssertTrue(model != nil, "No model to test against")
+    XCTAssertTrue(brain != nil, "Brain is empty")
+
+    guard let model = model, let brain = brain else {
+      return
+    }
+    
+    let allWeights = model.layers.map({ $0.weights })
+    
+    for l in 0..<brain.lobes.count {
+      let lobe = brain.lobes[l]
+      let weightsAtLayer = lobe.neurons.map({ $0.inputs.map({ $0.weight} )})
+      let weightsAtPretrained = allWeights[l]
+      
+      for i in 0..<weightsAtLayer.count {
+        let weight = weightsAtLayer[i]
+        let weightP = weightsAtPretrained[i]
+        
+        XCTAssertTrue(weight.compare(weightP), "Layer weights don't match")
+      }
+    }
+
+  }
  
-  func testANumberOfLobesMatches() {
+  func testNumberOfLobesMatches() {
     XCTAssertTrue(brain != nil, "Brain is empty")
     guard let brain = self.brain else {
       return
@@ -62,27 +98,27 @@ final class NeuronPretrainedClassificationTests: XCTestCase, ModelBuilder {
     let hiddenLayers = brain.lobes.filter({ $0.layer == .hidden })
     let outputLayer = brain.lobes.filter({ $0.layer == .output })
 
-    XCTAssertTrue(inputLayer.count == 1, "Should only have 1 first layer")
+    XCTAssertTrue(inputLayer.count == 1, "Should only have 1 input layer")
 
     if let first = inputLayer.first {
-      XCTAssertTrue(first.neurons.count == inputs, "Input layer count does not match model")
+      XCTAssertTrue(first.neurons.count == TestConstants.inputs, "Input layer count does not match model")
     }
     
-    XCTAssertTrue(hiddenLayers.count == numOfHiddenLayers, "Number of hidden layers does not match model")
+    XCTAssertTrue(hiddenLayers.count == TestConstants.numOfHiddenLayers, "Number of hidden layers does not match model")
     
     hiddenLayers.forEach { (layer) in
-      XCTAssertTrue(layer.neurons.count == hidden, "Hidden layer count does not match model")
+      XCTAssertTrue(layer.neurons.count == TestConstants.hidden, "Hidden layer count does not match model")
     }
     
-    XCTAssertTrue(outputLayer.count == 1, "Should only have 1 first layer")
+    XCTAssertTrue(outputLayer.count == 1, "Should only have 1 output layer")
 
     if let first = outputLayer.first {
-      XCTAssertTrue(first.neurons.count == outputs, "Output layer count does not match model")
+      XCTAssertTrue(first.neurons.count == TestConstants.outputs, "Output layer count does not match model")
     }
     
   }
   
-  func testBWeightNumbers() {
+  func testWeightNumbers() {
     XCTAssertTrue(brain != nil, "Brain is empty")
     guard let brain = self.brain else {
       return
@@ -96,52 +132,12 @@ final class NeuronPretrainedClassificationTests: XCTestCase, ModelBuilder {
       }
     }
     
-    let expected = inputs + (inputs * hidden) + (hidden * outputs)
+    let expected = TestConstants.inputs + (TestConstants.inputs * TestConstants.hidden) + (TestConstants.hidden * TestConstants.outputs)
     XCTAssertTrue(flattenedWeights.count == expected,
                   "got: \(flattenedWeights.count) expected: \(expected)")
   }
   
-  //checks to see if the neurontransmitter objects are unique
-  func testCNeuronConnectionObjects() {
-    XCTAssertTrue(brain != nil, "Brain is empty")
-    guard let brain = self.brain else {
-      return
-    }
-    
-    brain.lobes.forEach { (lobe) in
-      lobe.neurons.forEach { (neuron) in
-        neuron.inputs.forEach { (connection) in
-          let count = neuron.inputs.filter({ $0 == connection })
-          XCTAssertTrue(count.count == 1, "Multiples of the same NeuroTransmitter")
-        }
-      }
-    }
-  }
-  
-  func testDFeedIsntSame() {
-    XCTAssertTrue(brain != nil, "Brain is empty")
-    guard let brain = self.brain else {
-      return
-    }
-    
-    var previous: [Float] = [Float](repeating: 0.0, count: self.inputs)
-    
-    for i in 0..<10 {
-      var inputs: [Float] = []
-      for _ in 0..<self.inputs {
-        inputs.append(Float.random(in: 0...1))
-      }
-      
-      let out = brain.feed(input: inputs)
-      
-      print("Feed \(i): \(out)")
-      XCTAssertTrue(previous != out, "Result is the same check code...")
-      previous = out
-    }
-    
-  }
-  
-  func testEGuess() {
+  func testGuess() {
     XCTAssertTrue(brain != nil, "Brain is empty")
     guard let brain = self.brain else {
       return

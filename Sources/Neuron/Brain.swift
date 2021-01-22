@@ -44,11 +44,14 @@ public class Brain: Logger {
   /// The initializer to generate the layer weights
   private var initializer: Initializers
   
+  private var model: ExportModel?
+  
   /// Initialized layer weights for unit test purposes only
   internal var layerWeights: [[Float]] = []
   
   /// Distribution for initialization
   internal static let dist = NormalDistribution()
+  
   
   /// Creates a Brain object that manages a network of Neuron objects
   /// - Parameters:
@@ -80,47 +83,9 @@ public class Brain: Logger {
     self.lossFunction = lossFunction
     self.lossThreshold = lossThreshold
     self.initializer = initializer
-    
-    //generate weight layers
-    self.compile(model: model)
+    self.model = model
   }
-  
-  internal func compile(model: ExportModel) {
-    
-    //go through each layer
-    model.layers.forEach { (layer) in
-      
-      var neurons: [Neuron] = []
-      
-      //go through each node in layer
-      for i in 0..<layer.nodes {
-        precondition(i < layer.weights.count && i < layer.bias.count)
 
-        let weight = layer.weights[i]
-        let bias = layer.bias[i]
-        //map each weight
-        
-        let dendrites = weight.map({ NeuroTransmitter(weight: $0) })
-        
-        let nucleus = Nucleus(learningRate: self.learningRate, bias: bias)
-        
-        let neuron = Neuron(inputs: dendrites,
-                            nucleus: nucleus,
-                            activation: layer.activation,
-                            layer: layer.type)
-        
-        neurons.append(neuron)
-      }
-      
-      let lobe = Lobe(neurons: neurons,
-                      layer: layer.type,
-                      activation: layer.activation)
-      
-      self.lobes.append(lobe)
-    }
-    
-    self.compiled = true
-  }
   
   /// Returns a model that can be imported later
   /// - Returns: The url to download the SModel file
@@ -141,6 +106,7 @@ public class Brain: Logger {
       //set to 0
       if lobe.layer == .input {
         biases = [Float](repeating: 0, count: lobe.neurons.count)
+        weights = [[Float]](repeating: [0], count: lobe.neurons.count)
       }
       
       let layer = Layer(activation: lobe.activation,
@@ -172,8 +138,53 @@ public class Brain: Logger {
     self.outputModifier = mod
   }
   
+  private func compileWithModel() {
+    guard let model = self.model else {
+      return
+    }
+    //go through each layer
+    model.layers.forEach { (layer) in
+      
+      var neurons: [Neuron] = []
+      
+      //go through each node in layer
+      for i in 0..<layer.nodes {
+        precondition(i < layer.weights.count && i < layer.bias.count)
+
+        let weights = layer.weights[i]
+        let bias = layer.bias[i]
+        
+        //map each weight
+        let dendrites = weights.map({ NeuroTransmitter(weight: $0) })
+        
+        let nucleus = Nucleus(learningRate: self.learningRate, bias: bias)
+        
+        let neuron = Neuron(inputs: dendrites,
+                            nucleus: nucleus,
+                            activation: layer.activation,
+                            layer: layer.type)
+        
+        neurons.append(neuron)
+        self.layerWeights.append(weights)
+      }
+      
+      let lobe = Lobe(neurons: neurons,
+                      layer: layer.type,
+                      activation: layer.activation)
+      
+      self.lobes.append(lobe)
+    }
+    
+    self.compiled = true
+  }
+  
   /// Connects all the lobes together in the network builing the complete network
   public func compile() {
+    guard self.model == nil else {
+      self.compileWithModel()
+      return
+    }
+    
     guard lobes.count > 0 else {
       fatalError("no lobes to connect bailing out.")
     }
@@ -201,19 +212,18 @@ public class Brain: Logger {
         }
         
       } else {
-        //first layer weight initialization
+        //first layer weight initialization with 0 since it's just the input layer
         let neuronGroup = self.lobes[i].neurons
         
         var weights: [Float] = []
         for n in 0..<neuronGroup.count {
           
-          let weight = self.initializer.calculate(m: neuronGroup.count, h: neuronGroup.count)
-          let transmitter = NeuroTransmitter(weight: weight)
+          let transmitter = NeuroTransmitter(weight: 0)
           
           //first layer only has one input per input value
           neuronGroup[n].inputs = [transmitter]
           
-          weights.append(weight)
+          weights.append(0)
         }
         self.layerWeights.append(weights)
       }
@@ -415,13 +425,14 @@ public class Brain: Logger {
         //input layer isn't fully connected and just passes the input value with
         //no activation function
         if i == 0 {
-          neuron.replaceInputs(inputs: [input[c]], initializer: self.initializer)
+          neuron.addInputs(inputs: [input[c]], initializer: self.initializer)
         } else {
           //should already be initialized
-          neuron.replaceInputs(inputs: x)
+          neuron.addInputs(inputs: x)
         }
         
-        newInputs.append(neuron.activation())
+        let act = neuron.activation()
+        newInputs.append(act)
       }
       x = newInputs
     }
@@ -513,11 +524,9 @@ public class Brain: Logger {
     //reverse so we can loop through from the beggining of the array starting at the output node
     let reverse: [Lobe] = self.lobes.reversed()
     
-    //- 1 because we dont need to propagate passed the input layer
-    //DISPATCH QUEUE BREAKS EVERYTHING NEED BETTER OPTIMIZATION =(
-    //WITH OUT IT MAKES IT MUCH SLOWER BUT WITH IT IT FORMS A RACE CONDITION =(
-    
-    for i in 0..<reverse.count - 1 {
+    //subtracting 2 because we dont need to propagate through to the weights in the input layer
+    //those will always be 0 since no computation happens at the input layer
+    for i in 0..<reverse.count - 2 {
       let currentLayer = reverse[i].neurons
       let previousLayer = reverse[i + 1].neurons
       
@@ -533,9 +542,7 @@ public class Brain: Logger {
         }
         
         previousLayer[p].delta = deltaAtLayer
-        
       }
-      
     }
     
   }

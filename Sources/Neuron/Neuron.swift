@@ -29,23 +29,21 @@ public class Neuron {
   ///   - inputs: Array of inputs as NeuroTransmitter that contain the values to be used as inputs
   ///   - nucleus: Nucleus object describing things like learning rate, bias, and activation type
   public init(inputs: [NeuroTransmitter] = [],
-              nucleus: Nucleus? = nil,
-              bias: Float? = nil,
-              learningRate: Float? = nil,
+              nucleus: Nucleus,
               activation: Activation,
               layer: LobeModel.LayerType) {
     
-    self.learningRate = learningRate == nil ? (nucleus?.learningRate ?? 0.01) : (learningRate ?? 0.01)
-    self.bias = bias == nil ? (nucleus?.bias ?? 0) : (bias ?? 0)
+    self.learningRate = nucleus.learningRate
+    self.bias = nucleus.bias
     self.activationType = activation
     self.inputs = inputs
     self.layer = layer
   }
+  
   /// Replaces all the inputs connected to this neuron with new ones
   /// - Parameter inputs: Input array as [Float] to replace inputs with
   /// - Parameter initializer: The initialier to generate the weights
-
-  public func replaceInputs(inputs: [Float], initializer: Initializers = .xavierNormal) {
+  public func addInputs(inputs: [Float], initializer: Initializers = .xavierNormal) {
     if self.inputs.count == 0 {
       
       self.inputs = inputs.map({ (value) -> NeuroTransmitter in
@@ -64,22 +62,6 @@ public class Neuron {
     for i in 0..<self.inputs.count {
       self.inputs[i].inputValue = inputs[i]
     }
-  }
-  
-  /// Adds an input as NeuroTransmitter at a specific index.
-  /// If the index is greater than the current input count it will just append it to the end of the input array
-  /// If there is no index specified it will append it to the end of the input array.
-  /// - Parameters:
-  ///   - in: NeuroTransmitter to insert
-  ///   - index: Optional index to insert the input.
-  public func addInput(input in: Float, at index: Int? = nil) {
-    guard let index = index, index < self.inputs.count else {
-      let neuroTransmitter = NeuroTransmitter(input: `in`)
-      self.inputs.append(neuroTransmitter)
-      return
-    }
-    
-    self.inputs[index].inputValue = `in`
   }
   
   public func derivative() -> Float {
@@ -101,17 +83,16 @@ public class Neuron {
     }
     
     var sum: Float = 0
-        
     //dont add bias or sum of weights to input activation
     for i in 0..<self.inputs.count {
       sum += self.inputs[i].weight * self.inputs[i].inputValue
     }
-    
+  
     sum += bias
   
     let out = self.activationType.activate(input: sum)
     self.activationDerivative = self.activationType.derivative(input: sum)
-    
+
     return out
   }
   
@@ -136,12 +117,10 @@ public class Neuron {
     //WITH OUT IT MAKES IT MUCH SLOWER BUT WITH IT IT FORMS A RACE CONDITION =(
     for i in 0..<inputs.count {
             
-      //INVERSE -= to += FOR MSE... ??? idk why
       self.inputs[i].weight -= self.learningRate * self.inputs[i].inputValue * delta * self.derivative()
       bias -= self.learningRate * delta
     }
   }
-  
 
 }
 

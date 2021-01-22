@@ -33,7 +33,9 @@ public class Lobe {
 
     var neurons: [Neuron] = []
     for _ in 0..<model.nodes {
-      let neuron = Neuron(nucleus: nuc, activation: activation, layer: model.layer)
+      let neuron = Neuron(nucleus: nuc,
+                          activation: model.activation,
+                          layer: model.layer)
       neurons.append(neuron)
     }
     self.neurons = neurons

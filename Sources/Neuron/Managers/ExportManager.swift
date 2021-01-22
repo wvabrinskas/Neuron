@@ -64,6 +64,5 @@ public struct ExportManager {
       return nil
       
     }
-    return nil
   }
 }
