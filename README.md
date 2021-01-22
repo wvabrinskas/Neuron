@@ -192,6 +192,37 @@ Data
 Correct
 - A array of values that the network should target and should match the number of outputs of the network
 
+# Importing Pretrained Models
+Brain can accept a pretrained model in the form of a `.smodel` file. Basically a renamed JSON format, this is the format the Brain object will export as well. 
+- This will create a fully trained Brain object that is ready to go based on the trained model passed in. 
+``` 
+ public init?(model: PretrainedModel,
+              epochs: Int,
+              lossFunction: LossFunction = .crossEntropy,
+              lossThreshold: Float = 0.001,
+              initializer: Initializers = .xavierNormal) {
+```
+
+PretrainedModel 
+- The object takes in a URL to the `.smodel` file.  
+```
+public struct PretrainedModel: ModelBuilder {
+  public var fileURL: URL
+  
+  public init(url file: URL) {
+    self.fileURL = file
+  }
+  ...
+```
+
+# Exporting Pretrained Models 
+The Brain object can export its current weights and setup as a `.smodel` file. This can be used to import later when creating a Brain object that you wish to be fully trained based on the data. 
+
+```
+brain.exportModel()
+```
+Will export a URL that links to the `.smodel` file.
+
 # Retrieving Data
 Pass in new data to feed through the network and get a result. 
 
