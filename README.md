@@ -233,6 +233,11 @@ let out = self.brain.feed(input: data)
 ```
 - Returns `[Float]` using the new inputs and the current weights, aka. feed forward.
 
+- Example graph:
+
+<img width="600" src="images/graph-sample.png"> 
+
+
 # Data Studying
 Using the `Brain` object you can also get the result of the loss functions of each epoch as a `CSV` file using the `exportLoss` function on `Brain`. 
 - `exportLoss(_ filename: String? = nil) -> URL?`
