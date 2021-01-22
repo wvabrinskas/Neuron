@@ -19,6 +19,7 @@ public class Neuron {
   
   internal var activationType: Activation
   internal var bias: Float
+  internal var biasWeight: Float = 0.0
   internal var layer: LobeModel.LayerType = .output
 
   private var learningRate: Float = 0.01
@@ -116,7 +117,7 @@ public class Neuron {
     for i in 0..<inputs.count {
             
       self.inputs[i].weight -= self.learningRate * self.inputs[i].inputValue * delta * self.derivative()
-      bias -= self.learningRate * delta
+      biasWeight -= self.learningRate * delta
     }
   }
 

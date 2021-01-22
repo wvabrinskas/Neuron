@@ -14,6 +14,7 @@ public struct Layer: Codable {
   var weights: [[Float]]
   var type: LobeModel.LayerType
   var bias: [Float]
+  var biasWeights: [Float]
 }
 
 public struct ExportModel: Codable {

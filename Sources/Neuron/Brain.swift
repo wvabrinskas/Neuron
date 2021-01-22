@@ -110,12 +110,16 @@ public class Brain: Logger {
       
       var weights: [[Float]] = []
       var biases: [Float] = []
+      var biasWeights: [Float] = []
+
       lobe.neurons.forEach { (neuron) in
         weights.append(neuron.inputs.map({ $0.weight }))
         biases.append(neuron.bias)
+        biasWeights.append(neuron.biasWeight)
       }
       //set to 0
       if lobe.layer == .input {
+        biasWeights = [Float](repeating: 0, count: lobe.neurons.count)
         biases = [Float](repeating: 0, count: lobe.neurons.count)
         weights = [[Float]](repeating: [0], count: lobe.neurons.count)
       }
@@ -124,7 +128,8 @@ public class Brain: Logger {
                         nodes: lobe.neurons.count,
                         weights: weights,
                         type: lobe.layer,
-                        bias: biases)
+                        bias: biases,
+                        biasWeights: biasWeights)
       
       layers.append(layer)
     }
@@ -160,10 +165,11 @@ public class Brain: Logger {
       
       //go through each node in layer
       for i in 0..<layer.nodes {
-        precondition(i < layer.weights.count && i < layer.bias.count)
+        precondition(i < layer.weights.count && i < layer.bias.count && i < layer.biasWeights.count)
 
         let weights = layer.weights[i]
         let bias = layer.bias[i]
+        let biasWeight = layer.biasWeights[i]
         
         //map each weight
         let dendrites = weights.map({ NeuroTransmitter(weight: $0) })
@@ -175,6 +181,7 @@ public class Brain: Logger {
                             activation: layer.activation)
         
         neuron.layer = layer.type
+        neuron.biasWeight = biasWeight
         
         neurons.append(neuron)
         self.layerWeights.append(weights)
@@ -227,6 +234,9 @@ public class Brain: Logger {
           
           self.layerWeights.append(weights)
           
+          let biasWeight = self.initializer.calculate(m: neuronGroup.count, h: inputNeuronGroup.count)
+          
+          neuron.biasWeight = biasWeight
           neuron.inputs = dendrites
         }
         
