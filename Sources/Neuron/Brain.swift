@@ -72,21 +72,32 @@ public class Brain: Logger {
     self.initializer = initializer
   }
   
-  public init(model: ExportModel,
+  public init?(model: PretrainedModel,
               epochs: Int,
               lossFunction: LossFunction = .crossEntropy,
               lossThreshold: Float = 0.001,
               initializer: Initializers = .xavierNormal) {
     
-    self.learningRate = model.learningRate
-    self.epochs = epochs
-    self.lossFunction = lossFunction
-    self.lossThreshold = lossThreshold
-    self.initializer = initializer
-    self.model = model
+    do {
+      guard let model = try model.getModel().get() else {
+        Self.log(type: .error, priority: .alwaysShow, message: "Could not build model")
+        return nil
+      }
+      
+      self.learningRate = model.learningRate
+      self.epochs = epochs
+      self.lossFunction = lossFunction
+      self.lossThreshold = lossThreshold
+      self.initializer = initializer
+      self.model = model
+      
+    } catch {
+      Self.log(type: .error, priority: .alwaysShow, message: error.localizedDescription)
+      return nil
+    }
+
   }
 
-  
   /// Returns a model that can be imported later
   /// - Returns: The url to download the SModel file
   public func exportModel() -> URL? {

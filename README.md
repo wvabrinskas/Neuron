@@ -31,7 +31,8 @@ It is fairly simple to setup the neural network `Brain`. This will be the only o
 ### Initialization
 ```  
   private lazy var brain: Brain = {
-    
+    let bias = 0.01
+
     let nucleus = Nucleus(learningRate: 0.001,
                           bias: 0.001)
     
@@ -41,13 +42,13 @@ It is fairly simple to setup the neural network `Brain`. This will be the only o
                       lossThreshold: 0.001, 
                       initializer: .xavierNormal)
     
-    brain.add(.layer(inputs, .none, .input))
-    
+    brain.add(.init(nodes: inputs, bias: bias)) //input layer
+
     for _ in 0..<numOfHiddenLayers {
-      brain.add(.layer(hidden, .reLu, .hidden)) 
+      brain.add(.init(nodes: hidden, activation: .reLu, bias: bias)) 
     }
     
-    brain.add(.layer(outputs, Activation.none, .output))
+    brain.add(.init(nodes: outputs, bias: bias)) //output layer
     
     brain.add(modifier: .softmax)
     brain.logLevel = .high
@@ -118,10 +119,16 @@ The brain object allows for adding layers in a module way through the `add` func
 ```
   public func add(_ model: LobeModel)
 ```
-The `LobeModel` enum contains a case for adding a layer. 
+The `LobeModel` struct can be created with a simple initializer. 
 ```
-  case layer(_ nodes: Int, _ activation: Activation = .none, _ layer: LayerType)
-```
+  public init(nodes: Int,
+              activation: Activation = .none,
+              bias: Float = 0) {
+    self.nodes = nodes
+    self.activation = activation
+    self.bias = bias
+  }
+  ```
 
 Nodes
 - the number of nodes at the layer 
@@ -130,13 +137,10 @@ Activation
 - the activation function to be used at the layer 
 - **NOTE: If the layer is of type `.input` the activation function will be ignored**
 
-Layer 
-- the type of layer being specified. (Will soon be automated....)
-```
-  public enum LayerType: CaseIterable {
-    case input, hidden, output
-  }
-  ```
+Bias
+- the bias to be added at that layer
+- **NOTE: If the layer is of type `.input` the bias will be ignored**
+
 
 ### Modifiers 
 The network also supports adding an output activation modifier such as softmax 

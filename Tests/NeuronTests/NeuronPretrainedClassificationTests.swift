@@ -19,7 +19,7 @@ extension Array where Element: Comparable {
   }
 }
 
-final class NeuronPretrainedClassificationTests: XCTestCase, BaseTestConfig, ModelBuilder {
+final class NeuronPretrainedClassificationTests: XCTestCase, BaseTestConfig {
 
   static var allTests = [
     ("testWeightNumbers", testWeightNumbers),
@@ -46,20 +46,24 @@ final class NeuronPretrainedClassificationTests: XCTestCase, BaseTestConfig, Mod
   }
   
   func importPretrainedModel() {
-    if let modelJson: [AnyHashable: Any]? = self.getJSON("sample_color_model", "smodel"),
-       let model: ExportModel = self.build(modelJson) {
-     
+    do {
+      let fileURL = try Resource(name: TestConstants.samplePretrainedModel, type: "smodel").url.absoluteString
+      
+      let model = PretrainedModel(url: fileURL)
+      
       let brain = Brain(model: model,
                         epochs: 200,
                         lossFunction: .crossEntropy,
                         lossThreshold: TestConstants.lossThreshold,
                         initializer: .xavierNormal)
       
-      brain.add(modifier: .softmax)
+      brain?.add(modifier: .softmax)
       self.brain = brain
       
-      brain.compile()
-      self.model = model
+      brain?.compile()
+      
+    } catch {
+      print(error)
     }
   }
   

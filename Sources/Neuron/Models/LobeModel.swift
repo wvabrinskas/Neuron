@@ -18,7 +18,6 @@ public struct LobeModel {
     case input, hidden, output
   }
   
-  //creates a Lobe object with the defining Nucleus
   public init(nodes: Int,
               activation: Activation = .none,
               bias: Float = 0) {
