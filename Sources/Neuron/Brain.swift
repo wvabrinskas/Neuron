@@ -290,6 +290,7 @@ public class Brain: Logger {
     }
     
     for i in 0..<epochs {
+      let mixedData = data.randomize()
       
       let epochStartDate = Date()
       
@@ -297,7 +298,7 @@ public class Brain: Logger {
       
       var percentComplete: Float = 0
       //train the network with all the data
-      for d in 0..<data.count {
+      for d in 0..<mixedData.count {
         
         let obj = data[d]
         

@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct TrainingData {
+public struct TrainingData: Equatable {
   public var data: [Float]
   public var correct: [Float]
   
