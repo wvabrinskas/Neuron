@@ -54,6 +54,8 @@ public class Brain: Logger {
   
   private var descent: GradientDescent
   
+  private var optimizer: Optimizer?
+  
   private var descents: [[Float]] = []
   
   /// Creates a Brain object that manages a network of Neuron objects
@@ -104,7 +106,14 @@ public class Brain: Logger {
     }
 
   }
-
+  
+  /// Adds an optimizer to the gradient descent algorithm.
+  /// Be sure to call this before calling `compile()`
+  /// - Parameter optimizer: The optimizer type to add
+  public func add(optimizer: Optimizer) {
+    self.optimizer = optimizer
+  }
+  
   /// Returns a model that can be imported later
   /// - Returns: The url to download the SModel file
   public func exportModel() -> URL? {
@@ -297,7 +306,7 @@ public class Brain: Logger {
     }
     
     for i in 0..<epochs {
-      let mixedData = data.randomize()
+      let mixedData = data
       
       let epochStartDate = Date()
       

@@ -24,6 +24,7 @@ public class Neuron {
 
   private var learningRate: Float = 0.01
   private var activationDerivative: Float = 0
+  private var optimizer: OptimizerFunction?
   
   /// Default initializer. Creates a Neuron object
   /// - Parameters:
@@ -31,12 +32,14 @@ public class Neuron {
   ///   - nucleus: Nucleus object describing things like learning rate, bias, and activation type
   public init(inputs: [NeuroTransmitter] = [],
               nucleus: Nucleus,
-              activation: Activation) {
+              activation: Activation,
+              optimizer: Optimizer? = nil) {
     
     self.learningRate = nucleus.learningRate
     self.bias = nucleus.bias
     self.activationType = activation
     self.inputs = inputs
+    self.optimizer = optimizer?.get()
   }
   
   /// Replaces all the inputs connected to this neuron with new ones
@@ -115,8 +118,13 @@ public class Neuron {
     //DISPATCH QUEUE BREAKS EVERYTHING NEED BETTER OPTIMIZATION =(
     //WITH OUT IT MAKES IT MUCH SLOWER BUT WITH IT IT FORMS A RACE CONDITION =(
     for i in 0..<inputs.count {
-            
-      self.inputs[i].weight -= self.learningRate * self.inputs[i].inputValue * delta * self.derivative()
+      if let optim = self.optimizer {
+        self.inputs[i].weight = optim.run(alpha: self.learningRate,
+                                          weight: self.inputs[i].weight,
+                                          gradient: delta * self.derivative())
+      } else {
+        self.inputs[i].weight -= self.learningRate * self.inputs[i].inputValue * delta * self.derivative()
+      }
       biasWeight -= self.learningRate * delta
     }
   }
