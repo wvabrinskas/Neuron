@@ -16,7 +16,8 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
                       epochs: 200,
                       lossFunction: .crossEntropy,
                       lossThreshold: TestConstants.lossThreshold,
-                      initializer: .xavierNormal)
+                      initializer: .xavierNormal,
+                      descent: .sgd)
     
     brain.add(.init(nodes: TestConstants.inputs, bias: bias)) //input layer
     
@@ -55,7 +56,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
   
   
   func buildTrainingData() {
-    let num = 100
+    let num = 200
 
     for _ in 0..<num {
       trainingData.append(TrainingData(data: ColorType.red.color(), correct: ColorType.red.correctValues()))
