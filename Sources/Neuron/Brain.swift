@@ -52,6 +52,11 @@ public class Brain: Logger {
   /// Distribution for initialization
   internal static let dist = NormalDistribution()
   
+  private var descent: GradientDescent
+  
+  private var optimizer: Optimizer?
+  
+  private var descents: [[Float]] = []
   
   /// Creates a Brain object that manages a network of Neuron objects
   /// - Parameters:
@@ -63,20 +68,23 @@ public class Brain: Logger {
               epochs: Int,
               lossFunction: LossFunction = .meanSquareError,
               lossThreshold: Float = 0.001,
-              initializer: Initializers = .xavierNormal) {
+              initializer: Initializers = .xavierNormal,
+              descent: GradientDescent = .sgd) {
     
     self.learningRate = learningRate
     self.lossFunction = lossFunction
     self.lossThreshold = lossThreshold
     self.epochs = epochs
     self.initializer = initializer
+    self.descent = descent
   }
   
   public init?(model: PretrainedModel,
               epochs: Int,
               lossFunction: LossFunction = .crossEntropy,
               lossThreshold: Float = 0.001,
-              initializer: Initializers = .xavierNormal) {
+              initializer: Initializers = .xavierNormal,
+              descent: GradientDescent = .sgd) {
     
     do {
       guard let model = try model.getModel().get() else {
@@ -90,14 +98,22 @@ public class Brain: Logger {
       self.lossThreshold = lossThreshold
       self.initializer = initializer
       self.model = model
-      
+      self.descent = descent
+
     } catch {
       Self.log(type: .error, priority: .alwaysShow, message: error.localizedDescription)
       return nil
     }
 
   }
-
+  
+  /// Adds an optimizer to the gradient descent algorithm.
+  /// Be sure to call this before calling `compile()`
+  /// - Parameter optimizer: The optimizer type to add
+  public func add(optimizer: Optimizer) {
+    self.optimizer = optimizer
+  }
+  
   /// Returns a model that can be imported later
   /// - Returns: The url to download the SModel file
   public func exportModel() -> URL? {
@@ -290,28 +306,55 @@ public class Brain: Logger {
     }
     
     for i in 0..<epochs {
+      let mixedData = data
       
       let epochStartDate = Date()
       
       self.log(type: .message, priority: .low, message: "epoch: \(i)")
       
       var percentComplete: Float = 0
-      //train the network with all the data
-      for d in 0..<data.count {
-        
-        let obj = data[d]
-        
-        if d % 20 == 0 {
-          percentComplete = Float(d) / Float(data.count)
-          self.log(type: .message, priority: .medium, message: "\(percentComplete.percent())%")
+      
+      switch self.descent {
+      case .sgd:
+        //train the network with all the data
+        for d in 0..<mixedData.count {
+          
+          let obj = data[d]
+          
+          if d % 20 == 0 {
+            percentComplete = Float(d) / Float(data.count)
+            self.log(type: .message, priority: .medium, message: "\(percentComplete.percent())%")
+          }
+          
+          self.log(type: .message, priority: .high, message: "data iteration: \(d)")
+          
+          self.trainIndividual(data: obj)
+          
         }
         
-        self.log(type: .message, priority: .high, message: "data iteration: \(d)")
+      case let .mbgd(size: size):
+        let batches = mixedData.batched(into: size)
         
-        self.trainIndividual(data: obj)
-        
+        batches.forEach { (batch) in
+          
+          batch.forEach { (tData) in
+            self.trainIndividual(data: tData, backprop: false)
+          }
+          
+          let avgDelta = self.averageDelta()
+          let outLayer = self.outputLayer()
+          
+          for i in 0..<outLayer.count {
+            outLayer[i].delta = avgDelta[i]
+          }
+          
+          self.backpropagate()
+          self.adjustWeights()
+          
+          self.descents.removeAll()
+        }
       }
-      
+
       //maybe add to serial background queue, dispatch queue crashes
       /// feed a model and its correct values through the network to calculate the loss
       let loss = self.calcAverageLoss(self.feed(input: data[0].data),
@@ -374,6 +417,16 @@ public class Brain: Logger {
     complete?(true)
   }
   
+  private func averageDelta() -> [Float] {
+    var sum: [Float] = [Float].init(repeating: 0, count: self.outputLayer().count)
+    
+    self.descents.forEach { (descentObj) in
+      sum += descentObj
+    }
+    
+    return sum / Float(self.descents.count)
+  }
+  
   private func averageError() -> Float {
     var sum: Float = 0
     
@@ -422,7 +475,7 @@ public class Brain: Logger {
     return ExportManager.getCSV(filename: name, self.loss)
   }
   
-  private func trainIndividual(data: TrainingData) {
+  private func trainIndividual(data: TrainingData, backprop: Bool = true) {
     
     guard data.correct.count == self.outputLayer().count else {
       self.log(type: .error,
@@ -434,12 +487,16 @@ public class Brain: Logger {
     //feed the data through the network
     self.feedInternal(input: data.data)
     
-    //get the error and propagate backwards through
-    self.backpropagate(data.correct)
-    //self.backpropagateOptim(correct)
+    //set the output errors for set
+    self.setOutputDeltas(data.correct)
     
-    //adjust all the weights after back propagation is complete
-    self.adjustWeights()
+    if backprop {
+      //propagate backwards through the network
+      self.backpropagate()
+      
+      //adjust all the weights after back propagation is complete
+      self.adjustWeights()
+    }
   }
   
   /// Feeds the network internally preparing for output or training
@@ -527,7 +584,7 @@ public class Brain: Logger {
     return self.calcAverageLoss(predicted, correct: correct)
   }
   
-  private func backpropagate(_ correctValues: [Float]) {
+  private func setOutputDeltas(_ correctValues: [Float]) {
     guard correctValues.count == self.outputLayer().count else {
       
       self.log(type: .error,
@@ -539,6 +596,8 @@ public class Brain: Logger {
     //set output error delta
     let outs = self.get()
     
+    var outputErrors: [Float] = []
+    
     for i in 0..<self.outputLayer().count {
       let target = correctValues[i]
       let predicted = outs[i]
@@ -546,6 +605,7 @@ public class Brain: Logger {
       let outputNeuron = self.outputLayer()[i]
       
       outputNeuron.delta = self.lossFunction.derivative(predicted, correct: target)
+      outputErrors.append(outputNeuron.delta)
       
       self.log(type: .message,
                priority: .high,
@@ -553,6 +613,11 @@ public class Brain: Logger {
       
     }
     
+    self.descents.append(outputErrors)
+  }
+  
+  private func backpropagate() {
+
     //reverse so we can loop through from the beggining of the array starting at the output node
     let reverse: [Lobe] = self.lobes.reversed()
     

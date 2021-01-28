@@ -42,7 +42,8 @@ It is fairly simple to setup the neural network `Brain`. This will be the only o
                       epochs: 10,
                       lossFunction: .crossEntropy,
                       lossThreshold: 0.001, 
-                      initializer: .xavierNormal)
+                      initializer: .xavierNormal, 
+                      gradient: .sgd)
     
     brain.add(.init(nodes: inputs, bias: bias)) //input layer
 
@@ -53,6 +54,9 @@ It is fairly simple to setup the neural network `Brain`. This will be the only o
     brain.add(.init(nodes: outputs, bias: bias)) //output layer
     
     brain.add(modifier: .softmax)
+
+    brain.add(optimizer: .adam())
+
     brain.logLevel = .high
     
     return brain
@@ -78,7 +82,7 @@ The brain object also supports different log levels so you can see what's going 
   case high
 ```
 
-Nucleus
+### Nucleus
 - It first takes in a `Nucleus` object that defines the learning rate and bias for the network.   
 - When defining a `bias` it is NOT applied to the input layer. 
 - The `Nucleus` object takes in 2 properties `learningRate` and `bias`
@@ -87,11 +91,11 @@ Nucleus
     - `bias` - the offset of adjustment to the weight adjustment calculation. 
         - Usually between `0` and `1`. 
 
-Epochs
+### Epochs
 - The number of times to run through the training data. 
 - The brain object may not hit the max number of epochs before training is finished if there is validation data passed and it reaches the defined loss threshold. 
 
-Loss Function 
+### Loss Function 
 - The loss function of the network. This will determine the loss of each epoch as well as the loss of the validation data set. 
 ```
   case meanSquareError
@@ -99,10 +103,10 @@ Loss Function
 ```
 - Currently the network only supports Mean Squared Error and Cross Entropy loss functions 
 
-Loss Threshold
+### Loss Threshold
 - The loss value the network should reach over an average of 5 epochs. 
 
-Initializer 
+### Initializer 
 - The initializer function the brain object should use to generate the weight values for each layer. 
 ```
   ///Generates weights based on a normal gaussian distribution. Mean = 0 sd = 1
@@ -113,8 +117,29 @@ Initializer
 ```
 - Currently the network supports Xavier normal distribution and Xavier uniform distribution 
 
-Optimizer
-- coming soon....
+### Optimizer
+- The brain object can add an optimizer to the network by calling: `brain.add(optimizer:)`
+```
+public enum Optimizer {
+  case adam(b1: Float = 0.9,
+            b2: Float = 0.999,
+            eps: Float = 1e-8)
+}
+```
+- Currently only the Adam optimizer is supported. There will be more soon. 
+- You can set the various hyperparameters of the optimizer through the initilization function
+
+### Gradient Descent Optimizer
+- As part of the initializer of the brain object you can specify which type of gradient descent the brain performs. 
+- By default it chooses Stochastic Gradient Descent. 
+```
+public enum GradientDescent: Equatable {
+  case sgd
+  case mbgd(size: Int)
+}
+```
+- The network supports both Stochastic and Mini-Batch gradient descent. 
+- When adding `mbgd` you can specify the batch size.
 
 ## Adding Layers 
 The brain object allows for adding layers in a module way through the `add` function. 
@@ -175,7 +200,7 @@ public func train(data: [TrainingData],
 - `validation:` An array of `TrainingData` objects to be used as the validation data set. 
 - `complete` A block called when the network has finished training. 
 
-Training Data 
+### Training Data 
 - This is the object that contains the inputs and expected output for that input
 ```
 public struct TrainingData {
@@ -188,10 +213,10 @@ public struct TrainingData {
   }
 }
 ```
-Data
+### Data
 - An array of values that should match the number of inputs into the network
 
-Correct
+### Correct
 - A array of values that the network should target and should match the number of outputs of the network
 
 # Importing Pretrained Models
@@ -205,7 +230,7 @@ Brain can accept a pretrained model in the form of a `.smodel` file. Basically a
               initializer: Initializers = .xavierNormal) {
 ```
 
-PretrainedModel 
+### PretrainedModel 
 - The object takes in a URL to the `.smodel` file.  
 ```
 public struct PretrainedModel: ModelBuilder {
@@ -324,3 +349,7 @@ Classification:
 
 Weight Initialization
 - https://prateekvishnu.medium.com/xavier-and-he-normal-he-et-al-initialization-8e3d7a087528
+
+Optimizers
+- https://medium.com/datadriveninvestor/overview-of-different-optimizers-for-neural-networks-e0ed119440c3
+- https://ruder.io/optimizing-gradient-descent/index.html#adam
