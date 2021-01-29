@@ -118,12 +118,14 @@ public class Neuron {
     //DISPATCH QUEUE BREAKS EVERYTHING NEED BETTER OPTIMIZATION =(
     //WITH OUT IT MAKES IT MUCH SLOWER BUT WITH IT IT FORMS A RACE CONDITION =(
     for i in 0..<inputs.count {
+      let gradient = self.inputs[i].inputValue * delta * self.derivative()
+      
       if let optim = self.optimizer {
         self.inputs[i].weight = optim.run(alpha: self.learningRate,
                                           weight: self.inputs[i].weight,
-                                          gradient: delta * self.derivative())
+                                          gradient: gradient)
       } else {
-        self.inputs[i].weight -= self.learningRate * self.inputs[i].inputValue * delta * self.derivative()
+        self.inputs[i].weight -= self.learningRate * gradient
       }
       biasWeight -= self.learningRate * delta
     }
