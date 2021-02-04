@@ -76,11 +76,10 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     }
     
   }
-
- 
-  func testTraining() {
+  
+  func train() {
     XCTAssertTrue(brain != nil, "Brain is empty")
-    
+
     guard let brain = brain else {
       return
     }
@@ -96,6 +95,21 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
       let average = sum / 5
       XCTAssertTrue(average <= TestConstants.testingLossThreshold, "Network did not learn, average loss was \(average)")
     }
+  }
+  
+  func testAccuracy() {
+    
+  }
+
+ 
+  func testTraining() {
+    XCTAssertTrue(brain != nil, "Brain is empty")
+
+    guard let brain = brain else {
+      return
+    }
+    
+    self.train()
     
     for i in 0..<ColorType.allCases.count {
       let color = ColorType.allCases[i]
@@ -113,22 +127,12 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
   
   func testXportLoss() {
     XCTAssertTrue(brain != nil, "Brain is empty")
-    
+
     guard let brain = brain else {
       return
     }
     
-    print("Training for loss export....")
-    
-    brain.train(data: self.trainingData, validation: self.validationData) { (complete) in
-      let lastFive = brain.loss[brain.loss.count - 5..<brain.loss.count]
-      var sum: Float = 0
-      lastFive.forEach { (last) in
-        sum += last
-      }
-      let average = sum / 5
-      XCTAssertTrue(average <= TestConstants.testingLossThreshold, "Network did not learn, average loss was \(average)")
-    }
+    self.train()
     
     for i in 0..<ColorType.allCases.count {
       let color = ColorType.allCases[i]
@@ -151,22 +155,12 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
   //executes in alphabetical order
   func testXport() {
     XCTAssertTrue(brain != nil, "Brain is empty")
-    
+
     guard let brain = brain else {
       return
     }
     
-    print("Training for export....")
-    
-    brain.train(data: self.trainingData, validation: self.validationData) { (complete) in
-      let lastFive = brain.loss[brain.loss.count - 5..<brain.loss.count]
-      var sum: Float = 0
-      lastFive.forEach { (last) in
-        sum += last
-      }
-      let average = sum / 5
-      XCTAssertTrue(average <= TestConstants.testingLossThreshold, "Network did not learn, average loss was \(average)")
-    }
+    self.train()
     
     for i in 0..<ColorType.allCases.count {
       let color = ColorType.allCases[i]
