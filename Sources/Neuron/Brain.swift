@@ -22,6 +22,9 @@ public class Brain: Logger {
   /// The loss function data from training to be exported
   public var loss: [Float] = []
   
+  /// The accuracy of the model during training
+  public var accuracy: [Float] = []
+
   /// Neuron matrix in the existing brain object
   public var lobes: [Lobe] = []
   
