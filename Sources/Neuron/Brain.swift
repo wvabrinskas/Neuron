@@ -65,7 +65,7 @@ public class Brain: Logger {
   ///   - epochs: the number of times to train
   ///   - lossFunction: The function used to calculate loss at an epoch
   ///   - lossThreshold: The threshold to stop training to prevent overfitting 0 - 1
-  ///   - initializer: The weight initializer algorithm
+  ///   - initializer: The weight initializer algoriUthm
   ///   - descent: The gradient descent type
   public init(model: ExportModel? = nil,
               learningRate: Float,
