@@ -246,9 +246,14 @@ public struct PretrainedModel: ModelBuilder {
 The Brain object can export its current weights and setup as a `.smodel` file. This can be used to import later when creating a Brain object that you wish to be fully trained based on the data. 
 
 ```
-brain.exportModel()
+brain.exportModelURL()
 ```
 Will export a URL that links to the `.smodel` file.
+
+```
+brain.exportModel()
+```
+Will export a `ExportModel` that describes the network
 
 # Retrieving Data
 Pass in new data to feed through the network and get a result. 

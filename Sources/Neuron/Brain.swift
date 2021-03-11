@@ -115,7 +115,7 @@ public class Brain: Logger {
   }
   
   /// Returns a model that can be imported later
-  /// - Returns: The ExportModel to download the SModel file
+  /// - Returns: The ExportModel that describes the network
   public func exportModel() -> ExportModel {
     
     let learningRate = self.learningRate
@@ -154,6 +154,8 @@ public class Brain: Logger {
     return model
   }
   
+  /// Returns a model that can be imported later
+  /// - Returns: The url that can be downloaded to get the Smodel file
   public func exportModelURL() -> URL? {
     return ExportManager.getModel(filename: "model", model: self.exportModel())
   }
