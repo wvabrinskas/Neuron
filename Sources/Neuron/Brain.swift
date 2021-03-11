@@ -60,11 +60,15 @@ public class Brain: Logger {
   
   /// Creates a Brain object that manages a network of Neuron objects
   /// - Parameters:
-  ///   - nucleus:  Nucleus object that describes the learning behavior of the network
-  ///   - epochs: Number of times to run the training daya
-  ///   - lossFunction: The loss function to calculate
-  ///   - lossThreshold: The loss threshold to reach when training
-  public init(learningRate: Float,
+  ///   - model: Optional model to build the network
+  ///   - learningRate: The rate at which the network will adjust its weights
+  ///   - epochs: the number of times to train
+  ///   - lossFunction: The function used to calculate loss at an epoch
+  ///   - lossThreshold: The threshold to stop training to prevent overfitting 0 - 1
+  ///   - initializer: The weight initializer algorithm
+  ///   - descent: The gradient descent type
+  public init(model: ExportModel? = nil,
+              learningRate: Float,
               epochs: Int,
               lossFunction: LossFunction = .meanSquareError,
               lossThreshold: Float = 0.001,
@@ -77,6 +81,7 @@ public class Brain: Logger {
     self.epochs = epochs
     self.initializer = initializer
     self.descent = descent
+    self.model = model
   }
   
   public init?(model: PretrainedModel,
