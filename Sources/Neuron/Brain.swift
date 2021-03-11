@@ -115,8 +115,8 @@ public class Brain: Logger {
   }
   
   /// Returns a model that can be imported later
-  /// - Returns: The url to download the SModel file
-  public func exportModel() -> URL? {
+  /// - Returns: The ExportModel to download the SModel file
+  public func exportModel() -> ExportModel {
     
     let learningRate = self.learningRate
     var layers: [Layer] = []
@@ -151,9 +151,12 @@ public class Brain: Logger {
     }
     
     let model = ExportModel(layers: layers, learningRate: learningRate)
-    return ExportManager.getModel(filename: "model", model: model)
+    return model
   }
   
+  public func exportModelURL() -> URL? {
+    return ExportManager.getModel(filename: "model", model: self.exportModel())
+  }
   /// Adds a layer to the neural network
   /// - Parameter model: The lobe model describing the layer to be added
   public func add(_ model: LobeModel) {

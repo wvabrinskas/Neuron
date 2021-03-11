@@ -181,7 +181,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
       }
     }
     
-    let url = brain.exportModel()
+    let url = brain.exportModelURL()
     print("📄 model: \(url)")
     XCTAssertTrue(url != nil, "Could not build exported model")
   }
