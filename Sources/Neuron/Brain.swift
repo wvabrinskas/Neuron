@@ -65,7 +65,7 @@ public class Brain: Logger {
   ///   - epochs: the number of times to train
   ///   - lossFunction: The function used to calculate loss at an epoch
   ///   - lossThreshold: The threshold to stop training to prevent overfitting 0 - 1
-  ///   - initializer: The weight initializer algorithm
+  ///   - initializer: The weight initializer algoriUthm
   ///   - descent: The gradient descent type
   public init(model: ExportModel? = nil,
               learningRate: Float,
@@ -110,6 +110,28 @@ public class Brain: Logger {
       return nil
     }
 
+  }
+  
+  /// Replaces the weights in the network
+  /// - Parameter weights: the weights to replace the existing weights with
+  public func replaceWeights(weights: [[Float]]) {
+    var i = 0
+    var newWeights: [[Float]] = []
+    self.lobes.forEach { (lobe) in
+      
+      lobe.neurons.forEach { (n) in
+        var j = 0
+        var newNodeWeights: [Float] = []
+        n.inputs.forEach { (input) in
+          input.weight = weights[i][j]
+          newNodeWeights.append(input.weight)
+          j += 1
+        }
+        newWeights.append(newNodeWeights)
+        i += 1
+      }
+    }
+    self.layerWeights = newWeights
   }
   
   /// Adds an optimizer to the gradient descent algorithm.
@@ -192,7 +214,7 @@ public class Brain: Logger {
       //go through each node in layer
       for i in 0..<layer.nodes {
         precondition(i < layer.weights.count && i < layer.bias.count && i < layer.biasWeights.count)
-
+        
         let weights = layer.weights[i]
         let bias = layer.bias[i]
         let biasWeight = layer.biasWeights[i]
@@ -234,6 +256,8 @@ public class Brain: Logger {
     guard lobes.count > 0 else {
       fatalError("no lobes to connect bailing out.")
     }
+    self.layerWeights.removeAll()
+    
     //link all the layers generating the matrix
     for i in 0..<lobes.count {
       if i > 0 {
@@ -272,7 +296,6 @@ public class Brain: Logger {
         let neuronGroup = self.lobes[i].neurons
         self.lobes[i].layer = .input
         
-        var weights: [Float] = []
         for n in 0..<neuronGroup.count {
           
           let transmitter = NeuroTransmitter(weight: 0)
@@ -281,9 +304,9 @@ public class Brain: Logger {
           neuronGroup[n].inputs = [transmitter]
           neuronGroup[n].layer = .input
           
-          weights.append(0)
+          self.layerWeights.append([0])
         }
-        self.layerWeights.append(weights)
+
       }
     }
     

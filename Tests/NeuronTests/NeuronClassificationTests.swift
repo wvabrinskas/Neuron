@@ -155,7 +155,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     guard let brain = brain else {
       return
     }
-    
+
     print("Training for export....")
     
     brain.train(data: self.trainingData, validation: self.validationData) { (complete) in
