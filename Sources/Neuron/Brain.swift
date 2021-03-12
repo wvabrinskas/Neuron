@@ -116,21 +116,22 @@ public class Brain: Logger {
   /// - Parameter weights: the weights to replace the existing weights with
   public func replaceWeights(weights: [[Float]]) {
     var i = 0
-
+    var newWeights: [[Float]] = []
     self.lobes.forEach { (lobe) in
       
       lobe.neurons.forEach { (n) in
         var j = 0
-        print(n.inputs.map({ $0.weight }))
-//        n.inputs.forEach { (input) in
-//          //input.weight = weights[i][j]
-//          j += 1
-//        }
+        var newNodeWeights: [Float] = []
+        n.inputs.forEach { (input) in
+          input.weight = weights[i][j]
+          newNodeWeights.append(input.weight)
+          j += 1
+        }
+        newWeights.append(newNodeWeights)
+        i += 1
       }
-      
-      i += 1
     }
-    
+    self.layerWeights = newWeights
   }
   
   /// Adds an optimizer to the gradient descent algorithm.

@@ -50,18 +50,16 @@ final class NeuronBaseTests: XCTestCase, BaseTestConfig {
     }
     
     var brainWeights = brain.layerWeights
-    
-    let old = brain.layerWeights
-    print(old)
-
+        
     if let brainFirst = brainWeights.first {
       let replace = [Float].init(repeating: 1.0, count: brainFirst.count)
       brainWeights[0] = replace
+      
+      brain.replaceWeights(weights: brainWeights)
+      
+      XCTAssert(brain.layerWeights[0] == replace, "Weights did not replace properly")
     }
-    
-    brain.replaceWeights(weights: brainWeights)
-    
-   // print(brain.layerWeights)
+  
   }
   
   func testFeedIsntSame() {
