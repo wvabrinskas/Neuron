@@ -42,6 +42,28 @@ final class NeuronBaseTests: XCTestCase, BaseTestConfig {
     return brain
   }()
   
+  func testBrainWeights() {
+    XCTAssertTrue(brain != nil, "Brain is empty")
+    
+    guard let brain = brain else {
+      return
+    }
+    
+    var brainWeights = brain.layerWeights
+    
+    let old = brain.layerWeights
+    print(old)
+
+    if let brainFirst = brainWeights.first {
+      let replace = [Float].init(repeating: 1.0, count: brainFirst.count)
+      brainWeights[0] = replace
+    }
+    
+    brain.replaceWeights(weights: brainWeights)
+    
+   // print(brain.layerWeights)
+  }
+  
   func testFeedIsntSame() {
     XCTAssertTrue(brain != nil, "Brain is empty")
     
