@@ -78,6 +78,10 @@ final class NeuronPretrainedClassificationTests: XCTestCase, BaseTestConfig {
     print("Training for import tests....")
     
     brain.train(data: self.trainingData, validation: self.validationData) { (complete) in
+      guard brain.loss.count > 5 else {
+        return
+      }
+      
       let lastFive = brain.loss[brain.loss.count - 5..<brain.loss.count]
       var sum: Float = 0
       lastFive.forEach { (last) in
