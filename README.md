@@ -23,10 +23,6 @@ This is very much a `BETA` project and to only be used as a learning tool as of 
 
 Feel free to send me suggestions on how to improve this. I would be delighted to learn more!! You can also feel free to assign issues here as well. 
 
-# Implementation
-
-- Sample Project - https://github.com/wvabrinskas/Swift-Neural-Network
-
 ## The Brain
 It is fairly simple to setup the neural network `Brain`. This will be the only object you interface with. 
 
