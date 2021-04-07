@@ -11,7 +11,7 @@
 ![](https://img.shields.io/badge/tvOS-13+-darkcyan?style=flat-square)
 
 # Introduction
-Neuron is a swift package I developed to help learn how to make neural networks. It is far from perfect and I am still learning. There is A LOT to learn here and I've just scratched the surface. As of right now this package provides a way to get started in machine learning.
+Neuron is a swift package I developed to help learn how to make neural networks. It is far from perfect and I am still learning. There is A LOT to learn here and I've just scratched the surface. As of right now this package provides a way to get started in machine learning and neural networks.
 
 <img width="500" src="images/network.png">
 
