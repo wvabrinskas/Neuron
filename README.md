@@ -273,6 +273,11 @@ Using the `Brain` object you can also get the result of the loss functions of ea
 
 <img width="600" src="images/graph-sample.png"> 
 
+# TODOs 
+- GPU Acceleration is still in the works. 
+- Convolutional layer support
+- Much more... 
+
 # Resources 
 
 - [Make Your Own Neural Network - Tariq Rashid](https://www.amazon.com/Make-Your-Own-Neural-Network-ebook/dp/B01EER4Z4G)
