@@ -21,7 +21,7 @@ This is very much a `BETA` project and to only be used as a learning tool as of 
 # Support 
 [<img width="100" src="images/twitter.png"> ](https://twitter.com/wvabrinskas)
 
-Feel free to send me suggestions on how to improve this. I would be delighted to learn more!! You can also feel free to assign issues here as well. 
+Feel free to send me suggestions on how to improve this. I would be delighted to learn more!! You can also feel free to assign issues here as well. Run the unit tests as well to learn how the project works!
 
 ## The Brain
 It is fairly simple to setup the neural network `Brain`. This will be the only object you interface with. 
