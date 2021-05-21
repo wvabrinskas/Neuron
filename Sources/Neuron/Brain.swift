@@ -10,7 +10,7 @@ import Foundation
 import Logger
 import GameplayKit
 
-public class Brain: Logger {
+public class Brain: Logger, NetworkBuilder {
   /// The verbosity of the printed logs
   public var logLevel: LogLevel = .none
   
@@ -67,13 +67,13 @@ public class Brain: Logger {
   ///   - lossThreshold: The threshold to stop training to prevent overfitting 0 - 1
   ///   - initializer: The weight initializer algoriUthm
   ///   - descent: The gradient descent type
-  public init(model: ExportModel? = nil,
-              learningRate: Float,
-              epochs: Int,
-              lossFunction: LossFunction = .meanSquareError,
-              lossThreshold: Float = 0.001,
-              initializer: Initializers = .xavierNormal,
-              descent: GradientDescent = .sgd) {
+  required public init(model: ExportModel? = nil,
+                      learningRate: Float,
+                      epochs: Int,
+                      lossFunction: LossFunction = .meanSquareError,
+                      lossThreshold: Float = 0.001,
+                      initializer: Initializers = .xavierNormal,
+                      descent: GradientDescent = .sgd) {
     
     self.learningRate = learningRate
     self.lossFunction = lossFunction

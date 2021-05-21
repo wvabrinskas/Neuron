@@ -53,6 +53,12 @@ public class Lobe {
     }
   }
   
+  /// Backpropagation deltas at this specific layer
+  /// - Returns: The deltas as floats
+  public func deltas() -> [Float] {
+    return neurons.map { $0.delta }
+  }
+  
   /// Updates the parameters for each Neuron such as learning rate, bias, etc.
   /// - Parameter nucleus: Object that contains the parameters to update
   public func updateNucleus(_ nucleus: Nucleus) {
