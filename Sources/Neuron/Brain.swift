@@ -649,10 +649,19 @@ public class Brain: Logger, NetworkBuilder {
     self.descents.append(outputErrors)
   }
   
-  private func backpropagate() {
+  internal func backpropagate(with deltas: [Float]? = nil) {
 
     //reverse so we can loop through from the beggining of the array starting at the output node
     let reverse: [Lobe] = self.lobes.reversed()
+    
+    //for generative adversarial networks we need to set the backprop deltas manually
+    if let deltas = deltas, deltas.count == outputLayer().count {
+      for i in 0..<outputLayer().count {
+        let delta = deltas[i]
+        let output = outputLayer()[i]
+        output.delta = delta
+      }
+    }
     
     //subtracting 2 because we dont need to propagate through to the weights in the input layer
     //those will always be 0 since no computation happens at the input layer
@@ -677,7 +686,7 @@ public class Brain: Logger, NetworkBuilder {
     
   }
   
-  private func adjustWeights() {
+  internal func adjustWeights() {
     for i in 0..<self.lobes.count {
       let lobe = self.lobes[i]
       lobe.adjustWeights()

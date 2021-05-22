@@ -32,6 +32,10 @@ public class GAN {
   private var generator: Brain
   private var discriminator: Brain
   
+  public enum GANTrainingType {
+    case discriminator, generator
+  }
+  
   public var randomNoise: () -> [Float]
   
   //create two networks
@@ -41,12 +45,12 @@ public class GAN {
   //backprop can skip input layer of discriminator when trainign generator
   //backprop will of generator is as saame as a regular NN
   
- public init(ganModel: GANModel,
-             learningRate: Float,
-             epochs: Int,
-             lossThreshold: Float = 0.001,
-             initializer: Initializers = .xavierNormal,
-             descent: GradientDescent = .sgd) {
+  public init(ganModel: GANModel,
+              learningRate: Float,
+              epochs: Int,
+              lossThreshold: Float = 0.001,
+              initializer: Initializers = .xavierNormal,
+              descent: GradientDescent = .sgd) {
     //generator
     let brainGen = Brain(learningRate: learningRate,
                          epochs: epochs,
@@ -77,10 +81,13 @@ public class GAN {
     //inputs of discrimnator should be the same as outputs of the generator
     brainDis.add(LobeModel(nodes: ganModel.outputs)) //input
     for _ in 0..<ganModel.hiddenLayers {
-      brainGen.add(LobeModel(nodes: ganModel.hiddenNodesPerLayer, activation: .leakyRelu))
+      brainDis.add(LobeModel(nodes: ganModel.hiddenNodesPerLayer, activation: .leakyRelu))
     }
-    brainGen.add(LobeModel(nodes: ganModel.outputs, activation: .none)) //output
-
+    brainDis.add(LobeModel(nodes: 2, activation: .none)) //output class count is 2 because "real or fake" is two classes
+    
+    //discriminator has softmax output
+    brainDis.add(modifier: .softmax)
+    
     self.discriminator = brainDis
     self.discriminator.compile()
     
@@ -92,11 +99,46 @@ public class GAN {
       return noise
     }
   }
-
   
   private func buildLink() {
     //link generator and discriminator together
     
+  }
+  
+  private func trainGenerator() {
+    //input random data to generator
+    //get generator output
+    //feed that to the discriminator
+    //get the error at the output
+    //feed that back through the discriminator
+    //get the delatas at hidden
+    //feed those deltas to the generator
+    //adjust weights of generator
+    let sample = self.getGeneratedSample()
+    let output = self.discriminator.feed(input: sample)
+    //we want it to be real so correct is [1.0, 0.0] [real, fake]
+    
+    let trainingData = TrainingData(data: sample, correct: [1.0, 0.0])
+    //we might need ot manage the training ourselves because of the whole not wanting to adjust weights thing
+    //and we need to pass the backprop to generator from discriminator
+  }
+  
+  private func trainDiscriminator() {
+    //input real data to discrimator
+    //get the classifier output
+    //calc the error
+    //backprop regular through the discriminator
+    //adjust weights
+  }
+  
+  public func train(type: GANTrainingType) {
+    switch type {
+    case .discriminator:
+      print("training discriminator")
+    case .generator:
+      print("training generator")
+      self.trainGenerator()
+    }
   }
   
   public func getGeneratedSample() -> [Float] {
