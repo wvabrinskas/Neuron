@@ -617,7 +617,7 @@ public class Brain: Logger, NetworkBuilder {
     return self.calcAverageLoss(predicted, correct: correct)
   }
   
-  private func setOutputDeltas(_ correctValues: [Float]) {
+  internal func setOutputDeltas(_ correctValues: [Float]) {
     guard correctValues.count == self.outputLayer().count else {
       
       self.log(type: .error,

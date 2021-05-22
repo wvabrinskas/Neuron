@@ -31,6 +31,7 @@ public struct GANModel {
 public class GAN {
   private var generator: Brain
   private var discriminator: Brain
+  private var epochs: Int
   
   public enum GANTrainingType {
     case discriminator, generator
@@ -51,6 +52,8 @@ public class GAN {
               lossThreshold: Float = 0.001,
               initializer: Initializers = .xavierNormal,
               descent: GradientDescent = .sgd) {
+    
+    self.epochs = epochs
     //generator
     let brainGen = Brain(learningRate: learningRate,
                          epochs: epochs,
@@ -114,31 +117,70 @@ public class GAN {
     //get the delatas at hidden
     //feed those deltas to the generator
     //adjust weights of generator
-    let sample = self.getGeneratedSample()
-    let output = self.discriminator.feed(input: sample)
-    //we want it to be real so correct is [1.0, 0.0] [real, fake]
-    
-    let trainingData = TrainingData(data: sample, correct: [1.0, 0.0])
-    //we might need ot manage the training ourselves because of the whole not wanting to adjust weights thing
-    //and we need to pass the backprop to generator from discriminator
+
+    for _ in 0..<self.epochs {
+      //get sample
+      let sample = self.getGeneratedSample()
+      
+      //discrimate sample
+      //feed sample
+      self.discriminate(sample)
+      
+      //calculate loss at last layer for discrimator
+      //we want it to be real so correct is [1.0, 0.0] [real, fake]
+      let trainingData = TrainingData(data: sample, correct: [1.0, 0.0])
+      self.discriminator.setOutputDeltas(trainingData.correct)
+      
+      //we might need ot manage the training ourselves because of the whole not wanting to adjust weights thing
+      //and we need to pass the backprop to generator from discriminator
+       
+      //backprop discrimator
+      self.discriminator.backpropagate()
+      
+      //get deltas from discrimator
+      if let deltas = self.discriminator.lobes.first(where: { $0.deltas().count > 0 })?.deltas() {
+        
+        self.generator.backpropagate(with: deltas)
+        
+        //adjust weights of generator
+        self.generator.adjustWeights()
+      }
+      //repeat
+    }
   }
   
-  private func trainDiscriminator() {
+  private func trainDiscriminator(realData: [TrainingData],
+                                  singleStep: Bool = false) {
+    guard realData.count > 0 else {
+      return
+    }
     //input real data to discrimator
     //get the classifier output
     //calc the error
     //backprop regular through the discriminator
     //adjust weights
+    //do we just train once get result? Or train multiple times off the real data?
+    self.discriminator.epochs = singleStep ? 1 : self.epochs
+    self.discriminator.train(data: realData)
   }
   
-  public func train(type: GANTrainingType) {
+  public func train(type: GANTrainingType,
+                    realData: [TrainingData] = [],
+                    singleStep: Bool = false) {
     switch type {
     case .discriminator:
       print("training discriminator")
+      self.trainDiscriminator(realData: realData, singleStep: singleStep)
     case .generator:
       print("training generator")
       self.trainGenerator()
     }
+  }
+  
+  @discardableResult
+  public func discriminate(_ input: [Float]) -> [Float] {
+    let output = self.discriminator.feed(input: input)
+    return output
   }
   
   public func getGeneratedSample() -> [Float] {
