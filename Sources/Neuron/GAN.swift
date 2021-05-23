@@ -147,7 +147,8 @@ public class GAN {
   }
   
   private func trainDiscriminator(data: [TrainingData],
-                                  singleStep: Bool = false) {
+                                  singleStep: Bool = false,
+                                  complete: ((_ complete: Bool) -> ())? = nil) {
     guard data.count > 0 else {
       return
     }
@@ -158,7 +159,7 @@ public class GAN {
     //adjust weights
     //do we just train once get result? Or train multiple times off the real data?
     self.discriminator.epochs = singleStep ? 1 : self.epochs
-    self.discriminator.train(data: data)
+    self.discriminator.train(data: data, complete: complete)
   }
   
   public func train(type: GANTrainingType,
