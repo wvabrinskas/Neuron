@@ -36,6 +36,7 @@ public class GAN {
   private var generator: Brain
   private var discriminator: Brain
   private var epochs: Int
+  private var generatorEpochs: Int
   
   public var logLevel: LogLevel = .none
   
@@ -55,14 +56,16 @@ public class GAN {
   public init(ganModel: GANModel,
               learningRate: Float,
               epochs: Int,
+              generatorEpochs: Int,
               lossThreshold: Float = 0.001,
               initializer: Initializers = .xavierNormal,
               descent: GradientDescent = .sgd) {
     
     self.epochs = epochs
+    self.generatorEpochs = generatorEpochs
     //generator
     let brainGen = Brain(learningRate: learningRate,
-                         epochs: epochs,
+                         epochs: generatorEpochs,
                          lossFunction: .crossEntropy,
                          lossThreshold: lossThreshold,
                          initializer: initializer,
@@ -128,7 +131,7 @@ public class GAN {
     //adjust weights of generator
     self.discriminator.loss.removeAll()
     
-    for i in 0..<self.epochs {
+    for i in 0..<self.generatorEpochs {
       let sample = self.getGeneratedSample()
       
       //feed sample
