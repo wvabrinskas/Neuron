@@ -69,6 +69,7 @@ public class GAN {
     }
     
     brainGen.add(LobeModel(nodes: ganModel.outputs, activation: .reLu))
+    brainGen.add(optimizer: .adam())
     
     self.generator = brainGen
     self.generator.compile()
@@ -86,10 +87,11 @@ public class GAN {
     for _ in 0..<ganModel.hiddenLayers {
       brainDis.add(LobeModel(nodes: ganModel.hiddenNodesPerLayer, activation: .leakyRelu))
     }
-    brainDis.add(LobeModel(nodes: 2, activation: .none)) //output class count is 2 because "real or fake" is two classes
+    brainDis.add(LobeModel(nodes: 2, activation: .sigmoid)) //output class count is 2 because "real or fake" is two classes
     
     //discriminator has softmax output
     brainDis.add(modifier: .softmax)
+    brainDis.add(optimizer: .adam())
     
     self.discriminator = brainDis
     self.discriminator.compile()
@@ -102,12 +104,7 @@ public class GAN {
       return noise
     }
   }
-  
-  private func buildLink() {
-    //link generator and discriminator together
-    
-  }
-  
+
   private func trainGenerator() {
     //input random data to generator
     //get generator output
