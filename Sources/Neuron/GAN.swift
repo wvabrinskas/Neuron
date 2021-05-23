@@ -105,7 +105,7 @@ public class GAN {
     }
   }
 
-  private func trainGenerator() {
+  private func trainGenerator(_ complete: ((_ success: Bool) -> ())? = nil) {
     //input random data to generator
     //get generator output
     //feed that to the discriminator
@@ -144,6 +144,7 @@ public class GAN {
       }
       //repeat
     }
+    complete?(true)
   }
   
   private func trainDiscriminator(data: [TrainingData],
@@ -164,14 +165,15 @@ public class GAN {
   
   public func train(type: GANTrainingType,
                     data: [TrainingData] = [],
-                    singleStep: Bool = false) {
+                    singleStep: Bool = false,
+                    complete: ((_ success: Bool) -> ())? = nil) {
     switch type {
     case .discriminator:
       print("training discriminator")
-      self.trainDiscriminator(data: data, singleStep: singleStep)
+      self.trainDiscriminator(data: data, singleStep: singleStep, complete: complete)
     case .generator:
       print("training generator")
-      self.trainGenerator()
+      self.trainGenerator(complete)
     }
   }
   
