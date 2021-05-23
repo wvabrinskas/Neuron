@@ -146,9 +146,9 @@ public class GAN {
     }
   }
   
-  private func trainDiscriminator(realData: [TrainingData],
+  private func trainDiscriminator(data: [TrainingData],
                                   singleStep: Bool = false) {
-    guard realData.count > 0 else {
+    guard data.count > 0 else {
       return
     }
     //input real data to discrimator
@@ -158,16 +158,16 @@ public class GAN {
     //adjust weights
     //do we just train once get result? Or train multiple times off the real data?
     self.discriminator.epochs = singleStep ? 1 : self.epochs
-    self.discriminator.train(data: realData)
+    self.discriminator.train(data: data)
   }
   
   public func train(type: GANTrainingType,
-                    realData: [TrainingData] = [],
+                    data: [TrainingData] = [],
                     singleStep: Bool = false) {
     switch type {
     case .discriminator:
       print("training discriminator")
-      self.trainDiscriminator(realData: realData, singleStep: singleStep)
+      self.trainDiscriminator(data: data, singleStep: singleStep)
     case .generator:
       print("training generator")
       self.trainGenerator()
