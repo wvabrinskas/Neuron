@@ -76,7 +76,7 @@ public class GAN {
                              bias: ganModel.bias))
     }
     
-    brainGen.add(LobeModel(nodes: ganModel.outputs, activation: .reLu, bias: ganModel.bias))
+    brainGen.add(LobeModel(nodes: ganModel.outputs, activation: .tanh, bias: ganModel.bias))
     brainGen.add(optimizer: .adam())
     brainGen.logLevel = self.logLevel
     
@@ -162,6 +162,7 @@ public class GAN {
       }
       //repeat
     }
+    
     self.generator.log(type: .success,
              priority: .alwaysShow,
              message: "Generator training completed")
