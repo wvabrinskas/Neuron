@@ -151,6 +151,12 @@ public class GAN {
       }
       //repeat
     }
+    self.generator.log(type: .success,
+             priority: .alwaysShow,
+             message: "Generator training completed")
+    
+    self.generator.log(type: .message, priority: .alwaysShow, message: "Loss: \(self.generator.loss.last ?? 0)")
+    
     complete?(true)
   }
   
