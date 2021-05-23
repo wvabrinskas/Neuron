@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Logger
 
 public struct GANModel {
   public var inputs: Int
@@ -35,6 +36,8 @@ public class GAN {
   private var generator: Brain
   private var discriminator: Brain
   private var epochs: Int
+  
+  public var logLevel: LogLevel = .none
   
   public enum GANTrainingType {
     case discriminator, generator
@@ -122,9 +125,17 @@ public class GAN {
     //feed those deltas to the generator
     //adjust weights of generator
 
-    for _ in 0..<self.epochs {
-      //get sample
+    for i in 0..<self.epochs {
       let sample = self.getGeneratedSample()
+      
+      //maybe add to serial background queue, dispatch queue crashes
+      /// feed a model and its correct values through the network to calculate the loss
+      let loss = self.generator.calcAverageLoss(sample, correct: [1.0, 0.0])
+      
+      self.generator.loss.append(loss)
+      self.generator.log(type: .message, priority: .low, message: "loss at epoch \(i): \(loss)")
+      
+      //get sample
       
       //discrimate sample
       //feed sample

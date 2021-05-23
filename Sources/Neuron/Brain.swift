@@ -599,7 +599,7 @@ public class Brain: Logger, NetworkBuilder {
     return self.lobes.last?.neurons ?? []
   }
   
-  private func calcAverageLoss(_ predicted: [Float], correct: [Float]) -> Float {
+  internal func calcAverageLoss(_ predicted: [Float], correct: [Float]) -> Float {
     var sum: Float = 0
     
     for i in 0..<predicted.count {
