@@ -78,6 +78,7 @@ public class GAN {
     
     brainGen.add(LobeModel(nodes: ganModel.outputs, activation: .reLu, bias: ganModel.bias))
     brainGen.add(optimizer: .adam())
+    brainGen.logLevel = self.logLevel
     
     self.generator = brainGen
     self.generator.compile()
@@ -102,7 +103,8 @@ public class GAN {
     //discriminator has softmax output
     brainDis.add(modifier: .softmax)
     brainDis.add(optimizer: .adam())
-    
+    brainDis.logLevel = self.logLevel
+
     self.discriminator = brainDis
     self.discriminator.compile()
     
