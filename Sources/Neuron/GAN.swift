@@ -13,17 +13,20 @@ public struct GANModel {
   public var hiddenNodesPerLayer: Int
   public var outputs: Int
   public var generatorInputs: Int
+  public var bias: Float
   
   public init(inputs: Int,
               hiddenLayers: Int,
               hiddenNodesPerLayer: Int,
               outputs: Int,
-              generatorInputs: Int) {
+              generatorInputs: Int,
+              bias: Float) {
     self.inputs = inputs
     self.hiddenLayers = hiddenLayers
     self.hiddenNodesPerLayer = hiddenNodesPerLayer
     self.outputs = outputs
     self.generatorInputs = generatorInputs
+    self.bias = bias
   }
 }
 
@@ -65,10 +68,12 @@ public class GAN {
     brainGen.add(LobeModel(nodes: ganModel.generatorInputs))
     
     for _ in 0..<ganModel.hiddenLayers {
-      brainGen.add(LobeModel(nodes: ganModel.hiddenNodesPerLayer, activation: .reLu))
+      brainGen.add(LobeModel(nodes: ganModel.hiddenNodesPerLayer,
+                             activation: .reLu,
+                             bias: ganModel.bias))
     }
     
-    brainGen.add(LobeModel(nodes: ganModel.outputs, activation: .reLu))
+    brainGen.add(LobeModel(nodes: ganModel.outputs, activation: .reLu, bias: ganModel.bias))
     brainGen.add(optimizer: .adam())
     
     self.generator = brainGen
@@ -85,9 +90,11 @@ public class GAN {
     //inputs of discrimnator should be the same as outputs of the generator
     brainDis.add(LobeModel(nodes: ganModel.outputs)) //input
     for _ in 0..<ganModel.hiddenLayers {
-      brainDis.add(LobeModel(nodes: ganModel.hiddenNodesPerLayer, activation: .leakyRelu))
+      brainDis.add(LobeModel(nodes: ganModel.hiddenNodesPerLayer,
+                             activation: .leakyRelu,
+                             bias: ganModel.bias))
     }
-    brainDis.add(LobeModel(nodes: 2, activation: .sigmoid)) //output class count is 2 because "real or fake" is two classes
+    brainDis.add(LobeModel(nodes: 2, activation: .sigmoid, bias: ganModel.bias)) //output class count is 2 because "real or fake" is two classes
     
     //discriminator has softmax output
     brainDis.add(modifier: .softmax)
