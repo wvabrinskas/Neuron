@@ -126,22 +126,19 @@ public class GAN {
     //get the delatas at hidden
     //feed those deltas to the generator
     //adjust weights of generator
-
+    self.discriminator.loss.removeAll()
+    
     for i in 0..<self.epochs {
       let sample = self.getGeneratedSample()
       
-      //maybe add to serial background queue, dispatch queue crashes
-      /// feed a model and its correct values through the network to calculate the loss
-      let loss = self.generator.calcAverageLoss(sample, correct: [1.0, 0.0])
-      
-      self.generator.loss.append(loss)
-      self.generator.log(type: .message, priority: .low, message: "loss at epoch \(i): \(loss)")
-      
-      //get sample
-      
-      //discrimate sample
       //feed sample
-      self.discriminate(sample)
+      let output = self.discriminate(sample)
+      
+      //calculate loss at discrimator
+      let loss = self.discriminator.calcAverageLoss(output, correct: [1.0, 0.0])
+      
+      self.discriminator.loss.append(loss)
+      self.discriminator.log(type: .message, priority: .low, message: "loss at epoch \(i): \(loss)")
       
       //calculate loss at last layer for discrimator
       //we want it to be real so correct is [1.0, 0.0] [real, fake]
@@ -153,6 +150,7 @@ public class GAN {
        
       //backprop discrimator
       self.discriminator.backpropagate()
+      
       
       //get deltas from discrimator
       if let deltas = self.discriminator.lobes.first(where: { $0.deltas().count > 0 })?.deltas() {
@@ -168,7 +166,7 @@ public class GAN {
              priority: .alwaysShow,
              message: "Generator training completed")
     
-    self.generator.log(type: .message, priority: .alwaysShow, message: "Loss: \(self.generator.loss.last ?? 0)")
+    self.generator.log(type: .message, priority: .alwaysShow, message: "Loss: \(self.discriminator.loss.last ?? 0)")
     
     complete?(true)
   }
