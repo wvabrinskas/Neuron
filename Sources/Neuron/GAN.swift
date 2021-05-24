@@ -147,6 +147,9 @@ public class GAN {
       let loss = self.generator.calcAverageLoss(output, correct: [1.0, 0.0])
       self.generator.loss.append(loss)
       
+      let lossDiscriminator = self.discriminator.calcAverageLoss(output, correct: [1.0, 0.0])
+      self.discriminator.loss.append(lossDiscriminator)
+      
       //calculate loss at last layer for discrimator
       //we want it to be real so correct is [1.0, 0.0] [real, fake]
       let trainingData = TrainingData(data: sample, correct: [1.0, 0.0])
