@@ -127,7 +127,6 @@ public class GAN {
     //get the delatas at hidden
     //feed those deltas to the generator
     //adjust weights of generator
-    self.discriminator.loss.removeAll()
     
     let sample = self.getGeneratedSample()
     
