@@ -67,7 +67,7 @@ public class GAN {
     //generator
     let brainGen = Brain(learningRate: learningRate,
                          epochs: epochs,
-                         lossFunction: .crossEntropy,
+                         lossFunction: .binaryCrossEntropy,
                          lossThreshold: lossThreshold,
                          initializer: initializer,
                          descent: descent)
@@ -90,7 +90,7 @@ public class GAN {
     //discriminator
     let brainDis = Brain(learningRate: learningRate,
                          epochs: epochs,
-                         lossFunction: .crossEntropy,
+                         lossFunction: .binaryCrossEntropy,
                          lossThreshold: lossThreshold,
                          initializer: initializer,
                          descent: descent)
