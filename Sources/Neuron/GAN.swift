@@ -118,7 +118,7 @@ public class GAN {
   }
 
   //single step operation only
-  private func trainGenerator() {
+  private func trainGenerator(_ count: Int) {
     //input random data to generator
     //get generator output
     //feed that to the discriminator
@@ -128,34 +128,36 @@ public class GAN {
     //feed those deltas to the generator
     //adjust weights of generator
     
-    let sample = self.getGeneratedSample()
     
-    //feed sample
-    let output = self.discriminate(sample)
-    
-    //calculate loss at discrimator
-    let loss = self.discriminator.calcAverageLoss(output, correct: [1.0, 0.0])
-    self.discriminator.loss.append(loss)
-    
-    //calculate loss at last layer for discrimator
-    //we want it to be real so correct is [1.0, 0.0] [real, fake]
-    let trainingData = TrainingData(data: sample, correct: [1.0, 0.0])
-    self.discriminator.setOutputDeltas(trainingData.correct)
-    
-    //we might need ot manage the training ourselves because of the whole not wanting to adjust weights thing
-    //and we need to pass the backprop to generator from discriminator
-     
-    //backprop discrimator
-    self.discriminator.backpropagate()
-    
-    
-    //get deltas from discrimator
-    if let deltas = self.discriminator.lobes.first(where: { $0.deltas().count > 0 })?.deltas() {
+    //train on each sample
+    for _ in 0..<count {
+      let sample = self.getGeneratedSample()
+      //feed sample
+      let output = self.discriminate(sample)
       
-      self.generator.backpropagate(with: deltas)
+      //calculate loss at discrimator
+      let loss = self.generator.calcAverageLoss(output, correct: [1.0, 0.0])
+      self.generator.loss.append(loss)
       
-      //adjust weights of generator
-      self.generator.adjustWeights()
+      //calculate loss at last layer for discrimator
+      //we want it to be real so correct is [1.0, 0.0] [real, fake]
+      let trainingData = TrainingData(data: sample, correct: [1.0, 0.0])
+      self.discriminator.setOutputDeltas(trainingData.correct)
+      
+      //we might need ot manage the training ourselves because of the whole not wanting to adjust weights thing
+      //and we need to pass the backprop to generator from discriminator
+       
+      //backprop discrimator
+      self.discriminator.backpropagate()
+      
+      //get deltas from discrimator
+      if let deltas = self.discriminator.lobes.first(where: { $0.deltas().count > 0 })?.deltas() {
+        
+        self.generator.backpropagate(with: deltas)
+        
+        //adjust weights of generator
+        self.generator.adjustWeights()
+      }
     }
     //repeat
     
@@ -163,7 +165,7 @@ public class GAN {
              priority: .alwaysShow,
              message: "Generator training completed")
     
-    self.generator.log(type: .message, priority: .alwaysShow, message: "Loss: \(self.discriminator.loss.last ?? 0)")
+    self.generator.log(type: .message, priority: .alwaysShow, message: "Loss: \(self.generator.loss.last ?? 0)")
     
   }
   
@@ -207,7 +209,7 @@ public class GAN {
       self.discriminator.train(data: trainingData, validation: validationData) { success in
         //train generator
         print("training generator....")
-        self.trainGenerator()
+        self.trainGenerator(trainingData.count)
       }
     }
     
