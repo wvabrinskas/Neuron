@@ -189,9 +189,9 @@ public class GAN {
     
     for _ in 0..<data.count {
       let sample = self.getGeneratedSample()
-      let training = TrainingData(data: sample, correct: [0.0])
+      let training = TrainingData(data: sample, correct: [0.0, 1.0])
       let validationSample = self.getGeneratedSample()
-      let trainingValidation = TrainingData(data: validationSample, correct: [0.0])
+      let trainingValidation = TrainingData(data: validationSample, correct: [0.0, 1.0])
       fakeValidationData.append(trainingValidation)
       fakeData.append(training)
     }
