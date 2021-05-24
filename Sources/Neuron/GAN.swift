@@ -15,19 +15,25 @@ public struct GANModel {
   public var outputs: Int
   public var generatorInputs: Int
   public var bias: Float
+  public var generatorOutputActivation: Activation
+  public var discriminatorOutputActivation: Activation
   
   public init(inputs: Int,
               hiddenLayers: Int,
               hiddenNodesPerLayer: Int,
               outputs: Int,
               generatorInputs: Int,
-              bias: Float) {
+              bias: Float,
+              generatorOutputActivation: Activation = .tanh,
+              discriminatorOutputActivation: Activation = .sigmoid) {
     self.inputs = inputs
     self.hiddenLayers = hiddenLayers
     self.hiddenNodesPerLayer = hiddenNodesPerLayer
     self.outputs = outputs
     self.generatorInputs = generatorInputs
     self.bias = bias
+    self.generatorOutputActivation = generatorOutputActivation
+    self.discriminatorOutputActivation = discriminatorOutputActivation
   }
 }
 
@@ -82,7 +88,9 @@ public class GAN {
                              bias: ganModel.bias))
     }
     
-    brainGen.add(LobeModel(nodes: ganModel.outputs, activation: .tanh, bias: ganModel.bias))
+    brainGen.add(LobeModel(nodes: ganModel.outputs,
+                           activation: ganModel.generatorOutputActivation))
+    
     brainGen.add(optimizer: .adam())
     brainGen.logLevel = self.logLevel
     
@@ -104,7 +112,9 @@ public class GAN {
                              activation: .leakyRelu,
                              bias: ganModel.bias))
     }
-    brainDis.add(LobeModel(nodes: 2, activation: .sigmoid, bias: ganModel.bias)) //output class count is 2 because "real or fake" is two classes
+    
+    brainDis.add(LobeModel(nodes: 2,
+                           activation: ganModel.discriminatorOutputActivation)) //output class count is 2 because "real or fake" is two classes
     
     //discriminator has softmax output
   //  brainDis.add(modifier: .softmax)
@@ -146,9 +156,6 @@ public class GAN {
       //calculate loss at discrimator
       let loss = self.generator.calcAverageLoss(output, correct: [1.0, 0.0])
       self.generator.loss.append(loss)
-      
-      let lossDiscriminator = self.discriminator.calcAverageLoss(output, correct: [1.0, 0.0])
-      self.discriminator.loss.append(lossDiscriminator)
       
       //calculate loss at last layer for discrimator
       //we want it to be real so correct is [1.0, 0.0] [real, fake]
