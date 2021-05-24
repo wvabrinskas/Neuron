@@ -34,7 +34,7 @@ public enum LossFunction {
         return max(1e-10, value)
       }
       //−(𝑦log(𝑝)+(1−𝑦)log(1−𝑝))
-      let result = y * log2(clipped(p)) + (1 - y) * log2(clipped(1 - p))
+      let result = y * log(clipped(p)) + (1 - y) * log(clipped(1 - p))
       return -result
     }
 
