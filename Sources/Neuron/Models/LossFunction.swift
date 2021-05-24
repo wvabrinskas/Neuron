@@ -12,6 +12,7 @@ import Foundation
 public enum LossFunction {
   case meanSquareError
   case crossEntropy
+  case binaryCrossEntropy
   
   public func calculate(_ predicted: Float, correct: Float) -> Float {
     
@@ -24,6 +25,13 @@ public enum LossFunction {
       let p = correct == 0 ? 1 - predicted : predicted
       let result = (correct * log2(p + 1e-10))
       return -result
+  
+    case .binaryCrossEntropy:
+      let y = correct
+      let y1 = predicted
+      
+      let result = -y * log2(y1) - (1 - y) * log2(1 - y1)
+      return result
     }
 
   }
@@ -35,6 +43,13 @@ public enum LossFunction {
       return -1 * (2 * (correct - predicted))
     case .crossEntropy:
       return predicted - correct
+      
+    case .binaryCrossEntropy:
+      let y = correct
+      let y1 = predicted
+      
+      let result = -1 * ((y / y1) - ((1 - y) / (1 - y1)))
+      return result
     }
   }
 }

@@ -181,14 +181,21 @@ public class GAN {
     guard data.count > 0 else {
       return
     }
-    //input real data to discrimator
-    //get the classifier output
-    //calc the error
-    //backprop regular through the discriminator
-    //adjust weights
-    //do we just train once get result? Or train multiple times off the real data?
+    
+    var fakeData: [TrainingData] = []
+    for _ in 0..<data.count {
+      let sample = self.getGeneratedSample()
+      let training = TrainingData(data: sample, correct: [0.0, 1.0])
+      fakeData.append(training)
+    }
+    
+    var combinedData = data
+    combinedData.append(contentsOf: fakeData)
+    //we append generated fake data as our FAKE data instance.
+    //we do not pass in fake data
+
     self.discriminator.epochs = singleStep ? 1 : self.epochs
-    self.discriminator.train(data: data, complete: complete)
+    self.discriminator.train(data: combinedData, complete: complete)
   }
   
   public func train(type: GANTrainingType,
