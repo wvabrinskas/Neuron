@@ -37,7 +37,7 @@ public enum LossFunction {
 //      let result = y * log(clipped(p)) + (1 - y) * log(clipped(1 - p))
 //      return -result
       let p = correct == 0 ? 1 - predicted : predicted
-      let result = (correct * log2(p + 1e-10))
+      let result = (correct * log(max(p,1e-10)))
       return -result
     }
 
