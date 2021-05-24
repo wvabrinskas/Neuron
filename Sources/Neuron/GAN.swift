@@ -101,10 +101,10 @@ public class GAN {
                              activation: .leakyRelu,
                              bias: ganModel.bias))
     }
-    brainDis.add(LobeModel(nodes: 2, activation: .sigmoid, bias: ganModel.bias)) //output class count is 2 because "real or fake" is two classes
+    brainDis.add(LobeModel(nodes: 2, activation: .tanh, bias: ganModel.bias)) //output class count is 2 because "real or fake" is two classes
     
     //discriminator has softmax output
-    brainDis.add(modifier: .softmax)
+  //  brainDis.add(modifier: .softmax)
     brainDis.add(optimizer: .adam())
     brainDis.logLevel = self.logLevel
 
