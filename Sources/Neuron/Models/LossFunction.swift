@@ -30,7 +30,15 @@ public enum LossFunction {
       let y = correct
       let y1 = predicted
       
-      let result = -y * log2(y1 + 1e-10) - (1 - y) * log2(1 - y1 + 1e-10)
+      func clipped(_ value: Float) -> Float {
+        guard value < 0 else {
+          return value
+        }
+        
+        return 1e-10
+      }
+      
+      let result = -y * log2(clipped(y1)) - (1 - y) * log2(clipped(1 - y1))
       return result
     }
 
