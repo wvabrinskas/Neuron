@@ -36,7 +36,6 @@ public class GAN {
   private var generator: Brain
   private var discriminator: Brain
   private var epochs: Int
-  private var generatorEpochs: Int
   
   public var logLevel: LogLevel = .none
   
@@ -56,16 +55,14 @@ public class GAN {
   public init(ganModel: GANModel,
               learningRate: Float,
               epochs: Int,
-              generatorEpochs: Int,
               lossThreshold: Float = 0.001,
               initializer: Initializers = .xavierNormal,
               descent: GradientDescent = .sgd) {
     
     self.epochs = epochs
-    self.generatorEpochs = generatorEpochs
     //generator
     let brainGen = Brain(learningRate: learningRate,
-                         epochs: generatorEpochs,
+                         epochs: epochs,
                          lossFunction: .binaryCrossEntropy,
                          lossThreshold: lossThreshold,
                          initializer: initializer,
@@ -120,7 +117,8 @@ public class GAN {
     }
   }
 
-  private func trainGenerator(_ complete: ((_ success: Bool) -> ())? = nil) {
+  //single step operation only
+  private func trainGenerator() {
     //input random data to generator
     //get generator output
     //feed that to the discriminator
@@ -131,40 +129,36 @@ public class GAN {
     //adjust weights of generator
     self.discriminator.loss.removeAll()
     
-    for i in 0..<self.generatorEpochs {
-      let sample = self.getGeneratedSample()
+    let sample = self.getGeneratedSample()
+    
+    //feed sample
+    let output = self.discriminate(sample)
+    
+    //calculate loss at discrimator
+    let loss = self.discriminator.calcAverageLoss(output, correct: [1.0, 0.0])
+    self.discriminator.loss.append(loss)
+    
+    //calculate loss at last layer for discrimator
+    //we want it to be real so correct is [1.0, 0.0] [real, fake]
+    let trainingData = TrainingData(data: sample, correct: [1.0, 0.0])
+    self.discriminator.setOutputDeltas(trainingData.correct)
+    
+    //we might need ot manage the training ourselves because of the whole not wanting to adjust weights thing
+    //and we need to pass the backprop to generator from discriminator
+     
+    //backprop discrimator
+    self.discriminator.backpropagate()
+    
+    
+    //get deltas from discrimator
+    if let deltas = self.discriminator.lobes.first(where: { $0.deltas().count > 0 })?.deltas() {
       
-      //feed sample
-      let output = self.discriminate(sample)
+      self.generator.backpropagate(with: deltas)
       
-      //calculate loss at discrimator
-      let loss = self.discriminator.calcAverageLoss(output, correct: [1.0, 0.0])
-      
-      self.discriminator.loss.append(loss)
-      self.discriminator.log(type: .message, priority: .low, message: "loss at epoch \(i): \(loss)")
-      
-      //calculate loss at last layer for discrimator
-      //we want it to be real so correct is [1.0, 0.0] [real, fake]
-      let trainingData = TrainingData(data: sample, correct: [1.0, 0.0])
-      self.discriminator.setOutputDeltas(trainingData.correct)
-      
-      //we might need ot manage the training ourselves because of the whole not wanting to adjust weights thing
-      //and we need to pass the backprop to generator from discriminator
-       
-      //backprop discrimator
-      self.discriminator.backpropagate()
-      
-      
-      //get deltas from discrimator
-      if let deltas = self.discriminator.lobes.first(where: { $0.deltas().count > 0 })?.deltas() {
-        
-        self.generator.backpropagate(with: deltas)
-        
-        //adjust weights of generator
-        self.generator.adjustWeights()
-      }
-      //repeat
+      //adjust weights of generator
+      self.generator.adjustWeights()
     }
+    //repeat
     
     self.generator.log(type: .success,
              priority: .alwaysShow,
@@ -172,13 +166,13 @@ public class GAN {
     
     self.generator.log(type: .message, priority: .alwaysShow, message: "Loss: \(self.discriminator.loss.last ?? 0)")
     
-    complete?(true)
   }
   
-  private func trainDiscriminator(data: [TrainingData],
-                                  validation: [TrainingData] = [],
-                                  singleStep: Bool = false,
-                                  complete: ((_ complete: Bool) -> ())? = nil) {
+  private func startTraining(data: [TrainingData],
+                             validation: [TrainingData] = [],
+                             singleStep: Bool = false,
+                             complete: ((_ complete: Bool) -> ())? = nil) {
+    
     guard data.count > 0 else {
       return
     }
@@ -200,31 +194,36 @@ public class GAN {
     
     var validationData = validation
     validationData.append(contentsOf: fakeValidationData)
-
-    self.discriminator.epochs = singleStep ? 1 : self.epochs
     
-    print("training discriminator")
-    self.discriminator.train(data: trainingData, validation: validationData) { success in
-        complete?(success)
+    let epochs = singleStep ? 1 : self.epochs
+    
+    //create a loop that sets the epochs to 1 until self.epochs is empty
+    //each iteration we train the generator for 1 epoch until self.generatorEpochs is empty
+    
+    for _ in 0..<epochs {
+      self.discriminator.epochs = 1
+      
+      //train discriminator
+      self.discriminator.train(data: trainingData, validation: validationData) { success in
+        //train generator
+        self.trainGenerator()
+      }
     }
+    
+    complete?(true)
   }
   
-  public func train(type: GANTrainingType,
-                    data: [TrainingData] = [],
+  
+  
+  public func train(data: [TrainingData] = [],
                     validation: [TrainingData] = [],
                     singleStep: Bool = false,
                     complete: ((_ success: Bool) -> ())? = nil) {
-    switch type {
-    case .discriminator:
-      print("training discriminator")
-      self.trainDiscriminator(data: data,
-                              validation: validation,
-                              singleStep: singleStep,
-                              complete: complete)
-    case .generator:
-      print("training generator")
-      self.trainGenerator(complete)
-    }
+    
+    self.startTraining(data: data,
+                       validation: validation,
+                       singleStep: singleStep,
+                       complete: complete)
   }
   
   @discardableResult
