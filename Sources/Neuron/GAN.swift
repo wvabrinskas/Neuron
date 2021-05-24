@@ -95,7 +95,7 @@ public class GAN {
     brainDis.add(LobeModel(nodes: ganModel.outputs)) //input
     for _ in 0..<ganModel.hiddenLayers {
       brainDis.add(LobeModel(nodes: ganModel.hiddenNodesPerLayer,
-                             activation: .reLu,
+                             activation: .leakyRelu,
                              bias: ganModel.bias))
     }
     brainDis.add(LobeModel(nodes: 2, activation: .sigmoid, bias: ganModel.bias)) //output class count is 2 because "real or fake" is two classes
