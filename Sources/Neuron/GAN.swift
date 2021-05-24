@@ -189,13 +189,12 @@ public class GAN {
       fakeData.append(training)
     }
     
-    var combinedData = data
-    combinedData.append(contentsOf: fakeData)
-    //we append generated fake data as our FAKE data instance.
-    //we do not pass in fake data
 
     self.discriminator.epochs = singleStep ? 1 : self.epochs
-    self.discriminator.train(data: combinedData, complete: complete)
+    
+    self.discriminator.train(data: data) { success in
+      self.discriminator.train(data: fakeData, complete: complete)
+    }
   }
   
   public func train(type: GANTrainingType,
