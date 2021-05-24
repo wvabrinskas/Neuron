@@ -98,7 +98,7 @@ public class GAN {
                              activation: .leakyRelu,
                              bias: ganModel.bias))
     }
-    brainDis.add(LobeModel(nodes: 1, activation: .sigmoid, bias: ganModel.bias)) //output class count is 1 because "real or fake" is two classes
+    brainDis.add(LobeModel(nodes: 2, activation: .sigmoid, bias: ganModel.bias)) //output class count is 2 because "real or fake" is two classes
     
     //discriminator has softmax output
   //  brainDis.add(modifier: .softmax)
@@ -138,12 +138,12 @@ public class GAN {
       let output = self.discriminate(sample)
       
       //calculate loss at discrimator
-      let loss = self.generator.calcAverageLoss(output, correct: [1.0])
+      let loss = self.generator.calcAverageLoss(output, correct: [1.0, 0.0])
       self.generator.loss.append(loss)
       
       //calculate loss at last layer for discrimator
       //we want it to be real so correct is [1.0, 0.0] [real, fake]
-      let trainingData = TrainingData(data: sample, correct: [1.0])
+      let trainingData = TrainingData(data: sample, correct: [1.0, 0.0])
       self.discriminator.setOutputDeltas(trainingData.correct)
       
       //we might need ot manage the training ourselves because of the whole not wanting to adjust weights thing
