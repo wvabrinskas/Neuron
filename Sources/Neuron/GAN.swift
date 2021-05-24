@@ -188,11 +188,12 @@ public class GAN {
       let training = TrainingData(data: sample, correct: [0.0, 1.0])
       fakeData.append(training)
     }
-    
 
     self.discriminator.epochs = singleStep ? 1 : self.epochs
     
+    print("training on real")
     self.discriminator.train(data: data) { success in
+      print("training on fake")
       self.discriminator.train(data: fakeData, complete: complete)
     }
   }
