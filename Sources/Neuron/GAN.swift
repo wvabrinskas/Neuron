@@ -209,7 +209,7 @@ public class GAN {
     let randomBatch = batchedData[randomBatchedIndex]
     
     let batchedValidationData = randomValidationData.batched(into: self.batchSize)
-    let randomBatchValidationIndex = Int.random(in: 0..<batchedData.count)
+    let randomBatchValidationIndex = Int.random(in: 0..<randomValidationData.count)
     let randomValidationBatch = batchedValidationData[randomBatchValidationIndex]
     
     let epochs = singleStep ? 1 : self.epochs
