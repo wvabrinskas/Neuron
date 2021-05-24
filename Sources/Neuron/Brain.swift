@@ -320,7 +320,7 @@ public class Brain: Logger, NetworkBuilder {
   ///   - complete: Called when training is completed
   public func train(data: [TrainingData],
                     validation: [TrainingData] = [],
-                    complete: ((_ complete: Bool) -> ())? = nil) {
+                    complete: ((_ passedValidation: Bool) -> ())? = nil) {
     
     previousValidationErrors.removeAll()
     
@@ -447,7 +447,8 @@ public class Brain: Logger, NetworkBuilder {
     
     self.log(type: .message, priority: .alwaysShow, message: "Loss: \(self.loss.last ?? 0)")
     
-    complete?(true)
+    //false because the training wasnt completed with validation
+    complete?(false)
   }
   
   private func averageDelta() -> [Float] {
