@@ -128,6 +128,8 @@ public class GAN {
     //feed those deltas to the generator
     //adjust weights of generator
     
+    //[Noise] -> [Generator] -> [Sample] -> [Discriminator] -> [real] / [fake]
+    //<----------[adjust_w]-----------------[backprop]-----
     
     //train on each sample
     for _ in 0..<count {
