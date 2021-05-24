@@ -37,6 +37,7 @@ public class GAN {
   private var discriminator: Brain
   private var epochs: Int
   private var batchSize: Int
+  private var lossTreshold: Float
   
   public var logLevel: LogLevel = .none
   
@@ -63,6 +64,7 @@ public class GAN {
     
     self.epochs = epochs
     self.batchSize = batchSize
+    self.lossTreshold = lossTreshold
     
     //generator
     let brainGen = Brain(learningRate: learningRate,
@@ -218,7 +220,7 @@ public class GAN {
     //each iteration we train the generator for 1 epoch until self.generatorEpochs is empty
     
     for _ in 0..<epochs {
-      if self.discriminator.averageError() <= 0.5 {
+      if self.discriminator.averageError() <= self.lossTreshold {
         complete?(true)
         return
       }
