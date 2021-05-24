@@ -176,6 +176,7 @@ public class GAN {
   }
   
   private func trainDiscriminator(data: [TrainingData],
+                                  validation: [TrainingData] = [],
                                   singleStep: Bool = false,
                                   complete: ((_ complete: Bool) -> ())? = nil) {
     guard data.count > 0 else {
@@ -183,29 +184,38 @@ public class GAN {
     }
     
     var fakeData: [TrainingData] = []
+    var fakeValidationData: [TrainingData] = []
     for _ in 0..<data.count {
       let sample = self.getGeneratedSample()
       let training = TrainingData(data: sample, correct: [0.0, 1.0])
+      let validationSample = self.getGeneratedSample()
+      let trainingValidation = TrainingData(data: validationSample, correct: [0.0, 1.0])
+      fakeValidationData.append(trainingValidation)
       fakeData.append(training)
     }
 
     self.discriminator.epochs = singleStep ? 1 : self.epochs
     
     print("training on real")
-    self.discriminator.train(data: data) { success in
+    self.discriminator.train(data: data, validation: validation) { success in
       print("training on fake")
-      self.discriminator.train(data: fakeData, complete: complete)
+      self.discriminator.train(data: fakeData,
+                               validation: fakeValidationData,
+                               complete: complete)
     }
   }
   
   public func train(type: GANTrainingType,
                     data: [TrainingData] = [],
+                    validation: [TrainingData] = [],
                     singleStep: Bool = false,
                     complete: ((_ success: Bool) -> ())? = nil) {
     switch type {
     case .discriminator:
       print("training discriminator")
-      self.trainDiscriminator(data: data, singleStep: singleStep, complete: complete)
+      self.trainDiscriminator(data: data,
+                              singleStep: singleStep,
+                              complete: complete)
     case .generator:
       print("training generator")
       self.trainGenerator(complete)
