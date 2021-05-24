@@ -46,9 +46,9 @@ public enum LossFunction {
       
     case .binaryCrossEntropy:
       let y = correct
-      let y1 = predicted
+      let p = predicted
       
-      let result = (-y / y1) + ((1 - y) / (1 - y1))
+      let result = (-y / p) + ((1 - y) / (1 - p))
       return result
     }
   }
