@@ -52,8 +52,8 @@ public enum LossFunction {
       let y = correct
       let p = predicted
       
-      let result = (-y / p) - ((1 - y) / (1 - p))
-      return result
+      let result = (y / p) + ((1 - y) / (1 - p))
+      return -result
     }
   }
 }
