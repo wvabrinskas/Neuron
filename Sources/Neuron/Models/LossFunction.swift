@@ -27,17 +27,14 @@ public enum LossFunction {
       return -result
   
     case .binaryCrossEntropy:
-//      let y = correct
-//      let p = correct == 0 ? 1 - predicted : predicted
-//
-//      func clipped(_ value: Float) -> Float {
-//        return max(1e-10, value)
-//      }
-//      //−(𝑦log(𝑝)+(1−𝑦)log(1−𝑝))
-//      let result = y * log(clipped(p)) + (1 - y) * log(clipped(1 - p))
-//      return -result
+      let y = correct
       let p = correct == 0 ? 1 - predicted : predicted
-      let result = (correct * log(max(p,1e-10)))
+
+      func clipped(_ value: Float) -> Float {
+        return max(1e-10, value)
+      }
+      //−(𝑦log(𝑝)+(1−𝑦)log(1−𝑝))
+      let result = y * log(clipped(p)) + (1 - y) * log(clipped(1 - p))
       return -result
     }
 
