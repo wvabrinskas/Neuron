@@ -36,6 +36,7 @@ public class GAN {
   private var generator: Brain
   private var discriminator: Brain
   private var epochs: Int
+  private var batchSize: Int
   
   public var logLevel: LogLevel = .none
   
@@ -57,9 +58,12 @@ public class GAN {
               epochs: Int,
               lossThreshold: Float = 0.001,
               initializer: Initializers = .xavierNormal,
-              descent: GradientDescent = .sgd) {
+              descent: GradientDescent = .sgd,
+              batchSize: Int) {
     
     self.epochs = epochs
+    self.batchSize = batchSize
+    
     //generator
     let brainGen = Brain(learningRate: learningRate,
                          epochs: epochs,
@@ -194,9 +198,19 @@ public class GAN {
     
     var trainingData = data
     trainingData.append(contentsOf: fakeData)
+    let randomData = trainingData.randomize()
     
     var validationData = validation
     validationData.append(contentsOf: fakeValidationData)
+    let randomValidationData = validationData.randomize()
+
+    let batchedData = randomData.batched(into: self.batchSize)
+    let randomBatchedIndex = Int.random(in: 0..<batchedData.count)
+    let randomBatch = batchedData[randomBatchedIndex]
+    
+    let batchedValidationData = randomValidationData.batched(into: self.batchSize)
+    let randomBatchValidationIndex = Int.random(in: 0..<batchedData.count)
+    let randomValidationBatch = batchedValidationDatap[randomBatchValidationIndex]
     
     let epochs = singleStep ? 1 : self.epochs
     
@@ -208,10 +222,10 @@ public class GAN {
       
       //train discriminator
       print("training discriminator....")
-      self.discriminator.train(data: trainingData, validation: validationData) { success in
+      self.discriminator.train(data: randomBatch, validation: randomValidationBatch) { success in
         //train generator
         print("training generator....")
-        self.trainGenerator(trainingData.count)
+        self.trainGenerator(randomBatch.count)
       }
     }
     
