@@ -214,6 +214,7 @@ public class GAN {
     case .discriminator:
       print("training discriminator")
       self.trainDiscriminator(data: data,
+                              validation: validation,
                               singleStep: singleStep,
                               complete: complete)
     case .generator:
