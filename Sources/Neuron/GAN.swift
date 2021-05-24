@@ -185,6 +185,7 @@ public class GAN {
     
     var fakeData: [TrainingData] = []
     var fakeValidationData: [TrainingData] = []
+    
     for _ in 0..<data.count {
       let sample = self.getGeneratedSample()
       let training = TrainingData(data: sample, correct: [0.0, 1.0])
@@ -193,15 +194,18 @@ public class GAN {
       fakeValidationData.append(trainingValidation)
       fakeData.append(training)
     }
+    
+    var trainingData = data
+    trainingData.append(contentsOf: fakeData)
+    
+    var validationData = validation
+    validationData.append(contentsOf: fakeValidationData)
 
     self.discriminator.epochs = singleStep ? 1 : self.epochs
     
-    print("training on real")
-    self.discriminator.train(data: data, validation: validation) { success in
-      print("training on fake")
-      self.discriminator.train(data: fakeData,
-                               validation: fakeValidationData,
-                               complete: complete)
+    print("training discriminator")
+    self.discriminator.train(data: trainingData, validation: validationData) { success in
+        complete?(success)
     }
   }
   
