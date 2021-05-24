@@ -234,11 +234,11 @@ public class GAN {
       
       //train discriminator
       print("training discriminator....")
-      self.discriminator.train(data: randomBatch, validation: randomValidationBatch) { success in
-        //train generator
-        print("training generator....")
-        self.trainGenerator(randomBatch.count)
-      }
+      self.discriminator.train(data: randomBatch, validation: randomValidationBatch)
+      
+      //train generator
+      print("training generator....")
+      self.trainGenerator(randomBatch.count)
     }
     
     complete?(false)
