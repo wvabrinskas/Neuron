@@ -461,7 +461,7 @@ public class Brain: Logger, NetworkBuilder {
     return sum / Float(self.descents.count)
   }
   
-  private func averageError() -> Float {
+  internal func averageError() -> Float {
     var sum: Float = 0
     
     previousValidationErrors.forEach { (error) in

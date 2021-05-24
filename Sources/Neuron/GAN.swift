@@ -218,6 +218,11 @@ public class GAN {
     //each iteration we train the generator for 1 epoch until self.generatorEpochs is empty
     
     for _ in 0..<epochs {
+      if self.discriminator.averageError() <= 0.5 {
+        complete?(true)
+        return
+      }
+      
       self.discriminator.epochs = 1
       
       //train discriminator
@@ -229,7 +234,7 @@ public class GAN {
       }
     }
     
-    complete?(true)
+    complete?(false)
   }
   
   
