@@ -64,7 +64,7 @@ public class GAN {
     
     self.epochs = epochs
     self.batchSize = batchSize
-    self.lossTreshold = lossTreshold
+    self.lossTreshold = lossThreshold
     
     //generator
     let brainGen = Brain(learningRate: learningRate,
