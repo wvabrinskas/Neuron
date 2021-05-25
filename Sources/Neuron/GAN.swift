@@ -184,7 +184,7 @@ public class GAN {
       //feed sample
       let output = self.discriminate(sample)
       
-//      //calculate loss at discrimator
+      //calculate loss at discrimator
       let loss = self.discriminator.calcAverageLoss(output, correct: [1.0, 0.0])
       self.generator.loss.append(loss)
       
@@ -236,18 +236,20 @@ public class GAN {
     }
 
     var fakeData: [TrainingData] = []
-
+    
     //create fake data
     for _ in 0..<data.count {
       let sample = self.getGeneratedSample()
       let training = TrainingData(data: sample, correct: [0.0, 1.0])
       fakeData.append(training)
     }
+    
+    //mix fake into real
+    var realDataMixedWithFake = data
+    realDataMixedWithFake.append(contentsOf: fakeData)
 
     //prepare data into batches
-    let fakeBatched = self.getBatchedRandomData(data: fakeData)
-    let realBatched = self.getBatchedRandomData(data: data)
-    
+    let realFakeBatched = self.getBatchedRandomData(data: realDataMixedWithFake)
     let epochs = singleStep ? 1 : self.epochs
     
     //control epochs locally
@@ -259,26 +261,10 @@ public class GAN {
         return
       }
       //train discriminator
-      print("training discriminator on real....")
-      //get random batch
-      let randomRealIndex = Int.random(in: 0..<realBatched.count)
-      let newRealBatch = realBatched[randomRealIndex]
-      
-      self.discriminator.train(data: newRealBatch)
-    }
-    
-    //train on fake
-    for i in 0..<epochs {
-      if self.checkGeneratorValidation(for: i) {
-        return
-      }
-      //train discriminator
-      print("training discriminator on fake....")
-      //get random batch
-      let randomFakeBatchedIndex = Int.random(in: 0..<fakeBatched.count)
-      let newFakeBatch = fakeBatched[randomFakeBatchedIndex]
-            
-      self.discriminator.train(data: newFakeBatch)
+      print("training discriminator....")
+      let randomRealFakeIndex = Int.random(in: 0..<realFakeBatched.count)
+      let newRealFakeBatch = realFakeBatched[randomRealFakeIndex]
+      self.discriminator.train(data: newRealFakeBatch)
     }
     
     print("training generator....")
