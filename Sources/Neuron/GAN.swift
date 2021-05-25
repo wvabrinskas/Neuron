@@ -109,12 +109,13 @@ public class GAN {
     
     for _ in 0..<generatorModel.hiddenLayers {
       brainGen.add(LobeModel(nodes: generatorModel.hiddenNodesPerLayer,
-                             activation: .reLu,
+                             activation: .leakyRelu,
                              bias: generatorModel.bias))
     }
     
     brainGen.add(LobeModel(nodes: generatorModel.outputs,
-                           activation: generatorModel.activation))
+                           activation: generatorModel.activation,
+                           bias: generatorModel.bias))
     
     brainGen.add(optimizer: .adam())
     brainGen.logLevel = self.logLevel
@@ -140,7 +141,8 @@ public class GAN {
     }
     
     brainDis.add(LobeModel(nodes: 2,
-                           activation: discriminatorModel.activation)) //output class count is 2 because "real or fake" is two classes
+                           activation: discriminatorModel.activation,
+                           bias: discriminatorModel.bias)) //output class count is 2 because "real or fake" is two classes
     
     brainDis.add(optimizer: .adam())
     brainDis.logLevel = self.logLevel
@@ -267,23 +269,21 @@ public class GAN {
       print("training discriminator....")
       let randomRealFakeIndex = Int.random(in: 0..<realFakeBatched.count)
       let newRealFakeBatch = realFakeBatched[randomRealFakeIndex]
+      
+      //train discriminator on real data combined with fake data
       self.discriminator.train(data: newRealFakeBatch)
       
-      //every 10 epochs of training discriminator train the generator twice
-      if i % 5 == 0 {
-        self.trainGenerator()
-        
-        print("upating training data")
-        //create new data batch
-        //update fake data
-        let fakeData = self.getFakeData(data)
+      //train generator on newly trained discriminator
+      self.trainGenerator()
+      
+      //update fake data
+      let fakeData = self.getFakeData(data)
 
-        var newData = data
-        newData.append(contentsOf: fakeData)
+      var newData = data
+      newData.append(contentsOf: fakeData)
 
-        //prepare data into batches
-        realFakeBatched = self.getBatchedRandomData(data: realDataMixedWithFake)
-      }
+      //prepare data into batches
+      realFakeBatched = self.getBatchedRandomData(data: realDataMixedWithFake)
     }
     
     print("complete")
