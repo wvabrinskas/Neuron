@@ -442,10 +442,10 @@ public class Brain: Logger, NetworkBuilder {
     }
     
     self.log(type: .success,
-             priority: .alwaysShow,
+             priority: .low,
              message: "training completed time: \(Date().timeIntervalSince(trainingStartDate))")
     
-    self.log(type: .message, priority: .alwaysShow, message: "Loss: \(self.loss.last ?? 0)")
+    self.log(type: .message, priority: .low, message: "Loss: \(self.loss.last ?? 0)")
     
     //false because the training wasnt completed with validation
     complete?(false)
