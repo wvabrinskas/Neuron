@@ -261,12 +261,12 @@ public class GAN {
     self.discriminator.epochs = 1
     
     //train on real
+    self.generator.log(type: .message, priority: .low, message: "Training started...")
     for i in 0..<epochs {
       if self.checkGeneratorValidation(for: i) {
         return
       }
       //train discriminator
-      print("training discriminator....")
       let randomRealFakeIndex = Int.random(in: 0..<realFakeBatched.count)
       let newRealFakeBatch = realFakeBatched[randomRealFakeIndex]
       
