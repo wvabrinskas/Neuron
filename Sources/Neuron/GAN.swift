@@ -270,10 +270,9 @@ public class GAN {
       self.discriminator.train(data: newRealFakeBatch)
       
       //every 10 epochs of training discriminator train the generator twice
-      //if i % 1 == 0 {
-       // for _ in 0..<2 {
+      if i % 5 == 0 {
         self.trainGenerator()
-       // }
+        
         print("upating training data")
         //create new data batch
         //update fake data
@@ -284,7 +283,7 @@ public class GAN {
 
         //prepare data into batches
         realFakeBatched = self.getBatchedRandomData(data: realDataMixedWithFake)
-     // }
+      }
     }
     
     print("complete")
