@@ -174,8 +174,8 @@ public class GAN {
       self.discriminator.backpropagate()
       
       //get deltas from discrimator
-      if let deltas = self.discriminator.lobes.first(where: { $0.deltas().count > 0 })?.deltas() {
-        
+      if self.discriminator.lobes.count > 1 {
+        let deltas = self.discriminator.lobes[1].deltas()
         self.generator.backpropagate(with: deltas)
         
         //adjust weights of generator
