@@ -535,7 +535,7 @@ public class Brain: Logger, NetworkBuilder {
   
   /// Feeds the network internally preparing for output or training
   /// - Parameter input: the input data to feed the network
-  private func feedInternal(input: [Float]) {
+  internal func feedInternal(input: [Float]) {
     var x = input
     
     for i in 0..<self.lobes.count {
@@ -651,9 +651,6 @@ public class Brain: Logger, NetworkBuilder {
   }
   
   internal func backpropagate(with deltas: [Float]? = nil) {
-
-    //reverse so we can loop through from the beggining of the array starting at the output node
-    let reverse: [Lobe] = self.lobes.reversed()
     
     //for generative adversarial networks we need to set the backprop deltas manually
     if let deltas = deltas, deltas.count == outputLayer().count {
@@ -663,6 +660,9 @@ public class Brain: Logger, NetworkBuilder {
         output.delta = delta
       }
     }
+    
+    //reverse so we can loop through from the beggining of the array starting at the output node
+    let reverse: [Lobe] = self.lobes.reversed()
     
     //subtracting 2 because we dont need to propagate through to the weights in the input layer
     //those will always be 0 since no computation happens at the input layer

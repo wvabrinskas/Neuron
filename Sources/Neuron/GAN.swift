@@ -154,17 +154,19 @@ public class GAN {
     
     //train on each sample
     for _ in 0..<self.batchSize {
+      //get sample from generator
       let sample = self.getGeneratedSample()
+      let trainingData = TrainingData(data: sample, correct: [1.0, 0.0])
+
       //feed sample
-      let output = self.discriminate(sample)
+      self.discriminator.feedInternal(input: trainingData.data)
       
-      //calculate loss at discrimator
-      let loss = self.generator.calcAverageLoss(output, correct: [1.0, 0.0])
-      self.generator.loss.append(loss)
+//      //calculate loss at discrimator
+//      let loss = self.generator.calcAverageLoss(output, correct: [1.0, 0.0])
+//      self.generator.loss.append(loss)
       
       //calculate loss at last layer for discrimator
       //we want it to be real so correct is [1.0, 0.0] [real, fake]
-      let trainingData = TrainingData(data: sample, correct: [1.0, 0.0])
       self.discriminator.setOutputDeltas(trainingData.correct)
       
       //we might need ot manage the training ourselves because of the whole not wanting to adjust weights thing
@@ -183,12 +185,6 @@ public class GAN {
       }
     }
     //repeat
-    
-    self.generator.log(type: .success,
-             priority: .alwaysShow,
-             message: "Generator training completed")
-    
-    self.generator.log(type: .message, priority: .alwaysShow, message: "Loss: \(self.generator.loss.last ?? 0)")
     
   }
   
