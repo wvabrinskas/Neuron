@@ -256,15 +256,17 @@ public class GAN {
       self.discriminator.train(data: newFakeBatch)
     }
     
+    print("training generator....")
     //train generator on discriminator
     for i in 0..<epochs {
       if self.checkGeneratorValidation(for: i) {
         return
       }
       //train generator
-      print("training generator....")
       self.trainGenerator()
     }
+    
+    print("complete")
     
     complete?(false)
   }
