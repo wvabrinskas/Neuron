@@ -8,35 +8,59 @@
 import Foundation
 import Logger
 
-public struct GANModel {
-  public var inputs: Int
+public protocol GANModel {
+  var hiddenLayers: Int { get set }
+  var hiddenNodesPerLayer: Int { get set }
+  var bias: Float { get set }
+  var activation: Activation { get set }
+  var learningRate: Float { get set }
+}
+
+public struct GeneratorModel: GANModel {
   public var hiddenLayers: Int
   public var hiddenNodesPerLayer: Int
-  public var outputs: Int
-  public var generatorInputs: Int
   public var bias: Float
-  public var generatorOutputActivation: Activation
-  public var discriminatorOutputActivation: Activation
+  public var activation: Activation
+  public var inputs: Int
+  public var outputs: Int
+  public var learningRate: Float
   
   public init(inputs: Int,
               hiddenLayers: Int,
               hiddenNodesPerLayer: Int,
               outputs: Int,
-              generatorInputs: Int,
               bias: Float,
-              generatorOutputActivation: Activation = .tanh,
-              discriminatorOutputActivation: Activation = .sigmoid) {
+              activation: Activation = .tanh,
+              learningRate: Float = 0.001) {
     self.inputs = inputs
+    self.outputs = outputs
     self.hiddenLayers = hiddenLayers
     self.hiddenNodesPerLayer = hiddenNodesPerLayer
-    self.outputs = outputs
-    self.generatorInputs = generatorInputs
     self.bias = bias
-    self.generatorOutputActivation = generatorOutputActivation
-    self.discriminatorOutputActivation = discriminatorOutputActivation
+    self.activation = activation
+    self.learningRate = learningRate
   }
 }
 
+public struct DiscriminatorModel: GANModel {
+  public var hiddenLayers: Int
+  public var hiddenNodesPerLayer: Int
+  public var bias: Float
+  public var activation: Activation
+  public var learningRate: Float
+
+  public init(hiddenLayers: Int,
+              hiddenNodesPerLayer: Int,
+              bias: Float,
+              activation: Activation = .sigmoid,
+              learningRate: Float = 0.001) {
+    self.hiddenLayers = hiddenLayers
+    self.hiddenNodesPerLayer = hiddenNodesPerLayer
+    self.bias = bias
+    self.activation = activation
+    self.learningRate = learningRate
+  }
+}
 
 public class GAN {
   private var generator: Brain
@@ -61,9 +85,8 @@ public class GAN {
   //backprop can skip input layer of discriminator when trainign generator
   //backprop will of generator is as saame as a regular NN
   
-  public init(ganModel: GANModel,
-              learningRate: Float,
-              generatorLearningRate: Float,
+  public init(discriminatorModel: DiscriminatorModel,
+              generatorModel: GeneratorModel,
               epochs: Int,
               lossThreshold: Float = 0.001,
               initializer: Initializers = .xavierNormal,
@@ -75,23 +98,23 @@ public class GAN {
     self.lossTreshold = lossThreshold
     
     //generator
-    let brainGen = Brain(learningRate: generatorLearningRate,
+    let brainGen = Brain(learningRate: generatorModel.learningRate,
                          epochs: epochs,
                          lossFunction: .binaryCrossEntropy,
                          lossThreshold: lossThreshold,
                          initializer: initializer,
                          descent: descent)
     
-    brainGen.add(LobeModel(nodes: ganModel.generatorInputs))
+    brainGen.add(LobeModel(nodes: generatorModel.inputs))
     
-    for _ in 0..<2 {
-      brainGen.add(LobeModel(nodes: ganModel.hiddenNodesPerLayer,
+    for _ in 0..<generatorModel.hiddenLayers {
+      brainGen.add(LobeModel(nodes: generatorModel.hiddenNodesPerLayer,
                              activation: .reLu,
-                             bias: ganModel.bias))
+                             bias: generatorModel.bias))
     }
     
-    brainGen.add(LobeModel(nodes: ganModel.outputs,
-                           activation: ganModel.generatorOutputActivation))
+    brainGen.add(LobeModel(nodes: generatorModel.outputs,
+                           activation: generatorModel.activation))
     
     brainGen.add(optimizer: .adam())
     brainGen.logLevel = self.logLevel
@@ -100,7 +123,7 @@ public class GAN {
     self.generator.compile()
     
     //discriminator
-    let brainDis = Brain(learningRate: learningRate,
+    let brainDis = Brain(learningRate: discriminatorModel.learningRate,
                          epochs: epochs,
                          lossFunction: .binaryCrossEntropy,
                          lossThreshold: lossThreshold,
@@ -108,18 +131,17 @@ public class GAN {
                          descent: descent)
     
     //inputs of discrimnator should be the same as outputs of the generator
-    brainDis.add(LobeModel(nodes: ganModel.outputs)) //input
-    for _ in 0..<ganModel.hiddenLayers {
-      brainDis.add(LobeModel(nodes: ganModel.hiddenNodesPerLayer,
+    brainDis.add(LobeModel(nodes: generatorModel.outputs)) //input
+    
+    for _ in 0..<discriminatorModel.hiddenLayers {
+      brainDis.add(LobeModel(nodes: discriminatorModel.hiddenNodesPerLayer,
                              activation: .leakyRelu,
-                             bias: ganModel.bias))
+                             bias: discriminatorModel.bias))
     }
     
     brainDis.add(LobeModel(nodes: 2,
-                           activation: ganModel.discriminatorOutputActivation)) //output class count is 2 because "real or fake" is two classes
+                           activation: discriminatorModel.activation)) //output class count is 2 because "real or fake" is two classes
     
-    //discriminator has softmax output
-  //  brainDis.add(modifier: .softmax)
     brainDis.add(optimizer: .adam())
     brainDis.logLevel = self.logLevel
 
@@ -128,7 +150,7 @@ public class GAN {
     
     self.randomNoise = {
       var noise: [Float] = []
-      for _ in 0..<ganModel.generatorInputs {
+      for _ in 0..<generatorModel.inputs {
         noise.append(Float.random(in: 0...1))
       }
       return noise
