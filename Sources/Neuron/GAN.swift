@@ -192,11 +192,10 @@ public class GAN {
     
   }
   
-  private func getBatchedRandomData(data: [TrainingData]) -> [TrainingData] {
+  private func getBatchedRandomData(data: [TrainingData]) -> [[TrainingData]] {
     let random = data.randomize()
     let preBatched = random.batched(into: self.batchSize)
-    let randomBatchedIndex = Int.random(in: 0..<preBatched.count)
-    return preBatched[randomBatchedIndex]
+    return preBatched
   }
   
   private func checkGeneratorValidation(for epoch: Int) -> Bool {
@@ -206,9 +205,8 @@ public class GAN {
     
     return false
   }
-  
+
   private func startTraining(data: [TrainingData],
-                             validation: [TrainingData] = [],
                              singleStep: Bool = false,
                              complete: ((_ complete: Bool) -> ())? = nil) {
     
@@ -217,21 +215,20 @@ public class GAN {
     }
 
     var fakeData: [TrainingData] = []
-    var fakeValidationData: [TrainingData] = []
 
+    //create fake data
     for _ in 0..<data.count {
       let sample = self.getGeneratedSample()
       let training = TrainingData(data: sample, correct: [0.0, 1.0])
-      let validationSample = self.getGeneratedSample()
-      let trainingValidation = TrainingData(data: validationSample, correct: [0.0, 1.0])
-      fakeValidationData.append(trainingValidation)
       fakeData.append(training)
     }
 
+    //prepare data into batches
+    let fakeBatched = self.getBatchedRandomData(data: fakeData)
+    let realBatched = self.getBatchedRandomData(data: data)
+    
     let epochs = singleStep ? 1 : self.epochs
     
-    //create a loop that sets the epochs to 1 until self.epochs is empty
-    //each iteration we train the generator for 1 epoch until self.generatorEpochs is empty
     
     //control epochs locally
     self.discriminator.epochs = 1
@@ -243,9 +240,10 @@ public class GAN {
       }
       //train discriminator
       print("training discriminator on real....")
-      let realData = self.getBatchedRandomData(data: data)
-      let validationRealData = self.getBatchedRandomData(data: validation)
-      self.discriminator.train(data: realData, validation: validationRealData)
+      let randomRealIndex = Int.random(in: 0..<realBatched.count)
+      let newRealBatch = fakeBatched[randomRealIndex]
+      
+      self.discriminator.train(data: newRealBatch)
     }
     
     //train on fake
@@ -255,9 +253,10 @@ public class GAN {
       }
       //train discriminator
       print("training discriminator on fake....")
-      let fakeData = self.getBatchedRandomData(data: fakeData)
-      let validationFakeData = self.getBatchedRandomData(data: fakeValidationData)
-      self.discriminator.train(data: fakeData, validation: validationFakeData)
+      let randomFakeBatchedIndex = Int.random(in: 0..<fakeBatched.count)
+      let newFakeBatch = fakeBatched[randomFakeBatchedIndex]
+            
+      self.discriminator.train(data: newFakeBatch)
     }
     
     //train generator on discriminator
@@ -276,12 +275,10 @@ public class GAN {
   
   
   public func train(data: [TrainingData] = [],
-                    validation: [TrainingData] = [],
                     singleStep: Bool = false,
                     complete: ((_ success: Bool) -> ())? = nil) {
     
     self.startTraining(data: data,
-                       validation: validation,
                        singleStep: singleStep,
                        complete: complete)
   }
