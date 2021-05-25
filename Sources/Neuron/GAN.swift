@@ -134,7 +134,7 @@ public class GAN {
   }
 
   //single step operation only
-  private func trainGenerator(_ count: Int) {
+  private func trainGenerator() {
     //input random data to generator
     //get generator output
     //feed that to the discriminator
@@ -148,7 +148,7 @@ public class GAN {
     //<----------[adjust_w]-----------------[backprop]-----
     
     //train on each sample
-    for _ in 0..<count {
+    for _ in 0..<self.batchSize {
       let sample = self.getGeneratedSample()
       //feed sample
       let output = self.discriminate(sample)
@@ -187,6 +187,13 @@ public class GAN {
     
   }
   
+  private func getBatchedRandomData(data: [TrainingData]) -> [TrainingData] {
+    let random = data.randomize()
+    let preBatched = random.batched(into: self.batchSize)
+    let randomBatchedIndex = Int.random(in: 0..<preBatched.count)
+    return preBatched[randomBatchedIndex]
+  }
+  
   private func startTraining(data: [TrainingData],
                              validation: [TrainingData] = [],
                              singleStep: Bool = false,
@@ -195,50 +202,50 @@ public class GAN {
     guard data.count > 0 else {
       return
     }
-    
-    var fakeData: [TrainingData] = []
-    var fakeValidationData: [TrainingData] = []
-    
-    for _ in 0..<data.count {
-      let sample = self.getGeneratedSample()
-      let training = TrainingData(data: sample, correct: [0.0, 1.0])
-      let validationSample = self.getGeneratedSample()
-      let trainingValidation = TrainingData(data: validationSample, correct: [0.0, 1.0])
-      fakeValidationData.append(trainingValidation)
-      fakeData.append(training)
-    }
-    
-    var trainingData = data
-    trainingData.append(contentsOf: fakeData)
-    let randomData = trainingData.randomize()
-    
-    var validationData = validation
-    validationData.append(contentsOf: fakeValidationData)
-    let randomValidationData = validationData.randomize()
+//
+//    var fakeData: [TrainingData] = []
+//    var fakeValidationData: [TrainingData] = []
+//
+//    for _ in 0..<data.count {
+//      let sample = self.getGeneratedSample()
+//      let training = TrainingData(data: sample, correct: [0.0, 1.0])
+//      let validationSample = self.getGeneratedSample()
+//      let trainingValidation = TrainingData(data: validationSample, correct: [0.0, 1.0])
+//      fakeValidationData.append(trainingValidation)
+//      fakeData.append(training)
+//    }
 
-    let batchedData = randomData.batched(into: self.batchSize)
-    let randomBatchedIndex = Int.random(in: 0..<batchedData.count)
-    let randomBatch = batchedData[randomBatchedIndex]
-    
-    let batchedValidationData = randomValidationData.batched(into: self.batchSize)
-    let randomBatchValidationIndex = Int.random(in: 0..<batchedValidationData.count)
-    let randomValidationBatch = batchedValidationData[randomBatchValidationIndex]
-    
     let epochs = singleStep ? 1 : self.epochs
     
     //create a loop that sets the epochs to 1 until self.epochs is empty
     //each iteration we train the generator for 1 epoch until self.generatorEpochs is empty
     
+    //control epochs locally
+    self.discriminator.epochs = 1
+    
+    //train on real
     for _ in 0..<epochs {
-      self.discriminator.epochs = 1
-      
       //train discriminator
-      print("training discriminator....")
-      self.discriminator.train(data: randomBatch, validation: randomValidationBatch)
-      
+      print("training discriminator on real....")
+      let realData = self.getBatchedRandomData(data: data)
+      let validationRealData = self.getBatchedRandomData(data: validation)
+      self.discriminator.train(data: realData, validation: validationRealData)
+    }
+    
+    //train on fake
+    for _ in 0..<epochs {
+      //train discriminator
+      print("training discriminator on fake....")
+      let fakeData = self.getBatchedRandomData(data: data)
+      let validationFakeData = self.getBatchedRandomData(data: validation)
+      self.discriminator.train(data: fakeData, validation: validationFakeData)
+    }
+    
+    //train generator on discriminator
+    for _ in 0..<epochs {
       //train generator
       print("training generator....")
-      self.trainGenerator(randomBatch.count)
+      self.trainGenerator()
     }
     
     complete?(false)
