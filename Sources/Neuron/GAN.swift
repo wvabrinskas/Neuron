@@ -265,18 +265,19 @@ public class GAN {
       let randomRealFakeIndex = Int.random(in: 0..<realFakeBatched.count)
       let newRealFakeBatch = realFakeBatched[randomRealFakeIndex]
       self.discriminator.train(data: newRealFakeBatch)
-    }
-    
-    print("training generator....")
-    //train generator on discriminator
-    for i in 0..<epochs {
-      if self.checkGeneratorValidation(for: i) {
-        return
-      }
-      //train generator
+      
       self.trainGenerator()
     }
     
+//    print("training generator....")
+//    //train generator on discriminator
+//    for i in 0..<epochs {
+//      if self.checkGeneratorValidation(for: i) {
+//        return
+//      }
+//      //train generator
+//    }
+//
     print("complete")
     
     complete?(false)
