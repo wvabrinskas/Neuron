@@ -229,7 +229,6 @@ public class GAN {
     
     let epochs = singleStep ? 1 : self.epochs
     
-    
     //control epochs locally
     self.discriminator.epochs = 1
     
@@ -240,6 +239,7 @@ public class GAN {
       }
       //train discriminator
       print("training discriminator on real....")
+      //get random batch
       let randomRealIndex = Int.random(in: 0..<realBatched.count)
       let newRealBatch = fakeBatched[randomRealIndex]
       
@@ -253,6 +253,7 @@ public class GAN {
       }
       //train discriminator
       print("training discriminator on fake....")
+      //get random batch
       let randomFakeBatchedIndex = Int.random(in: 0..<fakeBatched.count)
       let newFakeBatch = fakeBatched[randomFakeBatchedIndex]
             
