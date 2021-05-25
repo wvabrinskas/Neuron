@@ -84,7 +84,7 @@ public class GAN {
     
     brainGen.add(LobeModel(nodes: ganModel.generatorInputs))
     
-    for _ in 0..<ganModel.hiddenLayers {
+    for _ in 0..<2 {
       brainGen.add(LobeModel(nodes: ganModel.hiddenNodesPerLayer,
                              activation: .reLu,
                              bias: ganModel.bias))
