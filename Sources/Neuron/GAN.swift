@@ -63,6 +63,7 @@ public class GAN {
   
   public init(ganModel: GANModel,
               learningRate: Float,
+              generatorLearningRate: Float,
               epochs: Int,
               lossThreshold: Float = 0.001,
               initializer: Initializers = .xavierNormal,
@@ -74,7 +75,7 @@ public class GAN {
     self.lossTreshold = lossThreshold
     
     //generator
-    let brainGen = Brain(learningRate: learningRate,
+    let brainGen = Brain(learningRate: generatorLearningRate,
                          epochs: epochs,
                          lossFunction: .binaryCrossEntropy,
                          lossThreshold: lossThreshold,
