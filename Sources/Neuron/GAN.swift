@@ -52,6 +52,7 @@ public class GAN {
   }
   
   public var randomNoise: () -> [Float]
+  public var validateGenerator: (_ output: [Float]) -> Bool
   
   //create two networks
   //one for the generator
@@ -131,6 +132,10 @@ public class GAN {
       }
       return noise
     }
+    
+    self.validateGenerator = { output in
+      return false
+    }
   }
 
   //single step operation only
@@ -194,6 +199,14 @@ public class GAN {
     return preBatched[randomBatchedIndex]
   }
   
+  private func checkGeneratorValidation(for epoch: Int) -> Bool {
+    if epoch % 5 == 0 {
+      return self.validateGenerator(getGeneratedSample())
+    }
+    
+    return false
+  }
+  
   private func startTraining(data: [TrainingData],
                              validation: [TrainingData] = [],
                              singleStep: Bool = false,
@@ -224,7 +237,10 @@ public class GAN {
     self.discriminator.epochs = 1
     
     //train on real
-    for _ in 0..<epochs {
+    for i in 0..<epochs {
+      if self.checkGeneratorValidation(for: i) {
+        return
+      }
       //train discriminator
       print("training discriminator on real....")
       let realData = self.getBatchedRandomData(data: data)
@@ -233,7 +249,10 @@ public class GAN {
     }
     
     //train on fake
-    for _ in 0..<epochs {
+    for i in 0..<epochs {
+      if self.checkGeneratorValidation(for: i) {
+        return
+      }
       //train discriminator
       print("training discriminator on fake....")
       let fakeData = self.getBatchedRandomData(data: data)
@@ -242,7 +261,10 @@ public class GAN {
     }
     
     //train generator on discriminator
-    for _ in 0..<epochs {
+    for i in 0..<epochs {
+      if self.checkGeneratorValidation(for: i) {
+        return
+      }
       //train generator
       print("training generator....")
       self.trainGenerator()
