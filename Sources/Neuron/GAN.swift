@@ -227,6 +227,17 @@ public class GAN {
     return false
   }
 
+  private func getFakeData(_ data: [TrainingData]) -> [TrainingData] {
+    var fakeData: [TrainingData] = []
+    for _ in 0..<data.count {
+      let sample = self.getGeneratedSample()
+      let training = TrainingData(data: sample, correct: [0.0, 1.0])
+      fakeData.append(training)
+    }
+    
+    return fakeData
+  }
+  
   private func startTraining(data: [TrainingData],
                              singleStep: Bool = false,
                              complete: ((_ complete: Bool) -> ())? = nil) {
@@ -235,21 +246,13 @@ public class GAN {
       return
     }
 
-    var fakeData: [TrainingData] = []
-    
-    //create fake data
-    for _ in 0..<data.count {
-      let sample = self.getGeneratedSample()
-      let training = TrainingData(data: sample, correct: [0.0, 1.0])
-      fakeData.append(training)
-    }
-    
+    let fakeData = self.getFakeData(data)
     //mix fake into real
     var realDataMixedWithFake = data
     realDataMixedWithFake.append(contentsOf: fakeData)
 
     //prepare data into batches
-    let realFakeBatched = self.getBatchedRandomData(data: realDataMixedWithFake)
+    var realFakeBatched = self.getBatchedRandomData(data: realDataMixedWithFake)
     let epochs = singleStep ? 1 : self.epochs
     
     //control epochs locally
@@ -266,18 +269,24 @@ public class GAN {
       let newRealFakeBatch = realFakeBatched[randomRealFakeIndex]
       self.discriminator.train(data: newRealFakeBatch)
       
-      self.trainGenerator()
+      //every 10 epochs of training discriminator train the generator twice
+      if i % 10 == 0 {
+        for _ in 0..<2 {
+          self.trainGenerator()
+        }
+        print("upating training data")
+        //create new data batch
+        //update fake data
+        let fakeData = self.getFakeData(data)
+
+        var newData = data
+        newData.append(contentsOf: fakeData)
+
+        //prepare data into batches
+        realFakeBatched = self.getBatchedRandomData(data: realDataMixedWithFake)
+      }
     }
     
-//    print("training generator....")
-//    //train generator on discriminator
-//    for i in 0..<epochs {
-//      if self.checkGeneratorValidation(for: i) {
-//        return
-//      }
-//      //train generator
-//    }
-//
     print("complete")
     
     complete?(false)
