@@ -241,7 +241,7 @@ public class GAN {
       print("training discriminator on real....")
       //get random batch
       let randomRealIndex = Int.random(in: 0..<realBatched.count)
-      let newRealBatch = fakeBatched[randomRealIndex]
+      let newRealBatch = realBatched[randomRealIndex]
       
       self.discriminator.train(data: newRealBatch)
     }
