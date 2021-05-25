@@ -166,7 +166,7 @@ public class GAN {
       let loss = self.discriminator.calcAverageLoss(output, correct: [1.0, 0.0])
       self.generator.loss.append(loss)
       
-      self.generator.log(type: .message, priority: .low, message: "Generator loss: \(loss)")
+      self.generator.log(type: .message, priority: .alwaysShow, message: "Generator loss: \(loss)")
       
       //calculate loss at last layer for discrimator
       //we want it to be real so correct is [1.0, 0.0] [real, fake]
