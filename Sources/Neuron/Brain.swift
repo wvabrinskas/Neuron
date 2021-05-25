@@ -664,9 +664,9 @@ public class Brain: Logger, NetworkBuilder {
     //reverse so we can loop through from the beggining of the array starting at the output node
     let reverse: [Lobe] = self.lobes.reversed()
     
-    //subtracting 2 because we dont need to propagate through to the weights in the input layer
+    //subtracting 1 because we dont need to propagate through to the weights in the input layer
     //those will always be 0 since no computation happens at the input layer
-    for i in 0..<reverse.count - 1 {
+    for i in 0..<reverse.count - 2 {
       let currentLayer = reverse[i].neurons
       let previousLayer = reverse[i + 1].neurons
       
