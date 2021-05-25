@@ -215,18 +215,18 @@ public class GAN {
     guard data.count > 0 else {
       return
     }
-//
-//    var fakeData: [TrainingData] = []
-//    var fakeValidationData: [TrainingData] = []
-//
-//    for _ in 0..<data.count {
-//      let sample = self.getGeneratedSample()
-//      let training = TrainingData(data: sample, correct: [0.0, 1.0])
-//      let validationSample = self.getGeneratedSample()
-//      let trainingValidation = TrainingData(data: validationSample, correct: [0.0, 1.0])
-//      fakeValidationData.append(trainingValidation)
-//      fakeData.append(training)
-//    }
+
+    var fakeData: [TrainingData] = []
+    var fakeValidationData: [TrainingData] = []
+
+    for _ in 0..<data.count {
+      let sample = self.getGeneratedSample()
+      let training = TrainingData(data: sample, correct: [0.0, 1.0])
+      let validationSample = self.getGeneratedSample()
+      let trainingValidation = TrainingData(data: validationSample, correct: [0.0, 1.0])
+      fakeValidationData.append(trainingValidation)
+      fakeData.append(training)
+    }
 
     let epochs = singleStep ? 1 : self.epochs
     
@@ -255,8 +255,8 @@ public class GAN {
       }
       //train discriminator
       print("training discriminator on fake....")
-      let fakeData = self.getBatchedRandomData(data: data)
-      let validationFakeData = self.getBatchedRandomData(data: validation)
+      let fakeData = self.getBatchedRandomData(data: fakeData)
+      let validationFakeData = self.getBatchedRandomData(data: fakeValidationData)
       self.discriminator.train(data: fakeData, validation: validationFakeData)
     }
     
