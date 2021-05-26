@@ -11,10 +11,10 @@ import Logger
 public class GAN: Logger {
   private var generator: Brain?
   private var discriminator: Brain?
-  private var epochs: Int
   private var batchSize: Int
   private var lossTreshold: Float
   
+  public var epochs: Int
   public var logLevel: LogLevel = .none
   public var randomNoise: () -> [Float]
   public var validateGenerator: (_ output: [Float]) -> Bool
