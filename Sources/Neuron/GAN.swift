@@ -64,7 +64,7 @@ public class GAN: Logger {
     var fakeData: [TrainingData] = []
     for _ in 0..<count {
       let sample = self.getGeneratedSample()
-      let training = TrainingData(data: sample, correct: [0.0, 1.0])
+      let training = TrainingData(data: sample, correct: [0.0])
       fakeData.append(training)
     }
     
@@ -129,13 +129,13 @@ public class GAN: Logger {
     for _ in 0..<self.batchSize {
       //get sample from generator
       let sample = self.getGeneratedSample()
-      let trainingData = TrainingData(data: sample, correct: [1.0, 0.0])
+      let trainingData = TrainingData(data: sample, correct: [1.0])
 
       //feed sample
       let output = self.discriminate(sample)
       
       //calculate loss at discrimator
-      let loss = dis.calcAverageLoss(output, correct: [1.0, 0.0])
+      let loss = dis.calcAverageLoss(output, correct: [1.0])
       gen.loss.append(loss)
       
       
