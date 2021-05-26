@@ -34,9 +34,13 @@ public enum Activation: String, CaseIterable, Codable {
     case .tanh:
       let e = Float(Darwin.M_E)
       let x = input
+//
+//      let denom = 1 + pow(e, -2 * x)
+//      return (2 / denom) - 1
+      let num = pow(e, x) - pow(e, -x)
+      let denom = pow(e, x) + pow(e, -x)
       
-      let denom = 1 + pow(e, -2 * x)
-      return (2 / denom) - 1
+      return num / denom
     case .none:
       return input
     }
