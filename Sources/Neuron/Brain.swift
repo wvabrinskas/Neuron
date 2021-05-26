@@ -248,6 +248,10 @@ public class Brain: Logger, NetworkBuilder {
   
   /// Connects all the lobes together in the network builing the complete network
   public func compile() {
+    guard self.compiled == false else {
+      return
+    }
+    
     guard self.model == nil else {
       self.compileWithModel()
       return
