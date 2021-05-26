@@ -8,12 +8,12 @@
 import Foundation
 import GameplayKit
 
-struct NormalDistribution {
+public struct NormalDistribution {
   private let randomSource: GKRandomSource
-  let mean: Float
-  let deviation: Float
+  public let mean: Float
+  public let deviation: Float
   
-  init(randomSource: GKRandomSource = GKRandomSource(), mean: Float = 0, deviation: Float = 1) {
+  public init(randomSource: GKRandomSource = GKRandomSource(), mean: Float = 0, deviation: Float = 1) {
     precondition(deviation >= 0)
     self.randomSource = randomSource
     self.mean = mean
@@ -21,7 +21,7 @@ struct NormalDistribution {
     
   }
   
-  func nextFloat() -> Float {
+  public func nextFloat() -> Float {
     guard deviation > 0 else { return mean }
     
     let x1 = randomSource.nextUniform()
