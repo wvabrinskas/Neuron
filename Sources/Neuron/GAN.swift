@@ -18,6 +18,7 @@ public class GAN: Logger {
   public var logLevel: LogLevel = .none
   public var randomNoise: () -> [Float]
   public var validateGenerator: (_ output: [Float]) -> Bool
+  public var discriminatorNoiseFactor: Float = 0.1
   //REAL = 0 and FAKE = 1
 
   //MARK: Init
@@ -65,7 +66,12 @@ public class GAN: Logger {
     var fakeData: [TrainingData] = []
     for _ in 0..<count {
       let sample = self.getGeneratedSample()
-      let training = TrainingData(data: sample, correct: [Float.random(in: 0.9...1.0)])
+      
+      var training = TrainingData(data: sample, correct: [1.0])
+      if self.discriminatorNoiseFactor < 1.0 {
+        let factor = min(1.0, max(0.0, self.discriminatorNoiseFactor))
+        training = TrainingData(data: sample, correct: [Float.random(in: (1.0 - factor)...1.0)])
+      }
       fakeData.append(training)
     }
     
