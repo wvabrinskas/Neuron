@@ -106,12 +106,6 @@ public class GAN: Logger {
       }
       
       if i % 2 == 0 {
-        
-        //train generator on newly trained discriminator
-        self.trainGenerator()
-        
-      } else {
-        
         //get next batch of real data
         let realDataBatch = realData.randomElement() ?? []
         
@@ -123,7 +117,10 @@ public class GAN: Logger {
         
         //tran discriminator on new fake data generated after epoch
         dis.train(data: fakeDataBatch)
-
+        
+      } else {
+        //train generator on newly trained discriminator
+        self.trainGenerator()
       }
 
     }
