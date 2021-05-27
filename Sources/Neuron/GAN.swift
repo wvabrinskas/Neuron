@@ -105,20 +105,24 @@ public class GAN: Logger {
         return
       }
       
-      //get next batch of real data
-      let realDataBatch = realData.randomElement() ?? []
-      
-      //train discriminator on real data combined with fake data
-      dis.train(data: realDataBatch)
-      
-      //get next batch of fake data by generating new fake data
-      let fakeDataBatch = self.getFakeData(self.batchSize)
-      
-      //tran discriminator on new fake data generated after epoch
-      dis.train(data: fakeDataBatch)
-      
-      //train generator on newly trained discriminator
-      self.trainGenerator()
+      if i % 2 == 0 {
+        //get next batch of real data
+        let realDataBatch = realData.randomElement() ?? []
+        
+        //train discriminator on real data combined with fake data
+        dis.train(data: realDataBatch)
+        
+        //get next batch of fake data by generating new fake data
+        let fakeDataBatch = self.getFakeData(self.batchSize)
+        
+        //tran discriminator on new fake data generated after epoch
+        dis.train(data: fakeDataBatch)
+        
+      } else {
+        //train generator on newly trained discriminator
+        self.trainGenerator()
+      }
+
     }
     
     self.log(type: .message, priority: .alwaysShow, message: "GAN Training complete")
