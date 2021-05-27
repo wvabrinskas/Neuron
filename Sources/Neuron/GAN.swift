@@ -142,9 +142,10 @@ public class GAN: Logger {
       let output = self.discriminate(sample)
       
       //calculate loss at discrimator
-      let loss = dis.calcAverageLoss(output, correct: [1.0])
+      //just storing the loss at the generator.
+      //the loss function is the same as the discriminator
+      let loss = gen.calcAverageLoss(output, correct: [1.0])
       gen.loss.append(loss)
-      
       
       self.log(type: .message, priority: .low, message: "Generator loss: \(loss)")
       
