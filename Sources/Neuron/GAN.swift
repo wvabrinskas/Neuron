@@ -24,7 +24,7 @@ public enum GANLossFunction {
     case .discriminator:
       return real - fake
     case .generator:
-      return -fake
+      return fake
     }
   }
 }
