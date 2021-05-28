@@ -24,7 +24,7 @@ public enum GANLossFunction {
     case .discriminator:
       return real - fake
     case .generator:
-      return -fake
+      return fake
     }
   }
 }
@@ -90,6 +90,7 @@ public class GAN: Logger {
     return false
   }
 
+  //fake data that is FAKE not acting as REAL like when training the generator
   private func getFakeData(_ count: Int) -> [TrainingData] {
     var fakeData: [TrainingData] = []
     for _ in 0..<count {
@@ -186,11 +187,13 @@ public class GAN: Logger {
       return
     }
     
+    //-1 for real : 1 for fake in wasserstein
+    
     //train on each sample
     for _ in 0..<self.batchSize {
       //get sample from generator
       let sample = self.getGeneratedSample()
-      let trainingData = TrainingData(data: sample, correct: [1.0])
+      let trainingData = TrainingData(data: sample, correct: [-1.0])
 
       //feed sample
       let output = self.discriminate(sample)
@@ -202,7 +205,9 @@ public class GAN: Logger {
                                         real: self.averageCriticRealScore,
                                         fake: self.averageCriticFakeScore)
       
-      dis.setOutputDeltas(trainingData.correct, overrideLoss: loss)
+      let correct = trainingData.correct.first ?? 1
+      
+      dis.setOutputDeltas(trainingData.correct, overrideLoss: loss * correct)
 
       self.log(type: .message, priority: .low, message: "Generator loss: \(loss)")
 
@@ -241,7 +246,8 @@ public class GAN: Logger {
                                         real: self.averageCriticRealScore,
                                         fake: self.averageCriticFakeScore)
       
-      dis.setOutputDeltas(correct, overrideLoss: loss)
+      let newCorrect = correct.first ?? 1
+      dis.setOutputDeltas(correct, overrideLoss: loss * newCorrect)
 
       self.log(type: .message, priority: .low, message: "Discriminator loss: \(loss)")
 
