@@ -225,14 +225,14 @@ public class GAN: Logger {
       self.calculateAverageLoss(.generator, output: output)
     }
     
-    let loss = self.lossFunction.loss(.generator,
+    let loss = -1 * self.lossFunction.loss(.generator,
                                       real: self.averageCriticRealScore,
                                       fake: self.averageCriticFakeScore,
                                       generator: self.averageGeneratorScore)
         
-    dis.setOutputDeltas([label], overrideLoss: loss * -1)
+    dis.setOutputDeltas([label], overrideLoss: loss)
 
-    self.log(type: .message, priority: .low, message: "Generator loss         : \(loss * -1)")
+    self.log(type: .message, priority: .low, message: "Generator loss         : \(loss)")
 
     //backprop discrimator
     dis.backpropagate()
@@ -252,8 +252,6 @@ public class GAN: Logger {
       return
     }
     
-    let label = self.lossFunction.label(type: type)
-
     var loss: Float = 0
     //train on each sample
     for i in 0..<data.count {
@@ -267,15 +265,16 @@ public class GAN: Logger {
       //calculate loss at last layer for discrimator
       self.calculateAverageLoss(type, output: output)
       
-      loss = self.lossFunction.loss(.discriminator,
+      loss = -1 * self.lossFunction.loss(.discriminator,
                                         real: self.averageCriticRealScore,
                                         fake: self.averageCriticFakeScore,
                                         generator: self.averageGeneratorScore)
       
       //let newCorrect = correct.first ?? 1
-      dis.setOutputDeltas(correct, overrideLoss: loss * -1)
+      dis.setOutputDeltas(correct, overrideLoss: loss)
     }
-    self.log(type: .message, priority: .low, message: "Discriminator \(type.rawValue) loss: \(loss * -1)")
+  
+    self.log(type: .message, priority: .low, message: "Discriminator \(type.rawValue) loss: \(loss)")
 
     //backprop discrimator
     dis.backpropagate()
