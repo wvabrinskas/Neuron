@@ -182,13 +182,15 @@ public class GAN: Logger {
       return
     }
     
+    let label = self.lossFunction.label(type: type)
+    
     switch type {
     case .real:
-      self.criticScoreForRealSession.append(probability)
+      self.criticScoreForRealSession.append(probability * label)
       let sum = self.criticScoreForRealSession.reduce(0, +)
       self.averageCriticRealScore = sum / Float(self.criticScoreForRealSession.count)
     case .fake:
-      self.criticScoreForFakeSession.append(probability)
+      self.criticScoreForFakeSession.append(probability * label)
       let sum = self.criticScoreForFakeSession.reduce(0, +)
       self.averageCriticFakeScore = sum / Float(self.criticScoreForFakeSession.count)
     }
