@@ -12,7 +12,7 @@ public enum GANType {
   case generator, discriminator
 }
 
-public enum GANTrainingType {
+public enum GANTrainingType: String {
   case real, fake
 
 }
@@ -210,7 +210,7 @@ public class GAN: Logger {
     for _ in 0..<self.batchSize {
       //get sample from generator
       let sample = self.getGeneratedSample()
-      let trainingData = TrainingData(data: sample, correct: [label])
+     // let trainingData = TrainingData(data: sample, correct: [label])
 
       //feed sample
       let output = self.discriminate(sample)
@@ -225,7 +225,7 @@ public class GAN: Logger {
         
     dis.setOutputDeltas([label], overrideLoss: loss * label)
 
-    self.log(type: .message, priority: .low, message: "Generator loss: \(loss)")
+    self.log(type: .message, priority: .low, message: "Generator loss         : \(loss)")
 
     //backprop discrimator
     dis.backpropagate()
@@ -265,7 +265,7 @@ public class GAN: Logger {
       let newCorrect = correct.first ?? 1
       dis.setOutputDeltas(correct, overrideLoss: loss * newCorrect)
     }
-    self.log(type: .message, priority: .low, message: "Discriminator loss: \(loss)")
+    self.log(type: .message, priority: .low, message: "Discriminator \(type.rawValue) loss: \(loss)")
 
     //backprop discrimator
     dis.backpropagate()
