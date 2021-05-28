@@ -206,6 +206,7 @@ public class GAN: Logger {
     let label = lossFunction.label(type: .real)
         
     //train on each sample
+    //calculate on each batch then back prop
     for _ in 0..<self.batchSize {
       //get sample from generator
       let sample = self.getGeneratedSample()
@@ -216,28 +217,26 @@ public class GAN: Logger {
       
       //calculate loss at last layer for discrimator
       self.calculateAverageLoss(.real, output: output)
-      
-      let loss = self.lossFunction.loss(.generator,
-                                        real: self.averageCriticRealScore,
-                                        fake: self.averageCriticFakeScore)
-      
-      let correct = trainingData.correct.first ?? 1
-      
-      dis.setOutputDeltas(trainingData.correct, overrideLoss: loss * correct)
-
-      self.log(type: .message, priority: .low, message: "Generator loss: \(loss)")
-
-      //backprop discrimator
-      dis.backpropagate()
-      
-      //get deltas from discrimator
-      if dis.lobes.count > 1 {
-        let deltas = dis.lobes[1].deltas()
-        gen.backpropagate(with: deltas)
+    }
+    
+    let loss = self.lossFunction.loss(.generator,
+                                      real: self.averageCriticRealScore,
+                                      fake: self.averageCriticFakeScore)
         
-        //adjust weights of generator
-        gen.adjustWeights()
-      }
+    dis.setOutputDeltas([label], overrideLoss: loss * label)
+
+    self.log(type: .message, priority: .low, message: "Generator loss: \(loss)")
+
+    //backprop discrimator
+    dis.backpropagate()
+    
+    //get deltas from discrimator
+    if dis.lobes.count > 1 {
+      let deltas = dis.lobes[1].deltas()
+      gen.backpropagate(with: deltas)
+      
+      //adjust weights of generator
+      gen.adjustWeights()
     }
   }
   
@@ -246,6 +245,7 @@ public class GAN: Logger {
       return
     }
     
+    var loss: Float = 0
     //train on each sample
     for i in 0..<data.count {
       //get sample from generator
@@ -258,20 +258,19 @@ public class GAN: Logger {
       //calculate loss at last layer for discrimator
       self.calculateAverageLoss(type, output: output)
       
-      let loss = self.lossFunction.loss(.discriminator,
+      loss = self.lossFunction.loss(.discriminator,
                                         real: self.averageCriticRealScore,
                                         fake: self.averageCriticFakeScore)
       
       let newCorrect = correct.first ?? 1
       dis.setOutputDeltas(correct, overrideLoss: loss * newCorrect)
-
-      self.log(type: .message, priority: .low, message: "Discriminator loss: \(loss)")
-
-      //backprop discrimator
-      dis.backpropagate()
-      
-      dis.adjustWeights(self.weightConstraints)
     }
+    self.log(type: .message, priority: .low, message: "Discriminator loss: \(loss)")
+
+    //backprop discrimator
+    dis.backpropagate()
+    
+    dis.adjustWeights(self.weightConstraints)
   }
   
 //MARK: Public Functions
