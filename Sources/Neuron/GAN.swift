@@ -194,17 +194,16 @@ public class GAN: Logger {
       //feed sample
       let output = self.discriminate(sample)
       
-      //calculate loss at discrimator
-      //just storing the loss at the generator.
-      //the loss function is the same as the discriminator
-      let loss = gen.calcAverageLoss(output, correct: [1.0])
-      gen.loss.append(loss)
-      
-      self.log(type: .message, priority: .low, message: "Generator loss: \(loss)")
-      
       //calculate loss at last layer for discrimator
-      //we want it to be real so correct is [1.0, 0.0] [real, fake]
-      dis.setOutputDeltas(trainingData.correct)
+      self.calculateAverageLoss(.fake, output: output)
+      
+      let loss = self.lossFunction.loss(.generator,
+                                        real: self.averageCriticRealScore,
+                                        fake: self.averageCriticFakeScore)
+      
+      dis.setOutputDeltas(trainingData.correct, overrideLoss: loss)
+
+      self.log(type: .message, priority: .low, message: "Generator loss: \(loss)")
 
       //backprop discrimator
       dis.backpropagate()
