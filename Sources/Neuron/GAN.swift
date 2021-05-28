@@ -130,11 +130,6 @@ public class GAN: Logger {
     
     for i in 0..<epochs {
       
-      self.averageCriticRealScore = 0
-      self.averageCriticFakeScore = 0
-      self.criticScoreForRealSession.removeAll()
-      self.criticScoreForFakeSession.removeAll()
-      
       if self.checkGeneratorValidation(for: i) {
         return
       }
@@ -155,8 +150,12 @@ public class GAN: Logger {
       } else {
         //train generator on newly trained discriminator
         self.trainGenerator()
+        
+        self.averageCriticRealScore = 0
+        self.averageCriticFakeScore = 0
+        self.criticScoreForRealSession.removeAll()
+        self.criticScoreForFakeSession.removeAll()
       }
-
     }
     
     self.log(type: .message, priority: .alwaysShow, message: "GAN Training complete")
