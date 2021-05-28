@@ -79,9 +79,9 @@ public class GAN: Logger {
   public var discriminatorNoiseFactor: Float = 0.1
   public var lossFunction: GANLossFunction = .wasserstein
   
-  public var averageCriticRealScore: Float = 0
-  public var averageCriticFakeScore: Float = 0
-  public var averageGeneratorScore: Float = 0
+  public var averageCriticRealScore: Float = 1
+  public var averageCriticFakeScore: Float = 1
+  public var averageGeneratorScore: Float = 1
   public var weightConstraints: ClosedRange<Float>? = nil
 
   //MARK: Init
@@ -188,9 +188,9 @@ public class GAN: Logger {
         return
       }
       
-      self.averageCriticRealScore = 0
-      self.averageCriticFakeScore = 0
-      self.averageGeneratorScore = 0
+      self.averageCriticRealScore = 1
+      self.averageCriticFakeScore = 1
+      self.averageGeneratorScore = 1
       self.criticScoreForRealSession.removeAll()
       self.criticScoreForFakeSession.removeAll()
       self.generatorScoreForSession.removeAll()
