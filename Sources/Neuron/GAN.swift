@@ -145,11 +145,6 @@ public class GAN: Logger {
     self.log(type: .message, priority: .alwaysShow, message: "Training started...")
     
     for i in 0..<epochs {
-      
-      if self.checkGeneratorValidation(for: i) {
-        return
-      }
-      
       for _ in 0..<self.criticTrainPerEpoch {
         //get next batch of real data
         let realDataBatch = realData.randomElement() ?? []
@@ -166,6 +161,10 @@ public class GAN: Logger {
       
       //train generator on newly trained discriminator
       self.trainGenerator()
+      
+      if self.checkGeneratorValidation(for: i) {
+        return
+      }
       
       self.averageCriticRealScore = 0
       self.averageCriticFakeScore = 0
