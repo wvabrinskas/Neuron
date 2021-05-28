@@ -56,7 +56,7 @@ public class Lobe {
   /// Backpropagation deltas at this specific layer
   /// - Returns: The deltas as floats
   public func deltas() -> [Float] {
-    return neurons.compactMap { $0.delta > 0 ? $0.delta : nil }
+    return neurons.compactMap { $0.delta }
   }
   
   /// Updates the parameters for each Neuron such as learning rate, bias, etc.
