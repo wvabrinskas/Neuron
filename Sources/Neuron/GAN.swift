@@ -46,6 +46,7 @@ public class GAN: Logger {
   
   public var averageCriticRealScore: Float = 0
   public var averageCriticFakeScore: Float = 0
+  public var weightConstraints: ClosedRange<Float> = -0.01...0.01
   //REAL = 0 and FAKE = 1
 
   //MARK: Init
@@ -113,11 +114,6 @@ public class GAN: Logger {
       return
     }
 
-    self.averageCriticRealScore = 0
-    self.averageCriticFakeScore = 0
-    self.criticScoreForRealSession.removeAll()
-    self.criticScoreForFakeSession.removeAll()
-
     guard data.count > 0 else {
       return
     }
@@ -133,6 +129,12 @@ public class GAN: Logger {
     self.log(type: .message, priority: .alwaysShow, message: "Training started...")
     
     for i in 0..<epochs {
+      
+      self.averageCriticRealScore = 0
+      self.averageCriticFakeScore = 0
+      self.criticScoreForRealSession.removeAll()
+      self.criticScoreForFakeSession.removeAll()
+      
       if self.checkGeneratorValidation(for: i) {
         return
       }
@@ -247,7 +249,7 @@ public class GAN: Logger {
       //backprop discrimator
       dis.backpropagate()
       
-      dis.adjustWeights()
+      dis.adjustWeights(self.weightConstraints)
     }
   }
   

@@ -698,10 +698,10 @@ public class Brain: Logger, NetworkBuilder {
     
   }
   
-  internal func adjustWeights() {
+  internal func adjustWeights(_ constrain: ClosedRange<Float>? = nil) {
     for i in 0..<self.lobes.count {
       let lobe = self.lobes[i]
-      lobe.adjustWeights()
+      lobe.adjustWeights(constrain)
     }
   }
 }

@@ -40,9 +40,9 @@ public class Lobe {
   }
   
   /// Adjusts all the weights in all the neurons in this Lobe
-  public func adjustWeights() {
+  public func adjustWeights(_ constrain: ClosedRange<Float>? = nil) {
     for neuron in neurons {
-      neuron.adjustWeights()
+      neuron.adjustWeights(constrain)
     }
   }
   
