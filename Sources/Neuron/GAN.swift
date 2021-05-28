@@ -225,7 +225,7 @@ public class GAN: Logger {
     }
     
     //train on each sample
-    for i in 0..<self.batchSize {
+    for i in 0..<data.count {
       //get sample from generator
       let sample = data[i].data
       let correct = data[i].correct
