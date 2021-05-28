@@ -622,7 +622,7 @@ public class Brain: Logger, NetworkBuilder {
     return self.calcAverageLoss(predicted, correct: correct)
   }
   
-  internal func setOutputDeltas(_ correctValues: [Float]) {
+  internal func setOutputDeltas(_ correctValues: [Float], overrideLoss: Float? = nil) {
     guard correctValues.count == self.outputLayer().count else {
       
       self.log(type: .error,
@@ -642,7 +642,14 @@ public class Brain: Logger, NetworkBuilder {
       
       let outputNeuron = self.outputLayer()[i]
       
-      outputNeuron.delta = self.lossFunction.derivative(predicted, correct: target)
+      var delta = self.lossFunction.derivative(predicted, correct: target)
+      
+      //for when we want to override the delta at this layer like when using W-GAN
+      if let oLoss = overrideLoss {
+        delta = oLoss
+      }
+      
+      outputNeuron.delta = delta
       outputErrors.append(outputNeuron.delta)
       
       self.log(type: .message,

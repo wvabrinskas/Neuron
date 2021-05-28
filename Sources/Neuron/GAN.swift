@@ -8,17 +8,44 @@
 import Foundation
 import Logger
 
+public enum GANType {
+  case generator, discriminator
+}
+
+public enum GANTrainingType {
+  case real, fake
+}
+
+public enum GANLossFunction {
+  case wasserstein
+  
+  func loss(_ type: GANType, real: Float, fake: Float) -> Float {
+    switch type {
+    case .discriminator:
+      return real - fake
+    case .generator:
+      return -fake
+    }
+  }
+}
+
 public class GAN: Logger {
   private var generator: Brain?
   private var discriminator: Brain?
   private var batchSize: Int
   private var lossTreshold: Float
-  
+  private var criticScoreForRealSession: [Float] = []
+  private var criticScoreForFakeSession: [Float] = []
+
   public var epochs: Int
   public var logLevel: LogLevel = .none
   public var randomNoise: () -> [Float]
   public var validateGenerator: (_ output: [Float]) -> Bool
   public var discriminatorNoiseFactor: Float = 0.1
+  public var lossFunction: GANLossFunction = .wasserstein
+  
+  public var averageCriticRealScore: Float = 0
+  public var averageCriticFakeScore: Float = 0
   //REAL = 0 and FAKE = 1
 
   //MARK: Init
@@ -85,7 +112,12 @@ public class GAN: Logger {
     guard let dis = self.discriminator else {
       return
     }
-    
+
+    self.averageCriticRealScore = 0
+    self.averageCriticFakeScore = 0
+    self.criticScoreForRealSession.removeAll()
+    self.criticScoreForFakeSession.removeAll()
+
     guard data.count > 0 else {
       return
     }
@@ -110,14 +142,14 @@ public class GAN: Logger {
         let realDataBatch = realData.randomElement() ?? []
         
         //train discriminator on real data combined with fake data
-        dis.train(data: realDataBatch)
+        self.trainDiscriminator(data: realDataBatch, type: .real)
         
         //get next batch of fake data by generating new fake data
         let fakeDataBatch = self.getFakeData(self.batchSize)
         
         //tran discriminator on new fake data generated after epoch
-        dis.train(data: fakeDataBatch)
-        
+        self.trainDiscriminator(data: fakeDataBatch, type: .fake)
+
       } else {
         //train generator on newly trained discriminator
         self.trainGenerator()
@@ -128,6 +160,23 @@ public class GAN: Logger {
     self.log(type: .message, priority: .alwaysShow, message: "GAN Training complete")
 
     complete?(false)
+  }
+  
+  private func calculateAverageLoss(_ type: GANTrainingType, output: [Float]) {
+    guard let probability = output.first else {
+      return
+    }
+    
+    switch type {
+    case .real:
+      self.criticScoreForRealSession.append(probability)
+      let sum = self.criticScoreForRealSession.reduce(0, +)
+      self.averageCriticRealScore = sum / Float(self.criticScoreForRealSession.count)
+    case .fake:
+      self.criticScoreForFakeSession.append(probability)
+      let sum = self.criticScoreForFakeSession.reduce(0, +)
+      self.averageCriticFakeScore = sum / Float(self.criticScoreForFakeSession.count)
+    }
   }
   
   //single step operation only
@@ -169,8 +218,38 @@ public class GAN: Logger {
         gen.adjustWeights()
       }
     }
-    //repeat
+  }
+  
+  private func trainDiscriminator(data: [TrainingData], type: GANTrainingType) {
+    guard let dis = self.discriminator else {
+      return
+    }
     
+    //train on each sample
+    for i in 0..<self.batchSize {
+      //get sample from generator
+      let sample = data[i].data
+      let correct = data[i].correct
+
+      //feed sample
+      let output = self.discriminate(sample)
+      
+      //calculate loss at last layer for discrimator
+      self.calculateAverageLoss(type, output: output)
+      
+      let loss = self.lossFunction.loss(.discriminator,
+                                        real: self.averageCriticRealScore,
+                                        fake: self.averageCriticFakeScore)
+      
+      dis.setOutputDeltas(correct, overrideLoss: loss)
+
+      self.log(type: .message, priority: .low, message: "Discriminator loss: \(loss)")
+
+      //backprop discrimator
+      dis.backpropagate()
+      
+      dis.adjustWeights()
+    }
   }
   
 //MARK: Public Functions
