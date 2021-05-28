@@ -186,20 +186,18 @@ public class GAN: Logger {
     guard let probability = output.first else {
       return
     }
-    
-    let label = self.lossFunction.label(type: type)
-    
+        
     switch type {
     case .real:
-      self.criticScoreForRealSession.append(probability * label)
+      self.criticScoreForRealSession.append(probability)
       let sum = self.criticScoreForRealSession.reduce(0, +)
       self.averageCriticRealScore = sum / Float(self.criticScoreForRealSession.count)
     case .fake:
-      self.criticScoreForFakeSession.append(probability * label)
+      self.criticScoreForFakeSession.append(probability)
       let sum = self.criticScoreForFakeSession.reduce(0, +)
       self.averageCriticFakeScore = sum / Float(self.criticScoreForFakeSession.count)
     case .generator:
-      self.generatorScoreForSession.append(probability * label)
+      self.generatorScoreForSession.append(probability)
       let sum = self.generatorScoreForSession.reduce(0, +)
       self.averageGeneratorScore = sum / Float(self.generatorScoreForSession.count)
     }
@@ -232,9 +230,9 @@ public class GAN: Logger {
                                       fake: self.averageCriticFakeScore,
                                       generator: self.averageGeneratorScore)
         
-    dis.setOutputDeltas([label], overrideLoss: loss)
+    dis.setOutputDeltas([label], overrideLoss: loss * label)
 
-    self.log(type: .message, priority: .low, message: "Generator loss         : \(loss)")
+    self.log(type: .message, priority: .low, message: "Generator loss         : \(loss * label)")
 
     //backprop discrimator
     dis.backpropagate()
@@ -254,6 +252,8 @@ public class GAN: Logger {
       return
     }
     
+    let label = self.lossFunction.label(type: type)
+
     var loss: Float = 0
     //train on each sample
     for i in 0..<data.count {
@@ -273,9 +273,9 @@ public class GAN: Logger {
                                         generator: self.averageGeneratorScore)
       
       //let newCorrect = correct.first ?? 1
-      dis.setOutputDeltas(correct, overrideLoss: loss)
+      dis.setOutputDeltas(correct, overrideLoss: loss * label)
     }
-    self.log(type: .message, priority: .low, message: "Discriminator \(type.rawValue) loss: \(loss)")
+    self.log(type: .message, priority: .low, message: "Discriminator \(type.rawValue) loss: \(loss * label)")
 
     //backprop discrimator
     dis.backpropagate()
