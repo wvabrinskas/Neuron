@@ -216,7 +216,7 @@ public class GAN: Logger {
       let output = self.discriminate(sample)
       
       //calculate loss at last layer for discrimator
-      self.calculateAverageLoss(.real, output: output)
+      self.calculateAverageLoss(.fake, output: output)
     }
     
     let loss = self.lossFunction.loss(.generator,
