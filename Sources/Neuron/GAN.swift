@@ -150,29 +150,27 @@ public class GAN: Logger {
         return
       }
       
-      if i % 2 == 0 {
-        for _ in 0..<self.criticTrainPerEpoch {
-          //get next batch of real data
-          let realDataBatch = realData.randomElement() ?? []
-          
-          //train discriminator on real data combined with fake data
-          self.trainDiscriminator(data: realDataBatch, type: .real)
-          
-          //get next batch of fake data by generating new fake data
-          let fakeDataBatch = self.getFakeData(self.batchSize)
-          
-          //tran discriminator on new fake data generated after epoch
-          self.trainDiscriminator(data: fakeDataBatch, type: .fake)
-        }
-      } else {
-        //train generator on newly trained discriminator
-        self.trainGenerator()
+      for _ in 0..<self.criticTrainPerEpoch {
+        //get next batch of real data
+        let realDataBatch = realData.randomElement() ?? []
         
-        self.averageCriticRealScore = 0
-        self.averageCriticFakeScore = 0
-        self.criticScoreForRealSession.removeAll()
-        self.criticScoreForFakeSession.removeAll()
+        //train discriminator on real data combined with fake data
+        self.trainDiscriminator(data: realDataBatch, type: .real)
+        
+        //get next batch of fake data by generating new fake data
+        let fakeDataBatch = self.getFakeData(self.batchSize)
+        
+        //tran discriminator on new fake data generated after epoch
+        self.trainDiscriminator(data: fakeDataBatch, type: .fake)
       }
+      
+      //train generator on newly trained discriminator
+      self.trainGenerator()
+      
+      self.averageCriticRealScore = 0
+      self.averageCriticFakeScore = 0
+      self.criticScoreForRealSession.removeAll()
+      self.criticScoreForFakeSession.removeAll()
     }
     
     self.log(type: .message, priority: .alwaysShow, message: "GAN Training complete")
