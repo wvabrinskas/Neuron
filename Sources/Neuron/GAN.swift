@@ -82,7 +82,7 @@ public class GAN: Logger {
   public var averageCriticRealScore: Float = 0
   public var averageCriticFakeScore: Float = 0
   public var averageGeneratorScore: Float = 0
-  public var weightConstraints: ClosedRange<Float> = -0.01...0.01
+  public var weightConstraints: ClosedRange<Float>? = nil
 
   //MARK: Init
   public init(generator: Brain? = nil,
