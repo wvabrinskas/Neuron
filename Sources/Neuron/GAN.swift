@@ -47,7 +47,7 @@ public class GAN: Logger {
   private var generator: Brain?
   private var discriminator: Brain?
   private var batchSize: Int
-  private var lossTreshold: Float
+  private var criticTrainPerEpoch: Int = 5
   private var criticScoreForRealSession: [Float] = []
   private var criticScoreForFakeSession: [Float] = []
 
@@ -61,18 +61,17 @@ public class GAN: Logger {
   public var averageCriticRealScore: Float = 0
   public var averageCriticFakeScore: Float = 0
   public var weightConstraints: ClosedRange<Float> = -0.01...0.01
-  //REAL = 0 and FAKE = 1
 
   //MARK: Init
   public init(generator: Brain? = nil,
               discriminator: Brain? = nil,
               epochs: Int,
-              lossThreshold: Float = 0.001,
+              criticTrainPerEpoch: Int = 5,
               batchSize: Int) {
     
     self.epochs = epochs
     self.batchSize = batchSize
-    self.lossTreshold = lossThreshold
+    self.criticTrainPerEpoch = criticTrainPerEpoch
     self.generator = generator
     self.discriminator = discriminator
     
@@ -152,18 +151,19 @@ public class GAN: Logger {
       }
       
       if i % 2 == 0 {
-        //get next batch of real data
-        let realDataBatch = realData.randomElement() ?? []
-        
-        //train discriminator on real data combined with fake data
-        self.trainDiscriminator(data: realDataBatch, type: .real)
-        
-        //get next batch of fake data by generating new fake data
-        let fakeDataBatch = self.getFakeData(self.batchSize)
-        
-        //tran discriminator on new fake data generated after epoch
-        self.trainDiscriminator(data: fakeDataBatch, type: .fake)
-
+        for _ in 0..<self.criticTrainPerEpoch {
+          //get next batch of real data
+          let realDataBatch = realData.randomElement() ?? []
+          
+          //train discriminator on real data combined with fake data
+          self.trainDiscriminator(data: realDataBatch, type: .real)
+          
+          //get next batch of fake data by generating new fake data
+          let fakeDataBatch = self.getFakeData(self.batchSize)
+          
+          //tran discriminator on new fake data generated after epoch
+          self.trainDiscriminator(data: fakeDataBatch, type: .fake)
+        }
       } else {
         //train generator on newly trained discriminator
         self.trainGenerator()
