@@ -232,7 +232,7 @@ public class GAN: Logger {
                                       fake: self.averageCriticFakeScore,
                                       generator: self.averageGeneratorScore)
         
-    dis.setOutputDeltas([label], overrideLoss: loss * label)
+    dis.setOutputDeltas([label], overrideLoss: loss)
 
     self.log(type: .message, priority: .low, message: "Generator loss         : \(loss)")
 
@@ -272,8 +272,8 @@ public class GAN: Logger {
                                         fake: self.averageCriticFakeScore,
                                         generator: self.averageGeneratorScore)
       
-      let newCorrect = correct.first ?? 1
-      dis.setOutputDeltas(correct, overrideLoss: loss * newCorrect)
+      //let newCorrect = correct.first ?? 1
+      dis.setOutputDeltas(correct, overrideLoss: loss)
     }
     self.log(type: .message, priority: .low, message: "Discriminator \(type.rawValue) loss: \(loss)")
 
