@@ -19,6 +19,7 @@ public enum GANTrainingType: String {
 
 public enum GANLossFunction {
   case wasserstein
+  case minimax
   //-1 for real : 1 for fake in wasserstein
   
   public func label(type: GANTrainingType) -> Float {
@@ -30,16 +31,35 @@ public enum GANLossFunction {
       case .fake:
         return 1.0
       }
+      
+    case .minimax:
+      switch type {
+      case .real, .generator:
+        return 1.0
+      case .fake:
+        return 0.0
+      }
     }
   }
   
   public func loss(_ type: GANType, real: Float, fake: Float, generator: Float) -> Float {
-    switch type {
-    case .discriminator:
-      return real - fake
-    case .generator:
-      return generator
+    switch self {
+    case .wasserstein:
+      switch type {
+      case .discriminator:
+        return real - fake
+      case .generator:
+        return generator
+      }
+    case .minimax:
+      switch type {
+      case .discriminator:
+        return (self.label(type: .real)) * log(real) + (self.label(type: .fake) * log(1 - fake))
+      case .generator:
+        return (self.label(type: .generator) * log(1 - generator))
+      }
     }
+
   }
 }
 
