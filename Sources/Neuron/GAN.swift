@@ -14,12 +14,26 @@ public enum GANType {
 
 public enum GANTrainingType {
   case real, fake
+
 }
 
 public enum GANLossFunction {
   case wasserstein
+  //-1 for real : 1 for fake in wasserstein
   
-  func loss(_ type: GANType, real: Float, fake: Float) -> Float {
+  public func label(type: GANTrainingType) -> Float {
+    switch self {
+    case .wasserstein:
+      switch type {
+      case .real:
+        return -1.0
+      case .fake:
+        return 1.0
+      }
+    }
+  }
+  
+  public func loss(_ type: GANType, real: Float, fake: Float) -> Float {
     switch type {
     case .discriminator:
       return real - fake
@@ -96,10 +110,12 @@ public class GAN: Logger {
     for _ in 0..<count {
       let sample = self.getGeneratedSample()
       
-      var training = TrainingData(data: sample, correct: [1.0])
+      let label = lossFunction.label(type: .fake)
+      
+      var training = TrainingData(data: sample, correct: [label])
       if self.discriminatorNoiseFactor < 1.0 {
         let factor = min(1.0, max(0.0, self.discriminatorNoiseFactor))
-        training = TrainingData(data: sample, correct: [Float.random(in: (1.0 - factor)...1.0)])
+        training = TrainingData(data: sample, correct: [Float.random(in: (label - factor)...label)])
       }
       fakeData.append(training)
     }
@@ -187,19 +203,19 @@ public class GAN: Logger {
       return
     }
     
-    //-1 for real : 1 for fake in wasserstein
-    
+    let label = lossFunction.label(type: .real)
+        
     //train on each sample
     for _ in 0..<self.batchSize {
       //get sample from generator
       let sample = self.getGeneratedSample()
-      let trainingData = TrainingData(data: sample, correct: [-1.0])
+      let trainingData = TrainingData(data: sample, correct: [label])
 
       //feed sample
       let output = self.discriminate(sample)
       
       //calculate loss at last layer for discrimator
-      self.calculateAverageLoss(.fake, output: output)
+      self.calculateAverageLoss(.real, output: output)
       
       let loss = self.lossFunction.loss(.generator,
                                         real: self.averageCriticRealScore,
