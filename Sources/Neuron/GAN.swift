@@ -47,9 +47,9 @@ public enum GANLossFunction {
     case .wasserstein:
       switch type {
       case .discriminator:
-        return real - fake
+        return -1 * (real - fake)
       case .generator:
-        return generator
+        return -1 * generator
       }
     case .minimax:
       switch type {
@@ -245,7 +245,7 @@ public class GAN: Logger {
       self.calculateAverageLoss(.generator, output: output)
     }
     
-    let loss = -1 * self.lossFunction.loss(.generator,
+    let loss = self.lossFunction.loss(.generator,
                                       real: self.averageCriticRealScore,
                                       fake: self.averageCriticFakeScore,
                                       generator: self.averageGeneratorScore)
@@ -285,10 +285,10 @@ public class GAN: Logger {
       //calculate loss at last layer for discrimator
       self.calculateAverageLoss(type, output: output)
       
-      loss = -1 * self.lossFunction.loss(.discriminator,
-                                        real: self.averageCriticRealScore,
-                                        fake: self.averageCriticFakeScore,
-                                        generator: self.averageGeneratorScore)
+      loss = self.lossFunction.loss(.discriminator,
+                                    real: self.averageCriticRealScore,
+                                    fake: self.averageCriticFakeScore,
+                                    generator: self.averageGeneratorScore)
       
       //let newCorrect = correct.first ?? 1
       dis.setOutputDeltas(correct, overrideLoss: loss)
