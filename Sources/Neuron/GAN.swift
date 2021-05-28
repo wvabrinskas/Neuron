@@ -43,6 +43,10 @@ public enum GANLossFunction {
   }
   
   public func loss(_ type: GANType, real: Float, fake: Float, generator: Float) -> Float {
+    let realLabel = self.label(type: .real)
+    let fakeLabel = self.label(type: .fake)
+    let genLabel = self.label(type: .generator)
+
     switch self {
     case .wasserstein:
       switch type {
@@ -54,9 +58,9 @@ public enum GANLossFunction {
     case .minimax:
       switch type {
       case .discriminator:
-        return log(1 - real) + log(fake)
+        return (fakeLabel * log(fake)) + (realLabel * log(1 - real))
       case .generator:
-        return log(generator)
+        return (genLabel * log(generator))
       }
     }
 
