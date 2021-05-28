@@ -110,6 +110,11 @@ public class GAN: Logger {
                              singleStep: Bool = false,
                              complete: ((_ complete: Bool) -> ())? = nil) {
     
+    self.averageCriticRealScore = 0
+    self.averageCriticFakeScore = 0
+    self.criticScoreForRealSession.removeAll()
+    self.criticScoreForFakeSession.removeAll()
+    
     guard let dis = self.discriminator else {
       return
     }
@@ -150,11 +155,7 @@ public class GAN: Logger {
       } else {
         //train generator on newly trained discriminator
         self.trainGenerator()
-        
-        self.averageCriticRealScore = 0
-        self.averageCriticFakeScore = 0
-        self.criticScoreForRealSession.removeAll()
-        self.criticScoreForFakeSession.removeAll()
+
       }
     }
     
