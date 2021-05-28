@@ -36,9 +36,9 @@ public enum GANLossFunction {
   public func loss(_ type: GANType, real: Float, fake: Float, generator: Float) -> Float {
     switch type {
     case .discriminator:
-      return real - fake
+      return -real + fake
     case .generator:
-      return generator
+      return -generator
     }
   }
 }
@@ -230,9 +230,9 @@ public class GAN: Logger {
                                       fake: self.averageCriticFakeScore,
                                       generator: self.averageGeneratorScore)
         
-    dis.setOutputDeltas([label], overrideLoss: loss * label)
+    dis.setOutputDeltas([label], overrideLoss: loss)
 
-    self.log(type: .message, priority: .low, message: "Generator loss         : \(loss * label)")
+    self.log(type: .message, priority: .low, message: "Generator loss         : \(loss)")
 
     //backprop discrimator
     dis.backpropagate()
@@ -273,9 +273,9 @@ public class GAN: Logger {
                                         generator: self.averageGeneratorScore)
       
       //let newCorrect = correct.first ?? 1
-      dis.setOutputDeltas(correct, overrideLoss: loss * label)
+      dis.setOutputDeltas(correct, overrideLoss: loss)
     }
-    self.log(type: .message, priority: .low, message: "Discriminator \(type.rawValue) loss: \(loss * label)")
+    self.log(type: .message, priority: .low, message: "Discriminator \(type.rawValue) loss: \(loss)")
 
     //backprop discrimator
     dis.backpropagate()
