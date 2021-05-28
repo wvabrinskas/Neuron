@@ -13,7 +13,7 @@ public enum GANType {
 }
 
 public enum GANTrainingType: String {
-  case real, fake
+  case real, fake, generator
 
 }
 
@@ -25,7 +25,7 @@ public enum GANLossFunction {
     switch self {
     case .wasserstein:
       switch type {
-      case .real:
+      case .real, .generator:
         return -1.0
       case .fake:
         return 1.0
@@ -33,12 +33,12 @@ public enum GANLossFunction {
     }
   }
   
-  public func loss(_ type: GANType, real: Float, fake: Float) -> Float {
+  public func loss(_ type: GANType, real: Float, fake: Float, generator: Float) -> Float {
     switch type {
     case .discriminator:
       return real - fake
     case .generator:
-      return fake
+      return generator
     }
   }
 }
@@ -50,6 +50,7 @@ public class GAN: Logger {
   private var criticTrainPerEpoch: Int = 5
   private var criticScoreForRealSession: [Float] = []
   private var criticScoreForFakeSession: [Float] = []
+  private var generatorScoreForSession: [Float] = []
 
   public var epochs: Int
   public var logLevel: LogLevel = .none
@@ -60,6 +61,7 @@ public class GAN: Logger {
   
   public var averageCriticRealScore: Float = 0
   public var averageCriticFakeScore: Float = 0
+  public var averageGeneratorScore: Float = 0
   public var weightConstraints: ClosedRange<Float> = -0.01...0.01
 
   //MARK: Init
@@ -168,8 +170,11 @@ public class GAN: Logger {
       
       self.averageCriticRealScore = 0
       self.averageCriticFakeScore = 0
+      self.averageGeneratorScore = 0
       self.criticScoreForRealSession.removeAll()
       self.criticScoreForFakeSession.removeAll()
+      self.generatorScoreForSession.removeAll()
+
     }
     
     self.log(type: .message, priority: .alwaysShow, message: "GAN Training complete")
@@ -193,6 +198,10 @@ public class GAN: Logger {
       self.criticScoreForFakeSession.append(probability * label)
       let sum = self.criticScoreForFakeSession.reduce(0, +)
       self.averageCriticFakeScore = sum / Float(self.criticScoreForFakeSession.count)
+    case .generator:
+      self.generatorScoreForSession.append(probability * label)
+      let sum = self.generatorScoreForSession.reduce(0, +)
+      self.averageGeneratorScore = sum / Float(self.generatorScoreForSession.count)
     }
   }
   
@@ -215,12 +224,13 @@ public class GAN: Logger {
       let output = self.discriminate(sample)
       
       //calculate loss at last layer for discrimator
-      self.calculateAverageLoss(.real, output: output)
+      self.calculateAverageLoss(.generator, output: output)
     }
     
     let loss = self.lossFunction.loss(.generator,
                                       real: self.averageCriticRealScore,
-                                      fake: self.averageCriticFakeScore)
+                                      fake: self.averageCriticFakeScore,
+                                      generator: self.averageGeneratorScore)
         
     dis.setOutputDeltas([label], overrideLoss: loss * label)
 
@@ -259,7 +269,8 @@ public class GAN: Logger {
       
       loss = self.lossFunction.loss(.discriminator,
                                         real: self.averageCriticRealScore,
-                                        fake: self.averageCriticFakeScore)
+                                        fake: self.averageCriticFakeScore,
+                                        generator: self.averageGeneratorScore)
       
       let newCorrect = correct.first ?? 1
       dis.setOutputDeltas(correct, overrideLoss: loss * newCorrect)
