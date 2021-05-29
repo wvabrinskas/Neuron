@@ -49,7 +49,7 @@ public enum GANLossFunction {
       case .fake:
         return log(1 - fake)
       case .generator:
-        return log(1 - generator)
+        return log(generator)
       case .real:
         return log(real)
       }
@@ -274,7 +274,6 @@ public class GAN: Logger {
       return
     }
     
-   // var loss: Float = 0
     //train on each sample
     for i in 0..<data.count {
       //get sample from generator
