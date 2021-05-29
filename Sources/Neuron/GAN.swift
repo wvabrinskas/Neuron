@@ -42,24 +42,25 @@ public enum GANLossFunction {
     }
   }
   
-  public func loss(_ type: GANType, real: Float, fake: Float, generator: Float) -> Float {
+  public func loss(_ type: GANTrainingType, real: Float, fake: Float, generator: Float) -> Float {
     switch self {
+    case .minimax:
+      switch type {
+      case .fake:
+        return log(1 - fake)
+      case .generator:
+        return log(1 - generator)
+      case .real:
+        return log(real)
+      }
     case .wasserstein:
       switch type {
-      case .discriminator:
+      case .real, .fake:
         return (real - fake)
       case .generator:
         return generator
       }
-    case .minimax:
-      switch type {
-      case .discriminator:
-        return log(real) + log(1 - fake)
-      case .generator:
-        return -log(generator)
-      }
     }
-
   }
 }
 
@@ -82,6 +83,7 @@ public class GAN: Logger {
   public var averageCriticRealScore: Float = 0
   public var averageCriticFakeScore: Float = 0
   public var averageGeneratorScore: Float = 0
+  public var discriminatorLoss: Float = 0
   public var weightConstraints: ClosedRange<Float>? = nil
 
   //MARK: Init
@@ -191,10 +193,10 @@ public class GAN: Logger {
       self.averageCriticRealScore = 0
       self.averageCriticFakeScore = 0
       self.averageGeneratorScore = 0
+      self.discriminatorLoss = 0
       self.criticScoreForRealSession.removeAll()
       self.criticScoreForFakeSession.removeAll()
       self.generatorScoreForSession.removeAll()
-
     }
     
     self.log(type: .message, priority: .alwaysShow, message: "GAN Training complete")
@@ -266,9 +268,7 @@ public class GAN: Logger {
       gen.adjustWeights()
     }
   }
-  
-  var discriminatorLoss: Float = 0
-  
+    
   private func trainDiscriminator(data: [TrainingData], type: GANTrainingType) {
     guard let dis = self.discriminator else {
       return
@@ -287,15 +287,15 @@ public class GAN: Logger {
       self.calculateAverageLoss(type, output: output)
     }
     
-    let loss = self.lossFunction.loss(.discriminator,
-                                  real: self.averageCriticRealScore,
-                                  fake: self.averageCriticFakeScore,
-                                  generator: self.averageGeneratorScore)
+    discriminatorLoss += self.lossFunction.loss(type,
+                                                real: self.averageCriticRealScore,
+                                                fake: self.averageCriticFakeScore,
+                                                generator: self.averageGeneratorScore)
     
     //let newCorrect = correct.first ?? 1
-    dis.setOutputDeltas([self.lossFunction.label(type: type)], overrideLoss: loss)
+    dis.setOutputDeltas([self.lossFunction.label(type: type)], overrideLoss: discriminatorLoss)
     
-    self.log(type: .message, priority: .low, message: "Discriminator \(type.rawValue) loss: \(loss)")
+    self.log(type: .message, priority: .low, message: "Discriminator \(type.rawValue) loss: \(discriminatorLoss)")
 
     //backprop discrimator
     dis.backpropagate()
