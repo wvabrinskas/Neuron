@@ -292,13 +292,14 @@ public class GAN: Logger {
       
       //let newCorrect = correct.first ?? 1
       dis.setOutputDeltas(correct, overrideLoss: loss)
-    }
-  
-    self.log(type: .message, priority: .low, message: "Discriminator \(type.rawValue) loss: \(loss)")
+      
+      self.log(type: .message, priority: .low, message: "Discriminator \(type.rawValue) loss: \(loss)")
 
-    //backprop discrimator
-    dis.backpropagate()
-    
+      //backprop discrimator
+      dis.backpropagate()
+        
+    }
+
     dis.adjustWeights(self.weightConstraints)
   }
   
