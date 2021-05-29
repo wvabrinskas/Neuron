@@ -661,14 +661,19 @@ public class Brain: Logger, NetworkBuilder {
     self.descents.append(outputErrors)
   }
   
-  internal func backpropagate(with deltas: [Float]? = nil) {
+  internal func backpropagate(with deltas: [Float]? = nil, ascending: Bool = false) {
     
     //for generative adversarial networks we need to set the backprop deltas manually
     if let deltas = deltas, deltas.count == outputLayer().count {
       for i in 0..<outputLayer().count {
         let delta = deltas[i]
         let output = outputLayer()[i]
-        output.delta = delta
+        
+        if ascending {
+          output.delta += delta
+        } else {
+          output.delta = delta
+        }
       }
     }
     
@@ -692,7 +697,11 @@ public class Brain: Logger, NetworkBuilder {
           deltaAtLayer += currentNeuronDelta
         }
         
-        previousLayer[p].delta = deltaAtLayer
+        if ascending {
+          previousLayer[p].delta += deltaAtLayer
+        } else {
+          previousLayer[p].delta = deltaAtLayer
+        }
       }
     }
     

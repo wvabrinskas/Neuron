@@ -181,14 +181,6 @@ public class GAN: Logger {
         
         //tran discriminator on new fake data generated after epoch
         self.trainDiscriminator(data: fakeDataBatch, type: .fake)
-        
-        //let newCorrect = correct.first ?? 1
-        dis.setOutputDeltas([self.lossFunction.label(type: .real)], overrideLoss: discriminatorLoss)
-        
-        //backprop discrimator
-        dis.backpropagate()
-
-        dis.adjustWeights(self.weightConstraints)
       }
       
       //train generator on newly trained discriminator
@@ -294,11 +286,20 @@ public class GAN: Logger {
       self.calculateAverageLoss(type, output: output)
     }
     
-    discriminatorLoss += self.lossFunction.loss(type,
-                                                real: self.averageCriticRealScore,
-                                                fake: self.averageCriticFakeScore,
-                                                generator: self.averageGeneratorScore)
+    discriminatorLoss = self.lossFunction.loss(type,
+                                               real: self.averageCriticRealScore,
+                                               fake: self.averageCriticFakeScore,
+                                               generator: self.averageGeneratorScore)
     
+    //let newCorrect = correct.first ?? 1
+    dis.setOutputDeltas([self.lossFunction.label(type: type)], overrideLoss: discriminatorLoss)
+    
+    self.log(type: .message, priority: .low, message: "Discriminator \(type.rawValue) loss: \(discriminatorLoss)")
+
+    //backprop discrimator
+    dis.backpropagate(ascending: type == .fake)
+
+    dis.adjustWeights(self.weightConstraints)
   }
   
 //MARK: Public Functions
