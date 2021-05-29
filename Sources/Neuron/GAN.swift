@@ -58,7 +58,7 @@ public enum GANLossFunction {
     case .minimax:
       switch type {
       case .discriminator:
-        return log(fake) - log(real)
+        return log(fake) + log(real)
       case .generator:
         return log(generator)
       }
