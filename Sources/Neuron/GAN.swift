@@ -182,6 +182,9 @@ public class GAN: Logger {
         
         //tran discriminator on new fake data generated after epoch
         self.trainDiscriminator(data: fakeDataBatch, type: .fake)
+        
+        //adjust weights AFTER calculating gradients
+        dis.adjustWeights(self.weightConstraints)
       }
       
       //train generator on newly trained discriminator
@@ -298,8 +301,6 @@ public class GAN: Logger {
 
     //backprop discrimator
     dis.backpropagate(with: [loss], ascending: type == .fake)
-
-    dis.adjustWeights(self.weightConstraints)
   }
   
 //MARK: Public Functions
