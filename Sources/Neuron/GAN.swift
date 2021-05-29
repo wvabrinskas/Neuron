@@ -49,7 +49,7 @@ public enum GANLossFunction {
       case .fake:
         return log(1 - fake)
       case .generator:
-        return log(generator)
+        return -log(generator)
       case .real:
         return -log(real)
       }
