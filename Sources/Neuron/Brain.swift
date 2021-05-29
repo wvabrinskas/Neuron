@@ -663,7 +663,7 @@ public class Brain: Logger, NetworkBuilder {
   
   internal func backpropagate(with deltas: [Float]? = nil, ascending: Bool = false) {
     
-    //for generative adversarial networks we need to set the backprop deltas manually
+    //for generative adversarial networks we need to set the backprop deltas manually without calculating
     if let deltas = deltas, deltas.count == outputLayer().count {
       for i in 0..<outputLayer().count {
         let delta = deltas[i]

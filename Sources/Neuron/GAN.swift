@@ -262,6 +262,7 @@ public class GAN: Logger {
     //get deltas from discrimator
     if dis.lobes.count > 1 {
       let deltas = dis.lobes[1].deltas()
+      
       gen.backpropagate(with: deltas)
       
       //adjust weights of generator
