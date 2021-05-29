@@ -254,6 +254,7 @@ public class GAN: Logger {
         
     self.log(type: .message, priority: .low, message: "Generator loss         : \(loss)")
 
+    self.generatorLoss = loss
     //backprop discrimator
     dis.backpropagate(with: [loss])
     
