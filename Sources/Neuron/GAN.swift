@@ -47,14 +47,14 @@ public enum GANLossFunction {
     case .wasserstein:
       switch type {
       case .discriminator:
-        return -1 * (real - fake)
+        return (real - fake)
       case .generator:
-        return -1 * generator
+        return generator
       }
     case .minimax:
       switch type {
       case .discriminator:
-        return -1 * (log(real) + log(1 - fake))
+        return log(real) + log(1 - fake)
       case .generator:
         return -log(generator)
       }
