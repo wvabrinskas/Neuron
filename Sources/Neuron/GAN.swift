@@ -84,6 +84,7 @@ public class GAN: Logger {
   public var averageCriticFakeScore: Float = 0
   public var averageGeneratorScore: Float = 0
   public var discriminatorLoss: Float = 0
+  public var generatorLoss: Float = 0
   public var weightConstraints: ClosedRange<Float>? = nil
 
   //MARK: Init
@@ -194,6 +195,7 @@ public class GAN: Logger {
       self.averageCriticFakeScore = 0
       self.averageGeneratorScore = 0
       self.discriminatorLoss = 0
+      self.generatorLoss = 0
       self.criticScoreForRealSession.removeAll()
       self.criticScoreForFakeSession.removeAll()
       self.generatorScoreForSession.removeAll()
@@ -204,7 +206,7 @@ public class GAN: Logger {
     complete?(false)
   }
   
-  private func calculateAverageLoss(_ type: GANTrainingType, output: [Float]) {
+  private func calculateAverageProbability(_ type: GANTrainingType, output: [Float]) {
     guard let probability = output.first else {
       return
     }
@@ -242,7 +244,7 @@ public class GAN: Logger {
       let output = self.discriminate(sample)
       
       //calculate loss at last layer for discrimator
-      self.calculateAverageLoss(.generator, output: output)
+      self.calculateAverageProbability(.generator, output: output)
     }
     
     let loss = self.lossFunction.loss(.generator,
@@ -280,18 +282,21 @@ public class GAN: Logger {
       let output = self.discriminate(sample)
       
       //calculate loss at last layer for discrimator
-      self.calculateAverageLoss(type, output: output)
+      self.calculateAverageProbability(type, output: output)
     }
     
-    discriminatorLoss = self.lossFunction.loss(type,
-                                               real: self.averageCriticRealScore,
-                                               fake: self.averageCriticFakeScore,
-                                               generator: self.averageGeneratorScore)
-        
-    self.log(type: .message, priority: .low, message: "Discriminator \(type.rawValue) loss: \(discriminatorLoss)")
+    let loss = self.lossFunction.loss(type,
+                                     real: self.averageCriticRealScore,
+                                     fake: self.averageCriticFakeScore,
+                                     generator: self.averageGeneratorScore)
+    
+    //figure out how to make this more modular than hard coding addition for minimax
+    self.discriminatorLoss += loss
+    
+    self.log(type: .message, priority: .low, message: "Discriminator \(type.rawValue) loss: \(loss)")
 
     //backprop discrimator
-    dis.backpropagate(with: [discriminatorLoss], ascending: type == .fake)
+    dis.backpropagate(with: [loss], ascending: type == .fake)
 
     dis.adjustWeights(self.weightConstraints)
   }
