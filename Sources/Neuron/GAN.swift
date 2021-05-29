@@ -267,38 +267,38 @@ public class GAN: Logger {
     }
   }
   
+  var discriminatorLoss: Float = 0
+  
   private func trainDiscriminator(data: [TrainingData], type: GANTrainingType) {
     guard let dis = self.discriminator else {
       return
     }
     
-    var loss: Float = 0
+   // var loss: Float = 0
     //train on each sample
     for i in 0..<data.count {
       //get sample from generator
       let sample = data[i].data
-      let correct = data[i].correct
 
       //feed sample
       let output = self.discriminate(sample)
       
       //calculate loss at last layer for discrimator
       self.calculateAverageLoss(type, output: output)
-      
-      loss = self.lossFunction.loss(.discriminator,
-                                    real: self.averageCriticRealScore,
-                                    fake: self.averageCriticFakeScore,
-                                    generator: self.averageGeneratorScore)
-      
-      //let newCorrect = correct.first ?? 1
-      dis.setOutputDeltas(correct, overrideLoss: loss)
-      
-      self.log(type: .message, priority: .low, message: "Discriminator \(type.rawValue) loss: \(loss)")
-
-      //backprop discrimator
-      dis.backpropagate()
-        
     }
+    
+    let loss = self.lossFunction.loss(.discriminator,
+                                  real: self.averageCriticRealScore,
+                                  fake: self.averageCriticFakeScore,
+                                  generator: self.averageGeneratorScore)
+    
+    //let newCorrect = correct.first ?? 1
+    dis.setOutputDeltas(overrideLoss: loss)
+    
+    self.log(type: .message, priority: .low, message: "Discriminator \(type.rawValue) loss: \(loss)")
+
+    //backprop discrimator
+    dis.backpropagate()
 
     dis.adjustWeights(self.weightConstraints)
   }
