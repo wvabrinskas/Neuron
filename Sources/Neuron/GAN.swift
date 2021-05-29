@@ -293,7 +293,7 @@ public class GAN: Logger {
                                   generator: self.averageGeneratorScore)
     
     //let newCorrect = correct.first ?? 1
-    dis.setOutputDeltas(overrideLoss: loss)
+    dis.setOutputDeltas([self.lossFunction.label(type: type)], overrideLoss: loss)
     
     self.log(type: .message, priority: .low, message: "Discriminator \(type.rawValue) loss: \(loss)")
 
