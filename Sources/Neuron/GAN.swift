@@ -230,9 +230,7 @@ public class GAN: Logger {
     guard let dis = self.discriminator, let gen = self.generator else {
       return
     }
-    
-    let label = lossFunction.label(type: .real)
-        
+          
     //train on each sample
     //calculate on each batch then back prop
     for _ in 0..<self.batchSize {
@@ -252,12 +250,10 @@ public class GAN: Logger {
                                       fake: self.averageCriticFakeScore,
                                       generator: self.averageGeneratorScore)
         
-    dis.setOutputDeltas([label], overrideLoss: loss)
-
     self.log(type: .message, priority: .low, message: "Generator loss         : \(loss)")
 
     //backprop discrimator
-    dis.backpropagate()
+    dis.backpropagate(with: [loss])
     
     //get deltas from discrimator
     if dis.lobes.count > 1 {
@@ -291,14 +287,11 @@ public class GAN: Logger {
                                                real: self.averageCriticRealScore,
                                                fake: self.averageCriticFakeScore,
                                                generator: self.averageGeneratorScore)
-    
-    //let newCorrect = correct.first ?? 1
-    dis.setOutputDeltas([self.lossFunction.label(type: type)], overrideLoss: discriminatorLoss)
-    
+        
     self.log(type: .message, priority: .low, message: "Discriminator \(type.rawValue) loss: \(discriminatorLoss)")
 
     //backprop discrimator
-    dis.backpropagate(ascending: type == .fake)
+    dis.backpropagate(with: [discriminatorLoss], ascending: type == .fake)
 
     dis.adjustWeights(self.weightConstraints)
   }
