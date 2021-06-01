@@ -259,9 +259,6 @@ public class GAN: Logger {
 
     self.generatorLoss = loss
     
-    //we multiply generator loss by -1 because we are using the modified function of minimax to MAX the loss function
-    self.generatorLoss *= -1
-    
     //backprop discrimator
     dis.backpropagate(with: [self.generatorLoss])
     
