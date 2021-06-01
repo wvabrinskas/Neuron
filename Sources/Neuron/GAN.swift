@@ -140,9 +140,6 @@ public class GAN: Logger {
 
     let epochs = singleStep ? 1 : self.epochs
     
-    //control epochs locally
-    dis.epochs = 1
-    
     //prepare data into batches
     let realData = self.getBatchedRandomData(data: data)
     
@@ -163,6 +160,7 @@ public class GAN: Logger {
         //tran discriminator on new fake data generated after epoch
         let fakeLoss = self.trainDiscriminator(data: fakeDataBatch, type: .fake)
         
+        //negative because the Neuron only supports MINIMIZING gradients
         let averageTotalLoss = -1 * (realLoss.add(add: fakeLoss).reduce(0, +) / Float(batchSize))
         
         //figure out how to make this more modular than hard coding addition for minimax
@@ -176,6 +174,7 @@ public class GAN: Logger {
       }
       
       //train generator on newly trained discriminator
+      //negative because the Neuron only supports MINIMIZING gradients
       let genLoss = -1 * (self.trainGenerator() / Float(self.batchSize))
       
       self.generatorLoss = genLoss
@@ -196,8 +195,6 @@ public class GAN: Logger {
       if self.checkGeneratorValidation(for: i) {
         return
       }
-      self.discriminatorLoss = 0
-      self.generatorLoss = 0
     }
     
     self.log(type: .message, priority: .alwaysShow, message: "GAN Training complete")
