@@ -29,6 +29,20 @@ public extension Array where Element: Equatable & Numeric & FloatingPoint {
 }
 
 public extension Array where Element: Equatable & Numeric {
+  func add(add: [Element]) -> [Element] {
+    precondition(self.count == add.count)
+
+    var addedArray: [Element] = []
+    
+    for i in 0..<self.count {
+      let left = self[i]
+      let right = add[i]
+      addedArray.append(left + right)
+    }
+      
+    return addedArray
+  }
+  
   static func +=(lhs: inout [Element], rhs: [Element]) {
     precondition(lhs.count == rhs.count)
 

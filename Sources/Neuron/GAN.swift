@@ -123,6 +123,7 @@ public class GAN: Logger {
     
     return fakeData
   }
+  
 
   private func startTraining(data: [TrainingData],
                              singleStep: Bool = false,
@@ -153,15 +154,15 @@ public class GAN: Logger {
         let realDataBatch = realData.randomElement() ?? []
         
         //train discriminator on real data combined with fake data
-        let realLoss = self.trainDiscriminator(data: realDataBatch, type: .real) / Float(self.batchSize)
+        let realLoss = self.trainDiscriminator(data: realDataBatch, type: .real)
         
         //get next batch of fake data by generating new fake data
         let fakeDataBatch = self.getFakeData(self.batchSize)
         
         //tran discriminator on new fake data generated after epoch
-        let fakeLoss = self.trainDiscriminator(data: fakeDataBatch, type: .fake) / Float(self.batchSize)
+        let fakeLoss = self.trainDiscriminator(data: fakeDataBatch, type: .fake)
         
-        let averageTotalLoss = -1 * (realLoss + fakeLoss)
+        let averageTotalLoss = realLoss.add(add: fakeLoss).reduce(0, +) / Float(batchSize)
         
         //figure out how to make this more modular than hard coding addition for minimax
         self.discriminatorLoss = averageTotalLoss
@@ -228,10 +229,10 @@ public class GAN: Logger {
     return loss
   }
     
-  private func trainDiscriminator(data: [TrainingData], type: GANTrainingType) -> Float {
+  private func trainDiscriminator(data: [TrainingData], type: GANTrainingType) -> [Float] {
     //train on each sample
     
-    var averageLoss: Float = 0
+    var losses: [Float] = []
     
     for i in 0..<data.count {
       //get sample from generator
@@ -246,11 +247,11 @@ public class GAN: Logger {
       let loss = self.lossFunction.loss(type, value: first)
       
       //add losses together
-      averageLoss += loss
+      losses.append(loss)
     }
     
     //get average loss over batch
-    return averageLoss
+    return losses
   }
   
 //MARK: Public Functions
