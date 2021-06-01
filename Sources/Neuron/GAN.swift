@@ -161,7 +161,7 @@ public class GAN: Logger {
         //tran discriminator on new fake data generated after epoch
         let fakeLoss = self.trainDiscriminator(data: fakeDataBatch, type: .fake) / Float(self.batchSize)
         
-        let averageTotalLoss = (realLoss + fakeLoss)
+        let averageTotalLoss = -1 * (realLoss + fakeLoss)
         
         //figure out how to make this more modular than hard coding addition for minimax
         self.discriminatorLoss = averageTotalLoss
@@ -174,7 +174,7 @@ public class GAN: Logger {
       }
       
       //train generator on newly trained discriminator
-      let genLoss = (self.trainGenerator() / Float(self.batchSize))
+      let genLoss = -1 * (self.trainGenerator() / Float(self.batchSize))
       
       self.generatorLoss = genLoss
       
