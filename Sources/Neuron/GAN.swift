@@ -94,7 +94,8 @@ public class GAN: Logger {
   private func getBatchedRandomData(data: [TrainingData]) -> [[TrainingData]] {
     let random = data.shuffled()
     let preBatched = random.batched(into: self.batchSize)
-    return preBatched
+    let filtered = preBatched.filter({ $0.count != self.batchSize })
+    return filtered
   }
   
   private func checkGeneratorValidation(for epoch: Int) -> Bool {
