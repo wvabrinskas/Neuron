@@ -175,13 +175,23 @@ public class GAN: Logger {
         let realDataBatch = realData.randomElement() ?? []
         
         //train discriminator on real data combined with fake data
-        self.trainDiscriminator(data: realDataBatch, type: .real)
+        let realLoss = self.trainDiscriminator(data: realDataBatch, type: .real)
         
         //get next batch of fake data by generating new fake data
         let fakeDataBatch = self.getFakeData(self.batchSize)
         
         //tran discriminator on new fake data generated after epoch
-        self.trainDiscriminator(data: fakeDataBatch, type: .fake)
+        let fakeLoss = self.trainDiscriminator(data: fakeDataBatch, type: .fake)
+        
+        let totalLoss = realLoss + fakeLoss
+        
+        //figure out how to make this more modular than hard coding addition for minimax
+        self.discriminatorLoss = totalLoss
+        
+        //self.log(type: .message, priority: .low, message: "Discriminator \(type.rawValue) loss: \(loss)")
+
+        //backprop discrimator
+        dis.backpropagate(with: [discriminatorLoss])
         
         //adjust weights AFTER calculating gradients
         dis.adjustWeights(self.weightConstraints)
@@ -273,9 +283,9 @@ public class GAN: Logger {
     }
   }
     
-  private func trainDiscriminator(data: [TrainingData], type: GANTrainingType) {
+  private func trainDiscriminator(data: [TrainingData], type: GANTrainingType) -> Float {
     guard let dis = self.discriminator else {
-      return
+      return 0
     }
     
     //train on each sample
@@ -294,18 +304,7 @@ public class GAN: Logger {
                                      real: self.averageCriticRealScore,
                                      fake: self.averageCriticFakeScore,
                                      generator: self.averageGeneratorScore)
-    
-    //figure out how to make this more modular than hard coding addition for minimax
-    self.discriminatorLoss += loss
-    
-    //we multiply by negative 1 because we are -= the weights in the neurons
-    //the discrim wants to MAX this function for minimax so we want it to INCREASE the weights
-    self.discriminatorLoss *= -1
-    
-    self.log(type: .message, priority: .low, message: "Discriminator \(type.rawValue) loss: \(loss)")
-
-    //backprop discrimator
-    dis.backpropagate(with: [loss], ascending: type == .fake)
+    return loss
   }
   
 //MARK: Public Functions
