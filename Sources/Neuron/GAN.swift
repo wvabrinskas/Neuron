@@ -139,13 +139,14 @@ public class GAN: Logger {
     }
 
     let epochs = singleStep ? 1 : self.epochs
-    
-    //prepare data into batches
-    let realData = self.getBatchedRandomData(data: data)
+
     
     self.log(type: .message, priority: .alwaysShow, message: "Training started...")
     
     for i in 0..<epochs {
+      
+      //prepare data into batches
+      let realData = self.getBatchedRandomData(data: data)
       
       for _ in 0..<self.criticTrainPerEpoch {
         //get next batch of real data
