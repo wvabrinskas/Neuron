@@ -35,9 +35,9 @@ public enum GANLossFunction {
     case .minimax:
       switch type {
       case .real, .generator:
-        return -1.0
-      case .fake:
         return 1.0
+      case .fake:
+        return 0
       }
     }
   }
@@ -51,7 +51,7 @@ public enum GANLossFunction {
       case .generator:
         return -log(generator)
       case .real:
-        return -log(real)
+        return log(real)
       }
     case .wasserstein:
       switch type {
@@ -258,8 +258,12 @@ public class GAN: Logger {
     self.log(type: .message, priority: .low, message: "Generator loss         : \(loss)")
 
     self.generatorLoss = loss
+    
+    //we multiply generator loss by -1 because we are using the modified function of minimax to MAX the loss function
+    self.generatorLoss *= -1
+    
     //backprop discrimator
-    dis.backpropagate(with: [loss])
+    dis.backpropagate(with: [self.generatorLoss])
     
     //get deltas from discrimator
     if dis.lobes.count > 1 {
@@ -296,6 +300,10 @@ public class GAN: Logger {
     
     //figure out how to make this more modular than hard coding addition for minimax
     self.discriminatorLoss += loss
+    
+    //we multiply by negative 1 because we are -= the weights in the neurons
+    //the discrim wants to MAX this function for minimax so we want it to INCREASE the weights
+    self.discriminatorLoss *= -1
     
     self.log(type: .message, priority: .low, message: "Discriminator \(type.rawValue) loss: \(loss)")
 
