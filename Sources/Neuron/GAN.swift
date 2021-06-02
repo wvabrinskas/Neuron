@@ -226,7 +226,7 @@ public class GAN: Logger {
         
       } else if self.lossFunction == .wasserstein {
         
-        let averageGenLoss = (genOutput.output.reduce(0, +) / Float(self.batchSize))
+        let averageGenLoss = -(genOutput.output.reduce(0, +) / Float(self.batchSize))
         self.generatorLoss = averageGenLoss
       }
       
