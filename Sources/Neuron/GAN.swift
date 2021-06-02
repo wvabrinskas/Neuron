@@ -129,10 +129,14 @@ public class GAN: Logger {
     return false
   }
 
-  private func getGeneratedData(_ count: Int, type: GANTrainingType) -> [TrainingData] {
+  private func getGeneratedData(_ count: Int, type: GANTrainingType, noise: [Float]) -> [TrainingData] {
     var fakeData: [TrainingData] = []
+    guard let gen = generator else {
+      return []
+    }
+    
     for _ in 0..<count {
-      let sample = self.getGeneratedSample()
+      let sample = gen.feed(input: noise)
       
       let label = lossFunction.label(type: type)
       
@@ -172,6 +176,8 @@ public class GAN: Logger {
     
     for i in 0..<epochs {
       
+      let noise = randomNoise()
+      
       //prepare data into batches
       let realData = self.getBatchedRandomData(data: data)
       
@@ -182,7 +188,7 @@ public class GAN: Logger {
         let realOutput = self.trainOn(data: realDataBatch, type: .real)
         
         //get next batch of fake data by generating new fake data
-        let fakeDataBatch = self.getGeneratedData(self.batchSize, type: .fake)
+        let fakeDataBatch = self.getGeneratedData(self.batchSize, type: .fake, noise: noise)
         //tran discriminator on new fake data generated after epoch
         let fakeOutput = self.trainOn(data: fakeDataBatch, type: .fake)
         
@@ -206,7 +212,7 @@ public class GAN: Logger {
           let averageFakeOut = fakeOutput.output.reduce(0, +) / Float(self.batchSize)
           
           //negative because the Neuron only supports MINIMIZING gradients
-          self.discriminatorLoss = (averageFakeOut - averageRealOut)
+          self.discriminatorLoss = -averageRealOut + averageFakeOut
         }
         //backprop discrimator
         dis.backpropagate(with: [discriminatorLoss])
@@ -218,7 +224,7 @@ public class GAN: Logger {
       for _ in 0..<self.generatorTrainPerEpoch {
 
         //train generator on newly trained discriminator
-        let realFakeData = self.getGeneratedData(self.batchSize, type: .real)
+        let realFakeData = self.getGeneratedData(self.batchSize, type: .real, noise: noise)
         let genOutput = self.trainOn(data: realFakeData, type: .generator)
         
         if self.lossFunction == .minimax {
