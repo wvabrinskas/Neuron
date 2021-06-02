@@ -202,7 +202,8 @@ public class GAN: Logger {
           let averageRealOut = realOutput.output.reduce(0, +) / Float(self.batchSize)
           let averageFakeOut = fakeOutput.output.reduce(0, +) / Float(self.batchSize)
           
-          self.discriminatorLoss = -1 * (averageFakeOut - averageRealOut)
+          //negative because the Neuron only supports MINIMIZING gradients
+          self.discriminatorLoss = (averageFakeOut - averageRealOut)
         }
         //backprop discrimator
         dis.backpropagate(with: [discriminatorLoss])
@@ -225,8 +226,7 @@ public class GAN: Logger {
         self.generatorLoss = genLoss
         
       } else if self.lossFunction == .wasserstein {
-        
-        let averageGenLoss = -(genOutput.output.reduce(0, +) / Float(self.batchSize))
+        let averageGenLoss = -1 * (genOutput.output.reduce(0, +) / Float(self.batchSize))
         self.generatorLoss = averageGenLoss
       }
       
