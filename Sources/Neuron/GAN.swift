@@ -64,6 +64,7 @@ public class GAN: Logger {
   private var discriminator: Brain?
   private var batchSize: Int
   private var criticTrainPerEpoch: Int = 5
+  private var generatorTrainPerEpoch: Int = 5
   private var discriminatorLossHistory: [Float] = []
   private var generatorLossHistory: [Float] = []
   
@@ -89,11 +90,13 @@ public class GAN: Logger {
               discriminator: Brain? = nil,
               epochs: Int,
               criticTrainPerEpoch: Int = 5,
+              generatorTrainPerEpoch: Int = 5,
               batchSize: Int) {
     
     self.epochs = epochs
     self.batchSize = batchSize
     self.criticTrainPerEpoch = criticTrainPerEpoch
+    self.generatorTrainPerEpoch = generatorTrainPerEpoch
     self.generator = generator
     self.discriminator = discriminator
     
@@ -212,33 +215,36 @@ public class GAN: Logger {
         dis.adjustWeights()
       }
       
-      //train generator on newly trained discriminator
-      let realFakeData = self.getGeneratedData(self.batchSize, type: .real)
-      let genOutput = self.trainOn(data: realFakeData, type: .generator)
-      
-      if self.lossFunction == .minimax {
-        let sumOfGenLoss = genOutput.loss.reduce(0, +)
+      for _ in 0..<self.generatorTrainPerEpoch {
+
+        //train generator on newly trained discriminator
+        let realFakeData = self.getGeneratedData(self.batchSize, type: .real)
+        let genOutput = self.trainOn(data: realFakeData, type: .generator)
         
-        //we want to maximize lossfunction log(D(G(z))
-        //negative because the Neuron only supports MINIMIZING gradients
-        let genLoss = -1 * (sumOfGenLoss / Float(self.batchSize))
+        if self.lossFunction == .minimax {
+          let sumOfGenLoss = genOutput.loss.reduce(0, +)
+          
+          //we want to maximize lossfunction log(D(G(z))
+          //negative because the Neuron only supports MINIMIZING gradients
+          let genLoss = -1 * (sumOfGenLoss / Float(self.batchSize))
+          
+          self.generatorLoss = genLoss
+          
+        } else if self.lossFunction == .wasserstein {
+          let averageGenLoss = -1 * (genOutput.output.reduce(0, +) / Float(self.batchSize))
+          self.generatorLoss = averageGenLoss
+        }
         
-        self.generatorLoss = genLoss
+        //backprop discrimator
+        dis.backpropagate(with: [self.generatorLoss])
         
-      } else if self.lossFunction == .wasserstein {
-        let averageGenLoss = -1 * (genOutput.output.reduce(0, +) / Float(self.batchSize))
-        self.generatorLoss = averageGenLoss
-      }
-      
-      //backprop discrimator
-      dis.backpropagate(with: [self.generatorLoss])
-      
-      //get deltas from discrimator
-      if let deltas = dis.lobes.first(where: { $0.deltas().count > 0 })?.deltas() {
-        gen.backpropagate(with: deltas)
-        
-        //adjust weights of generator
-        gen.adjustWeights()
+        //get deltas from discrimator
+        if let deltas = dis.lobes.first(where: { $0.deltas().count > 0 })?.deltas() {
+          gen.backpropagate(with: deltas)
+          
+          //adjust weights of generator
+          gen.adjustWeights()
+        }
       }
       
       if self.checkGeneratorValidation(for: i) {
