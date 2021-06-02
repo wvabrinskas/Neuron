@@ -113,14 +113,6 @@ public class GAN: Logger {
     }
   }
 
-  //return data batched into size
-  private func getBatchedRandomData(data: [TrainingData]) -> [[TrainingData]] {
-    let random = data.shuffled()
-    let preBatched = random.batched(into: self.batchSize)
-    let filtered = preBatched.filter({ $0.count == self.batchSize })
-    return filtered
-  }
-  
   private func checkGeneratorValidation(for epoch: Int) -> Bool {
     if epoch % 5 == 0 {
       return self.validateGenerator(getGeneratedSample())
@@ -129,15 +121,24 @@ public class GAN: Logger {
     return false
   }
 
-  private func getGeneratedData(_ count: Int,
-                                type: GANTrainingType,
+  private func getRandomBatch(data: [TrainingData]) -> [TrainingData] {
+    var newData: [TrainingData] = []
+    for _ in 0..<self.batchSize {
+      if let element = data.randomElement() {
+        newData.append(element)
+      }
+    }
+    return newData
+  }
+
+  private func getGeneratedData(type: GANTrainingType,
                                 noise: [Float]) -> [TrainingData] {
     var fakeData: [TrainingData] = []
     guard let gen = generator else {
       return []
     }
     
-    for _ in 0..<count {
+    for _ in 0..<self.batchSize {
       let sample = gen.feed(input: noise)
       
       let label = lossFunction.label(type: type)
@@ -181,16 +182,16 @@ public class GAN: Logger {
       let noise = randomNoise()
       
       //prepare data into batches
-      let realData = self.getBatchedRandomData(data: data)
+      let realData = self.getRandomBatch(data: data)
       
       for _ in 0..<self.criticTrainPerEpoch {
         //get next batch of real data
-        let realDataBatch = realData.randomElement() ?? []
+        let realDataBatch = self.getRandomBatch(data: realData)
         //train discriminator on real data combined with fake data
         let realOutput = self.trainOn(data: realDataBatch, type: .real)
         
         //get next batch of fake data by generating new fake data
-        let fakeDataBatch = self.getGeneratedData(self.batchSize, type: .fake, noise: noise)
+        let fakeDataBatch = self.getGeneratedData(type: .fake, noise: noise)
         //tran discriminator on new fake data generated after epoch
         let fakeOutput = self.trainOn(data: fakeDataBatch, type: .fake)
         
@@ -227,7 +228,7 @@ public class GAN: Logger {
       for _ in 0..<self.generatorTrainPerEpoch {
 
         //train generator on newly trained discriminator
-        let realFakeData = self.getGeneratedData(self.batchSize, type: .generator, noise: noise)
+        let realFakeData = self.getGeneratedData(type: .generator, noise: noise)
         let genOutput = self.trainOn(data: realFakeData, type: .generator)
         
         if self.lossFunction == .minimax {
