@@ -34,9 +34,9 @@ public enum GANLossFunction {
       
     case .wasserstein:
       switch type {
-      case .real, .generator:
+      case .real:
         return 1
-      case .fake:
+      case .fake, .generator:
         return -1
       }
     }
@@ -129,7 +129,9 @@ public class GAN: Logger {
     return false
   }
 
-  private func getGeneratedData(_ count: Int, type: GANTrainingType, noise: [Float]) -> [TrainingData] {
+  private func getGeneratedData(_ count: Int,
+                                type: GANTrainingType,
+                                noise: [Float]) -> [TrainingData] {
     var fakeData: [TrainingData] = []
     guard let gen = generator else {
       return []
@@ -212,7 +214,9 @@ public class GAN: Logger {
           let averageFakeOut = fakeOutput.output.reduce(0, +) / Float(self.batchSize)
           
           //negative because the Neuron only supports MINIMIZING gradients
-          self.discriminatorLoss = -averageRealOut + averageFakeOut
+          
+          self.discriminatorLoss = self.lossFunction.loss(.real, value: averageRealOut) +
+                                   self.lossFunction.loss(.fake, value: averageFakeOut)
         }
         //backprop discrimator
         dis.backpropagate(with: [discriminatorLoss])
@@ -237,8 +241,8 @@ public class GAN: Logger {
           self.generatorLoss = genLoss
           
         } else if self.lossFunction == .wasserstein {
-          let averageGenLoss = -1 * (genOutput.output.reduce(0, +) / Float(self.batchSize))
-          self.generatorLoss = averageGenLoss
+          let averageGenLoss = (genOutput.output.reduce(0, +) / Float(self.batchSize))
+          self.generatorLoss = self.lossFunction.loss(.generator, value: averageGenLoss)
         }
         
         //backprop discrimator
