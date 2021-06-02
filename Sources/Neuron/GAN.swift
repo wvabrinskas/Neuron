@@ -167,20 +167,20 @@ public class GAN: Logger {
         let realDataBatch = realData.randomElement() ?? []
         
         //train discriminator on real data combined with fake data
-        let realLoss = self.trainOn(data: realDataBatch, type: .real)
+        let realLoss = self.trainOn(data: realDataBatch, type: .real).reduce(0, +)
         
         //get next batch of fake data by generating new fake data
         let fakeDataBatch = self.getGeneratedData(self.batchSize, type: .fake)
         
         //tran discriminator on new fake data generated after epoch
-        let fakeLoss = self.trainOn(data: fakeDataBatch, type: .fake)
+        let fakeLoss = self.trainOn(data: fakeDataBatch, type: .fake).reduce(0, +)
         
         //adding real and fake based on minimax loss function of log(D(x)) + log(D(G(z)))
-        let totalSumLoss = realLoss.add(add: fakeLoss)
+        let totalSumLoss = realLoss + fakeLoss
         //we are taking the sum of all instances of the minibatch and dividing by batch size
         //to get average loss
         //negative because the Neuron only supports MINIMIZING gradients
-        let averageTotalLoss = -1 * (totalSumLoss.reduce(0, +) / Float(batchSize))
+        let averageTotalLoss = -1 * (totalSumLoss / Float(2 * batchSize))
         
         //figure out how to make this more modular than hard coding addition for minimax
         self.discriminatorLoss = averageTotalLoss
