@@ -53,16 +53,26 @@ public class GAN: Logger {
   private var discriminator: Brain?
   private var batchSize: Int
   private var criticTrainPerEpoch: Int = 5
+  private var discriminatorLossHistory: [Float] = []
+  private var generatorLossHistory: [Float] = []
 
   public var epochs: Int
   public var logLevel: LogLevel = .none
   public var randomNoise: () -> [Float]
   public var validateGenerator: (_ output: [Float]) -> Bool
-  public var discriminatorNoiseFactor: Float = 0.1
-  public var lossFunction: GANLossFunction = .minimax
-  public var discriminatorLoss: Float = 0
-  public var generatorLoss: Float = 0
+  public var discriminatorNoiseFactor: Float?
   public var weightConstraints: ClosedRange<Float>? = nil
+  public var lossFunction: GANLossFunction = .minimax
+  public var discriminatorLoss: Float = 0 {
+    didSet {
+      self.discriminatorLossHistory.append(discriminatorLoss)
+    }
+  }
+  public var generatorLoss: Float = 0 {
+    didSet {
+      self.generatorLossHistory.append(generatorLoss)
+    }
+  }
 
   //MARK: Init
   public init(generator: Brain? = nil,
@@ -115,8 +125,8 @@ public class GAN: Logger {
       let label = lossFunction.label(type: .fake)
       
       var training = TrainingData(data: sample, correct: [label])
-      if self.discriminatorNoiseFactor < 1.0 {
-        let factor = min(1.0, max(0.0, self.discriminatorNoiseFactor))
+      if let noise = self.discriminatorNoiseFactor, noise < 1.0 {
+        let factor = min(1.0, max(0.0, noise))
         training = TrainingData(data: sample, correct: [Float.random(in: (label - factor)...label)])
       }
       fakeData.append(training)
@@ -124,7 +134,6 @@ public class GAN: Logger {
     
     return fakeData
   }
-  
 
   private func startTraining(data: [TrainingData],
                              singleStep: Bool = false,
@@ -254,6 +263,9 @@ public class GAN: Logger {
   }
   
 //MARK: Public Functions
+  public func getLosses() -> (generator: [Float], discriminator: [Float]) {
+    return (generator: self.generatorLossHistory, discriminator: self.discriminatorLossHistory)
+  }
   
   public func add(generator gen: Brain) {
     self.generator = gen
