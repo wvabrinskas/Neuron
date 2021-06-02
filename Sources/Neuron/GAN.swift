@@ -116,18 +116,23 @@ public class GAN: Logger {
     return false
   }
 
-  //fake data that is FAKE not acting as REAL like when training the generator
-  private func getFakeData(_ count: Int) -> [TrainingData] {
+  private func getGeneratedData(_ count: Int, type: GANTrainingType) -> [TrainingData] {
     var fakeData: [TrainingData] = []
     for _ in 0..<count {
       let sample = self.getGeneratedSample()
       
-      let label = lossFunction.label(type: .fake)
+      let label = lossFunction.label(type: type)
       
       var training = TrainingData(data: sample, correct: [label])
-      if let noise = self.discriminatorNoiseFactor, noise < 1.0 {
+      //assuming the label is 1.0 or greater
+      //we need to reverse if label is <= 0
+      if let noise = self.discriminatorNoiseFactor, noise > 0, noise < 1 {
+        //cap factor between 0 and 1
         let factor = min(1.0, max(0.0, noise))
-        training = TrainingData(data: sample, correct: [Float.random(in: (label - factor)...label)])
+        let min = min(label, abs(label - factor))
+        let max = max(label, abs(label - factor))
+        
+        training = TrainingData(data: sample, correct: [Float.random(in: (min...max))])
       }
       fakeData.append(training)
     }
@@ -162,16 +167,20 @@ public class GAN: Logger {
         let realDataBatch = realData.randomElement() ?? []
         
         //train discriminator on real data combined with fake data
-        let realLoss = self.trainDiscriminator(data: realDataBatch, type: .real)
+        let realLoss = self.trainOn(data: realDataBatch, type: .real)
         
         //get next batch of fake data by generating new fake data
-        let fakeDataBatch = self.getFakeData(self.batchSize)
+        let fakeDataBatch = self.getGeneratedData(self.batchSize, type: .fake)
         
         //tran discriminator on new fake data generated after epoch
-        let fakeLoss = self.trainDiscriminator(data: fakeDataBatch, type: .fake)
+        let fakeLoss = self.trainOn(data: fakeDataBatch, type: .fake)
         
+        //adding real and fake based on minimax loss function of log(D(x)) + log(D(G(z)))
+        let totalSumLoss = realLoss.add(add: fakeLoss)
+        //we are taking the sum of all instances of the minibatch and dividing by batch size
+        //to get average loss
         //negative because the Neuron only supports MINIMIZING gradients
-        let averageTotalLoss = -1 * (realLoss.add(add: fakeLoss).reduce(0, +) / Float(batchSize))
+        let averageTotalLoss = -1 * (totalSumLoss.reduce(0, +) / Float(batchSize))
         
         //figure out how to make this more modular than hard coding addition for minimax
         self.discriminatorLoss = averageTotalLoss
@@ -184,8 +193,12 @@ public class GAN: Logger {
       }
       
       //train generator on newly trained discriminator
+      let realFakeFata = self.getGeneratedData(self.batchSize, type: .real)
+      let sumOfGenLoss = self.trainOn(data: realFakeFata, type: .generator).reduce(0, +)
+      
+      //we want to maximize lossfunction log(D(G(z))
       //negative because the Neuron only supports MINIMIZING gradients
-      let genLoss = -1 * (self.trainGenerator() / Float(self.batchSize))
+      let genLoss = -1 * (sumOfGenLoss / Float(self.batchSize))
       
       self.generatorLoss = genLoss
       
@@ -193,9 +206,7 @@ public class GAN: Logger {
       dis.backpropagate(with: [self.generatorLoss])
       
       //get deltas from discrimator
-      if dis.lobes.count > 1 {
-        let deltas = dis.lobes[1].deltas()
-        
+      if let deltas = dis.lobes.first(where: { $0.deltas().count > 0 })?.deltas() {
         gen.backpropagate(with: deltas)
         
         //adjust weights of generator
@@ -211,33 +222,8 @@ public class GAN: Logger {
 
     complete?(false)
   }
-  
-  //single step operation only
-  private func trainGenerator() -> Float {
-    var averageLoss: Float = 0
-    //train on each sample
-    //calculate on each batch then back prop
-    for _ in 0..<self.batchSize {
-      //get sample from generator
-      let sample = self.getGeneratedSample()
-     // let trainingData = TrainingData(data: sample, correct: [label])
-
-      //feed sample
-      let output = self.discriminate(sample)
-        
-      let first = output.first ?? 0
-      
-      let loss = self.lossFunction.loss(.generator, value: first)
-      
-      averageLoss += loss
-    }
     
-    let loss = averageLoss
-    
-    return loss
-  }
-    
-  private func trainDiscriminator(data: [TrainingData], type: GANTrainingType) -> [Float] {
+  private func trainOn(data: [TrainingData], type: GANTrainingType) -> [Float] {
     //train on each sample
     
     var losses: [Float] = []

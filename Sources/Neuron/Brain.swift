@@ -645,7 +645,7 @@ public class Brain: Logger, NetworkBuilder {
       let delta = self.lossFunction.derivative(predicted, correct: target)
     
       outputNeuron.delta = delta
-      outputErrors.append(outputNeuron.delta)
+      outputErrors.append(delta)
       
       self.log(type: .message,
                priority: .high,
@@ -682,8 +682,9 @@ public class Brain: Logger, NetworkBuilder {
         for c in 0..<currentLayer.count {
           let currentNode = currentLayer[c]
           let currentInput = currentNode.inputs[p]
+          let currentNodeDelta = currentNode.delta ?? 0
           
-          let currentNeuronDelta = currentNode.delta * currentInput.weight
+          let currentNeuronDelta = currentNodeDelta * currentInput.weight
           deltaAtLayer += currentNeuronDelta
         }
         
