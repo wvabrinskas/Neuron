@@ -19,6 +19,7 @@ public enum GANTrainingType: String {
 
 public enum GANLossFunction {
   case minimax
+  case wasserstein
   //-1 for real : 1 for fake in wasserstein
   
   public func label(type: GANTrainingType) -> Float {
@@ -29,6 +30,14 @@ public enum GANLossFunction {
         return 1.0
       case .fake:
         return 0
+      }
+      
+    case .wasserstein:
+      switch type {
+      case .real, .generator:
+        return 1
+      case .fake:
+        return -1
       }
     }
   }
@@ -44,6 +53,8 @@ public enum GANLossFunction {
       case .real:
         return log(value)
       }
+    case .wasserstein:
+      return self.label(type: type) * value
     }
   }
 }
@@ -55,7 +66,7 @@ public class GAN: Logger {
   private var criticTrainPerEpoch: Int = 5
   private var discriminatorLossHistory: [Float] = []
   private var generatorLossHistory: [Float] = []
-
+  
   public var epochs: Int
   public var logLevel: LogLevel = .none
   public var randomNoise: () -> [Float]
@@ -165,26 +176,34 @@ public class GAN: Logger {
       for _ in 0..<self.criticTrainPerEpoch {
         //get next batch of real data
         let realDataBatch = realData.randomElement() ?? []
-        
         //train discriminator on real data combined with fake data
-        let realLoss = self.trainOn(data: realDataBatch, type: .real).reduce(0, +)
+        let realOutput = self.trainOn(data: realDataBatch, type: .real)
         
         //get next batch of fake data by generating new fake data
         let fakeDataBatch = self.getGeneratedData(self.batchSize, type: .fake)
-        
         //tran discriminator on new fake data generated after epoch
-        let fakeLoss = self.trainOn(data: fakeDataBatch, type: .fake).reduce(0, +)
+        let fakeOutput = self.trainOn(data: fakeDataBatch, type: .fake)
         
-        //adding real and fake based on minimax loss function of log(D(x)) + log(D(G(z)))
-        let totalSumLoss = realLoss + fakeLoss
-        //we are taking the sum of all instances of the minibatch and dividing by batch size
-        //to get average loss
-        //negative because the Neuron only supports MINIMIZING gradients
-        let averageTotalLoss = -1 * (totalSumLoss / Float(2 * batchSize))
-        
-        //figure out how to make this more modular than hard coding addition for minimax
-        self.discriminatorLoss = averageTotalLoss
-        
+        if self.lossFunction == .minimax {
+          let realLoss = realOutput.loss.reduce(0, +)
+          let fakeLoss = fakeOutput.loss.reduce(0, +)
+
+          //adding real and fake based on minimax loss function of log(D(x)) + log(D(G(z)))
+          let totalSumLoss = realLoss + fakeLoss
+          //we are taking the sum of all instances of the minibatch and dividing by batch size
+          //to get average loss
+          //negative because the Neuron only supports MINIMIZING gradients
+          let averageTotalLoss = -1 * (totalSumLoss / Float(2 * batchSize))
+          
+          //figure out how to make this more modular than hard coding addition for minimax
+          self.discriminatorLoss = averageTotalLoss
+          
+        } else if self.lossFunction == .wasserstein {
+          let averageRealOut = realOutput.output.reduce(0, +) / Float(self.batchSize)
+          let averageFakeOut = fakeOutput.output.reduce(0, +) / Float(self.batchSize)
+          
+          self.discriminatorLoss = -1 * (averageRealOut - averageFakeOut)
+        }
         //backprop discrimator
         dis.backpropagate(with: [discriminatorLoss])
         
@@ -193,14 +212,23 @@ public class GAN: Logger {
       }
       
       //train generator on newly trained discriminator
-      let realFakeFata = self.getGeneratedData(self.batchSize, type: .real)
-      let sumOfGenLoss = self.trainOn(data: realFakeFata, type: .generator).reduce(0, +)
+      let realFakeData = self.getGeneratedData(self.batchSize, type: .real)
+      let genOutput = self.trainOn(data: realFakeData, type: .generator)
       
-      //we want to maximize lossfunction log(D(G(z))
-      //negative because the Neuron only supports MINIMIZING gradients
-      let genLoss = -1 * (sumOfGenLoss / Float(self.batchSize))
-      
-      self.generatorLoss = genLoss
+      if self.lossFunction == .minimax {
+        let sumOfGenLoss = genOutput.loss.reduce(0, +)
+        
+        //we want to maximize lossfunction log(D(G(z))
+        //negative because the Neuron only supports MINIMIZING gradients
+        let genLoss = -1 * (sumOfGenLoss / Float(self.batchSize))
+        
+        self.generatorLoss = genLoss
+        
+      } else if self.lossFunction == .wasserstein {
+        
+        let averageGenLoss = -1 * (genOutput.output.reduce(0, +) / Float(self.batchSize))
+        self.generatorLoss = averageGenLoss
+      }
       
       //backprop discrimator
       dis.backpropagate(with: [self.generatorLoss])
@@ -223,10 +251,11 @@ public class GAN: Logger {
     complete?(false)
   }
     
-  private func trainOn(data: [TrainingData], type: GANTrainingType) -> [Float] {
+  private func trainOn(data: [TrainingData], type: GANTrainingType) -> (loss: [Float], output: [Float]) {
     //train on each sample
     
     var losses: [Float] = []
+    var outputs: [Float] = []
     
     for i in 0..<data.count {
       //get sample from generator
@@ -236,6 +265,9 @@ public class GAN: Logger {
       let output = self.discriminate(sample)
       
       let first = output.first ?? 0
+  
+      //append outputs for wasserstein
+      outputs.append(first)
       
       //get loss for type
       let loss = self.lossFunction.loss(type, value: first)
@@ -245,7 +277,7 @@ public class GAN: Logger {
     }
     
     //get average loss over batch
-    return losses
+    return (loss: losses, output: outputs)
   }
   
 //MARK: Public Functions
