@@ -10,7 +10,7 @@ import Foundation
 import Logger
 import GameplayKit
 
-public class Brain: Logger, NetworkBuilder {
+public class Brain: Logger {
   /// The verbosity of the printed logs
   public var logLevel: LogLevel = .none
   
@@ -58,6 +58,8 @@ public class Brain: Logger, NetworkBuilder {
   
   private var descents: [[Float]] = []
   
+  internal var weightConstraints: ClosedRange<Float>? = nil
+  
   /// Creates a Brain object that manages a network of Neuron objects
   /// - Parameters:
   ///   - model: Optional model to build the network
@@ -67,13 +69,14 @@ public class Brain: Logger, NetworkBuilder {
   ///   - lossThreshold: The threshold to stop training to prevent overfitting 0 - 1
   ///   - initializer: The weight initializer algoriUthm
   ///   - descent: The gradient descent type
-  required public init(model: ExportModel? = nil,
+  public init(model: ExportModel? = nil,
                       learningRate: Float,
                       epochs: Int,
                       lossFunction: LossFunction = .meanSquareError,
                       lossThreshold: Float = 0.001,
                       initializer: Initializers = .xavierNormal,
-                      descent: GradientDescent = .sgd) {
+                      descent: GradientDescent = .sgd,
+                      weightConstraints: ClosedRange<Float>? = nil) {
     
     self.learningRate = learningRate
     self.lossFunction = lossFunction
@@ -82,6 +85,7 @@ public class Brain: Logger, NetworkBuilder {
     self.initializer = initializer
     self.descent = descent
     self.model = model
+    self.weightConstraints = weightConstraints
   }
   
   public init?(model: PretrainedModel,
@@ -280,7 +284,14 @@ public class Brain: Logger, NetworkBuilder {
           var weights: [Float] = []
           
           for _ in 0..<inputNeuronGroup.count {
-            let weight = self.initializer.calculate(m: neuronGroup.count, h: inputNeuronGroup.count)
+            var weight = self.initializer.calculate(m: neuronGroup.count, h: inputNeuronGroup.count)
+            
+            if let constrain = self.weightConstraints {
+              let minBound = constrain.lowerBound
+              let maxBound = constrain.upperBound
+              weight = min(maxBound, max(minBound, weight))
+            }
+
             let transmitter = NeuroTransmitter(weight: weight)
             dendrites.append(transmitter)
             weights.append(weight)
@@ -694,10 +705,10 @@ public class Brain: Logger, NetworkBuilder {
     
   }
   
-  internal func adjustWeights(_ constrain: ClosedRange<Float>? = nil) {
+  internal func adjustWeights() {
     for i in 0..<self.lobes.count {
       let lobe = self.lobes[i]
-      lobe.adjustWeights(constrain)
+      lobe.adjustWeights(self.weightConstraints)
     }
   }
 }

@@ -72,7 +72,6 @@ public class GAN: Logger {
   public var randomNoise: () -> [Float]
   public var validateGenerator: (_ output: [Float]) -> Bool
   public var discriminatorNoiseFactor: Float?
-  public var weightConstraints: ClosedRange<Float>? = nil
   public var lossFunction: GANLossFunction = .minimax
   public var discriminatorLoss: Float = 0 {
     didSet {
@@ -199,6 +198,7 @@ public class GAN: Logger {
           self.discriminatorLoss = averageTotalLoss
           
         } else if self.lossFunction == .wasserstein {
+          
           let averageRealOut = realOutput.output.reduce(0, +) / Float(self.batchSize)
           let averageFakeOut = fakeOutput.output.reduce(0, +) / Float(self.batchSize)
           
@@ -208,7 +208,7 @@ public class GAN: Logger {
         dis.backpropagate(with: [discriminatorLoss])
         
         //adjust weights AFTER calculating gradients
-        dis.adjustWeights(self.weightConstraints)
+        dis.adjustWeights()
       }
       
       //train generator on newly trained discriminator
