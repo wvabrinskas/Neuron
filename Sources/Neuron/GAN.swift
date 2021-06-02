@@ -210,13 +210,12 @@ public class GAN: Logger {
           
         } else if self.lossFunction == .wasserstein {
           
-          let averageRealOut = realOutput.output.reduce(0, +) / Float(self.batchSize)
-          let averageFakeOut = fakeOutput.output.reduce(0, +) / Float(self.batchSize)
+          let averageRealOut = realOutput.loss.reduce(0, +) / Float(self.batchSize)
+          let averageFakeOut = fakeOutput.loss.reduce(0, +) / Float(self.batchSize)
           
           //negative because the Neuron only supports MINIMIZING gradients
           
-          self.discriminatorLoss = self.lossFunction.loss(.real, value: averageRealOut) +
-                                   self.lossFunction.loss(.fake, value: averageFakeOut)
+          self.discriminatorLoss = averageRealOut + averageFakeOut
         }
         //backprop discrimator
         dis.backpropagate(with: [discriminatorLoss])
@@ -228,7 +227,7 @@ public class GAN: Logger {
       for _ in 0..<self.generatorTrainPerEpoch {
 
         //train generator on newly trained discriminator
-        let realFakeData = self.getGeneratedData(self.batchSize, type: .real, noise: noise)
+        let realFakeData = self.getGeneratedData(self.batchSize, type: .generator, noise: noise)
         let genOutput = self.trainOn(data: realFakeData, type: .generator)
         
         if self.lossFunction == .minimax {
@@ -241,8 +240,10 @@ public class GAN: Logger {
           self.generatorLoss = genLoss
           
         } else if self.lossFunction == .wasserstein {
-          let averageGenLoss = (genOutput.output.reduce(0, +) / Float(self.batchSize))
-          self.generatorLoss = self.lossFunction.loss(.generator, value: averageGenLoss)
+          let sumOfGenLoss = genOutput.loss.reduce(0, +)
+          let averageGenLoss = sumOfGenLoss / Float(self.batchSize)
+          
+          self.generatorLoss = averageGenLoss
         }
         
         //backprop discrimator
