@@ -202,7 +202,7 @@ public class GAN: Logger {
           let averageRealOut = realOutput.output.reduce(0, +) / Float(self.batchSize)
           let averageFakeOut = fakeOutput.output.reduce(0, +) / Float(self.batchSize)
           
-          self.discriminatorLoss = (averageFakeOut - averageRealOut)
+          self.discriminatorLoss = -(averageFakeOut - averageRealOut)
         }
         //backprop discrimator
         dis.backpropagate(with: [discriminatorLoss])
@@ -220,7 +220,7 @@ public class GAN: Logger {
         
         //we want to maximize lossfunction log(D(G(z))
         //negative because the Neuron only supports MINIMIZING gradients
-        let genLoss = -1 * (sumOfGenLoss / Float(self.batchSize))
+        let genLoss = (sumOfGenLoss / Float(self.batchSize))
         
         self.generatorLoss = genLoss
         
