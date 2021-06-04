@@ -253,15 +253,16 @@ public class GAN: Logger {
         }
         
         //backprop discrimator
-        dis.backpropagate(with: [self.generatorLoss])
-        
-        //get deltas from discrimator
-        if let deltas = dis.lobes.first(where: { $0.deltas().count > 0 })?.deltas() {
-          gen.backpropagate(with: deltas)
-          
-          //adjust weights of generator
-          gen.adjustWeights()
-        }
+        gen.backpropagate(with: [self.generatorLoss])
+        gen.adjustWeights()
+//
+//        //get deltas from discrimator
+//        if let deltas = dis.lobes.first(where: { $0.deltas().count > 0 })?.deltas() {
+//          gen.backpropagate(with: deltas)
+//
+//          //adjust weights of generator
+//          gen.adjustWeights()
+//        }
       }
       
       if self.checkGeneratorValidation(for: i) {
