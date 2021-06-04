@@ -15,7 +15,7 @@ public class Neuron {
   public var inputs: [NeuroTransmitter] = []
   
   /// Backpropogation delta at this node
-  public var delta: Float?
+  public var delta: Float = 0
   public var bias: Float
   public var biasWeight: Float = 0.0
   
@@ -117,7 +117,7 @@ public class Neuron {
   public func adjustWeights(_ constrain: ClosedRange<Float>? = nil) {
     //DISPATCH QUEUE BREAKS EVERYTHING NEED BETTER OPTIMIZATION =(
     //WITH OUT IT MAKES IT MUCH SLOWER BUT WITH IT IT FORMS A RACE CONDITION =(
-    let delta = self.delta ?? 0
+    let delta = self.delta
     
     for i in 0..<inputs.count {
       let gradient = self.inputs[i].inputValue * delta * self.derivative()

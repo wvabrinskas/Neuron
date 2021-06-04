@@ -185,6 +185,9 @@ public class GAN: Logger {
       let realData = self.getRandomBatch(data: data)
       
       for _ in 0..<self.criticTrainPerEpoch {
+        //zero out gradients before training discriminator
+        dis.zeroGradients()
+        
         //get next batch of real data
         let realDataBatch = self.getRandomBatch(data: realData)
         //train discriminator on real data combined with fake data
@@ -202,7 +205,7 @@ public class GAN: Logger {
           
           //backprop discrimator
           dis.backpropagate(with: [realLoss])
-          dis.backpropagate(with: [fakeLoss], ascend: true)
+          dis.backpropagate(with: [fakeLoss])
 
           //adding real and fake based on minimax loss function of log(D(x)) + log(D(G(z)))
           let totalSumLoss = realLoss + fakeLoss
@@ -221,7 +224,7 @@ public class GAN: Logger {
           
           //backprop discrimator
           dis.backpropagate(with: [averageRealOut])
-          dis.backpropagate(with: [averageFakeOut], ascend: true)
+          dis.backpropagate(with: [averageFakeOut])
           
           self.discriminatorLoss = averageRealOut + averageFakeOut
         }
@@ -231,6 +234,9 @@ public class GAN: Logger {
       }
       
       for _ in 0..<self.generatorTrainPerEpoch {
+        
+        //zero out gradients before training generator
+        gen.zeroGradients()
 
         //train generator on newly trained discriminator
         let realFakeData = self.getGeneratedData(type: .generator, noise: noise)
@@ -255,14 +261,7 @@ public class GAN: Logger {
         //backprop discrimator
         gen.backpropagate(with: [self.generatorLoss])
         gen.adjustWeights()
-//
-//        //get deltas from discrimator
-//        if let deltas = dis.lobes.first(where: { $0.deltas().count > 0 })?.deltas() {
-//          gen.backpropagate(with: deltas)
-//
-//          //adjust weights of generator
-//          gen.adjustWeights()
-//        }
+        
       }
       
       if self.checkGeneratorValidation(for: i) {

@@ -53,6 +53,12 @@ public class Lobe {
     }
   }
   
+  public func zeroGradients() {
+    neurons.forEach { neuron in
+      neuron.delta = 0
+    }
+  }
+  
   /// Backpropagation deltas at this specific layer
   /// - Returns: The deltas as floats
   public func deltas() -> [Float] {
