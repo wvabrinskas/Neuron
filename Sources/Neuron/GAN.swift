@@ -197,15 +197,19 @@ public class GAN: Logger {
         let fakeOutput = self.trainOn(data: fakeDataBatch, type: .fake)
         
         if self.lossFunction == .minimax {
-          let realLoss = realOutput.loss.reduce(0, +)
-          let fakeLoss = fakeOutput.loss.reduce(0, +)
+          let realLoss = realOutput.loss.reduce(0, +) / Float(self.batchSize)
+          let fakeLoss = fakeOutput.loss.reduce(0, +) / Float(self.batchSize)
+          
+          //backprop discrimator
+          dis.backpropagate(with: [realLoss])
+          dis.backpropagate(with: [fakeLoss], ascend: true)
 
           //adding real and fake based on minimax loss function of log(D(x)) + log(D(G(z)))
           let totalSumLoss = realLoss + fakeLoss
           //we are taking the sum of all instances of the minibatch and dividing by batch size
           //to get average loss
           //negative because the Neuron only supports MINIMIZING gradients
-          let averageTotalLoss = -1 * (totalSumLoss / Float(2 * batchSize))
+          let averageTotalLoss = -1 * totalSumLoss
           
           //figure out how to make this more modular than hard coding addition for minimax
           self.discriminatorLoss = averageTotalLoss
