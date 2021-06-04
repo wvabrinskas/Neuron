@@ -192,6 +192,7 @@ public class GAN: Logger {
         
         //get next batch of fake data by generating new fake data
         let fakeDataBatch = self.getGeneratedData(type: .fake, noise: noise)
+
         //tran discriminator on new fake data generated after epoch
         let fakeOutput = self.trainOn(data: fakeDataBatch, type: .fake)
         
@@ -214,12 +215,12 @@ public class GAN: Logger {
           let averageRealOut = realOutput.loss.reduce(0, +) / Float(self.batchSize)
           let averageFakeOut = fakeOutput.loss.reduce(0, +) / Float(self.batchSize)
           
-          //negative because the Neuron only supports MINIMIZING gradients
+          //backprop discrimator
+          dis.backpropagate(with: [averageRealOut])
+          dis.backpropagate(with: [averageFakeOut], ascend: true)
           
           self.discriminatorLoss = averageRealOut + averageFakeOut
         }
-        //backprop discrimator
-        dis.backpropagate(with: [discriminatorLoss])
         
         //adjust weights AFTER calculating gradients
         dis.adjustWeights()
