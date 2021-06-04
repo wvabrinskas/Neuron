@@ -366,6 +366,7 @@ public class Brain: Logger {
       case .sgd:
         //train the network with all the data
         for d in 0..<mixedData.count {
+          self.zeroGradients()
           
           let obj = data[d]
           
@@ -384,7 +385,8 @@ public class Brain: Logger {
         let batches = mixedData.batched(into: size)
         
         batches.forEach { (batch) in
-          
+          self.zeroGradients()
+
           batch.forEach { (tData) in
             self.trainIndividual(data: tData, backprop: false)
           }
