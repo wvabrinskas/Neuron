@@ -260,10 +260,10 @@ public class GAN: Logger {
         }
         
         //backprop discrimator
-        dis.backpropagate(with: [self.generatorLoss])
+        let gradients = dis.backpropagate(with: [self.generatorLoss])
         
         //get discriminator gradients for each generator parameter first
-        if let gradients = dis.lobes.first(where: { $0.deltas().count > 0})?.deltas() {
+        if let gradients = gradients.reversed().first {
           gen.backpropagate(with: gradients)
           gen.adjustWeights()
         }
@@ -282,7 +282,12 @@ public class GAN: Logger {
   
   private func gradientPenalty() {
     let lambda = 10
+    let noise = self.randomNoise()
     
+    for _ in 0..<self.batchSize {
+      let epsilon = Float.random(in: 0...1)
+
+    }
     //get generated data gradient based on noise 
     //get real data gradient
     //get a random number between 1 and 0 and interpolate
