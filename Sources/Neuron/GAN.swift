@@ -263,8 +263,8 @@ public class GAN: Logger {
         let gradients = dis.backpropagate(with: [self.generatorLoss])
         
         //get discriminator gradients for each generator parameter first
-        if let gradients = gradients.reversed().first {
-          gen.backpropagate(with: gradients)
+        if let firstLayerGradients = gradients.reversed().first {
+          gen.backpropagate(with: firstLayerGradients)
           gen.adjustWeights()
         }
   
