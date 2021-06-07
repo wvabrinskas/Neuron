@@ -90,7 +90,7 @@ public class Neuron {
       sum += self.inputs[i].weight * self.inputs[i].inputValue
     }
   
-    sum += bias
+    sum += bias * self.biasWeight
   
     let out = self.activationType.activate(input: sum)
     self.activationDerivative = self.activationType.derivative(input: sum)
