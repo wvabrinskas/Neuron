@@ -226,7 +226,8 @@ public class GAN: Logger {
           dis.backpropagate(with: [averageRealOut])
           dis.backpropagate(with: [averageFakeOut])
           
-          self.discriminatorLoss = averageFakeOut - averageRealOut
+          let lambda: Float = 10.0
+          self.discriminatorLoss = averageFakeOut - averageRealOut + lambda * self.gradientPenalty(realData: realData)
         }
         
         //adjust weights AFTER calculating gradients
@@ -280,14 +281,61 @@ public class GAN: Logger {
     complete?(false)
   }
   
-  private func gradientPenalty() {
-    let lambda = 10
+  private func gradientPenalty(realData: [TrainingData]) -> Float {
+    guard let dis = self.discriminator else {
+      return 0
+    }
+    
     let noise = self.randomNoise()
     
-    for _ in 0..<self.batchSize {
+    var gradients: [[Float]] = []
+    
+    let real = self.getRandomBatch(data: realData)
+    let fake = self.getGeneratedData(type: .real, noise: noise)
+    
+    for i in 0..<self.batchSize {
+      
       let epsilon = Float.random(in: 0...1)
-
+      var inter: [Float] = []
+      if i < real.count && i < fake.count {
+        let realNew = real[i].data
+        let fakeNew = fake[i].data
+        
+        guard realNew.count == fakeNew.count else {
+          return 0
+        }
+        
+        for i in 0..<realNew.count {
+          let realVal = realNew[i] * epsilon
+          let fakeVal = fakeNew[i] * (1 - epsilon)
+          inter.append(realVal + fakeVal)
+        }
+      }
+      
+      let output = self.discriminate(inter).first ?? 0
+      let loss = self.lossFunction.loss(.real, value: output)
+      let layerGradients = dis.backpropagate(with: [loss], apply: false)
+      
+      if let first = layerGradients.first {
+        gradients.append(first)
+      }
     }
+    
+    let squared = gradients.map { $0.reduce(into: 0.0) { result, num in
+      return result += pow(num, 2)
+    } }
+
+    let penalty = squared.map { pow((sqrt($0) - 1), 2) }.reduce(0, +) / Float(squared.count)
+    return penalty
+    
+//    let norm = gradients.reduce(into: 0.0) { result, num in
+//      return result += pow(num, 2)
+//    }
+//
+//    let normSqr = sqrt(norm)
+//
+//
+    
     //get generated data gradient based on noise 
     //get real data gradient
     //get a random number between 1 and 0 and interpolate
@@ -297,7 +345,6 @@ public class GAN: Logger {
     //inter = EX + (1 - E)~X
     // L2 norm of x is defined as the square root of the sum of the squares of the values in each dimension.
     //(L2 norm of gradients - 1) ^ 2
-    
   }
     
   private func trainOn(data: [TrainingData], type: GANTrainingType) -> (loss: [Float], output: [Float]) {
