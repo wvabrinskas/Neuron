@@ -226,7 +226,7 @@ public class GAN: Logger {
           dis.backpropagate(with: [averageRealOut])
           dis.backpropagate(with: [averageFakeOut])
           
-          self.discriminatorLoss = (averageRealOut + averageFakeOut)
+          self.discriminatorLoss = averageFakeOut - averageRealOut
         }
         
         //adjust weights AFTER calculating gradients
@@ -278,6 +278,21 @@ public class GAN: Logger {
     self.log(type: .message, priority: .alwaysShow, message: "GAN Training complete")
 
     complete?(false)
+  }
+  
+  private func gradientPenalty() {
+    let lambda = 10
+    
+    //get generated data gradient based on noise 
+    //get real data gradient
+    //get a random number between 1 and 0 and interpolate
+    //~X = D(G(z))
+    //X = D(x)
+    //E = Float.random(0...1)
+    //inter = EX + (1 - E)~X
+    // L2 norm of x is defined as the square root of the sum of the squares of the values in each dimension.
+    //(L2 norm of gradients - 1) ^ 2
+    
   }
     
   private func trainOn(data: [TrainingData], type: GANTrainingType) -> (loss: [Float], output: [Float]) {
