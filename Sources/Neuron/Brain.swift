@@ -671,28 +671,36 @@ public class Brain: Logger {
   
   //output layer is returned as first
   @discardableResult
-  internal func backpropagate(with deltas: [Float]? = nil) -> [[Float]] {
+  internal func backpropagate(with deltas: [Float]? = nil, apply: Bool = true) -> [[Float]] {
     
+    var gradients: [[Float]] = []
+    var outputDeltas: [Float] = []
     //for generative adversarial networks we need to set the backprop deltas manually without calculating
     if let deltas = deltas, deltas.count == outputLayer().count {
       for i in 0..<outputLayer().count {
         let delta = deltas[i]
         let output = outputLayer()[i]
         
-        output.delta = (output.delta ?? 0 ) + delta
+        let outputDelta = (output.delta ?? 0 ) + delta
+        if apply {
+          output.delta = outputDelta
+        }
+        outputDeltas.append(outputDelta)
       }
     }
-    var gradients: [[Float]] = []
     
+    gradients.append(outputDeltas)
+
     //reverse so we can loop through from the beggining of the array starting at the output node
     let reverse: [Lobe] = self.lobes.reversed()
     
-    gradients.append(reverse[0].deltas())
     //subtracting 1 because we dont need to propagate through to the weights in the input layer
     //those will always be 0 since no computation happens at the input layer
     for i in 0..<reverse.count - 1 {
       let currentLayer = reverse[i].neurons
       let previousLayer = reverse[i + 1].neurons
+      
+      var previousLayerDeltas: [Float] = []
       
       for p in 0..<previousLayer.count {
         var deltaAtLayer: Float = 0
@@ -706,10 +714,16 @@ public class Brain: Logger {
           deltaAtLayer += currentNeuronDelta
         }
       
-        previousLayer[p].delta = (previousLayer[p].delta ?? 0 ) + deltaAtLayer
+        let newDelta = (previousLayer[p].delta ?? 0 ) + deltaAtLayer
+        
+        if apply {
+          previousLayer[p].delta = newDelta
+        }
+        
+        previousLayerDeltas.append(newDelta)
       }
       
-      gradients.append(reverse[i + 1].deltas())
+      gradients.append(previousLayerDeltas)
     }
     
     return gradients
