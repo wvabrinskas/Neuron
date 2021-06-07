@@ -687,13 +687,12 @@ public class Brain: Logger {
     //reverse so we can loop through from the beggining of the array starting at the output node
     let reverse: [Lobe] = self.lobes.reversed()
     
+    gradients.append(reverse[0].deltas())
     //subtracting 1 because we dont need to propagate through to the weights in the input layer
     //those will always be 0 since no computation happens at the input layer
     for i in 0..<reverse.count - 1 {
       let currentLayer = reverse[i].neurons
       let previousLayer = reverse[i + 1].neurons
-      
-      gradients.append(reverse[i].deltas())
       
       for p in 0..<previousLayer.count {
         var deltaAtLayer: Float = 0
@@ -709,6 +708,8 @@ public class Brain: Logger {
       
         previousLayer[p].delta = (previousLayer[p].delta ?? 0 ) + deltaAtLayer
       }
+      
+      gradients.append(reverse[i + 1].deltas())
     }
     
     return gradients
