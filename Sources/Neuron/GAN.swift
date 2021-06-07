@@ -228,7 +228,7 @@ public class GAN: Logger {
           
           let lambda: Float = 10.0
           let penalty = self.gradientPenalty(realData: realData)
-          self.discriminatorLoss = averageFakeOut - averageRealOut + lambda * penalty
+          self.discriminatorLoss = averageRealOut + averageFakeOut + lambda * penalty
         }
         
         //adjust weights AFTER calculating gradients
@@ -329,24 +329,6 @@ public class GAN: Logger {
 
     let penalty = squared.map { pow((sqrt($0) - 1), 2) }.reduce(0, +) / Float(squared.count)
     return penalty
-    
-//    let norm = gradients.reduce(into: 0.0) { result, num in
-//      return result += pow(num, 2)
-//    }
-//
-//    let normSqr = sqrt(norm)
-//
-//
-    
-    //get generated data gradient based on noise 
-    //get real data gradient
-    //get a random number between 1 and 0 and interpolate
-    //~X = D(G(z))
-    //X = D(x)
-    //E = Float.random(0...1)
-    //inter = EX + (1 - E)~X
-    // L2 norm of x is defined as the square root of the sum of the squares of the values in each dimension.
-    //(L2 norm of gradients - 1) ^ 2
   }
     
   private func trainOn(data: [TrainingData], type: GANTrainingType) -> (loss: [Float], output: [Float]) {
