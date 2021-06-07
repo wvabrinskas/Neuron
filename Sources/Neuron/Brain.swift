@@ -677,7 +677,7 @@ public class Brain: Logger {
         let delta = deltas[i]
         let output = outputLayer()[i]
         
-        output.delta += delta
+        output.delta = (output.delta ?? 0 ) + delta
       }
     }
     
@@ -696,13 +696,13 @@ public class Brain: Logger {
         for c in 0..<currentLayer.count {
           let currentNode = currentLayer[c]
           let currentInput = currentNode.inputs[p]
-          let currentNodeDelta = currentNode.delta
+          let currentNodeDelta = currentNode.delta ?? 0
           
           let currentNeuronDelta = currentNodeDelta * currentInput.weight
           deltaAtLayer += currentNeuronDelta
         }
       
-        previousLayer[p].delta += deltaAtLayer
+        previousLayer[p].delta = (previousLayer[p].delta ?? 0 ) + deltaAtLayer
       }
     }
     

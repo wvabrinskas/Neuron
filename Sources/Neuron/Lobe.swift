@@ -55,7 +55,7 @@ public class Lobe {
   
   public func zeroGradients() {
     neurons.forEach { neuron in
-      neuron.delta = 0
+      neuron.delta = nil
     }
   }
   

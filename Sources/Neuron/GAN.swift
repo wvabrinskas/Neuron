@@ -259,8 +259,13 @@ public class GAN: Logger {
         }
         
         //backprop discrimator
-        gen.backpropagate(with: [self.generatorLoss])
-        gen.adjustWeights()
+        
+        //get discriminator gradients for each generator parameter first
+        if let gradients = dis.lobes.first(where: { $0.deltas().count > 0})?.deltas() {
+          gen.backpropagate(with: gradients)
+          gen.adjustWeights()
+        }
+   
         
       }
       
