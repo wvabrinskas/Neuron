@@ -686,7 +686,7 @@ public class Brain: Logger {
     
     //subtracting 2 because we dont need to propagate through to the weights in the input layer
     //those will always be 0 since no computation happens at the input layer
-    for i in 0..<reverse.count - 2 {
+    for i in 0..<reverse.count - 1 {
       let currentLayer = reverse[i].neurons
       let previousLayer = reverse[i + 1].neurons
       
