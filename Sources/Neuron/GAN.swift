@@ -237,6 +237,7 @@ public class GAN: Logger {
         
         //zero out gradients before training generator
         gen.zeroGradients()
+        dis.zeroGradients()
 
         //train generator on newly trained discriminator
         let realFakeData = self.getGeneratedData(type: .generator, noise: noise)
