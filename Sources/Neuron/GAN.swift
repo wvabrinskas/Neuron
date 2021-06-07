@@ -227,8 +227,8 @@ public class GAN: Logger {
           dis.backpropagate(with: [averageFakeOut])
           
           let lambda: Float = 10.0
-          let penatly = self.gradientPenalty(realData: realData, loss: averageFakeOut - averageRealOut)
-          self.discriminatorLoss = averageFakeOut - averageRealOut + lambda * penatly
+          let penalty = self.gradientPenalty(realData: realData)
+          self.discriminatorLoss = averageFakeOut - averageRealOut + lambda * penalty
         }
         
         //adjust weights AFTER calculating gradients
@@ -282,7 +282,7 @@ public class GAN: Logger {
     complete?(false)
   }
   
-  private func gradientPenalty(realData: [TrainingData], loss: Float) -> Float {
+  private func gradientPenalty(realData: [TrainingData]) -> Float {
     guard let dis = self.discriminator else {
       return 0
     }
@@ -314,6 +314,7 @@ public class GAN: Logger {
       }
       
       let output = self.discriminate(inter).first ?? 0
+      let loss = self.lossFunction.loss(.real, value: output)
 
       let layerGradients = dis.backpropagate(with: [loss], apply: false)
       
