@@ -227,7 +227,9 @@ public class GAN: Logger {
           self.discriminatorLoss = averageRealOut + averageFakeOut + lambda * penalty
           
           //backprop discrimator
-          dis.backpropagate(with: self.discriminatorLoss)
+          dis.backpropagate(with: [self.discriminatorLoss])
+//          dis.backpropagate(with: [averageFakeOut])
+//          dis.backpropagate(with: [lambda * penalty])
         }
         
         //adjust weights AFTER calculating gradients
