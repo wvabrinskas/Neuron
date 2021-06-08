@@ -227,8 +227,11 @@ public class GAN: Logger {
           self.discriminatorLoss = averageFakeOut - averageRealOut + penalty
           
           //backprop discrimator
-          dis.backpropagate(with: [averageRealOut])
-          dis.backpropagate(with: [averageFakeOut])
+          let averageLossRealOut = realOutput.loss.reduce(0, +) / Float(self.batchSize)
+          let averageLossFakeOut = fakeOutput.loss.reduce(0, +) / Float(self.batchSize)
+          
+          dis.backpropagate(with: [averageLossRealOut])
+          dis.backpropagate(with: [averageLossFakeOut])
           dis.backpropagate(with: [penalty])
         }
         
@@ -256,10 +259,10 @@ public class GAN: Logger {
           self.generatorLoss = genLoss
           
         } else if self.lossFunction == .wasserstein {
-          let sumOfGenLoss = genOutput.output.reduce(0, +)
+          let sumOfGenLoss = genOutput.loss.reduce(0, +)
           let averageGenLoss = sumOfGenLoss / Float(self.batchSize)
           
-          self.generatorLoss = -1 * averageGenLoss
+          self.generatorLoss = averageGenLoss
         }
         
         //backprop discrimator
