@@ -316,7 +316,7 @@ public class GAN: Logger {
       }
       
       let output = self.discriminate(inter).first ?? 0
-      let loss = self.lossFunction.loss(.real, value: output)
+      let loss = self.lossFunction.label(type: .real) - output
 
       dis.backpropagate(with: [loss])
       
