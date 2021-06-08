@@ -222,13 +222,13 @@ public class GAN: Logger {
           let averageRealOut = realOutput.loss.reduce(0, +) / Float(self.batchSize)
           let averageFakeOut = fakeOutput.loss.reduce(0, +) / Float(self.batchSize)
           
-          //backprop discrimator
-          dis.backpropagate(with: [averageRealOut])
-          dis.backpropagate(with: [averageFakeOut])
-          
           let lambda: Float = 10.0
           let penalty = self.gradientPenalty(realData: realData)
           self.discriminatorLoss = averageRealOut + averageFakeOut + lambda * penalty
+          
+          //backprop discrimator
+          dis.backpropagate(with: [averageRealOut])
+          dis.backpropagate(with: [averageFakeOut])
         }
         
         //adjust weights AFTER calculating gradients
@@ -262,10 +262,10 @@ public class GAN: Logger {
         }
         
         //backprop discrimator
-        let gradients = dis.backpropagate(with: [self.generatorLoss])
-        
+        dis.backpropagate(with: [self.generatorLoss])
+                
         //get discriminator gradients for each generator parameter first
-        if let firstLayerGradients = gradients.reversed().first {
+        if let firstLayerGradients = dis.lobes.first(where: { $0.deltas().count > 0 })?.deltas() {
           gen.backpropagate(with: firstLayerGradients)
           gen.adjustWeights()
         }
@@ -295,6 +295,7 @@ public class GAN: Logger {
     let fake = self.getGeneratedData(type: .real, noise: noise)
     
     for i in 0..<self.batchSize {
+      dis.zeroGradients()
       
       let epsilon = Float.random(in: 0...1)
       var inter: [Float] = []
@@ -316,10 +317,11 @@ public class GAN: Logger {
       let output = self.discriminate(inter).first ?? 0
       let loss = self.lossFunction.loss(.real, value: output)
 
-      let layerGradients = dis.backpropagate(with: [loss], apply: false)
+      dis.backpropagate(with: [loss])
       
-      if let first = layerGradients.first {
-        gradients.append(first)
+      if let firstLayerGradients = dis.gradients().first {
+        let flattenedGradients = firstLayerGradients.flatMap { $0 }
+        gradients.append(flattenedGradients)
       }
     }
     

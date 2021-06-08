@@ -669,28 +669,22 @@ public class Brain: Logger {
     self.descents.append(outputErrors)
   }
   
-  //output layer is returned as first
-  @discardableResult
-  internal func backpropagate(with deltas: [Float]? = nil, apply: Bool = true) -> [[Float]] {
-    
-    var gradients: [[Float]] = []
-    var outputDeltas: [Float] = []
-    //for generative adversarial networks we need to set the backprop deltas manually without calculating
+  internal func gradients() -> [[[Float]]] {
+    return self.lobes.map { $0.gradients() }
+  }
+  
+  internal func backpropagate(with deltas: [Float]? = nil) {
+        //for generative adversarial networks we need to set the backprop deltas manually without calculating
     if let deltas = deltas, deltas.count == outputLayer().count {
       for i in 0..<outputLayer().count {
         let delta = deltas[i]
         let output = outputLayer()[i]
         
         let outputDelta = (output.delta ?? 0 ) + delta
-        if apply {
-          output.delta = outputDelta
-        }
-        outputDeltas.append(outputDelta)
+        output.delta = outputDelta
       }
     }
     
-    gradients.append(outputDeltas)
-
     //reverse so we can loop through from the beggining of the array starting at the output node
     let reverse: [Lobe] = self.lobes.reversed()
     
@@ -699,9 +693,7 @@ public class Brain: Logger {
     for i in 0..<reverse.count - 1 {
       let currentLayer = reverse[i].neurons
       let previousLayer = reverse[i + 1].neurons
-      
-      var previousLayerDeltas: [Float] = []
-      
+            
       for p in 0..<previousLayer.count {
         var deltaAtLayer: Float = 0
         
@@ -715,18 +707,9 @@ public class Brain: Logger {
         }
       
         let newDelta = (previousLayer[p].delta ?? 0 ) + deltaAtLayer
-        
-        if apply {
-          previousLayer[p].delta = newDelta
-        }
-        
-        previousLayerDeltas.append(newDelta)
+        previousLayer[p].delta = newDelta
       }
-      
-      gradients.append(previousLayerDeltas)
     }
-    
-    return gradients
   }
   
   public func zeroGradients() {

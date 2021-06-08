@@ -59,6 +59,10 @@ public class Lobe {
     }
   }
   
+  public func gradients() -> [[Float]] {
+    return neurons.map { $0.gradients() }
+  }
+  
   /// Backpropagation deltas at this specific layer
   /// - Returns: The deltas as floats
   public func deltas() -> [Float] {

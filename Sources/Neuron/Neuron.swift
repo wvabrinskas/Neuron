@@ -113,6 +113,10 @@ public class Neuron {
     }
   }
   
+  public func gradients() -> [Float] {
+    return self.inputs.map { $0.inputValue * (delta ?? 0) * self.derivative() }
+  }
+  
   /// Adjusts the weights of all inputs
   public func adjustWeights(_ constrain: ClosedRange<Float>? = nil) {
     //DISPATCH QUEUE BREAKS EVERYTHING NEED BETTER OPTIMIZATION =(
