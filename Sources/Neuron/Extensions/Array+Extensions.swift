@@ -9,6 +9,23 @@
 import Foundation
 
 public extension Array where Element: Equatable & Numeric & FloatingPoint {
+  
+  func scale(range: ClosedRange<Element> = 0...1) -> [Element] {
+    let max = self.max() ?? 0
+    let min = self.min() ?? 0
+    let b = range.lowerBound
+    let a = range.upperBound
+    
+    let new =  self.map { x -> Element in
+      let ba = (b - a)
+      let numerator = x - min
+      let denominator = max - min
+
+      return ba * (numerator / denominator) + a
+    }
+    return new
+  }
+  
   static func /(lhs: [Element], rhs: [Element]) -> [Element] {
     precondition(lhs.count == rhs.count)
     
