@@ -333,12 +333,12 @@ public class GAN: Logger {
     }
     
     let squared = gradients.map { $0.reduce(into: 0.0) { result, num in
-      return result += pow(num, 2)
+      return result += pow(num, 2) + Float(1e-8)
     } }
 
     let center = self.gradientPenaltyCenter
     
-    let penalty = squared.map { pow((sqrt($0 + 1e-8) - center), 2) }.reduce(0, +) / Float(squared.count)
+    let penalty = squared.map { pow((sqrt($0) - center), 2) }.reduce(0, +) / Float(squared.count)
     return penalty
   }
     
