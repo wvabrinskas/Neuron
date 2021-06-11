@@ -338,7 +338,7 @@ public class GAN: Logger {
 
     let center = self.gradientPenaltyCenter
     
-    let penalty = squared.map { pow((sqrt($0) - center), 2) }.reduce(0, +) / Float(squared.count)
+    let penalty = squared.map { pow((sqrt($0 + 1e-8) - center), 2) }.reduce(0, +) / Float(squared.count)
     return penalty
   }
     
