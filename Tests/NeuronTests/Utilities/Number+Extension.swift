@@ -15,7 +15,6 @@ protocol Numeric {
 extension Int: Numeric {var asDouble: Double { get {return Double(self)}}}
 extension Float: Numeric {var asDouble: Double { get {return Double(self)}}}
 extension Double: Numeric {var asDouble: Double { get {return Double(self)}}}
-extension CGFloat: Numeric {var asDouble: Double { get {return Double(self)}}}
 
 extension Array where Element: Numeric {
   
