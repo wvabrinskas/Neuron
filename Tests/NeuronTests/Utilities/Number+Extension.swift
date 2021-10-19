@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import UIKit
 
 protocol Numeric {
   var asDouble: Double { get }
