@@ -268,6 +268,93 @@ Using the `Brain` object you can also get the result of the loss functions of ea
 
 <img width="600" src="images/graph-sample.png"> 
 
+# Experimental
+These features were losely tested but I have come to the conclusion that they work enough to be released. Feel free to open an issue if they do not. 
+
+## GAN and WGAN support 
+Neuron supports Generative Adversarial Networks and Wasserstein Generative Adversarial Networks. Current Neuron doesn't support image generation with this as it doesn't support convolutional layers yet. 
+
+### Implementation 
+Create two `Brain` objects. One for the discriminator and one for the generator of the network. 
+
+```
+  private lazy var generator: Brain = {
+    let bias: Float = 0
+    
+    let brain = Brain(learningRate: 0.00001,
+                      epochs: 1)
+
+    brain.add(.init(nodes: 7)) //some number of inputs
+    brain.add(.init(nodes: 10, activation: .leakyRelu, bias: bias))
+    brain.add(.init(nodes: wordLength, activation: .tanh, bias: bias))
+
+    brain.logLevel = .none
+    brain.add(optimizer: .adam())
+    brain.compile() //build network
+
+    return brain
+  }()
+  
+  private lazy var discriminator: Brain = {
+    let bias: Float = 0
+    let brain = Brain(learningRate: 0.00001,
+                      epochs: 1)
+
+    brain.add(.init(nodes: wordLength))
+    brain.add(.init(nodes: 10, activation: .leakyRelu, bias: bias))
+    brain.add(.init(nodes: 1, activation: .sigmoid, bias: bias))
+    
+    brain.logLevel = .none
+    brain.add(optimizer: .adam())
+    brain.compile() //build network
+ 
+    return brain
+  }()
+  ```
+  - The `Brain` objects are neural networks of their own and will compete to minimize the selected loss function. They are created exactly as any `Brain` object is created as mentioned above. Only thing ignored in this initializer is the `epochs`. This will be handled later. 
+  - Create a `GAN` object using the two newly created networks. 
+  ```
+   let gan = GAN(epochs: 1000,
+                  criticTrainPerEpoch: 4,
+                  generatorTrainPerEpoch: 1,
+                  gradientPenaltyCenter: 1,
+                  batchSize: 10)
+    
+    gan.add(generator: self.generator)
+    gan.add(discriminator: self.discriminator)
+
+    gan.logLevel = .none
+    gan.lossFunction = .wasserstein
+  ```
+
+  - `epochs` - number of rounds of training the GAN
+  - `criticTrainPerEpoch` - the number of epochs to train the critic (discriminator) per epoch of the GAN training. 
+  - `generatorTrainPerEpoc` - the number of epochs to train the generator per epoch of the GAN training. 
+  - `gradienPenaltyCenter` - (optional) when using `wasserstein` as the lost function the gradient penalty is centered around this value in the calculation. A good value is `1` if you're using `wasserstein` loss function. `Default: 0`.
+  - `batchSize` - the number of objects to pull from the training data set per epoch. 
+  
+  #### GAN Properties
+  - `lossFunction` - the loss function for the GAN to minimize. Currentlt it only supports `wasserstein` and `minimax` loss functions. `Default: .minimax`
+  - `randomNoise: () -> [Float]` - a block that the `GAN` object will call every epoch to get input data for the generator. The generator takes in random noise from a described latent space. This block is used to define that latent space. 
+  - `validateGenerator: (_ output: [Float]) -> Bool` - a block that the `GAN` checks every 5 epochs to determine if it has reached it's desired output and to stop training. Returning `true` here will stop training. This block is mostly irrelevant as `GAN` training usually cannot be stopped programmatically. The `output` is the output vector from the generator at the current epoch. 
+  - `discriminatorNoiseFactor` - this value is mostly useful for `minimax` loss function. This introduces a `noise` to the correct label. A value greater than 0 but less than 1 is acceptable. This will assign the correct label a value a random number based on the factor. 
+    ```
+    let factor = min(1.0, max(0.0, noise))
+    let min = min(label, abs(label - factor))
+    let max = max(label, abs(label - factor))
+
+    let newLabel = Float.random(in: (min...max))
+    ```
+
+### GAN Data Analysis
+A GAN will attempt to map between one distrubition to another. You can see below the input distribution is a normal even distribution while the output distribution from the GAN is a gassian distribution. 
+
+Input: 
+<img width="600" src="images/input_gan.png"> 
+
+Ouput: 
+<img width="600" src="images/output_gan.png"> 
+
 # TODOs 
 - GPU Acceleration is still in the works. 
 - Convolutional layer support
