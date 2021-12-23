@@ -386,7 +386,7 @@ let result = self.ganBrain.discriminate(input)
 ```
 
 ### GAN Data Analysis
-A GAN will attempt to map between one distrubition to another. You can see below the input distribution is a normal even distribution while the output distribution from the GAN is a gassian distribution. 
+A GAN will attempt to map between one distrubition to another. You can see below the input distribution is a normal even distribution while the output distribution from the GAN is a gaussian distribution. 
 
 <img width="600" src="images/input_gan.png"> 
 <img width="600" src="images/output_gan.png"> 
