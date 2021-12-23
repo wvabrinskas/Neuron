@@ -12,6 +12,27 @@
 
 [![Tests](https://github.com/wvabrinskas/Neuron/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/wvabrinskas/Neuron/actions/workflows/tests.yml)
 
+# Table of Contents 
+1. [Introduction](#Introduction)
+1. [Support](#Support)
+1. [Brain](##The-Brain)
+    1. [Nucleus](###Nucleus)
+    1. [Loss Functions](###Loss-Function)
+    1. [Optimizers](###Optimizer)
+    1. [Gradient Descent Optimizer](###Gradient-Descent-Optimizer)
+1. [Adding Layers](##Adding-Layers)
+    1. [Modifiers](###Modifiers)
+1. [Compiling the network](##Compiling-the-network)
+1. [Training](#Training)
+1. [Exporting](#Exporting-Pretrained-Models)
+1. [Retrieving Data](#Retrieving-Data)
+1. [Data Studying](#Data-Studying)
+1. [Experimental Features](#Experimental)
+    1. [GAN and WGAN](##GAN-and-WGAN-support)
+1. [TODOs](#TODOs)
+1. [Resources](#Resources)
+
+
 # Introduction
 Neuron is a swift package I developed to help learn how to make neural networks. It is far from perfect and I am still learning. There is A LOT to learn here and I've just scratched the surface. As of right now this package provides a way to get started in machine learning and neural networks.
 
@@ -95,8 +116,9 @@ The brain object also supports different log levels so you can see what's going 
 ```
   case meanSquareError
   case crossEntropy
+  case binaryCrossEntropy
 ```
-- Currently the network only supports Mean Squared Error and Cross Entropy loss functions 
+- Currently the network only supports Mean Squared Error, Cross Entropy and Binary Cross Entropy loss functions 
 
 ### Loss Threshold
 - The loss value the network should reach over an average of 5 epochs. 
