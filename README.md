@@ -346,6 +346,23 @@ Create two `Brain` objects. One for the discriminator and one for the generator 
     let newLabel = Float.random(in: (min...max))
     ```
 
+### Usage 
+- To train the `GAN` you just call `train` on the `GAN` object you created with an array of `TrainingData` objects. Similar to any `Brain` object.
+
+```
+self.ganBrain.train(data: trainingData) { success in }
+```
+
+- To get generated data from the generator of the `GAN` you just call `getGeneratedSample` on your `GAN` object. This returns an array of `Float` from the generator. 
+```    
+let result = self.ganBrain.getGeneratedSample()
+```
+
+- You can also get data from the disrimanator to discriminate against some input data. 
+```
+let result = self.ganBrain.discriminate(input)
+```
+
 ### GAN Data Analysis
 A GAN will attempt to map between one distrubition to another. You can see below the input distribution is a normal even distribution while the output distribution from the GAN is a gassian distribution. 
 
