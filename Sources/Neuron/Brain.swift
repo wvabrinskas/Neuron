@@ -332,9 +332,11 @@ public class Brain: Logger {
   /// - Parameters:
   ///   - data: The training data object containing the expected values and the training data
   ///   - validation: The validation data object containing the expected values and the validation data
+  ///   - epochCompleted: Called when an epoch is completed with the current epoch
   ///   - complete: Called when training is completed
   public func train(data: [TrainingData],
                     validation: [TrainingData] = [],
+                    epochCompleted: ((_ epoch: Int) -> ())? = nil,
                     complete: ((_ passedValidation: Bool) -> ())? = nil) {
     
     previousValidationErrors.removeAll()
@@ -456,6 +458,7 @@ public class Brain: Logger {
         
       }
       
+      epochCompleted?(i)
     }
     
     self.log(type: .success,

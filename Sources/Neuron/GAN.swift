@@ -165,6 +165,7 @@ public class GAN: Logger {
 
   private func startTraining(data: [TrainingData],
                              singleStep: Bool = false,
+                             epochCompleted: ((_ epoch: Int) -> ())? = nil,
                              complete: ((_ complete: Bool) -> ())? = nil) {
     
     guard let dis = self.discriminator, let gen = self.generator else {
@@ -278,6 +279,8 @@ public class GAN: Logger {
         }
   
       }
+      
+      epochCompleted?(i)
       
       if self.checkGeneratorValidation(for: i) {
         return
