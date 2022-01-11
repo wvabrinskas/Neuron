@@ -391,10 +391,12 @@ public class GAN: Logger {
   
   public func train(data: [TrainingData] = [],
                     singleStep: Bool = false,
+                    epochCompleted: ((_ epoch: Int) -> ())? = nil,
                     complete: ((_ success: Bool) -> ())? = nil) {
     
     self.startTraining(data: data,
                        singleStep: singleStep,
+                       epochCompleted: epochCompleted,
                        complete: complete)
   }
   
