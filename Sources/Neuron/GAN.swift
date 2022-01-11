@@ -35,9 +35,9 @@ public enum GANLossFunction {
     case .wasserstein:
       switch type {
       case .real:
-        return -1
-      case .fake, .generator:
         return 1
+      case .fake, .generator:
+        return -1
       }
     }
   }
