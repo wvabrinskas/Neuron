@@ -68,6 +68,7 @@ public class GAN: Logger {
   private var discriminatorLossHistory: [Float] = []
   private var generatorLossHistory: [Float] = []
   private var gradientPenaltyCenter: Float = 0
+  private var gradientPenaltyLambda: Float = 10
   
   public var epochs: Int
   public var logLevel: LogLevel = .none
@@ -93,6 +94,7 @@ public class GAN: Logger {
               criticTrainPerEpoch: Int = 5,
               generatorTrainPerEpoch: Int = 5,
               gradientPenaltyCenter: Float = 0,
+              gradientPenaltyLambda: Float = 10,
               batchSize: Int) {
     
     self.epochs = epochs
@@ -102,6 +104,7 @@ public class GAN: Logger {
     self.generator = generator
     self.discriminator = discriminator
     self.gradientPenaltyCenter = gradientPenaltyCenter
+    self.gradientPenaltyLambda = gradientPenaltyLambda
     
     self.randomNoise = {
       var noise: [Float] = []
@@ -226,7 +229,7 @@ public class GAN: Logger {
           let averageRealOut = realOutput.output.reduce(0, +) / Float(self.batchSize)
           let averageFakeOut = fakeOutput.output.reduce(0, +) / Float(self.batchSize)
           
-          let lambda: Float = 10.0
+          let lambda: Float = gradientPenaltyLambda
           let penalty = lambda * self.gradientPenalty(realData: realData)
           self.discriminatorLoss = averageRealOut - averageFakeOut + penalty
           
