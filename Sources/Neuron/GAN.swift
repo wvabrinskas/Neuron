@@ -20,7 +20,6 @@ public enum GANTrainingType: String {
 public enum GANLossFunction {
   case minimax
   case wasserstein
-  //-1 for real : 1 for fake in wasserstein
   
   public func label(type: GANTrainingType) -> Float {
     switch self {
@@ -35,9 +34,9 @@ public enum GANLossFunction {
     case .wasserstein:
       switch type {
       case .real:
-        return -1
-      case .fake, .generator:
         return 1
+      case .fake, .generator:
+        return -1
       }
     }
   }
@@ -269,7 +268,7 @@ public class GAN: Logger {
           let sumOfGenLoss = genOutput.loss.reduce(0, +)
           let averageGenLoss = sumOfGenLoss / Float(self.batchSize)
           
-          self.generatorLoss = -1 * averageGenLoss
+          self.generatorLoss = averageGenLoss
         }
         
         //backprop discrimator
