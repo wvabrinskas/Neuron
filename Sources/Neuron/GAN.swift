@@ -231,8 +231,8 @@ public class GAN: Logger {
           
         } else if self.lossFunction == .wasserstein {
           
-          let averageRealOut = realOutput.output.reduce(0, +) / Float(self.batchSize)
-          let averageFakeOut = fakeOutput.output.reduce(0, +) / Float(self.batchSize)
+          let averageRealOut = realOutput.loss.reduce(0, +) / Float(self.batchSize)
+          let averageFakeOut = fakeOutput.loss.reduce(0, +) / Float(self.batchSize)
           
           let lambda: Float = gradientPenaltyLambda
           let penalty = lambda * self.gradientPenalty(realData: realData)
