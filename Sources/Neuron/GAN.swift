@@ -250,8 +250,8 @@ public class GAN: Logger {
         dis.zeroGradients()
 
         //train generator on newly trained discriminator
-        let realFakeData = self.getGeneratedData(type: .real, noise: noise)
-        let genOutput = self.trainOn(data: realFakeData, type: .real)
+        let realFakeData = self.getGeneratedData(type: .generator, noise: noise)
+        let genOutput = self.trainOn(data: realFakeData, type: .generator)
         
         if self.lossFunction == .minimax {
           let sumOfGenLoss = genOutput.loss.reduce(0, +)
