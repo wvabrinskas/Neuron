@@ -66,6 +66,7 @@ public class GAN: Logger {
   private var generatorTrainPerEpoch: Int = 5
   private var discriminatorLossHistory: [Float] = []
   private var generatorLossHistory: [Float] = []
+  private var gradientPenaltyHistory: [Float] = []
   private var gradientPenaltyCenter: Float = 0
   private var gradientPenaltyLambda: Float = 10
   
@@ -83,6 +84,11 @@ public class GAN: Logger {
   public var generatorLoss: Float = 0 {
     didSet {
       self.generatorLossHistory.append(generatorLoss)
+    }
+  }
+  public var gradientPenalty: Float = 0 {
+    didSet {
+      self.gradientPenaltyHistory.append(gradientPenalty)
     }
   }
 
@@ -230,12 +236,15 @@ public class GAN: Logger {
           
           let lambda: Float = gradientPenaltyLambda
           let penalty = lambda * self.gradientPenalty(realData: realData)
+          
+          self.gradientPenalty = penalty
+          
           self.discriminatorLoss = averageRealOut - averageFakeOut + penalty
           
           //backprop discrimator
-          let averageLossRealOut = realOutput.loss.reduce(0, +) / Float(self.batchSize)
-          let averageLossFakeOut = fakeOutput.loss.reduce(0, +) / Float(self.batchSize)
-          
+//          let averageLossRealOut = realOutput.loss.reduce(0, +) / Float(self.batchSize)
+//          let averageLossFakeOut = fakeOutput.loss.reduce(0, +) / Float(self.batchSize)
+//
           dis.backpropagate(with: [self.discriminatorLoss])
 //          dis.backpropagate(with: [averageLossFakeOut])
 //          dis.backpropagate(with: [penalty])
