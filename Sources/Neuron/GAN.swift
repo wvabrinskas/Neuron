@@ -236,9 +236,9 @@ public class GAN: Logger {
           let averageLossRealOut = realOutput.loss.reduce(0, +) / Float(self.batchSize)
           let averageLossFakeOut = fakeOutput.loss.reduce(0, +) / Float(self.batchSize)
           
-          dis.backpropagate(with: [averageLossRealOut])
-          dis.backpropagate(with: [averageLossFakeOut])
-          dis.backpropagate(with: [penalty])
+          dis.backpropagate(with: [self.discriminatorLoss])
+//          dis.backpropagate(with: [averageLossFakeOut])
+//          dis.backpropagate(with: [penalty])
         }
         
         //adjust weights AFTER calculating gradients
@@ -268,7 +268,7 @@ public class GAN: Logger {
           let sumOfGenLoss = genOutput.loss.reduce(0, +)
           let averageGenLoss = sumOfGenLoss / Float(self.batchSize)
           
-          self.generatorLoss = averageGenLoss
+          self.generatorLoss = -1 * averageGenLoss
         }
         
         //backprop discrimator
