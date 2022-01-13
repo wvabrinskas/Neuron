@@ -15,13 +15,19 @@ public struct Layer: Codable {
   public var type: LobeModel.LayerType
   public var bias: [Float]
   public var biasWeights: [Float]
+  public var normalize: Bool
+  public var beta: Float?
+  public var gamma: Float?
   
   public init(activation: Activation,
               nodes: Int,
               weights: [[Float]],
               type: LobeModel.LayerType,
               bias: [Float],
-              biasWeights: [Float]) {
+              biasWeights: [Float],
+              normalize: Bool,
+              beta: Float? = nil,
+              gamma: Float? = nil) {
     
     self.activation = activation
     self.nodes = nodes
@@ -29,6 +35,9 @@ public struct Layer: Codable {
     self.type = type
     self.bias = bias
     self.biasWeights = biasWeights
+    self.normalize = normalize
+    self.beta = beta
+    self.gamma = gamma
   }
 }
 

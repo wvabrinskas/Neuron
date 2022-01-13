@@ -1,6 +1,7 @@
 {
   "layers" : [
     {
+      "normalize": true,
       "activation" : "none",
       "bias" : [
         0,
@@ -32,6 +33,7 @@
       ]
     },
     {
+      "normalize": true,
       "activation" : "reLu",
       "bias" : [
         0.0010000000474974513,
@@ -83,6 +85,7 @@
       ]
     },
     {
+      "normalize": true,
       "activation" : "none",
       "bias" : [
         0.0010000000474974513,

@@ -9,15 +9,21 @@ import Foundation
 import UIKit
 
 public class BatchNormalizer {
-  private var gamma: Float = 1
-  private var beta: Float = 0
+  public var gamma: Float = 1
+  public var beta: Float = 0
   private var movingMean: Float = 0
   private var movingVariance: Float = 0
   private var normalizedActivations: [Float] = []
   private var standardDeviation: Float = 0
   private let momentum: Float = 0.9
+  private let e: Float = 0.00005 //this is a standard smoothing term
+  
+  public init(gamma: Float = 1, beta: Float = 0) {
+    self.gamma = gamma
+    self.beta = beta
+  }
 
-  func normalize(activations: [Float]) -> [Float] {
+  public func normalize(activations: [Float]) -> [Float] {
     
     let total = Float(activations.count)
     
@@ -25,7 +31,6 @@ public class BatchNormalizer {
     
     let variance = activations.map { pow($0 - mean, 2) }.reduce(0, +) / total
         
-    let e: Float = 0.00005 //this is a standard smoothing term
     let std = sqrt(variance + e)
       
     standardDeviation = std
@@ -42,14 +47,13 @@ public class BatchNormalizer {
     return normalizedScaledAndShifted
   }
   
-  func backward(gradient: [Float]) -> [Float] {
+  public func backward(gradient: [Float]) -> [Float] {
     let dBeta = gradient.reduce(0, +)
     
     guard gradient.count == normalizedActivations.count else {
       return gradient
     }
     
-    //this isnt getting called =(
     var dGamma: Float = 0
     var outputGradients: [Float] = []
     

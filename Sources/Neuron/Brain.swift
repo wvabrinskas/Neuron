@@ -171,12 +171,26 @@ public class Brain: Logger {
         weights = [[Float]](repeating: [0], count: lobe.neurons.count)
       }
       
-      let layer = Layer(activation: lobe.activation,
+      var layer = Layer(activation: lobe.activation,
                         nodes: lobe.neurons.count,
                         weights: weights,
                         type: lobe.layer,
                         bias: biases,
-                        biasWeights: biasWeights)
+                        biasWeights: biasWeights,
+                        normalize: lobe.isNormalized)
+      
+      if let normalLobe = lobe as? NormalizedLobe {
+        let params = normalLobe.normalizerLearningParams
+        layer = Layer(activation: lobe.activation,
+                      nodes: lobe.neurons.count,
+                      weights: weights,
+                      type: lobe.layer,
+                      bias: biases,
+                      biasWeights: biasWeights,
+                      normalize: lobe.isNormalized,
+                      beta: params.beta,
+                      gamma: params.gamma)
+      }
       
       layers.append(layer)
     }
@@ -193,8 +207,13 @@ public class Brain: Logger {
   /// Adds a layer to the neural network
   /// - Parameter model: The lobe model describing the layer to be added
   public func add(_ model: LobeModel) {
-
-    self.lobes.append(Lobe(model: model, learningRate: self.learningRate))
+    var lobe = Lobe(model: model, learningRate: self.learningRate)
+    
+    if model.normalize {
+      lobe = NormalizedLobe(model: model, learningRate: self.learningRate)
+    }
+    
+    self.lobes.append(lobe)
   }
   
   /// Adds an output modifier to the output layer
@@ -236,8 +255,15 @@ public class Brain: Logger {
         self.layerWeights.append(weights)
       }
       
-      let lobe = Lobe(neurons: neurons,
+      var lobe = Lobe(neurons: neurons,
                       activation: layer.activation)
+      
+      if layer.normalize {
+        lobe = NormalizedLobe(neurons: neurons,
+                              activation: layer.activation,
+                              beta: layer.beta ?? 0,
+                              gamma: layer.gamma ?? 1)
+      }
       
       lobe.layer = layer.type
       

@@ -16,17 +16,14 @@ public class Lobe {
   public var neurons: [Neuron] = []
   public var layer: LobeModel.LayerType = .output
   public var activation: Activation = .none
-  public var normalize: Bool = false
-  private let normalizer: BatchNormalizer = .init()
+  public var isNormalized: Bool = false
   
   /// default initializer
   /// - Parameter neurons: Neruons to control
   public init(neurons: [Neuron],
-              activation: Activation = .none,
-              normalize: Bool = false) {
+              activation: Activation = .none) {
     self.neurons = neurons
     self.activation = activation
-    self.normalize = normalize
   }
   
   public init(model: LobeModel,
@@ -43,7 +40,6 @@ public class Lobe {
     }
     self.neurons = neurons
     self.activation = model.activation
-    self.normalize = model.normalize
   }
   
   /// Feeds inputs into this layer
@@ -72,11 +68,7 @@ public class Lobe {
       neuron.addInputs(inputs: inputs)
       activatedResults.append(neuron.activation())
     }
-    
-    if normalize {
-      activatedResults = self.normalizer.normalize(activations: activatedResults)
-    }
-    
+
     return activatedResults
   }
   
@@ -107,12 +99,6 @@ public class Lobe {
       return []
     }
     
-    var inputs = inputs
-    
-    if normalize {
-      inputs = normalizer.backward(gradient: inputs)
-    }
-    
     var deltas: [Float] = []
     //incoming inputs are the new deltas for the current laye
     self.setLayerDeltas(with: inputs, update: true)
@@ -138,10 +124,8 @@ public class Lobe {
   
   /// Adjusts all the weights in all the neurons in this Lobe
   public func adjustWeights(_ constrain: ClosedRange<Float>? = nil) {
-    let normalizer: BatchNormalizer? = self.normalize ? self.normalizer : nil
-    
     for neuron in neurons {
-      neuron.adjustWeights(constrain, normalizer: normalizer)
+      neuron.adjustWeights(constrain)
     }
   }
   

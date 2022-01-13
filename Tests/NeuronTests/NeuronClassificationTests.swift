@@ -10,7 +10,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
   ]
   
   public lazy var brain: Brain? = {
-    let bias: Float = 0.001
+    let bias: Float = 0.0001
     
     let brain = Brain(learningRate: 0.0001,
                       epochs: 200,
@@ -29,7 +29,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     
     brain.add(modifier: .softmax)
     
-   // brain.add(optimizer: .adam())
+    brain.add(optimizer: .adam())
     brain.logLevel = .none
     
     return brain
