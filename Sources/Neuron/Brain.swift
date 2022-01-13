@@ -678,7 +678,10 @@ public class Brain: Logger {
     //those will always be 0 since no computation happens at the input layer
     for i in 0..<reverse.count - 1 {
       let currentLobe = reverse[i]
-      updatingDeltas = currentLobe.backpropagate(previousLayerDeltas: updatingDeltas)
+      let previousLobe = reverse[i + 1]
+      
+      updatingDeltas = currentLobe.backpropagate(inputs: updatingDeltas,
+                                                 previousLayerCount: previousLobe.neurons.count)
     }
   }
   

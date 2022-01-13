@@ -124,12 +124,8 @@ public class Neuron {
     //WITH OUT IT MAKES IT MUCH SLOWER BUT WITH IT IT FORMS A RACE CONDITION =(
     let delta = self.delta ?? 0
     
-    var gradients = self.gradients()
-    
-    if let normalizer = normalizer {
-     // gradients = normalizer.backward(gradient: gradients)
-    }
-    
+    let gradients = self.gradients()
+  
     for i in 0..<gradients.count {
       let gradient = gradients[i]
       

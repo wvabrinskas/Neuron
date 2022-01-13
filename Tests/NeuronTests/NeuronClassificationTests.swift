@@ -12,24 +12,24 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
   public lazy var brain: Brain? = {
     let bias: Float = 0.001
     
-    let brain = Brain(learningRate: 0.01,
+    let brain = Brain(learningRate: 0.0001,
                       epochs: 200,
                       lossFunction: .crossEntropy,
                       lossThreshold: TestConstants.lossThreshold,
                       initializer: .xavierNormal,
                       descent: .sgd)
     
-    brain.add(.init(nodes: TestConstants.inputs, bias: bias, normalize: false)) //input layer
+    brain.add(.init(nodes: TestConstants.inputs, bias: bias, normalize: true)) //input layer
     
     for _ in 0..<TestConstants.numOfHiddenLayers {
-      brain.add(.init(nodes: TestConstants.hidden, activation: .reLu, bias: bias, normalize: false)) //hidden layer
+      brain.add(.init(nodes: TestConstants.hidden, activation: .reLu, bias: bias, normalize: true)) //hidden layer
     }
     
-    brain.add(.init(nodes: TestConstants.outputs, bias: bias, normalize: false)) //output layer
+    brain.add(.init(nodes: TestConstants.outputs, bias: bias, normalize: true)) //output layer
     
     brain.add(modifier: .softmax)
     
-    brain.add(optimizer: .adam())
+   // brain.add(optimizer: .adam())
     brain.logLevel = .none
     
     return brain

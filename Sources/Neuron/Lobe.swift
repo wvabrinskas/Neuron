@@ -34,7 +34,7 @@ public class Lobe {
     
     let nuc = Nucleus(learningRate: learningRate,
                       bias: model.bias)
-
+    
     var neurons: [Neuron] = []
     for _ in 0..<model.nodes {
       let neuron = Neuron(nucleus: nuc,
@@ -52,19 +52,12 @@ public class Lobe {
   public func feed(inputs: [Float]) -> [Float] {
     var activatedResults: [Float] = []
     
-    var inputs = inputs
-    
-    //TODO: perform batch normalization here....
-    if normalize {
-      inputs = self.normalizer.normalize(activations: inputs)
-    }
-    
     if self.layer == .input {
       guard inputs.count == self.neurons.count else {
         print("error")
         return []
       }
-
+      
       for i in 0..<inputs.count {
         let input = inputs[i]
         let neuron = neurons[i]
@@ -80,9 +73,17 @@ public class Lobe {
       activatedResults.append(neuron.activation())
     }
     
+    if normalize {
+      activatedResults = self.normalizer.normalize(activations: activatedResults)
+    }
+    
     return activatedResults
   }
   
+  /// Sets or updates the current lobes deltas
+  /// - Parameters:
+  ///   - deltas: the deltas to apply
+  ///   - update: boolean to indicate if you add the incoming deltas or just set to the incoming deltas
   public func setLayerDeltas(with deltas: [Float], update: Bool = false) {
     guard deltas.count == neurons.count else {
       return
@@ -100,32 +101,38 @@ public class Lobe {
   /// Calculates deltas for each neuron for the next layer in the network. Updates the current layer deltas with the input previous layer deltas.
   /// - Parameter previousLayerDeltas: Incoming delta's from the previous layer
   /// - Returns: The next set of deltas to be passed to the next layer in the backpropagation.
-  public func backpropagate(previousLayerDeltas: [Float]) -> [Float] {
-    var deltas: [Float] = []
-  
-    for p in 0..<previousLayerDeltas.count {
-      //first set incoming deltas to self since in the previous iterations we calculated deltas for THIS layer
+  public func backpropagate(inputs: [Float], previousLayerCount: Int) -> [Float] {
 
-      let previousLayerDelta = previousLayerDeltas[p]
-      let setNeuron = neurons[p]
-      setNeuron.delta = previousLayerDelta
-      
-      var deltaAtNode: Float = 0
-      
-      for i in 0..<neurons.count {
-        let neuron = neurons[i]
-        let neuronInput = neuron.inputs[p]
-        let neuronDelta = neuron.delta ?? 0
-        
-        let currentNeuronDelta = neuronDelta * neuronInput.weight
-
-        deltaAtNode += currentNeuronDelta
-      }
-      
-      let adjusted = previousLayerDelta + deltaAtNode
-      deltas.append(adjusted)
+    guard self.layer != .input else {
+      return []
     }
     
+    var inputs = inputs
+    
+    if normalize {
+      inputs = normalizer.backward(gradient: inputs)
+    }
+    
+    var deltas: [Float] = []
+    //incoming inputs are the new deltas for the current laye
+    self.setLayerDeltas(with: inputs, update: true)
+    
+    for p in 0..<previousLayerCount {
+      var delta: Float = 0
+      
+      for n in 0..<neurons.count {
+        let neuron = neurons[n]
+        let neuronInput = neuron.inputs[p]
+        let neuronDelta = inputs[n]
+        
+        let currentNeuronDelta = neuronDelta * neuronInput.weight
+        
+        delta += currentNeuronDelta
+      }
+      
+      deltas.append(delta)
+    }
+
     return deltas
   }
   
@@ -152,14 +159,7 @@ public class Lobe {
   }
   
   public func gradients() -> [[Float]] {
-    var gradients: [[Float]] = []
-    
-    neurons.forEach { neuron in
-      let gradientsToAppend = self.normalize ? normalizer.backward(gradient: neuron.gradients()) : neuron.gradients()
-      gradients.append(gradientsToAppend)
-    }
-    
-    return gradients
+    return neurons.map { $0.gradients() }
   }
   
   /// Backpropagation deltas at this specific layer

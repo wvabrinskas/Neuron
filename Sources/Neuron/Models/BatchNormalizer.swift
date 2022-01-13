@@ -47,14 +47,13 @@ public class BatchNormalizer {
     
     guard gradient.count == normalizedActivations.count else {
       return gradient
-      //fatalError("no idea but this is broken?") //tesitng only
     }
     
     //this isnt getting called =(
     var dGamma: Float = 0
     var outputGradients: [Float] = []
     
-    let n: Float = 1//Float(gradient.count)
+    let n: Float = Float(gradient.count)
     
     let dxNorm: [Float] = gradient.map { $0 * gamma }
     
@@ -82,11 +81,9 @@ public class BatchNormalizer {
       outputGradients.append(dx)
     }
     
-    gamma -= dGamma
-    beta -= dBeta
+    gamma += dGamma
+    beta += dBeta
     
-    print(outputGradients)
-  
     return outputGradients
   }
 }
