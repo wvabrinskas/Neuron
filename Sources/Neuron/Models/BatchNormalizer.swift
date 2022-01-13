@@ -14,32 +14,28 @@ public class BatchNormalizer {
   private var movingMean: Float = 0
   private var movingVariance: Float = 0
   private var normalizedActivations: [Float] = []
-  private var centeredActivations: [Float] = []
-  private var standardDeviations: [Float] = []
+  private var standardDeviation: Float = 0
+  private let momentum: Float = 0.9
 
   func normalize(activations: [Float]) -> [Float] {
     
     let total = Float(activations.count)
     
-    movingMean = activations.reduce(0, +) / total
+    let mean = activations.reduce(0, +) / total
     
-    movingVariance = activations.map { activation in
-      
-      let centered = activation - movingMean
-      centeredActivations.append(centered)
-      
-      return pow(centered, 2)
-      
-    }.reduce(0, +) / total
+    let variance = activations.map { pow($0 - mean, 2) }.reduce(0, +) / total
         
     let e: Float = 0.00005 //this is a standard smoothing term
-    let standardDeviation = sqrt(movingVariance + e)
+    let std = sqrt(variance + e)
       
-    standardDeviations.append(standardDeviation)
+    standardDeviation = std
   
-    let normalized = activations.map { ($0 - movingMean) / standardDeviation }
+    let normalized = activations.map { ($0 - mean) / std }
     
     normalizedActivations = normalized
+    
+    movingMean = momentum * movingMean + (1 - momentum) * mean
+    movingVariance = momentum * movingVariance + (1 - movingVariance) * variance
     
     let normalizedScaledAndShifted = normalized.map { gamma * $0 + beta }
     
@@ -55,12 +51,10 @@ public class BatchNormalizer {
     }
     
     //this isnt getting called =(
-    print("GOT TO BACKWARD")
     var dGamma: Float = 0
     var outputGradients: [Float] = []
     
-    let n: Float = Float(gradient.count)
-    
+    let n: Float = 1//Float(gradient.count)
     
     let dxNorm: [Float] = gradient.map { $0 * gamma }
     
@@ -73,10 +67,10 @@ public class BatchNormalizer {
     }
             
     let dxNormSum = dxNorm.reduce(0, +)
-    
+    let std = standardDeviation
+
     for gIndex in 0..<gradient.count {
       
-      let std = standardDeviations[gIndex]
       let xNorm = normalizedActivations[gIndex]
       let dxNorm = dxNorm[gIndex]
       
@@ -88,8 +82,10 @@ public class BatchNormalizer {
       outputGradients.append(dx)
     }
     
-    gamma += dGamma
-    beta += dBeta
+    gamma -= dGamma
+    beta -= dBeta
+    
+    print(outputGradients)
   
     return outputGradients
   }

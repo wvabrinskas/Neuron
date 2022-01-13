@@ -193,6 +193,7 @@ public class Brain: Logger {
   /// Adds a layer to the neural network
   /// - Parameter model: The lobe model describing the layer to be added
   public func add(_ model: LobeModel) {
+
     self.lobes.append(Lobe(model: model, learningRate: self.learningRate))
   }
   
@@ -673,25 +674,16 @@ public class Brain: Logger {
     
     //subtracting 1 because we dont need to propagate through to the weights in the input layer
     //those will always be 0 since no computation happens at the input layer
-    for i in 0..<reverse.count - 1 {
-      let currentLayer = reverse[i].neurons
-      let previousLayer = reverse[i + 1].neurons
       
-      for p in 0..<previousLayer.count {
-        var deltaAtLayer: Float = 0
-        
-        for c in 0..<currentLayer.count {
-          let currentNode = currentLayer[c]
-          let currentInput = currentNode.inputs[p]
-          let currentNodeDelta = currentNode.delta ?? 0
-          
-          let currentNeuronDelta = currentNodeDelta * currentInput.weight
-          deltaAtLayer += currentNeuronDelta
-        }
-        
-        let newDelta = (previousLayer[p].delta ?? 0 ) + deltaAtLayer
-        previousLayer[p].delta = newDelta
-      }
+    guard reverse.count > 0 else {
+      return
+    }
+    
+    var deltas = reverse[0].deltas()
+    
+    for i in 0..<reverse.count - 1 {
+      let currentLobe = reverse[i]
+      deltas = currentLobe.backpropagate(previousLayerDeltas: deltas)
     }
   }
   

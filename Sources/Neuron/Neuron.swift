@@ -127,7 +127,7 @@ public class Neuron {
     var gradients = self.gradients()
     
     if let normalizer = normalizer {
-      gradients = normalizer.backward(gradient: gradients)
+     // gradients = normalizer.backward(gradient: gradients)
     }
     
     for i in 0..<gradients.count {

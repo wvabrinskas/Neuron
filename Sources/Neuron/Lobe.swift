@@ -51,7 +51,14 @@ public class Lobe {
   /// - Returns: the result of the activation functions of the neurons
   public func feed(inputs: [Float]) -> [Float] {
     var activatedResults: [Float] = []
-
+    
+    var inputs = inputs
+    
+    //TODO: perform batch normalization here....
+    if normalize {
+      inputs = self.normalizer.normalize(activations: inputs)
+    }
+    
     if self.layer == .input {
       guard inputs.count == self.neurons.count else {
         print("error")
@@ -73,12 +80,37 @@ public class Lobe {
       activatedResults.append(neuron.activation())
     }
     
-    //TODO: perform batch normalization here....
-    if normalize {
-      activatedResults = self.normalizer.normalize(activations: activatedResults)
+    return activatedResults
+  }
+  
+  public func backpropagate(previousLayerDeltas: [Float]) -> [Float] {
+    var deltas: [Float] = []
+  
+    for p in 0..<previousLayerDeltas.count {
+      //first set incoming deltas to self since in the previous iterations we calculated deltas for THIS layer
+
+      let previousLayerDelta = previousLayerDeltas[p]
+      let setNeuron = neurons[p]
+      setNeuron.delta = previousLayerDelta
+      
+      var deltaAtNode: Float = 0
+      
+      for i in 0..<neurons.count {
+        let neuron = neurons[i]
+        let neuronInput = neuron.inputs[p]
+        let neuronDelta = neuron.delta ?? 0
+        
+        let currentNeuronDelta = neuronDelta * neuronInput.weight
+
+        deltaAtNode += currentNeuronDelta
+
+      }
+      
+      let adjusted = previousLayerDelta + deltaAtNode
+      deltas.append(adjusted)
     }
     
-    return activatedResults
+    return deltas
   }
   
   /// Adjusts all the weights in all the neurons in this Lobe
