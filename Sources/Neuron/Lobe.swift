@@ -83,6 +83,23 @@ public class Lobe {
     return activatedResults
   }
   
+  public func setLayerDeltas(with deltas: [Float], update: Bool = false) {
+    guard deltas.count == neurons.count else {
+      return
+    }
+    
+    for i in 0..<neurons.count {
+      let delta = deltas[i]
+      let neuron = neurons[i]
+      
+      let updatedDelta = update ? (neuron.delta ?? 0) + delta : delta
+      neuron.delta = updatedDelta
+    }
+  }
+  
+  /// Calculates deltas for each neuron for the next layer in the network. Updates the current layer deltas with the input previous layer deltas.
+  /// - Parameter previousLayerDeltas: Incoming delta's from the previous layer
+  /// - Returns: The next set of deltas to be passed to the next layer in the backpropagation.
   public func backpropagate(previousLayerDeltas: [Float]) -> [Float] {
     var deltas: [Float] = []
   
@@ -103,7 +120,6 @@ public class Lobe {
         let currentNeuronDelta = neuronDelta * neuronInput.weight
 
         deltaAtNode += currentNeuronDelta
-
       }
       
       let adjusted = previousLayerDelta + deltaAtNode
