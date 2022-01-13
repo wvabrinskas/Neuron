@@ -19,13 +19,13 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
                       initializer: .xavierNormal,
                       descent: .sgd)
     
-    brain.add(.init(nodes: TestConstants.inputs, bias: bias)) //input layer
+    brain.add(.init(nodes: TestConstants.inputs, bias: bias, normalize: true)) //input layer
     
     for _ in 0..<TestConstants.numOfHiddenLayers {
-      brain.add(.init(nodes: TestConstants.hidden, activation: .reLu, bias: bias)) //hidden layer
+      brain.add(.init(nodes: TestConstants.hidden, activation: .reLu, bias: bias, normalize: true)) //hidden layer
     }
     
-    brain.add(.init(nodes: TestConstants.outputs, bias: bias)) //output layer
+    brain.add(.init(nodes: TestConstants.outputs, bias: bias, normalize: true)) //output layer
     
     brain.add(modifier: .softmax)
     

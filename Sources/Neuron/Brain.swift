@@ -16,9 +16,9 @@ public class Brain: Logger {
   
   /// Number of times to run the training data set
   public var epochs: Int
-
+  
   public var learningRate: Float
-
+  
   /// The loss function data from training to be exported
   public var loss: [Float] = []
   
@@ -70,13 +70,13 @@ public class Brain: Logger {
   ///   - initializer: The weight initializer algoriUthm
   ///   - descent: The gradient descent type
   public init(model: ExportModel? = nil,
-                      learningRate: Float,
-                      epochs: Int,
-                      lossFunction: LossFunction = .meanSquareError,
-                      lossThreshold: Float = 0.001,
-                      initializer: Initializers = .xavierNormal,
-                      descent: GradientDescent = .sgd,
-                      weightConstraints: ClosedRange<Float>? = nil) {
+              learningRate: Float,
+              epochs: Int,
+              lossFunction: LossFunction = .meanSquareError,
+              lossThreshold: Float = 0.001,
+              initializer: Initializers = .xavierNormal,
+              descent: GradientDescent = .sgd,
+              weightConstraints: ClosedRange<Float>? = nil) {
     
     self.learningRate = learningRate
     self.lossFunction = lossFunction
@@ -89,11 +89,11 @@ public class Brain: Logger {
   }
   
   public init?(model: PretrainedModel,
-              epochs: Int,
-              lossFunction: LossFunction = .crossEntropy,
-              lossThreshold: Float = 0.001,
-              initializer: Initializers = .xavierNormal,
-              descent: GradientDescent = .sgd) {
+               epochs: Int,
+               lossFunction: LossFunction = .crossEntropy,
+               lossThreshold: Float = 0.001,
+               initializer: Initializers = .xavierNormal,
+               descent: GradientDescent = .sgd) {
     
     do {
       guard let model = try model.getModel().get() else {
@@ -108,12 +108,12 @@ public class Brain: Logger {
       self.initializer = initializer
       self.model = model
       self.descent = descent
-
+      
     } catch {
       Self.log(type: .error, priority: .alwaysShow, message: error.localizedDescription)
       return nil
     }
-
+    
   }
   
   /// Replaces the weights in the network
@@ -158,7 +158,7 @@ public class Brain: Logger {
       var weights: [[Float]] = []
       var biases: [Float] = []
       var biasWeights: [Float] = []
-
+      
       lobe.neurons.forEach { (neuron) in
         weights.append(neuron.inputs.map({ $0.weight }))
         biases.append(neuron.bias)
@@ -193,10 +193,6 @@ public class Brain: Logger {
   /// Adds a layer to the neural network
   /// - Parameter model: The lobe model describing the layer to be added
   public func add(_ model: LobeModel) {
-    ///TODO:
-    ///maybe auto assign input layer and only add hidden layers?
-    ///kind of redundant to specify a layer as being input when the first in the
-    ///array is considereing the input layer.
     self.lobes.append(Lobe(model: model, learningRate: self.learningRate))
   }
   
@@ -291,7 +287,7 @@ public class Brain: Logger {
               let maxBound = constrain.upperBound
               weight = min(maxBound, max(minBound, weight))
             }
-
+            
             let transmitter = NeuroTransmitter(weight: weight)
             dendrites.append(transmitter)
             weights.append(weight)
@@ -321,7 +317,7 @@ public class Brain: Logger {
           
           self.layerWeights.append([0])
         }
-
+        
       }
     }
     
@@ -388,7 +384,7 @@ public class Brain: Logger {
         
         batches.forEach { (batch) in
           self.zeroGradients()
-
+          
           batch.forEach { (tData) in
             self.trainIndividual(data: tData, backprop: false)
           }
@@ -406,7 +402,7 @@ public class Brain: Logger {
           self.descents.removeAll()
         }
       }
-
+      
       //maybe add to serial background queue, dispatch queue crashes
       /// feed a model and its correct values through the network to calculate the loss
       let loss = self.calcAverageLoss(self.feed(input: data[0].data),
@@ -515,7 +511,7 @@ public class Brain: Logger {
   
   /// Update the settings for each lobe and each neuron
   /// - Parameter nucleus: Object that describes the network behavior
-  public func updateNucleus(_ nucleus: Nucleus) {    
+  public func updateNucleus(_ nucleus: Nucleus) {
     self.lobes.forEach { (lobe) in
       lobe.updateNucleus(nucleus)
     }
@@ -559,24 +555,8 @@ public class Brain: Logger {
     var x = input
     
     for i in 0..<self.lobes.count {
-      let currentLayer = self.lobes[i].neurons
-      var newInputs: [Float] = []
-      
-      for c in 0..<currentLayer.count {
-        let neuron = currentLayer[c]
-        
-        //input layer isn't fully connected and just passes the input value with
-        //no activation function
-        if i == 0 {
-          neuron.addInputs(inputs: [input[c]], initializer: self.initializer)
-        } else {
-          //should already be initialized
-          neuron.addInputs(inputs: x)
-        }
-        
-        let act = neuron.activation()
-        newInputs.append(act)
-      }
+      let currentLayer = self.lobes[i]
+      let newInputs: [Float] = currentLayer.feed(inputs: x)
       x = newInputs
     }
   }
@@ -659,7 +639,7 @@ public class Brain: Logger {
       let outputNeuron = self.outputLayer()[i]
       
       let delta = self.lossFunction.derivative(predicted, correct: target)
-    
+      
       outputNeuron.delta = delta
       outputErrors.append(delta)
       
@@ -677,7 +657,7 @@ public class Brain: Logger {
   }
   
   internal func backpropagate(with deltas: [Float]? = nil) {
-        //for generative adversarial networks we need to set the backprop deltas manually without calculating
+    //for generative adversarial networks we need to set the backprop deltas manually without calculating
     if let deltas = deltas, deltas.count == outputLayer().count {
       for i in 0..<outputLayer().count {
         let delta = deltas[i]
@@ -696,7 +676,7 @@ public class Brain: Logger {
     for i in 0..<reverse.count - 1 {
       let currentLayer = reverse[i].neurons
       let previousLayer = reverse[i + 1].neurons
-            
+      
       for p in 0..<previousLayer.count {
         var deltaAtLayer: Float = 0
         
@@ -708,7 +688,7 @@ public class Brain: Logger {
           let currentNeuronDelta = currentNodeDelta * currentInput.weight
           deltaAtLayer += currentNeuronDelta
         }
-      
+        
         let newDelta = (previousLayer[p].delta ?? 0 ) + deltaAtLayer
         previousLayer[p].delta = newDelta
       }

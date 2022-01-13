@@ -118,13 +118,20 @@ public class Neuron {
   }
   
   /// Adjusts the weights of all inputs
-  public func adjustWeights(_ constrain: ClosedRange<Float>? = nil) {
+  public func adjustWeights(_ constrain: ClosedRange<Float>? = nil,
+                            normalizer: BatchNormalizer? = nil) {
     //DISPATCH QUEUE BREAKS EVERYTHING NEED BETTER OPTIMIZATION =(
     //WITH OUT IT MAKES IT MUCH SLOWER BUT WITH IT IT FORMS A RACE CONDITION =(
-    let delta = self.delta ?? 0 
+    let delta = self.delta ?? 0
     
-    for i in 0..<inputs.count {
-      let gradient = self.inputs[i].inputValue * delta * self.derivative()
+    var gradients = self.gradients()
+    
+    if let normalizer = normalizer {
+      gradients = normalizer.backward(gradient: gradients)
+    }
+    
+    for i in 0..<gradients.count {
+      let gradient = gradients[i]
       
       if let optim = self.optimizer {
         self.inputs[i].weight = optim.run(alpha: self.learningRate,
