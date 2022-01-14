@@ -12,7 +12,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
   public lazy var brain: Brain? = {
     let bias: Float = 0.001
     
-    let brain = Brain(learningRate: 0.0001,
+    let brain = Brain(learningRate: 0.001,
                       epochs: 200,
                       lossFunction: .crossEntropy,
                       lossThreshold: TestConstants.lossThreshold,

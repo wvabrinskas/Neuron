@@ -207,10 +207,12 @@ public class Brain: Logger {
   /// Adds a layer to the neural network
   /// - Parameter model: The lobe model describing the layer to be added
   public func add(_ model: LobeModel) {
-    var lobe = Lobe(model: model, learningRate: self.learningRate)
+    var lobe = Lobe(model: model,
+                    learningRate: self.learningRate)
     
     if model.normalize {
-      lobe = NormalizedLobe(model: model, learningRate: self.learningRate)
+      lobe = NormalizedLobe(model: model,
+                            learningRate: self.learningRate)
     }
     
     self.lobes.append(lobe)
@@ -262,7 +264,8 @@ public class Brain: Logger {
         lobe = NormalizedLobe(neurons: neurons,
                               activation: layer.activation,
                               beta: layer.beta ?? 0,
-                              gamma: layer.gamma ?? 1)
+                              gamma: layer.gamma ?? 1,
+                              learningRate: model.learningRate)
       }
       
       lobe.layer = layer.type

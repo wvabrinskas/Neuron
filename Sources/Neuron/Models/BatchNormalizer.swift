@@ -16,10 +16,12 @@ public class BatchNormalizer {
   private var standardDeviation: Float = 0
   private let momentum: Float = 0.9
   private let e: Float = 0.00005 //this is a standard smoothing term
+  private let learningRate: Float
   
-  public init(gamma: Float = 1, beta: Float = 0) {
+  public init(gamma: Float = 1, beta: Float = 0, learningRate: Float) {
     self.gamma = gamma
     self.beta = beta
+    self.learningRate = learningRate
   }
 
   public func normalize(activations: [Float]) -> [Float] {
@@ -56,7 +58,7 @@ public class BatchNormalizer {
     var dGamma: Float = 0
     var outputGradients: [Float] = []
     
-    let n: Float = Float(gradient.count) 
+    let n: Float = Float(gradient.count)
     
     let dxNorm: [Float] = gradient.map { $0 * gamma }
     
@@ -84,8 +86,8 @@ public class BatchNormalizer {
       outputGradients.append(dx)
     }
     
-    gamma += dGamma
-    beta += dBeta
+    gamma -= learningRate * dGamma
+    beta -= learningRate * dBeta
     
     return outputGradients
   }

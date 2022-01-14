@@ -8,31 +8,38 @@
 import Foundation
 
 public class NormalizedLobe: Lobe {
-  private var normalizer: BatchNormalizer = .init()
+  private var normalizer: BatchNormalizer
   public var normalizerLearningParams: (beta: Float, gamma: Float) {
     return (normalizer.beta, normalizer.gamma)
   }
   
-  public convenience init(model: LobeModel, learningRate: Float, beta: Float, gamma: Float) {
-    self.init(model: model, learningRate: learningRate)
-    self.normalizer = BatchNormalizer(gamma: gamma, beta: beta)
-  }
-  
-  public convenience init(neurons: [Neuron], activation: Activation = .none, beta: Float, gamma: Float) {
-    self.init(neurons: neurons, activation: activation)
-    self.normalizer = BatchNormalizer(gamma: gamma, beta: beta)
-  }
-  
-  override public init(model: LobeModel, learningRate: Float) {
+  public init(model: LobeModel,
+              learningRate: Float,
+              beta: Float = 0,
+              gamma: Float = 1) {
+    
+    self.normalizer = BatchNormalizer(gamma: gamma,
+                                      beta: beta,
+                                      learningRate: learningRate)
+    
     super.init(model: model, learningRate: learningRate)
     self.isNormalized = true
+
   }
   
-  override public init(neurons: [Neuron], activation: Activation = .none) {
+  public init(neurons: [Neuron],
+              activation: Activation = .none,
+              beta: Float = 0,
+              gamma: Float = 1,
+              learningRate: Float) {
+    self.normalizer = BatchNormalizer(gamma: gamma,
+                                      beta: beta,
+                                      learningRate: learningRate)
+    
     super.init(neurons: neurons, activation: activation)
     self.isNormalized = true
-  }
-  
+  }  
+
   public override func feed(inputs: [Float]) -> [Float] {
     let normalizedInputs = self.normalizer.normalize(activations: inputs)
     let results = super.feed(inputs: normalizedInputs)
