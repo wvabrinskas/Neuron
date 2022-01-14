@@ -167,10 +167,12 @@ The `LobeModel` struct can be created with a simple initializer.
 ```
   public init(nodes: Int,
               activation: Activation = .none,
-              bias: Float = 0) {
+              bias: Float = 0, 
+              normalize: Bool = false) {
     self.nodes = nodes
     self.activation = activation
     self.bias = bias
+    self.normalize = normalize
   }
   ```
 
@@ -185,6 +187,8 @@ Bias
 - the bias to be added at that layer
 - **NOTE: If the layer is of type `.input` the bias will be ignored**
 
+Normalize 
+- batch normalizes the inputs to this layer
 
 ### Modifiers 
 The network also supports adding an output activation modifier such as softmax 

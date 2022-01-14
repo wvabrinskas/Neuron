@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import UIKit
 
 public class BatchNormalizer {
   public var gamma: Float = 1

@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import UIKit
 
 public class NormalizedLobe: Lobe {
   private var normalizer: BatchNormalizer = .init()
