@@ -8,8 +8,8 @@
 import Foundation
 
 public class BatchNormalizer {
-  public var gamma: Float = 1
-  public var beta: Float = 0
+  @TestNaN public var gamma: Float = 1
+  @TestNaN public var beta: Float = 0
   private var movingMean: Float = 0
   private var movingVariance: Float = 0
   private var normalizedActivations: [Float] = []
@@ -56,7 +56,7 @@ public class BatchNormalizer {
     var dGamma: Float = 0
     var outputGradients: [Float] = []
     
-    let n: Float = 1//Float(gradient.count)
+    let n: Float = 1//Float(gradient.count) //set to 1 because that's the outer dimension of the gradient array. This is a 1D array ???
     
     let dxNorm: [Float] = gradient.map { $0 * gamma }
     
