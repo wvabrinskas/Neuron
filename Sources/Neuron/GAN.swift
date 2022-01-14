@@ -76,17 +76,20 @@ public class GAN: Logger {
   public var validateGenerator: (_ output: [Float]) -> Bool
   public var discriminatorNoiseFactor: Float?
   public var lossFunction: GANLossFunction = .minimax
-  public var discriminatorLoss: Float = 0 {
+  
+  @TestNaN public var discriminatorLoss: Float = 0 {
     didSet {
       self.discriminatorLossHistory.append(discriminatorLoss)
     }
   }
-  public var generatorLoss: Float = 0 {
+  
+  @TestNaN public var generatorLoss: Float = 0 {
     didSet {
       self.generatorLossHistory.append(generatorLoss)
     }
   }
-  public var gradientPenalty: Float = 0 {
+  
+  @TestNaN public var gradientPenalty: Float = 0 {
     didSet {
       self.gradientPenaltyHistory.append(gradientPenalty)
     }
