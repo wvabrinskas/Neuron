@@ -15,12 +15,13 @@ public class NormalizedLobe: Lobe {
   
   public init(model: LobeModel,
               learningRate: Float,
+              batchNormLearningRate: Float,
               beta: Float = 0,
               gamma: Float = 1) {
     
     self.normalizer = BatchNormalizer(gamma: gamma,
                                       beta: beta,
-                                      learningRate: learningRate)
+                                      learningRate: batchNormLearningRate)
     
     super.init(model: model, learningRate: learningRate)
     self.isNormalized = true
@@ -31,14 +32,16 @@ public class NormalizedLobe: Lobe {
               activation: Activation = .none,
               beta: Float = 0,
               gamma: Float = 1,
-              learningRate: Float) {
+              learningRate: Float,
+              batchNormLearningRate: Float) {
+    
     self.normalizer = BatchNormalizer(gamma: gamma,
                                       beta: beta,
-                                      learningRate: learningRate)
+                                      learningRate: batchNormLearningRate)
     
     super.init(neurons: neurons, activation: activation)
     self.isNormalized = true
-  }  
+  }
 
   public override func feed(inputs: [Float]) -> [Float] {
     let normalizedInputs = self.normalizer.normalize(activations: inputs)

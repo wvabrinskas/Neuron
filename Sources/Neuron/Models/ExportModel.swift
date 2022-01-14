@@ -44,9 +44,13 @@ public struct Layer: Codable {
 public struct ExportModel: Codable {
   public var layers: [Layer]
   public var learningRate: Float
+  public var batchNormalizerLearningRate: Float?
   
-  public init(layers: [Layer], learningRate: Float) {
+  public init(layers: [Layer],
+              learningRate: Float,
+              batchNormalizerLearningRate: Float? = nil) {
     self.layers = layers
     self.learningRate = learningRate
+    self.batchNormalizerLearningRate = batchNormalizerLearningRate
   }
 }

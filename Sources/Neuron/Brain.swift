@@ -19,6 +19,8 @@ public class Brain: Logger {
   
   public var learningRate: Float
   
+  public var batchNormalizerLearningRate: Float?
+  
   /// The loss function data from training to be exported
   public var loss: [Float] = []
   
@@ -71,6 +73,7 @@ public class Brain: Logger {
   ///   - descent: The gradient descent type
   public init(model: ExportModel? = nil,
               learningRate: Float,
+              batchNormalizerLearningRate: Float? = nil,
               epochs: Int,
               lossFunction: LossFunction = .meanSquareError,
               lossThreshold: Float = 0.001,
@@ -86,6 +89,7 @@ public class Brain: Logger {
     self.descent = descent
     self.model = model
     self.weightConstraints = weightConstraints
+    self.batchNormalizerLearningRate = batchNormalizerLearningRate
   }
   
   public init?(model: PretrainedModel,
@@ -195,7 +199,9 @@ public class Brain: Logger {
       layers.append(layer)
     }
     
-    let model = ExportModel(layers: layers, learningRate: learningRate)
+    let model = ExportModel(layers: layers,
+                            learningRate: learningRate,
+                            batchNormalizerLearningRate: self.batchNormalizerLearningRate)
     return model
   }
   
@@ -212,7 +218,8 @@ public class Brain: Logger {
     
     if model.normalize {
       lobe = NormalizedLobe(model: model,
-                            learningRate: self.learningRate)
+                            learningRate: self.learningRate,
+                            batchNormLearningRate: self.batchNormalizerLearningRate ?? self.learningRate)
     }
     
     self.lobes.append(lobe)
@@ -265,7 +272,8 @@ public class Brain: Logger {
                               activation: layer.activation,
                               beta: layer.beta ?? 0,
                               gamma: layer.gamma ?? 1,
-                              learningRate: model.learningRate)
+                              learningRate: model.learningRate,
+                              batchNormLearningRate: model.batchNormalizerLearningRate ?? model.learningRate)
       }
       
       lobe.layer = layer.type
@@ -276,7 +284,7 @@ public class Brain: Logger {
     self.compiled = true
   }
   
-  /// Connects all the lobes together in the network builing the complete network
+  /// Connects all the lobes together in the network builing the complete network 
   public func compile() {
     guard self.compiled == false else {
       return
