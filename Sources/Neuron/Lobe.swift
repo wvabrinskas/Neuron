@@ -98,9 +98,10 @@ public class Lobe {
     guard self.layer != .input else {
       return []
     }
-    
+
     var deltas: [Float] = []
-    //incoming inputs are the new deltas for the current laye
+    
+    //incoming inputs are the new deltas for the current layer
     self.setLayerDeltas(with: inputs, update: true)
     
     for p in 0..<previousLayerCount {

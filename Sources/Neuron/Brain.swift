@@ -693,12 +693,12 @@ public class Brain: Logger {
     
     let outputLayer = reverse[0]
     
-    //for generative adversarial networks we need to set the backprop deltas manually without calculating
-    if let deltas = deltas {
-      outputLayer.setLayerDeltas(with: deltas, update: true)
-    }
-  
-    var updatingDeltas = outputLayer.deltas()
+//    //for generative adversarial networks we need to set the backprop deltas manually without calculating
+//    if let deltas = deltas {
+//      outputLayer.setLayerDeltas(with: deltas, update: true)
+//    }
+//  
+    var updatingDeltas = deltas ?? outputLayer.deltas()
     
     //subtracting 1 because we dont need to propagate through to the weights in the input layer
     //those will always be 0 since no computation happens at the input layer
