@@ -16,8 +16,8 @@ final class GANTests: XCTestCase {
   
   private let mapRange: ClosedRange<Float> = -1...1
   private let gaussianRange: ClosedRange<Float> = 0...10
-  private let generatorInputs = 1
-  private let wordLength: Int = 1
+  private let generatorInputs = 8
+  private let wordLength: Int = 8
   
   private lazy var generator: Brain = {
     let bias: Float = 0
@@ -26,7 +26,7 @@ final class GANTests: XCTestCase {
                       epochs: 1)
     
     brain.add(.init(nodes: generatorInputs))
-    brain.add(.init(nodes: 10, activation: .leakyRelu, bias: bias))
+    brain.add(.init(nodes: 5, activation: .leakyRelu, bias: bias))
     // brain.add(.init(nodes: 5, activation: .leakyRelu, bias: bias))
     brain.add(.init(nodes: wordLength, activation: .tanh, bias: bias))
     
@@ -43,7 +43,7 @@ final class GANTests: XCTestCase {
                       epochs: 1)
     
     brain.add(.init(nodes: wordLength))
-    brain.add(.init(nodes: 10, activation: .leakyRelu, bias: bias))
+    brain.add(.init(nodes: 5, activation: .leakyRelu, bias: bias))
     // brain.add(.init(nodes: 10, activation: .leakyRelu, bias: bias))
     brain.add(.init(nodes: 1, activation: .sigmoid, bias: bias))
     
@@ -55,7 +55,7 @@ final class GANTests: XCTestCase {
   }()
   
   private lazy var ganBrain: GAN = {
-    let gan = GAN(epochs: 1000,
+    let gan = GAN(epochs: 50,
                   criticTrainPerEpoch: 4,
                   generatorTrainPerEpoch: 1,
                   gradientPenaltyCenter: 1,
@@ -116,10 +116,12 @@ final class GANTests: XCTestCase {
   func testTrainGan() {
     let trainingData = self.trainingDataFromGaussian()
     
+    let expectation = XCTestExpectation(description: "wait for training to succeed at least")
     self.ganBrain.train(data: trainingData, complete:  { success in
-      print(success)
+      expectation.fulfill()
     })
     
+    wait(for: [expectation], timeout: 30)
   }
   
 }
