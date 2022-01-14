@@ -242,9 +242,11 @@ public class GAN: Logger {
           self.discriminatorLoss = averageRealOut - averageFakeOut + penalty
           
           //backprop discrimator
-          dis.backpropagate(with: [averageRealOut])
-          dis.backpropagate(with: [-1 * averageFakeOut]) //want to subtract in backprop calc
-          dis.backpropagate(with: [penalty])
+          dis.backpropagate(with: [discriminatorLoss])
+
+//          dis.backpropagate(with: [averageRealOut])
+//          dis.backpropagate(with: [averageFakeOut]) //want to subtract in backprop calc
+//          dis.backpropagate(with: [penalty])
         }
         
         //adjust weights AFTER calculating gradients
