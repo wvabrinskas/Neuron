@@ -56,7 +56,7 @@ public class BatchNormalizer {
     var dGamma: Float = 0
     var outputGradients: [Float] = []
     
-    let n: Float = Float(gradient.count)
+    let n: Float = 1//Float(gradient.count)
     
     let dxNorm: [Float] = gradient.map { $0 * gamma }
     
