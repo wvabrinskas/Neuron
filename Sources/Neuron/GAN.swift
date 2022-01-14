@@ -317,7 +317,7 @@ public class GAN: Logger {
     let real = self.getRandomBatch(data: realData)
     let fake = self.getGeneratedData(type: .real, noise: noise)
     
-    for i in 0..<self.batchSize {
+   // for i in 0..<self.batchSize {
       dis.zeroGradients()
       
       let epsilon = Float.random(in: 0...1)
@@ -346,15 +346,15 @@ public class GAN: Logger {
         let flattenedGradients = firstLayerGradients.flatMap { $0 }
         gradients.append(flattenedGradients)
       }
-    }
+  //  }
     
     let squared = gradients.map { $0.reduce(into: 0.0) { result, num in
-      return result += pow(num + Float(1e-8), 2)
+      return result += pow(num, 2)
     } }
 
     let center = self.gradientPenaltyCenter
     
-    let penalty = squared.map { pow((sqrt($0) - center), 2) }.reduce(0, +) / (Float(squared.count) + 1e-9)
+    let penalty = squared.map { pow((sqrt($0) - center), 2) }.reduce(0, +) / (Float(squared.count) + 1e-8)
     return penalty
   }
     

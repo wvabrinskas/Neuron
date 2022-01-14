@@ -56,7 +56,7 @@ public class BatchNormalizer {
     var dGamma: Float = 0
     var outputGradients: [Float] = []
     
-    let n: Float = Float(gradient.count) //set to 1 because that's the outer dimension of the gradient array. This is a 1D array ???
+    let n: Float = Float(gradient.count) 
     
     let dxNorm: [Float] = gradient.map { $0 * gamma }
     
