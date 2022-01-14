@@ -36,7 +36,7 @@ public enum Activation: String, CaseIterable, Codable {
       let x = input
       let num = pow(e, x) - pow(e, -x)
       let denom = pow(e, x) + pow(e, -x)
-      print(denom)
+
       return num / (denom + 1e-9)
     case .none:
       return input
