@@ -32,7 +32,7 @@ final class NeuronBaseTests: XCTestCase, BaseTestConfig {
       brain.add(.init(nodes: TestConstants.hidden, activation: .reLu, bias: bias)) //hidden layer
     }
     
-    brain.add(.init(nodes: TestConstants.outputs, bias: bias)) //output layer
+    brain.add(.init(nodes: TestConstants.outputs, activation: .sigmoid, bias: bias)) //output layer //need an activation function here other wise outputs will all be the same
     
     brain.add(modifier: .softmax)
     brain.logLevel = .none

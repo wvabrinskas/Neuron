@@ -10,7 +10,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
   ]
   
   public lazy var brain: Brain? = {
-    let bias: Float = 0.001
+    let bias: Float = 0.0001
     
     let brain = Brain(learningRate: 0.0001,
                       batchNormalizerLearningRate: 0.01,
@@ -20,15 +20,15 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
                       initializer: .xavierNormal,
                       descent: .sgd)
     
-    brain.add(.init(nodes: TestConstants.inputs, bias: bias, normalize: true)) //input layer
+    brain.add(.init(nodes: TestConstants.inputs, activation: .leakyRelu, bias: bias, normalize: true)) //input layer
     
     for _ in 0..<TestConstants.numOfHiddenLayers {
-      brain.add(.init(nodes: TestConstants.hidden, activation: .reLu, bias: bias, normalize: true)) //hidden layer
+      brain.add(.init(nodes: TestConstants.hidden, activation: .leakyRelu, bias: bias, normalize: true)) //hidden layer
     }
     
-    brain.add(.init(nodes: TestConstants.outputs, bias: bias, normalize: true)) //output layer
+    brain.add(.init(nodes: TestConstants.outputs, activation: .reLu, bias: bias, normalize: true)) //output layer
     
-    brain.add(modifier: .softmax)
+    brain.add(modifier: .softmax) //when using softmax activation the output node should use a reLu or leakyRelu activation
     
     brain.add(optimizer: .adam())
     brain.logLevel = .none
