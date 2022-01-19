@@ -39,7 +39,7 @@ public enum Activation: String, CaseIterable, Codable {
 
       return num / (denom + 1e-9)
     case .none:
-      return input
+      return 1.0
     }
   }
   
