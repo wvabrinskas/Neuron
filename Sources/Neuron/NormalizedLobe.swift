@@ -44,9 +44,9 @@ public class NormalizedLobe: Lobe {
   }
 
   public override func feed(inputs: [Float]) -> [Float] {
-    let normalizedInputs = self.normalizer.normalize(activations: inputs)
-    let results = super.feed(inputs: normalizedInputs)
-    return results
+    let activatedResults = super.feed(inputs: inputs)
+    let normalizedResults = self.normalizer.normalize(activations: activatedResults)
+    return normalizedResults
   }
   
   public override func adjustWeights(_ constrain: ClosedRange<Float>? = nil) {
@@ -56,8 +56,8 @@ public class NormalizedLobe: Lobe {
   }
   
   public override func backpropagate(inputs: [Float], previousLayerCount: Int) -> [Float] {
-    let backpropResults = super.backpropagate(inputs: inputs, previousLayerCount: previousLayerCount)
-    let inputs = normalizer.backward(gradient: backpropResults)
-    return inputs
+    let normalizedBackpropInputs = normalizer.backward(gradient: inputs)
+    let backpropResults = super.backpropagate(inputs: normalizedBackpropInputs, previousLayerCount: previousLayerCount)
+    return backpropResults
   }
 }
