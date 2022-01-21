@@ -20,7 +20,7 @@ public enum Optimizer {
   }
 }
 
-public protocol OptimizerFunction: class {
+public protocol OptimizerFunction: AnyObject {
   func run(alpha: Float, weight: Float, gradient: Float) -> Float
 }
 
