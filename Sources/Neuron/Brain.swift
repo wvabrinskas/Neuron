@@ -336,6 +336,7 @@ public class Brain: Logger {
           
           let biasWeight = self.initializer.calculate(m: neuronGroup.count, h: inputNeuronGroup.count)
           
+          neuron.initializeWeights(count: inputNeuronGroup.count)
           neuron.biasWeight = biasWeight
           neuron.inputs = dendrites
         }

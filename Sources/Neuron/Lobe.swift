@@ -46,6 +46,7 @@ public class Lobe {
   /// - Parameter inputs: inputs into the layer
   /// - Returns: the result of the activation functions of the neurons
   public func feed(inputs: [Float]) -> [Float] {
+
     var activatedResults: [Float] = []
     
     if self.layer == .input {
@@ -66,7 +67,24 @@ public class Lobe {
     
     self.neurons.forEach { neuron in
       neuron.addInputs(inputs: inputs)
-      activatedResults.append(neuron.activation())
+    }
+    
+    //calculate dot products for hidden layers
+    let rows = inputs.count
+    let columns = neurons.count
+    var layerWeights = neurons.flatMap { $0.inputs }.compactMap { $0.weight }
+    layerWeights.transpose(columns: columns, rows: rows)
+    
+    let dotProducts = inputs.multiDotProduct(B: layerWeights,
+                                             columns: Int32(columns),
+                                             rows: Int32(rows))
+    
+    for i in 0..<dotProducts.count {
+      let product = dotProducts[i]
+      let neuron = neurons[i]
+      
+      let result = neuron.applyActivation(sum: product)
+      activatedResults.append(result)
     }
 
     return activatedResults

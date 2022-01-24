@@ -8,6 +8,7 @@
 
 import Foundation
 import Accelerate
+import NumSwift
 
 public class Neuron {
   
@@ -42,20 +43,28 @@ public class Neuron {
     self.optimizer = optimizer?.get()
   }
   
+  /// Initializes the weights at this neuron using the given initializer
+  /// - Parameter count: Number of weights to generate
+  /// - Parameter initializer: The initialier to generate the weights
+  public func initializeWeights(count: Int, initializer: Initializers = .xavierNormal) {
+    if self.inputs.count == 0 {
+      
+      var newInputs: [NeuroTransmitter] = []
+      for _ in 0..<count {
+        let t = NeuroTransmitter(input: 0)
+        let weight = initializer.calculate(m: count, h: count)
+        t.weight = weight
+        newInputs.append(t)
+      }
+
+      self.inputs = newInputs
+    }
+  }
+  
   /// Replaces all the inputs connected to this neuron with new ones
   /// - Parameter inputs: Input array as [Float] to replace inputs with
   /// - Parameter initializer: The initialier to generate the weights
   public func addInputs(inputs: [Float], initializer: Initializers = .xavierNormal) {
-    if self.inputs.count == 0 {
-      
-      self.inputs = inputs.map({ (value) -> NeuroTransmitter in
-        let t = NeuroTransmitter(input: value)
-        let weight = initializer.calculate(m: inputs.count, h: inputs.count)
-        t.weight = weight
-        return t
-      })
-    }
-    
     guard inputs.count == self.inputs.count else {
       print("Error: Can not replace inputs of different size")
       return
@@ -69,6 +78,19 @@ public class Neuron {
   public func derivative() -> Float {
     return activationDerivative
   }
+  
+  /// Applies the activation of a given sum.
+  /// - Parameter sum: Dot product of weights * inputs
+  /// - Returns: the activated sum given by the activation function at this neuron
+  public func applyActivation(sum: Float) -> Float {
+    var sum = sum
+    sum += bias * self.biasWeight
+  
+    let out = self.activationType.activate(input: sum)
+    self.activationDerivative = self.activationType.derivative(input: sum)
+    return out
+  }
+  
   /// Gets the result of the activation function at this node. If the layer type is of input
   /// this will return the first input in the array of inputs
   /// - Returns: The result of the activation function at this node
@@ -89,13 +111,8 @@ public class Neuron {
     for i in 0..<self.inputs.count {
       sum += self.inputs[i].weight * self.inputs[i].inputValue
     }
-  
-    sum += bias * self.biasWeight
-  
-    let out = self.activationType.activate(input: sum)
-    self.activationDerivative = self.activationType.derivative(input: sum)
-
-    return out
+    
+    return self.applyActivation(sum: sum)
   }
   
   /// Replaces the Nucleus object describing this Neuron
@@ -114,7 +131,8 @@ public class Neuron {
   }
   
   public func gradients() -> [Float] {
-    return self.inputs.map { $0.inputValue * (delta ?? 0) * self.derivative() }
+    let deltaTimeDeriv = self.derivative() * (delta ?? 0)
+    return self.inputs.map { $0.inputValue } * deltaTimeDeriv
   }
   
   /// Adjusts the weights of all inputs
