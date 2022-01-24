@@ -9,6 +9,15 @@
           "revision": "0eec8aa2278ee03954226bc1a3173038888e79b3",
           "version": "1.0.6"
         }
+      },
+      {
+        "package": "NumSwift",
+        "repositoryURL": "https://github.com/wvabrinskas/NumSwift.git",
+        "state": {
+          "branch": null,
+          "revision": "ac6169785c14152255aa4e33f4eef798327cc722",
+          "version": "1.0.0"
+        }
       }
     ]
   },

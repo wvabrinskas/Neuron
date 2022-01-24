@@ -10,9 +10,9 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
   ]
   
   public lazy var brain: Brain? = {
-    let bias: Float = 0.0001
+    let bias: Float = 0.001
     
-    let brain = Brain(learningRate: 0.0001,
+    let brain = Brain(learningRate: 0.001,
                       batchNormalizerLearningRate: 0.01,
                       epochs: 200,
                       lossFunction: .crossEntropy,
@@ -20,13 +20,13 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
                       initializer: .xavierNormal,
                       descent: .sgd)
     
-    brain.add(.init(nodes: TestConstants.inputs, activation: .leakyRelu, bias: bias, normalize: true)) //input layer
+    brain.add(.init(nodes: TestConstants.inputs, activation: .leakyRelu, bias: bias, normalize: false)) //input layer
     
     for _ in 0..<TestConstants.numOfHiddenLayers {
       brain.add(.init(nodes: TestConstants.hidden, activation: .leakyRelu, bias: bias, normalize: true)) //hidden layer
     }
     
-    brain.add(.init(nodes: TestConstants.outputs, activation: .reLu, bias: bias, normalize: true)) //output layer
+    brain.add(.init(nodes: TestConstants.outputs, activation: .reLu, bias: bias, normalize: false)) //output layer
     
     brain.add(modifier: .softmax) //when using softmax activation the output node should use a reLu or leakyRelu activation
     
@@ -88,7 +88,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     
     print("Training....")
     
-    brain.train(data: self.trainingData, validation: self.validationData) { (complete) in
+    brain.train(data: self.trainingData, validation: self.validationData, complete:  { (complete) in
       let lastFive = brain.loss[brain.loss.count - 5..<brain.loss.count]
       var sum: Float = 0
       lastFive.forEach { (last) in
@@ -96,7 +96,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
       }
       let average = sum / 5
       XCTAssertTrue(average <= TestConstants.testingLossThreshold, "Network did not learn, average loss was \(average)")
-    }
+    })
     
     for i in 0..<ColorType.allCases.count {
       let color = ColorType.allCases[i]
@@ -112,43 +112,6 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     }
   }
   
-//  func testXportLoss() {
-//    XCTAssertTrue(brain != nil, "Brain is empty")
-//    
-//    guard let brain = brain else {
-//      return
-//    }
-//    
-//    print("Training for loss export....")
-//    
-//    brain.train(data: self.trainingData, validation: self.validationData) { (complete) in
-//      let lastFive = brain.loss[brain.loss.count - 5..<brain.loss.count]
-//      var sum: Float = 0
-//      lastFive.forEach { (last) in
-//        sum += last
-//      }
-//      let average = sum / 5
-//      XCTAssertTrue(average <= TestConstants.testingLossThreshold, "Network did not learn, average loss was \(average)")
-//    }
-//    
-//    for i in 0..<ColorType.allCases.count {
-//      let color = ColorType.allCases[i]
-//      
-//      let out = brain.feed(input: color.color())
-//      print("Guess \(color.string): \(out)")
-//      
-//      XCTAssert(out.max() != nil, "No max value. Training failed")
-//
-//      if let max = out.max(), let first = out.firstIndex(of: max) {
-//        XCTAssertTrue(first == i, "Color \(color.string) could not be identified")
-//      }
-//    }
-//    
-//    let url = brain.exportLoss()
-//    print("📉 loss: \(url)")
-//    XCTAssertTrue(url != nil, "Could not build exported model")
-//  }
-  
   //executes in alphabetical order
   func testXport() {
     XCTAssertTrue(brain != nil, "Brain is empty")
@@ -159,7 +122,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
 
     print("Training for export....")
     
-    brain.train(data: self.trainingData, validation: self.validationData) { (complete) in
+    brain.train(data: self.trainingData, validation: self.validationData, complete:  { (complete) in
       let lastFive = brain.loss[brain.loss.count - 5..<brain.loss.count]
       var sum: Float = 0
       lastFive.forEach { (last) in
@@ -167,7 +130,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
       }
       let average = sum / 5
       XCTAssertTrue(average <= TestConstants.testingLossThreshold, "Network did not learn, average loss was \(average)")
-    }
+    })
     
     for i in 0..<ColorType.allCases.count {
       let color = ColorType.allCases[i]
@@ -183,7 +146,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     }
     
     let url = brain.exportModelURL()
-    print("📄 model: \(url)")
+    print("📄 model: \(String(describing: url))")
     XCTAssertTrue(url != nil, "Could not build exported model")
   }
 }

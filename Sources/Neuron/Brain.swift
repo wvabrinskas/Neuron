@@ -9,6 +9,7 @@
 import Foundation
 import Logger
 import GameplayKit
+import NumSwift
 
 public class Brain: Logger {
   /// The verbosity of the printed logs
@@ -683,7 +684,7 @@ public class Brain: Logger {
       
       self.log(type: .message,
                priority: .high,
-               message: "out: \(i), raw: \(outputNeuron.activation()) predicted: \(predicted), actual: \(target) delta: \(outputNeuron.delta)")
+               message: "out: \(i), raw: \(outputNeuron.activation()) predicted: \(predicted), actual: \(target) delta: \(String(describing: outputNeuron.delta))")
       
     }
     

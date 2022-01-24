@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import NumSwift
 
 public class BatchNormalizer {
   @TestNaN public var gamma: Float = 1
@@ -55,36 +56,23 @@ public class BatchNormalizer {
       return gradient
     }
     
-    var dGamma: Float = 0
     var outputGradients: [Float] = []
     
     let n: Float = Float(gradient.count)
     
-    let dxNorm: [Float] = gradient.map { $0 * gamma }
+    let dxNorm: [Float] = gradient * gamma
     
-    var dxNormTimesXNormSum: Float = 0
-    
-    for i in 0..<normalizedActivations.count {
-      let xNormValue = normalizedActivations[i]
-      let dxNormValue = dxNorm[i]
-      dxNormTimesXNormSum += xNormValue * dxNormValue
-    }
-            
+    let combineXandDxNorm = normalizedActivations * dxNorm
+    let dxNormTimesXNormSum: Float = combineXandDxNorm.sum
+ 
     let dxNormSum = dxNorm.reduce(0, +)
     let std = standardDeviation
-
-    for gIndex in 0..<gradient.count {
+    
+    let dGamma = (gradient * normalizedActivations).sum
+    
+    let dx = ((1 / n) / std) * ((dxNorm * n) - (dxNormSum - normalizedActivations) * dxNormTimesXNormSum)
       
-      let xNorm = normalizedActivations[gIndex]
-      let dxNorm = dxNorm[gIndex]
-      
-      let grad = gradient[gIndex]
-
-      dGamma += grad * xNorm
-          
-      let dx = ((1 / n) / std) * (n * dxNorm - dxNormSum - xNorm * dxNormTimesXNormSum)
-      outputGradients.append(dx)
-    }
+    outputGradients = dx
     
     gamma -= learningRate * dGamma
     beta -= learningRate * dBeta
