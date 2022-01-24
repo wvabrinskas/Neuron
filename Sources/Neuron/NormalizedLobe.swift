@@ -49,12 +49,6 @@ public class NormalizedLobe: Lobe {
     return normalizedResults
   }
   
-  public override func adjustWeights(_ constrain: ClosedRange<Float>? = nil) {
-    for neuron in neurons {
-      neuron.adjustWeights(constrain, normalizer: self.normalizer)
-    }
-  }
-  
   public override func backpropagate(inputs: [Float], previousLayerCount: Int) -> [Float] {
     let normalizedBackpropInputs = normalizer.backward(gradient: inputs)
     let backpropResults = super.backpropagate(inputs: normalizedBackpropInputs, previousLayerCount: previousLayerCount)

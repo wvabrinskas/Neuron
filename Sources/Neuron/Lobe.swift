@@ -140,9 +140,16 @@ public class Lobe {
   
   /// Adjusts all the weights in all the neurons in this Lobe
   public func adjustWeights(_ constrain: ClosedRange<Float>? = nil) {
-    for neuron in neurons {
+    let group = DispatchGroup()
+    
+    DispatchQueue.concurrentPerform(iterations: neurons.count) { i in
+      group.enter()
+      let neuron = neurons[i]
       neuron.adjustWeights(constrain)
+      group.leave()
     }
+    
+    group.wait()
   }
   
   /// Clear all the neurons in this Lobe
