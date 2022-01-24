@@ -19,6 +19,7 @@ extension Array where Element: Comparable {
   }
 }
 
+
 final class NeuronPretrainedClassificationTests: XCTestCase, BaseTestConfig {
 
   static var allTests = [
