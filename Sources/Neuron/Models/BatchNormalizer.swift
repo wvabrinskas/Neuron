@@ -70,7 +70,8 @@ public class BatchNormalizer {
     
     let dGamma = (gradient * normalizedActivations).sum
     
-    let dx = ((1 / n) / std) * ((dxNorm * n) - (dxNormSum - normalizedActivations) * dxNormTimesXNormSum)
+    let t = dxNorm * n
+    let dx = (t - (dxNormSum - normalizedActivations) * dxNormTimesXNormSum) * ((1 / n) / std)
       
     outputGradients = dx
     
