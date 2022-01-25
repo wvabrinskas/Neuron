@@ -151,12 +151,8 @@ public class Neuron {
     biasWeight -= self.learningRate * delta
     
     let gradients = self.gradients()
-
-    let group = DispatchGroup()
     
-    DispatchQueue.concurrentPerform(iterations: gradients.count) { i in
-      group.enter()
-      
+    for i in 0..<gradients.count {
       let gradient = gradients[i]
       
       if let optim = self.optimizer {
@@ -173,11 +169,7 @@ public class Neuron {
         let maxBound = constrain.upperBound
         self.weights[i] = min(maxBound, max(minBound, self.weights[i]))
       }
-      
-      group.leave()
     }
-    
-    group.wait()
   }
 }
 
