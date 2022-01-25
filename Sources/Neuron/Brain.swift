@@ -29,7 +29,7 @@ public class Brain: Logger {
   public var lobes: [Lobe] = []
   
   /// If the brain object has been compiled and linked properly
-  public var compiled: Bool = false
+  private(set) var compiled: Bool = false
   
   /// The function to use to calculate the loss of the network
   private var lossFunction: LossFunction
@@ -602,9 +602,8 @@ public class Brain: Logger {
   }
   
   /// Get the result of the last layer of the network
-  /// - Parameter ranked: whether the network should sort the output by highest first
   /// - Returns: Array of floats resulting from the activation functions of the last layer
-  private func get(ranked: Bool = false) -> [Float] {
+  private func get() -> [Float] {
     
     var outputs: [Float] = []
     
@@ -625,7 +624,7 @@ public class Brain: Logger {
       out = modOut
     }
     
-    return ranked ? out.sorted(by: { $0 > $1 }) : out
+    return out
   }
   
   /// Get first layer of neurons

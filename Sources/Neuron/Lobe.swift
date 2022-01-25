@@ -49,6 +49,7 @@ public class Lobe {
 
     var activatedResults: [Float] = []
     
+    //each input neuron gets the value directly mapped 1 : 1
     if self.layer == .input {
       guard inputs.count == self.neurons.count else {
         print("error")

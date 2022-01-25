@@ -20,13 +20,13 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
                       initializer: .xavierNormal,
                       descent: .sgd)
     
-    brain.add(.init(nodes: TestConstants.inputs, activation: .leakyRelu, bias: bias, normalize: false)) //input layer
+    brain.add(.init(nodes: TestConstants.inputs, normalize: false)) //input layer no activation. It'll be ignored anyway
     
     for _ in 0..<TestConstants.numOfHiddenLayers {
       brain.add(.init(nodes: TestConstants.hidden, activation: .leakyRelu, bias: bias, normalize: true)) //hidden layer
     }
     
-    brain.add(.init(nodes: TestConstants.outputs, activation: .reLu, bias: bias, normalize: false)) //output layer
+    brain.add(.init(nodes: TestConstants.outputs, activation: .leakyRelu, bias: bias, normalize: false)) //output layer
     
     brain.add(modifier: .softmax) //when using softmax activation the output node should use a reLu or leakyRelu activation
     
@@ -119,31 +119,8 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     guard let brain = brain else {
       return
     }
-
-    print("Training for export....")
     
-    brain.train(data: self.trainingData, validation: self.validationData, complete:  { (complete) in
-      let lastFive = brain.loss[brain.loss.count - 5..<brain.loss.count]
-      var sum: Float = 0
-      lastFive.forEach { (last) in
-        sum += last
-      }
-      let average = sum / 5
-      XCTAssertTrue(average <= TestConstants.testingLossThreshold, "Network did not learn, average loss was \(average)")
-    })
-    
-    for i in 0..<ColorType.allCases.count {
-      let color = ColorType.allCases[i]
-      
-      let out = brain.feed(input: color.color())
-      print("Guess \(color.string): \(out)")
-      
-      XCTAssert(out.max() != nil, "No max value. Training failed")
-
-      if let max = out.max(), let first = out.firstIndex(of: max) {
-        XCTAssertTrue(first == i, "Color \(color.string) could not be identified")
-      }
-    }
+    self.testTraining()
     
     let url = brain.exportModelURL()
     print("📄 model: \(String(describing: url))")

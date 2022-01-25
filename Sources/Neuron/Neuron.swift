@@ -97,11 +97,10 @@ public class Neuron {
   public func activation() -> Float {
     //if input layer just pass the value along to hidden layer
     if self.layer == .input {
-      guard self.inputs.count > 0 else {
+      guard let input = self.inputs.first?.inputValue else {
         return 0
       }
       
-      let input = self.inputs[0].inputValue
       self.activationDerivative = self.activationType.derivative(input: input)
       return input
     }

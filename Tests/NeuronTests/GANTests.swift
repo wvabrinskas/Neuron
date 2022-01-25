@@ -32,7 +32,6 @@ final class GANTests: XCTestCase {
     
     brain.logLevel = .none
     brain.add(optimizer: .adam())
-    brain.compile() //build network
     
     return brain
   }()
@@ -49,7 +48,6 @@ final class GANTests: XCTestCase {
     
     brain.logLevel = .none
     brain.add(optimizer: .adam())
-    brain.compile() //build network
     
     return brain
   }()
@@ -61,8 +59,8 @@ final class GANTests: XCTestCase {
                   gradientPenaltyCenter: 1,
                   batchSize: 10)
     
-    gan.add(generator: self.generator)
-    gan.add(discriminator: self.discriminator)
+    gan.add(generator: self.generator) //compiles
+    gan.add(discriminator: self.discriminator) //compiles
     
     gan.logLevel = .none
     gan.lossFunction = .wasserstein
