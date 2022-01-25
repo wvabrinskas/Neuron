@@ -59,7 +59,7 @@ public class Lobe {
       for i in 0..<inputs.count {
         let input = inputs[i]
         let neuron = neurons[i]
-        neuron.addInputs(inputs: [input])
+        neuron.replaceInputs(inputs: [input])
         activatedResults.append(neuron.activation())
       }
       
@@ -67,13 +67,13 @@ public class Lobe {
     }
     
     self.neurons.forEach { neuron in
-      neuron.addInputs(inputs: inputs)
+      neuron.replaceInputs(inputs: inputs)
     }
     
     //calculate dot products for hidden layers
     let rows = inputs.count
     let columns = neurons.count
-    var layerWeights = neurons.flatMap { $0.inputs }.compactMap { $0.weight }
+    var layerWeights = neurons.flatMap { $0.weights }
     layerWeights.transpose(columns: columns, rows: rows)
     
     let dotProducts = inputs.multiDotProduct(B: layerWeights,
@@ -125,10 +125,10 @@ public class Lobe {
       
       for n in 0..<neurons.count {
         let neuron = neurons[n]
-        let neuronInput = neuron.inputs[p]
+        let inputWeight = neuron.weights[p]
         let neuronDelta = inputs[n]
         
-        let currentNeuronDelta = neuronDelta * neuronInput.weight
+        let currentNeuronDelta = neuronDelta * inputWeight
         
         delta += currentNeuronDelta
       }

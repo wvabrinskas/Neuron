@@ -11,7 +11,7 @@ import XCTest
 
 final class NeuronBaseTests: XCTestCase, BaseTestConfig {
   static var allTests = [
-    ("testNeuronConnectionObjects", testNeuronConnectionObjects),
+    ("testWeightsAndInputsCountIsEqual", testWeightsAndInputsCountIsEqual),
     ("testWeightNumbers", testWeightNumbers),
     ("testNumberOfLobesMatches", testNumberOfLobesMatches),
     ("testFeedIsntSame", testFeedIsntSame)
@@ -86,8 +86,8 @@ final class NeuronBaseTests: XCTestCase, BaseTestConfig {
     
   }
   
-  //checks to see if the neurontransmitter objects are unique
-  func testNeuronConnectionObjects() {
+  
+  func testWeightsAndInputsCountIsEqual() {
     XCTAssertTrue(brain != nil, "Brain is empty")
     
     guard let brain = brain else {
@@ -96,10 +96,7 @@ final class NeuronBaseTests: XCTestCase, BaseTestConfig {
     
     brain.lobes.forEach { (lobe) in
       lobe.neurons.forEach { (neuron) in
-        neuron.inputs.forEach { (connection) in
-          let count = neuron.inputs.filter({ $0 == connection })
-          XCTAssertTrue(count.count == 1, "Multiples of the same NeuroTransmitter")
-        }
+        XCTAssertTrue(neuron.inputValues.count == neuron.weights.count, "Inputs and weights out of sync")
       }
     }
   }

@@ -131,11 +131,13 @@ public class Brain: Logger {
       lobe.neurons.forEach { (n) in
         var j = 0
         var newNodeWeights: [Float] = []
-        n.inputs.forEach { (input) in
-          input.weight = weights[i][j]
-          newNodeWeights.append(input.weight)
+        n.replaceWeights(weights: weights[i])
+        
+        n.weights.forEach { weight in
+          newNodeWeights.append(weight)
           j += 1
         }
+        
         newWeights.append(newNodeWeights)
         i += 1
       }
@@ -165,7 +167,7 @@ public class Brain: Logger {
       var biasWeights: [Float] = []
       
       lobe.neurons.forEach { (neuron) in
-        weights.append(neuron.inputs.map({ $0.weight }))
+        weights.append(neuron.weights)
         biases.append(neuron.bias)
         biasWeights.append(neuron.biasWeight)
       }
@@ -314,8 +316,7 @@ public class Brain: Logger {
         neuronGroup.forEach { (neuron) in
           neuron.layer = layerType
           
-          var dendrites: [NeuroTransmitter] = []
-          
+          var inputs: [Float] = []
           var weights: [Float] = []
           
           for _ in 0..<inputNeuronGroup.count {
@@ -327,8 +328,7 @@ public class Brain: Logger {
               weight = min(maxBound, max(minBound, weight))
             }
             
-            let transmitter = NeuroTransmitter(weight: weight)
-            dendrites.append(transmitter)
+            inputs.append(0)
             weights.append(weight)
           }
           
@@ -338,7 +338,8 @@ public class Brain: Logger {
           
           neuron.initializeWeights(count: inputNeuronGroup.count)
           neuron.biasWeight = biasWeight
-          neuron.inputs = dendrites
+          neuron.replaceInputs(inputs: inputs)
+          neuron.replaceWeights(weights: weights)
         }
         
       } else {
@@ -348,11 +349,8 @@ public class Brain: Logger {
         self.lobes[i].layer = .input
         
         for n in 0..<neuronGroup.count {
-          
-          let transmitter = NeuroTransmitter(weight: 0)
-          
           //first layer only has one input per input value
-          neuronGroup[n].inputs = [transmitter]
+          neuronGroup[n].add(input: 0, weight: 0)
           neuronGroup[n].layer = .input
           
           self.layerWeights.append([0])
