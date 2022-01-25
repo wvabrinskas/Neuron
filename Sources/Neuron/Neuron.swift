@@ -13,7 +13,6 @@ import NumSwift
 public class Neuron {
   
   /// All inputs connected to this Neuron object
-  public var inputs: [NeuroTransmitter] = []
   private(set) var inputValues: [Float] = []
   private(set) var weights: [Float] = []
   
