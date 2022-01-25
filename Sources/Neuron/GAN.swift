@@ -13,7 +13,7 @@ public enum GANType {
 }
 
 public enum GANTrainingType: String {
-  case real, fake, generator
+  case real, fake
 
 }
 
@@ -25,7 +25,7 @@ public enum GANLossFunction {
     switch self {
     case .minimax:
       switch type {
-      case .real, .generator:
+      case .real:
         return 1.0
       case .fake:
         return 0
@@ -35,7 +35,7 @@ public enum GANLossFunction {
       switch type {
       case .real:
         return 1
-      case .fake, .generator:
+      case .fake:
         return -1
       }
     }
@@ -47,8 +47,6 @@ public enum GANLossFunction {
       switch type {
       case .fake:
         return log(1 - value)
-      case .generator:
-        return log(value)
       case .real:
         return log(value)
       }
@@ -247,10 +245,6 @@ public class GAN: Logger {
           
           //backprop discrimator
           dis.backpropagate(with: [discriminatorLoss])
-
-//          dis.backpropagate(with: [averageRealOut])
-//          dis.backpropagate(with: [averageFakeOut]) //want to subtract in backprop calc
-//          dis.backpropagate(with: [penalty])
         }
         
         //adjust weights AFTER calculating gradients
@@ -264,8 +258,8 @@ public class GAN: Logger {
         dis.zeroGradients()
 
         //train generator on newly trained discriminator
-        let realFakeData = self.getGeneratedData(type: .generator, noise: noise)
-        let genOutput = self.trainOn(data: realFakeData, type: .generator)
+        let realFakeData = self.getGeneratedData(type: .real, noise: noise)
+        let genOutput = self.trainOn(data: realFakeData, type: .real)
         
         if self.lossFunction == .minimax {
           let sumOfGenLoss = genOutput.loss.reduce(0, +)

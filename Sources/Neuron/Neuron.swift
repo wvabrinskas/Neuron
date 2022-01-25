@@ -87,7 +87,6 @@ public class Neuron {
     }
 
     self.inputValues = inputs
-        
   }
   
   public func derivative() -> Float {
