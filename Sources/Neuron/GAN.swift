@@ -232,7 +232,7 @@ public class GAN: Logger {
           
         } else if self.lossFunction == .wasserstein {
           
-          let averageRealOut = (realOutput.loss.sum / Float(self.batchSize))
+          let averageRealOut = -1 * (realOutput.loss.sum / Float(self.batchSize))
           let averageFakeOut = (fakeOutput.loss.sum / Float(self.batchSize))
           
           let lambda: Float = gradientPenaltyLambda
@@ -240,8 +240,7 @@ public class GAN: Logger {
           
           self.gradientPenalty = penalty
           
-          //real - fake because we multiplied by negative one above. had we not we would have to reverse this equation
-          self.discriminatorLoss = (-1 * averageRealOut) + averageFakeOut + penalty
+          self.discriminatorLoss = averageRealOut + averageFakeOut + penalty
           
           //backprop discrimator
           dis.backpropagate(with: [discriminatorLoss])
