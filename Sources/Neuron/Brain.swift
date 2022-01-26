@@ -603,12 +603,11 @@ public class Brain: Logger {
   /// - Returns: Array of floats resulting from the activation functions of the last layer
   private func get() -> [Float] {
     
-    var outputs: [Float] = []
-    
-    self.outputLayer().forEach { (neuron) in
-      outputs.append(neuron.activation())
+    guard let outputLayer = self.lobes.last else {
+      return []
     }
     
+    let outputs = outputLayer.getActivated()
     var out = outputs
     
     if let mod = self.outputModifier {
@@ -679,11 +678,6 @@ public class Brain: Logger {
       
       outputNeuron.delta = delta
       outputErrors.append(delta)
-      
-      self.log(type: .message,
-               priority: .high,
-               message: "out: \(i), raw: \(outputNeuron.activation()) predicted: \(predicted), actual: \(target) delta: \(String(describing: outputNeuron.delta))")
-      
     }
     
     self.descents.append(outputErrors)

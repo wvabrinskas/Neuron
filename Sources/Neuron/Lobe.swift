@@ -46,11 +46,12 @@ public class Lobe {
   /// - Parameter inputs: inputs into the layer
   /// - Returns: the result of the activation functions of the neurons
   public func feed(inputs: [Float]) -> [Float] {
-
-    var activatedResults: [Float] = []
-    
     //each input neuron gets the value directly mapped 1 : 1
+    //not fully connected so each neuron has a different input
+    //can not use getActivated function for this
     if self.layer == .input {
+      var activatedResults: [Float] = []
+
       guard inputs.count == self.neurons.count else {
         print("error")
         return []
@@ -60,25 +61,44 @@ public class Lobe {
         let input = inputs[i]
         let neuron = neurons[i]
         neuron.replaceInputs(inputs: [input])
-        activatedResults.append(neuron.activation())
       }
       
-      return activatedResults
+      return inputs
     }
-    
-    self.neurons.forEach { neuron in
-      neuron.replaceInputs(inputs: inputs)
-    }
+  
+    return getActivated(replacingInputs: inputs)
+  }
+  
+  /// Gets the activated results for the current inputs or the passed in inputs at this layer
+  /// - Parameter inputs: Optional inputs to replace at this layer. If this is left out this layer will activate against the currently set inputs
+  /// - Returns: The activated results at this layer
+  public func getActivated(replacingInputs inputs: [Float] = []) -> [Float] {
     
     //calculate dot products for hidden layers
-    let rows = inputs.count
+    guard let existingNeuronInputs = self.neurons.first?.inputValues else {
+      return []
+    }
+    
+    var inputsToUse = existingNeuronInputs
+    
+    if inputs.count > 0 {
+      inputsToUse = inputs
+      
+      self.neurons.forEach { neuron in
+        neuron.replaceInputs(inputs: inputs)
+      }
+    }
+    
+    var activatedResults: [Float] = []
+        
+    let rows = inputsToUse.count
     let columns = neurons.count
     var layerWeights = neurons.flatMap { $0.weights }
     layerWeights.transpose(columns: columns, rows: rows)
     
-    let dotProducts = inputs.multiDotProduct(B: layerWeights,
-                                             columns: Int32(columns),
-                                             rows: Int32(rows))
+    let dotProducts = inputsToUse.multiDotProduct(B: layerWeights,
+                                                  columns: Int32(columns),
+                                                  rows: Int32(rows))
     
     for i in 0..<dotProducts.count {
       let product = dotProducts[i]

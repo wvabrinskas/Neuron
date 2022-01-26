@@ -213,8 +213,8 @@ public class GAN: Logger {
         let fakeOutput = self.trainOn(data: fakeDataBatch, type: .fake)
         
         if self.lossFunction == .minimax {
-          let realLoss = realOutput.loss.reduce(0, +) / Float(self.batchSize)
-          let fakeLoss = fakeOutput.loss.reduce(0, +) / Float(self.batchSize)
+          let realLoss = realOutput.loss.sum / Float(self.batchSize)
+          let fakeLoss = fakeOutput.loss.sum / Float(self.batchSize)
           
           //backprop discrimator
           dis.backpropagate(with: [realLoss])
@@ -232,8 +232,8 @@ public class GAN: Logger {
           
         } else if self.lossFunction == .wasserstein {
           
-          let averageRealOut = -1 * (realOutput.loss.reduce(0, +) / Float(self.batchSize))
-          let averageFakeOut = -1 * (fakeOutput.loss.reduce(0, +) / Float(self.batchSize))
+          let averageRealOut = -1 * (realOutput.loss.sum / Float(self.batchSize))
+          let averageFakeOut = -1 * (fakeOutput.loss.sum / Float(self.batchSize))
           
           let lambda: Float = gradientPenaltyLambda
           let penalty = lambda * self.gradientPenalty(realData: realData)
@@ -262,7 +262,7 @@ public class GAN: Logger {
         let genOutput = self.trainOn(data: realFakeData, type: .real)
         
         if self.lossFunction == .minimax {
-          let sumOfGenLoss = genOutput.loss.reduce(0, +)
+          let sumOfGenLoss = genOutput.loss.sum
           
           //we want to maximize lossfunction log(D(G(z))
           //negative because the Neuron only supports MINIMIZING gradients
@@ -271,7 +271,7 @@ public class GAN: Logger {
           self.generatorLoss = genLoss
           
         } else if self.lossFunction == .wasserstein {
-          let sumOfGenLoss = genOutput.loss.reduce(0, +)
+          let sumOfGenLoss = genOutput.loss.sum
           let averageGenLoss = sumOfGenLoss / Float(self.batchSize)
           
           self.generatorLoss = averageGenLoss
@@ -343,13 +343,11 @@ public class GAN: Logger {
       }
     }
     
-    let squared = gradients.map { $0.reduce(into: 0.0) { result, num in
-      return result += pow(num, 2)
-    } }
+    let squared = gradients.map { $0.sumOfSquares }
 
     let center = self.gradientPenaltyCenter
     
-    let penalty = squared.map { pow((sqrt($0) - center), 2) }.reduce(0, +) / (Float(squared.count) + 1e-8)
+    let penalty = squared.map { pow((sqrt($0) - center), 2) }.sum / (Float(squared.count) + 1e-8)
     return penalty
   }
     

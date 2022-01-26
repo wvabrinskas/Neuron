@@ -29,10 +29,11 @@ public class BatchNormalizer {
     
     let total = Float(activations.count)
     
-    let mean = activations.reduce(0, +) / total
+    let mean = activations.sum / total
     
-    let variance = activations.map { pow($0 - mean, 2) }.reduce(0, +) / total
-        
+    let diffVar = activations - mean
+    let variance = diffVar.sumOfSquares / total
+            
     let std = sqrt(variance + e)
       
     standardDeviation = std
@@ -43,14 +44,14 @@ public class BatchNormalizer {
     
     movingMean = momentum * movingMean + (1 - momentum) * mean
     movingVariance = momentum * movingVariance + (1 - movingVariance) * variance
-    
-    let normalizedScaledAndShifted = normalized.map { gamma * $0 + beta }
+        
+    let normalizedScaledAndShifted = normalized * (gamma + beta)
     
     return normalizedScaledAndShifted
   }
   
   public func backward(gradient: [Float]) -> [Float] {
-    let dBeta = gradient.reduce(0, +)
+    let dBeta = gradient.sum
     
     guard gradient.count == normalizedActivations.count else {
       return gradient
@@ -65,7 +66,7 @@ public class BatchNormalizer {
     let combineXandDxNorm = normalizedActivations * dxNorm
     let dxNormTimesXNormSum: Float = combineXandDxNorm.sum
  
-    let dxNormSum = dxNorm.reduce(0, +)
+    let dxNormSum = dxNorm.sum
     let std = standardDeviation
     
     let dGamma = (gradient * normalizedActivations).sum

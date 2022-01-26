@@ -105,25 +105,6 @@ public class Neuron {
     return out
   }
   
-  /// Gets the result of the activation function at this node. If the layer type is of input
-  /// this will return the first input in the array of inputs
-  /// - Returns: The result of the activation function at this node
-  public func activation() -> Float {
-    //if input layer just pass the value along to hidden layer
-    if self.layer == .input {
-      guard let input = self.inputValues.first else {
-        return 0
-      }
-      
-      self.activationDerivative = self.activationType.derivative(input: input)
-      return input
-    }
-    
-    let sum = self.inputValues.dot(self.weights)
-    
-    return self.applyActivation(sum: sum)
-  }
-  
   /// Replaces the Nucleus object describing this Neuron
   /// - Parameter nucleus: Nucleus object to update with
   public func updateNucleus(nucleus: Nucleus) {
