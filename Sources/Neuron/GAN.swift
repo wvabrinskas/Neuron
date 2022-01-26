@@ -241,7 +241,7 @@ public class GAN: Logger {
           self.gradientPenalty = penalty
           
           //real - fake because we multiplied by negative one above. had we not we would have to reverse this equation
-          self.discriminatorLoss = -1 * (averageRealOut - averageFakeOut + penalty)
+          self.discriminatorLoss = (averageRealOut - averageFakeOut) + penalty
           
           //backprop discrimator
           dis.backpropagate(with: [discriminatorLoss])
