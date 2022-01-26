@@ -121,7 +121,7 @@
         ]
       ],
       "normalize" : false,
-      "type" : "output",  
+      "type" : "output",
       "nodes" : 3,
       "activation" : "leakyRelu"
     }
