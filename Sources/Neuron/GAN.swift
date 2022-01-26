@@ -274,7 +274,7 @@ public class GAN: Logger {
           let sumOfGenLoss = genOutput.loss.sum
           let averageGenLoss = sumOfGenLoss / Float(self.batchSize)
           
-          self.generatorLoss = averageGenLoss
+          self.generatorLoss = -1 * averageGenLoss
         }
         
         //backprop discrimator
