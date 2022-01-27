@@ -338,8 +338,9 @@ public class GAN: Logger {
       dis.backpropagate(with: [loss])
       
       //skip first layer gradients
-      if let firstLayerGradients = dis.lobes.first(where: { $0.deltas().count > 0 })?.deltas() {
-        gradients.append(firstLayerGradients)
+      if let firstLayerGradients = dis.gradients()[safe: 1] {
+        let flattenedGradients = firstLayerGradients.flatMap { $0 }
+        gradients.append(flattenedGradients)
       }
     }
     
@@ -391,6 +392,10 @@ public class GAN: Logger {
   }
   
   public func add(discriminator dis: Brain) {
+    guard dis.lobes.last?.neurons.count == 1 else {
+      self.log(type: .error, priority: .alwaysShow, message: "Discriminator should only have 1 output neuron")
+      return
+    }
     self.discriminator = dis
     dis.compile()
   }
