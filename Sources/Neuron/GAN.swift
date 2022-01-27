@@ -237,10 +237,10 @@ public class GAN: Logger {
           
 //          let lambda: Float = gradientPenaltyLambda
 //          let penalty = lambda * self.gradientPenalty(realData: realData)
-//          
+//
 //          self.gradientPenalty = penalty
           
-          self.discriminatorLoss = (averageRealOut - averageFakeOut) //+ penalty
+          self.discriminatorLoss = -(averageRealOut - averageFakeOut) //+ penalty
           
           //backprop discrimator
           dis.backpropagate(with: [discriminatorLoss])
