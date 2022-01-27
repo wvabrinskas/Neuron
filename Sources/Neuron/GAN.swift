@@ -338,9 +338,8 @@ public class GAN: Logger {
       dis.backpropagate(with: [loss])
       
       //skip first layer gradients
-      if let firstLayerGradients = dis.gradients()[safe: 1] {
-        let flattenedGradients = firstLayerGradients.flatMap { $0 }
-        gradients.append(flattenedGradients)
+      if let firstLayerGradients = dis.lobes.first(where: { $0.deltas().count > 0 })?.deltas() {
+        gradients.append(firstLayerGradients)
       }
     }
     
