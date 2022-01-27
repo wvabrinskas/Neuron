@@ -310,7 +310,7 @@ public class GAN: Logger {
     var gradients: [[Float]] = []
     
     let real = self.getRandomBatch(data: realData)
-    let fake = self.getGeneratedData(type: .real, noise: noise)
+    let fake = self.getGeneratedData(type: .fake, noise: noise)
     
     for i in 0..<self.batchSize {
       dis.zeroGradients()
