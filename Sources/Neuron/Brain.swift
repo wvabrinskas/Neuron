@@ -683,7 +683,7 @@ public class Brain: Logger {
     self.descents.append(outputErrors)
   }
   
-  internal func gradients() -> [[Float]] {
+  internal func gradients() -> [[[Float]]] {
     return self.lobes.map { $0.gradients() }
   }
   

@@ -338,9 +338,8 @@ public class GAN: Logger {
       dis.backpropagate(with: [loss])
       
       //skip first layer gradients
-      if let firstLayerGradients = dis.gradients()[safe: 1] {
-        gradients.append(firstLayerGradients)
-      }
+      let networkGradients = dis.gradients().flatMap { $0 }.flatMap { $0 }
+      gradients.append(networkGradients)
     }
     
     let squared = gradients.map { $0.sumOfSquares }

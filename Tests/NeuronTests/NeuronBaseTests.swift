@@ -86,6 +86,7 @@ final class NeuronBaseTests: XCTestCase, BaseTestConfig {
     
   }
   
+
   func testWeightsAndInputsCountIsEqual() {
     XCTAssertTrue(brain != nil, "Brain is empty")
     

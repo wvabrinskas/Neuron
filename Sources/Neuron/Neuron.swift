@@ -116,35 +116,33 @@ public class Neuron {
   /// Clears this node of all its weights and
   /// replaces them with a random number between 0 and 1
   public func clear() {
-    self.initializeWeights(count: self.inputValues.count,
-                           initializer: self.initializer)
+    self.initializeWeights(count: self.inputValues.count, initializer: self.initializer)
   }
   
-  public func gradient() -> Float {
+  public func gradients() -> [Float] {
     let deltaTimeDeriv = self.derivative() * (delta ?? 0)
-    return deltaTimeDeriv
+    return self.inputValues * deltaTimeDeriv
   }
   
   /// Adjusts the weights of all inputs
   public func adjustWeights(_ constrain: ClosedRange<Float>? = nil) {
+    //DISPATCH QUEUE BREAKS EVERYTHING NEED BETTER OPTIMIZATION =(
+    //WITH OUT IT MAKES IT MUCH SLOWER BUT WITH IT IT FORMS A RACE CONDITION =(
     let delta = self.delta ?? 0
+    
     biasWeight -= self.learningRate * delta
     
-    //let gradients = self.gradients()
+    let gradients = self.gradients()
     
-    let gradient = self.gradient()
-    
-    for i in 0..<inputValues.count {
-      let inputValue = inputValues[i]
+    for i in 0..<gradients.count {
+      let gradient = gradients[i]
       
-      let inputGradient = gradient * inputValue
-
       if let optim = self.optimizer {
         self.weights[i] = optim.run(alpha: self.learningRate,
                                     weight: self.weights[i],
-                                    gradient: inputGradient)
+                                    gradient: gradient)
       } else {
-        self.weights[i] -= self.learningRate * inputGradient
+        self.weights[i] -= self.learningRate * gradient
       }
       
       
@@ -154,25 +152,6 @@ public class Neuron {
         self.weights[i] = min(maxBound, max(minBound, self.weights[i]))
       }
     }
-    
-//    for i in 0..<gradients.count {
-//      let gradient = gradients[i]
-//
-//      if let optim = self.optimizer {
-//        self.weights[i] = optim.run(alpha: self.learningRate,
-//                                    weight: self.weights[i],
-//                                    gradient: gradient)
-//      } else {
-//        self.weights[i] -= self.learningRate * gradient
-//      }
-//
-//
-//      if let constrain = constrain {
-//        let minBound = constrain.lowerBound
-//        let maxBound = constrain.upperBound
-//        self.weights[i] = min(maxBound, max(minBound, self.weights[i]))
-//      }
-//    }
   }
 }
 
