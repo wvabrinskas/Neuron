@@ -305,6 +305,10 @@ public class GAN: Logger {
       return 0
     }
     
+    defer {
+      dis.zeroGradients()
+    }
+    
     let noise = self.randomNoise()
     
     var gradients: [[Float]] = []
@@ -328,6 +332,7 @@ public class GAN: Logger {
         for i in 0..<realNew.count {
           let realVal = realNew[i] * epsilon
           let fakeVal = fakeNew[i] * (1 - epsilon)
+          
           inter.append(realVal + fakeVal)
         }
       }
