@@ -718,6 +718,10 @@ public class Brain: Logger {
     }
   }
   
+  public func firstNonEmptyLayerDeltas() -> [Float]? {
+    return lobes.first(where: { $0.deltas().count > 0 })?.deltas()
+  }
+  
   public func zeroGradients() {
     self.lobes.forEach { lobe in
       lobe.zeroGradients()

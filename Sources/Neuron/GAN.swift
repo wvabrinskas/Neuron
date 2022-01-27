@@ -281,7 +281,7 @@ public class GAN: Logger {
         dis.backpropagate(with: [self.generatorLoss])
                 
         //get discriminator gradients for each generator parameter first
-        if let firstLayerGradients = dis.lobes.first(where: { $0.deltas().count > 0 })?.deltas() {
+        if let firstLayerGradients = dis.firstNonEmptyLayerDeltas() {
           gen.backpropagate(with: firstLayerGradients)
           gen.adjustWeights()
         }
@@ -338,8 +338,9 @@ public class GAN: Logger {
       dis.backpropagate(with: [loss])
       
       //skip first layer gradients
-      let networkGradients = dis.gradients().flatMap { $0 }.flatMap { $0 }
-      gradients.append(networkGradients)
+      if let networkGradients = dis.gradients()[safe: 1]?.flatMap({ $0 }) {
+        gradients.append(networkGradients)
+      }
     }
     
     let squared = gradients.map { $0.sumOfSquares }
