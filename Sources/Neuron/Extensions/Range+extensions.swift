@@ -8,6 +8,16 @@
 
 import Foundation
 
+public extension Array {
+  subscript(safe safeIndex: Int) -> Element? {
+    if safeIndex < self.count {
+      return self[safeIndex]
+    }
+    
+    return nil
+  }
+}
+
 public extension Range where Element: Strideable {
   
   /// Get Range object as array
