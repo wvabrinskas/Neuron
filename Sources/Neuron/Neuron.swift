@@ -119,8 +119,8 @@ public class Neuron {
   }
   
   public func gradients() -> [Float] {
-    let deltaTimeDeriv = self.derivative() * (delta ?? 0)
-    return self.inputValues * deltaTimeDeriv
+    //let deltaTimeDeriv = self.derivative() * (delta ?? 0)
+    return self.inputValues * self.derivative()
   }
   
   /// Adjusts the weights of all inputs
@@ -134,7 +134,7 @@ public class Neuron {
     let gradients = self.gradients()
     
     for i in 0..<gradients.count {
-      let gradient = gradients[i]
+      let gradient = gradients[i] * delta
       
       if let optim = self.optimizer {
         self.weights[i] = optim.run(alpha: self.learningRate,
