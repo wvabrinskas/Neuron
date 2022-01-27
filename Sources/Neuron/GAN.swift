@@ -235,12 +235,12 @@ public class GAN: Logger {
           let averageRealOut = (realOutput.loss.sum / Float(self.batchSize))
           let averageFakeOut = (fakeOutput.loss.sum / Float(self.batchSize))
           
-//          let lambda: Float = gradientPenaltyLambda
-//          let penalty = lambda * self.gradientPenalty(realData: realData)
-//
-//          self.gradientPenalty = penalty
+          let lambda: Float = gradientPenaltyLambda
+          let penalty = lambda * self.gradientPenalty(realData: realData)
+
+          self.gradientPenalty = penalty
           
-          self.discriminatorLoss = -(averageRealOut - averageFakeOut) //+ penalty
+          self.discriminatorLoss = -(averageRealOut - averageFakeOut) + penalty
           
           //backprop discrimator
           dis.backpropagate(with: [discriminatorLoss])
