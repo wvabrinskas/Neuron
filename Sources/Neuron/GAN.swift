@@ -339,8 +339,7 @@ public class GAN: Logger {
       
       //skip first layer gradients
       if let firstLayerGradients = dis.gradients()[safe: 1] {
-        let flattenedGradients = firstLayerGradients.flatMap { $0 }
-        gradients.append(flattenedGradients)
+        gradients.append(firstLayerGradients)
       }
     }
     

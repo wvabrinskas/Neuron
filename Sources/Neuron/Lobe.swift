@@ -186,8 +186,8 @@ public class Lobe {
     }
   }
   
-  public func gradients() -> [[Float]] {
-    return neurons.map { $0.gradients() }
+  public func gradients() -> [Float] {
+    return neurons.map { $0.gradient() }
   }
   
   /// Backpropagation deltas at this specific layer

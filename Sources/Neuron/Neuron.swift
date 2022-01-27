@@ -27,6 +27,7 @@ public class Neuron {
   private var learningRate: Float = 0.01
   private var activationDerivative: Float = 0
   private var optimizer: OptimizerFunction?
+  private var initializer: Initializers = .xavierNormal
   
   /// Default initializer. Creates a Neuron object
   /// - Parameters:
@@ -51,13 +52,13 @@ public class Neuron {
   /// - Parameter count: Number of weights to generate
   /// - Parameter initializer: The initialier to generate the weights
   public func initializeWeights(count: Int, initializer: Initializers = .xavierNormal) {
-    if self.inputValues.count == 0 {
-      
-      for _ in 0..<count {
-        let weight = initializer.calculate(m: count, h: count)
-        self.add(input: 0, weight: weight)
-      }
-
+    self.initializer = initializer
+    self.inputValues.removeAll()
+    self.weights.removeAll()
+  
+    for _ in 0..<count {
+      let weight = initializer.calculate(m: count, h: count)
+      self.add(input: 0, weight: weight)
     }
   }
   
@@ -115,13 +116,20 @@ public class Neuron {
   /// Clears this node of all its weights and
   /// replaces them with a random number between 0 and 1
   public func clear() {
-    self.weights = [Float].init(repeating: Float.random(in: 0...1), count: self.weights.count)
+    self.initializeWeights(count: self.inputValues.count,
+                           initializer: self.initializer)
   }
   
-  public func gradients() -> [Float] {
-    let deltaTimeDeriv = self.derivative() * (delta ?? 0) * learningRate
-    return self.inputValues * deltaTimeDeriv
+  public func gradient() -> Float {
+    let deltaTimeDeriv = self.derivative() * (delta ?? 0)
+    return deltaTimeDeriv
   }
+  
+  
+//  public func gradients() -> [Float] {
+//    let deltaTimeDeriv = self.derivative() * (delta ?? 0)
+//    return self.inputValues * deltaTimeDeriv
+//  }
   
   /// Adjusts the weights of all inputs
   public func adjustWeights(_ constrain: ClosedRange<Float>? = nil) {
@@ -131,17 +139,18 @@ public class Neuron {
     
     biasWeight -= self.learningRate * delta
     
-    let gradients = self.gradients()
+    //let gradients = self.gradients()
     
-    for i in 0..<gradients.count {
-      let gradient = gradients[i]
-      
+    for i in 0..<inputValues.count {
+      let inputValue = inputValues[i]
+      let gradient = self.gradient() * inputValue
+
       if let optim = self.optimizer {
         self.weights[i] = optim.run(alpha: self.learningRate,
                                     weight: self.weights[i],
                                     gradient: gradient)
       } else {
-        self.weights[i] -= gradient
+        self.weights[i] -= self.learningRate * gradient
       }
       
       
@@ -151,6 +160,25 @@ public class Neuron {
         self.weights[i] = min(maxBound, max(minBound, self.weights[i]))
       }
     }
+    
+//    for i in 0..<gradients.count {
+//      let gradient = gradients[i]
+//
+//      if let optim = self.optimizer {
+//        self.weights[i] = optim.run(alpha: self.learningRate,
+//                                    weight: self.weights[i],
+//                                    gradient: gradient)
+//      } else {
+//        self.weights[i] -= self.learningRate * gradient
+//      }
+//
+//
+//      if let constrain = constrain {
+//        let minBound = constrain.lowerBound
+//        let maxBound = constrain.upperBound
+//        self.weights[i] = min(maxBound, max(minBound, self.weights[i]))
+//      }
+//    }
   }
 }
 
