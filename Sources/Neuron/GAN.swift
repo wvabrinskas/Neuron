@@ -230,7 +230,7 @@ public class GAN: Logger {
           let averageFakeOut = (fakeOutput.loss.sum / Float(self.batchSize))
           
           let lambda: Float = gradientPenaltyLambda
-          let penalty = lambda * self.gradientPenalty(realData: realData)
+          let penalty = lambda * self.gradientPenalty(realData: realDataBatch)
 
           self.gradientPenalty = penalty
           
@@ -245,7 +245,7 @@ public class GAN: Logger {
       }
       
       for _ in 0..<self.generatorTrainPerEpoch {
-        
+        let noise = randomNoise()
         //zero out gradients before training generator
         gen.zeroGradients()
         dis.zeroGradients()
