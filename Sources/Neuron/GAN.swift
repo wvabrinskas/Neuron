@@ -187,27 +187,21 @@ public class GAN: Logger {
 
     let epochs = singleStep ? 1 : self.epochs
 
-    
     self.log(type: .message, priority: .alwaysShow, message: "Training started...")
     
     for i in 0..<epochs {
-      
-      let noise = randomNoise()
-      
       //prepare data into batches
-      let realData = self.getRandomBatch(data: data)
-      
       for _ in 0..<self.criticTrainPerEpoch {
         //zero out gradients before training discriminator
         dis.zeroGradients()
-        
-        //get next batch of real data
-        let realDataBatch = self.getRandomBatch(data: realData)
+
+        let noise = randomNoise()
+
+        let realDataBatch = self.getRandomBatch(data: data)
+        let fakeDataBatch = self.getGeneratedData(type: .fake, noise: noise)
+
         //train discriminator on real data combined with fake data
         let realOutput = self.trainOn(data: realDataBatch, type: .real)
-        
-        //get next batch of fake data by generating new fake data
-        let fakeDataBatch = self.getGeneratedData(type: .fake, noise: noise)
 
         //tran discriminator on new fake data generated after epoch
         let fakeOutput = self.trainOn(data: fakeDataBatch, type: .fake)
