@@ -45,7 +45,8 @@ public class BatchNormalizer {
     movingMean = momentum * movingMean + (1 - momentum) * mean
     movingVariance = momentum * movingVariance + (1 - movingVariance) * variance
         
-    let normalizedScaledAndShifted = normalized * (gamma + beta)
+    let adjustedWithGamma = normalized * gamma
+    let normalizedScaledAndShifted = adjustedWithGamma + beta
     
     return normalizedScaledAndShifted
   }
