@@ -86,8 +86,8 @@ public class BatchNormalizer {
       
     outputGradients = dx
     
-    gamma -= (1 - learningRate) * dGamma
-    beta -= (1 - learningRate) * dBeta
+    gamma -= learningRate * dGamma
+    beta -= learningRate * dBeta
     
     return outputGradients
   }
