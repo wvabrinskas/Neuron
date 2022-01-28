@@ -16,10 +16,7 @@ public struct Layer: Codable {
   public var bias: [Float]
   public var biasWeights: [Float]
   public var normalize: Bool
-  public var beta: Float?
-  public var gamma: Float?
-  public var movingMean: Float?
-  public var movingVariance: Float?
+  public var batchNormalizerParams: BatchNormalizerParams?
   
   public init(activation: Activation,
               nodes: Int,
@@ -28,10 +25,7 @@ public struct Layer: Codable {
               bias: [Float],
               biasWeights: [Float],
               normalize: Bool,
-              beta: Float? = nil,
-              gamma: Float? = nil,
-              movingMean: Float? = nil,
-              movingVariance: Float? = nil) {
+              batchNormalizerParams: BatchNormalizerParams? = nil) {
     
     self.activation = activation
     self.nodes = nodes
@@ -40,23 +34,17 @@ public struct Layer: Codable {
     self.bias = bias
     self.biasWeights = biasWeights
     self.normalize = normalize
-    self.beta = beta
-    self.gamma = gamma
-    self.movingMean = movingMean
-    self.movingVariance = movingVariance
+    self.batchNormalizerParams = batchNormalizerParams
   }
 }
 
 public struct ExportModel: Codable {
   public var layers: [Layer]
   public var learningRate: Float
-  public var batchNormalizerLearningRate: Float?
   
   public init(layers: [Layer],
-              learningRate: Float,
-              batchNormalizerLearningRate: Float? = nil) {
+              learningRate: Float) {
     self.layers = layers
     self.learningRate = learningRate
-    self.batchNormalizerLearningRate = batchNormalizerLearningRate
   }
 }

@@ -13,6 +13,8 @@ public struct LobeModel {
   internal var activation: Activation = .none
   internal var bias: Float = 0
   internal var normalize: Bool = false
+  internal var bnMomentum: Float?
+  internal var bnLearningRate: Float?
   
   /// The type that the layer should be
   public enum LayerType: String, CaseIterable, Codable {
@@ -22,10 +24,14 @@ public struct LobeModel {
   public init(nodes: Int,
               activation: Activation = .none,
               bias: Float = 0,
-              normalize: Bool = false) {
+              normalize: Bool = false,
+              bnMomentum: Float? = nil,
+              bnLearningRate: Float? = nil) {
     self.nodes = nodes
     self.activation = activation
     self.bias = bias
     self.normalize = normalize
+    self.bnMomentum = bnMomentum
+    self.bnLearningRate = bnLearningRate
   }
 }

@@ -7,20 +7,29 @@
 
 import Foundation
 
+public struct BatchNormalizerParams: Codable {
+  public var beta: Float = 0
+  public var gamma: Float = 1
+  public var movingMean: Float = 1
+  public var movingVariance: Float = 1
+  public var momentum: Float
+  public var learningRate: Float
+}
+
 public class NormalizedLobe: Lobe {
   private var normalizer: BatchNormalizer
-  public var normalizerLearningParams: (beta: Float,
-                                        gamma: Float,
-                                        movingMean: Float,
-                                        movingVariance: Float) {
-    return (normalizer.beta,
-            normalizer.gamma,
-            normalizer.movingMean,
-            normalizer.movingVariance)
+  public var normalizerLearningParams: BatchNormalizerParams {
+    return BatchNormalizerParams(beta: normalizer.beta,
+                                 gamma: normalizer.gamma,
+                                 movingMean: normalizer.movingMean,
+                                 movingVariance: normalizer.movingVariance,
+                                 momentum: normalizer.momentum,
+                                 learningRate: normalizer.learningRate)
   }
   
   public init(model: LobeModel,
               learningRate: Float,
+              momentum: Float,
               batchNormLearningRate: Float,
               beta: Float = 0,
               gamma: Float = 1,
@@ -29,6 +38,7 @@ public class NormalizedLobe: Lobe {
     
     self.normalizer = BatchNormalizer(gamma: gamma,
                                       beta: beta,
+                                      momentum: momentum,
                                       learningRate: batchNormLearningRate,
                                       movingMean: movingMean,
                                       movingVariance: movingVariance)
@@ -42,6 +52,7 @@ public class NormalizedLobe: Lobe {
               activation: Activation = .none,
               beta: Float = 0,
               gamma: Float = 1,
+              momentum: Float,
               learningRate: Float,
               batchNormLearningRate: Float,
               movingMean: Float = 1,
@@ -49,6 +60,7 @@ public class NormalizedLobe: Lobe {
     
     self.normalizer = BatchNormalizer(gamma: gamma,
                                       beta: beta,
+                                      momentum: momentum,
                                       learningRate: batchNormLearningRate,
                                       movingMean: movingMean,
                                       movingVariance: movingVariance)

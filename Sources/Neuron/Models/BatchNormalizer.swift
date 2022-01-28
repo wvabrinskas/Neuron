@@ -13,13 +13,16 @@ public class BatchNormalizer {
   @TestNaN public var beta: Float = 0
   @TestNaN public var movingMean: Float = 1
   @TestNaN public var movingVariance: Float = 1
+  public let learningRate: Float
+  public let momentum: Float
+  
   private var normalizedActivations: [Float] = []
   private var standardDeviation: Float = 0
   private let e: Float = 0.00005 //this is a standard smoothing term
-  private let learningRate: Float
-  
+
   public init(gamma: Float = 1,
               beta: Float = 0,
+              momentum: Float,
               learningRate: Float,
               movingMean: Float = 1,
               movingVariance: Float = 1) {
@@ -28,6 +31,7 @@ public class BatchNormalizer {
     self.learningRate = learningRate
     self.movingVariance = movingVariance
     self.movingMean = movingMean
+    self.momentum = momentum
   }
 
   public func normalize(activations: [Float], training: Bool) -> [Float] {

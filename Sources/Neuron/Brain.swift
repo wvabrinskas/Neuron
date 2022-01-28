@@ -20,8 +20,6 @@ public class Brain: Logger {
   
   public var learningRate: Float
   
-  public var batchNormalizerLearningRate: Float?
-  
   /// The loss function data from training to be exported
   public var loss: [Float] = []
   
@@ -74,7 +72,6 @@ public class Brain: Logger {
   ///   - descent: The gradient descent type
   public init(model: ExportModel? = nil,
               learningRate: Float,
-              batchNormalizerLearningRate: Float? = nil,
               epochs: Int,
               lossFunction: LossFunction = .meanSquareError,
               lossThreshold: Float = 0.001,
@@ -90,7 +87,6 @@ public class Brain: Logger {
     self.descent = descent
     self.model = model
     self.weightConstraints = weightConstraints
-    self.batchNormalizerLearningRate = batchNormalizerLearningRate
   }
   
   public init?(model: PretrainedModel,
@@ -187,7 +183,6 @@ public class Brain: Logger {
                         normalize: lobe.isNormalized)
       
       if let normalLobe = lobe as? NormalizedLobe {
-        let params = normalLobe.normalizerLearningParams
         layer = Layer(activation: lobe.activation,
                       nodes: lobe.neurons.count,
                       weights: weights,
@@ -195,18 +190,14 @@ public class Brain: Logger {
                       bias: biases,
                       biasWeights: biasWeights,
                       normalize: lobe.isNormalized,
-                      beta: params.beta,
-                      gamma: params.gamma,
-                      movingMean: params.movingMean,
-                      movingVariance: params.movingVariance)
+                      batchNormalizerParams: normalLobe.normalizerLearningParams)
       }
       
       layers.append(layer)
     }
     
     let model = ExportModel(layers: layers,
-                            learningRate: learningRate,
-                            batchNormalizerLearningRate: self.batchNormalizerLearningRate)
+                            learningRate: learningRate)
     return model
   }
   
@@ -222,9 +213,14 @@ public class Brain: Logger {
                     learningRate: self.learningRate)
     
     if model.normalize {
+      guard let momentum = model.bnMomentum, let bnLearningRate = model.bnLearningRate else {
+        fatalError("please provide a momentum and learning rate for the Batch Normalizer")
+      }
+      
       lobe = NormalizedLobe(model: model,
                             learningRate: self.learningRate,
-                            batchNormLearningRate: self.batchNormalizerLearningRate ?? self.learningRate)
+                            momentum: momentum,
+                            batchNormLearningRate: bnLearningRate)
     }
     
     self.lobes.append(lobe)
@@ -272,15 +268,16 @@ public class Brain: Logger {
       var lobe = Lobe(neurons: neurons,
                       activation: layer.activation)
       
-      if layer.normalize {
+      if layer.normalize, let bn = layer.batchNormalizerParams {
         lobe = NormalizedLobe(neurons: neurons,
                               activation: layer.activation,
-                              beta: layer.beta ?? 0,
-                              gamma: layer.gamma ?? 1,
+                              beta: bn.beta,
+                              gamma: bn.gamma,
+                              momentum: bn.momentum,
                               learningRate: model.learningRate,
-                              batchNormLearningRate: model.batchNormalizerLearningRate ?? model.learningRate,
-                              movingMean: layer.movingMean ?? 1,
-                              movingVariance: layer.movingVariance ?? 1)
+                              batchNormLearningRate: bn.learningRate,
+                              movingMean: bn.movingMean,
+                              movingVariance: bn.movingVariance)
       }
       
       lobe.layer = layer.type

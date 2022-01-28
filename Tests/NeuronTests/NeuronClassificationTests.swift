@@ -13,7 +13,6 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     let bias: Float = 0.0001
     
     let brain = Brain(learningRate: 0.0001,
-                      batchNormalizerLearningRate: 0.01,
                       epochs: 50000,
                       lossFunction: .crossEntropy,
                       lossThreshold: TestConstants.lossThreshold,
@@ -23,7 +22,13 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     brain.add(.init(nodes: TestConstants.inputs, normalize: false)) //input layer no activation. It'll be ignored anyway
     
     for _ in 0..<TestConstants.numOfHiddenLayers {
-      brain.add(.init(nodes: TestConstants.hidden, activation: .leakyRelu, bias: bias, normalize: true)) //hidden layer
+      
+      brain.add(.init(nodes: TestConstants.hidden,
+                      activation: .leakyRelu,
+                      bias: bias,
+                      normalize: true,
+                      bnMomentum: 0.9,
+                      bnLearningRate: 0.01)) //hidden layer
     }
     
     brain.add(.init(nodes: TestConstants.outputs, activation: .leakyRelu, bias: bias, normalize: false)) //output layer
