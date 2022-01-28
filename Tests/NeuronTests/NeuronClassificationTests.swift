@@ -14,7 +14,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     
     let brain = Brain(learningRate: 0.0001,
                       batchNormalizerLearningRate: 0.01,
-                      epochs: 200,
+                      epochs: 50000,
                       lossFunction: .crossEntropy,
                       lossThreshold: TestConstants.lossThreshold,
                       initializer: .xavierNormal,

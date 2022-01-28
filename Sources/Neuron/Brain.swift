@@ -681,6 +681,8 @@ public class Brain: Logger {
         
     var updatingDeltas = deltas
     
+    reverse.first?.setLayerDeltas(with: updatingDeltas, update: true)
+
     //subtracting 1 because we dont need to propagate through to the weights in the input layer
     //those will always be 0 since no computation happens at the input layer
     for i in 0..<reverse.count - 1 {
@@ -688,10 +690,10 @@ public class Brain: Logger {
       let previousLobe = reverse[i + 1]
       
       //incoming inputs are the new deltas for the current layer
-      currentLobe.setLayerDeltas(with: updatingDeltas, update: true)
-    
       updatingDeltas = currentLobe.backpropagate(inputs: updatingDeltas,
                                                  previousLayerCount: previousLobe.neurons.count)
+      
+      previousLobe.setLayerDeltas(with: updatingDeltas, update: true)
 
     }
   }
