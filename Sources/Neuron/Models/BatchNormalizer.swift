@@ -50,8 +50,8 @@ public class BatchNormalizer {
     normalizedActivations = normalized
     
     if training {
-      movingMean *= learningRate + mean * (1 - learningRate)
-      movingVariance *= learningRate + variance * (1 - learningRate)
+      movingMean = learningRate * movingMean + (1 - learningRate) * mean
+      movingVariance = learningRate * movingVariance + (1 - learningRate) * variance
     }
         
     let adjustedWithGamma = normalized * gamma
