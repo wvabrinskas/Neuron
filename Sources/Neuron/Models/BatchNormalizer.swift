@@ -17,7 +17,6 @@ public class BatchNormalizer {
   private var standardDeviation: Float = 0
   private let e: Float = 0.00005 //this is a standard smoothing term
   private let learningRate: Float
-  private let momentum: Float = 0.9
   
   public init(gamma: Float = 1,
               beta: Float = 0,
@@ -51,8 +50,8 @@ public class BatchNormalizer {
     normalizedActivations = normalized
     
     if training {
-      movingMean *= momentum + mean * (1 - learningRate)
-      movingVariance *= momentum + variance * (1 - movingVariance)
+      movingMean *= learningRate + mean * (1 - learningRate)
+      movingVariance *= learningRate + variance * (1 - learningRate)
     }
         
     let adjustedWithGamma = normalized * gamma
