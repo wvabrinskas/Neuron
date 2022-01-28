@@ -45,13 +45,11 @@ public class Lobe {
   /// Feeds inputs into this layer
   /// - Parameter inputs: inputs into the layer
   /// - Returns: the result of the activation functions of the neurons
-  public func feed(inputs: [Float]) -> [Float] {
+  public func feed(inputs: [Float], training: Bool) -> [Float] {
     //each input neuron gets the value directly mapped 1 : 1
     //not fully connected so each neuron has a different input
     //can not use getActivated function for this
     if self.layer == .input {
-      var activatedResults: [Float] = []
-
       guard inputs.count == self.neurons.count else {
         print("error")
         return []

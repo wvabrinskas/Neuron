@@ -18,6 +18,8 @@ public struct Layer: Codable {
   public var normalize: Bool
   public var beta: Float?
   public var gamma: Float?
+  public var movingMean: Float?
+  public var movingVariance: Float?
   
   public init(activation: Activation,
               nodes: Int,
@@ -27,7 +29,9 @@ public struct Layer: Codable {
               biasWeights: [Float],
               normalize: Bool,
               beta: Float? = nil,
-              gamma: Float? = nil) {
+              gamma: Float? = nil,
+              movingMean: Float? = nil,
+              movingVariance: Float? = nil) {
     
     self.activation = activation
     self.nodes = nodes
@@ -38,6 +42,8 @@ public struct Layer: Codable {
     self.normalize = normalize
     self.beta = beta
     self.gamma = gamma
+    self.movingMean = movingMean
+    self.movingVariance = movingVariance
   }
 }
 

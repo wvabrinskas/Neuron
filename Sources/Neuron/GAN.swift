@@ -192,6 +192,10 @@ public class GAN: Logger {
     for i in 0..<epochs {
       //prepare data into batches
       for _ in 0..<self.criticTrainPerEpoch {
+        //freeze the generator
+        gen.trainable = false
+        dis.trainable = true
+        
         //zero out gradients before training discriminator
         dis.zeroGradients()
 
@@ -245,6 +249,10 @@ public class GAN: Logger {
       }
       
       for _ in 0..<self.generatorTrainPerEpoch {
+        //freeze the generator
+        gen.trainable = true
+        dis.trainable = false
+        
         let noise = randomNoise()
         //zero out gradients before training generator
         gen.zeroGradients()
