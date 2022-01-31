@@ -10,10 +10,10 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
   ]
   
   public lazy var brain: Brain? = {
-    let bias: Float = 0.0001
+    let bias: Float = 0.00001
     
     let brain = Brain(learningRate: 0.0001,
-                      epochs: 50000,
+                      epochs: 70000,
                       lossFunction: .crossEntropy,
                       lossThreshold: TestConstants.lossThreshold,
                       initializer: .xavierNormal,
@@ -22,12 +22,11 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     brain.add(.init(nodes: TestConstants.inputs, normalize: false)) //input layer no activation. It'll be ignored anyway
     
     for _ in 0..<TestConstants.numOfHiddenLayers {
-      
       brain.add(.init(nodes: TestConstants.hidden,
                       activation: .leakyRelu,
                       bias: bias,
                       normalize: true,
-                      bnMomentum: 0.9,
+                      bnMomentum: 0.8,
                       bnLearningRate: 0.01)) //hidden layer
     }
     

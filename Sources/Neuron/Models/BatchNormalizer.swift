@@ -58,8 +58,7 @@ public class BatchNormalizer {
       movingVariance = learningRate * movingVariance + (1 - learningRate) * variance
     }
         
-    let adjustedWithGamma = normalized * gamma
-    let normalizedScaledAndShifted = adjustedWithGamma + beta
+    let normalizedScaledAndShifted = (normalized * gamma) + beta
     
     return normalizedScaledAndShifted
   }
@@ -90,8 +89,8 @@ public class BatchNormalizer {
       
     outputGradients = dx
     
-    gamma -= learningRate * dGamma
-    beta -= learningRate * dBeta
+    gamma += learningRate * dGamma
+    beta += learningRate * dBeta
     
     return outputGradients
   }
