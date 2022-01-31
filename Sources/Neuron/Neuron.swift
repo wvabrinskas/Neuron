@@ -116,6 +116,7 @@ public class Neuron {
   /// Clears this node of all its weights and
   /// replaces them with a random number between 0 and 1
   public func clear() {
+    //this doesnt work...
     self.initializeWeights(count: self.inputValues.count, initializer: self.initializer)
   }
   
