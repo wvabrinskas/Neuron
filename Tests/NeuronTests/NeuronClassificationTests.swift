@@ -10,14 +10,14 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
   ]
   
   public lazy var brain: Brain? = {
-    let bias: Float = 0.00001
+    let bias: Float = 0.0001
     
-    let brain = Brain(learningRate: 0.0001,
-                      epochs: 70000,
+    let brain = Brain(learningRate: 0.001,
+                      epochs: 500,
                       lossFunction: .crossEntropy,
                       lossThreshold: TestConstants.lossThreshold,
                       initializer: .xavierNormal,
-                      descent: .sgd)
+                      descent: .mbgd(size: 1))
     
     brain.add(.init(nodes: TestConstants.inputs, normalize: false)) //input layer no activation. It'll be ignored anyway
     
@@ -26,7 +26,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
                       activation: .leakyRelu,
                       bias: bias,
                       normalize: true,
-                      bnMomentum: 0.8,
+                      bnMomentum: 0.9,
                       bnLearningRate: 0.01)) //hidden layer
     }
     
@@ -81,7 +81,6 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     }
     
   }
-
  
   func testTraining() {
     XCTAssertTrue(brain != nil, "Brain is empty")

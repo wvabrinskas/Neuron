@@ -391,6 +391,8 @@ public class Brain: Logger {
     }
     
     let mixedData = data.randomize()
+    var setBatches: Bool = false
+    var batches: [[TrainingData]] = []
 
     for i in 0..<epochs {
       self.trainable = true
@@ -405,29 +407,38 @@ public class Brain: Logger {
           return
         }
         
-        self.trainable = true
         self.zeroGradients()
         self.trainIndividual(data: obj)
         
       case let .mbgd(size: size):
-        let batches = mixedData.batched(into: size)
+        if setBatches == false {
+          setBatches = true
+          batches = mixedData.batched(into: size)
+        }
         
         batches.forEach { (batch) in
+          self.trainable = true
+
           var batchDescents: [[Float]] = []
           
           self.zeroGradients()
           
           batch.forEach { (tData) in
-            self.trainIndividual(data: tData, adjustWeights: false)
-            if let last = self.lobes.last?.deltas() {
-              batchDescents.append(last)
-            }
+            
+            //feed the data through the network
+            self.feedInternal(input: tData.data)
+            
+            //set the output errors for set
+            let deltas = self.getOutputDeltas(tData.correct)
+
+            batchDescents.append(deltas)
           }
           
           if let lastLayerCount = self.lobes.last?.neurons.count {
             let result = batchDescents.reduce([Float].init(repeating: 0,
-                                                           count: lastLayerCount), +).map { $0 / Float(size) }
-            self.backpropagate(with: result)
+                                                           count: lastLayerCount), +)
+            let average = result.map { $0 / Float(batch.count) }
+            self.backpropagate(with: average)
             self.adjustWeights()
           }
 

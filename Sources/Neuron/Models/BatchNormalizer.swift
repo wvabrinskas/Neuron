@@ -43,6 +43,7 @@ public class BatchNormalizer {
     let mean = training == true ? activations.sum / total : movingMean
     
     let diffVar = activations - mean
+
     let variance = training == true ? diffVar.sumOfSquares / total : movingVariance
             
     let std = sqrt(variance + e)
@@ -58,7 +59,7 @@ public class BatchNormalizer {
       movingVariance = learningRate * movingVariance + (1 - learningRate) * variance
     }
         
-    let normalizedScaledAndShifted = (normalized * gamma) + beta
+    let normalizedScaledAndShifted = gamma * normalized + beta
     
     return normalizedScaledAndShifted
   }
@@ -89,8 +90,8 @@ public class BatchNormalizer {
       
     outputGradients = dx
     
-    gamma += learningRate * dGamma
-    beta += learningRate * dBeta
+    gamma -= learningRate * dGamma
+    beta -= learningRate * dBeta
     
     return outputGradients
   }
