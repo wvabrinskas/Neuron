@@ -12,12 +12,12 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
   public lazy var brain: Brain? = {
     let bias: Float = 0.0001
     
-    let brain = Brain(learningRate: 0.001,
-                      epochs: 500,
+    let brain = Brain(learningRate: 0.0001,
+                      epochs: 8000,
                       lossFunction: .crossEntropy,
                       lossThreshold: TestConstants.lossThreshold,
                       initializer: .xavierNormal,
-                      descent: .mbgd(size: 1))
+                      descent: .mbgd(size: 16))
     
     brain.add(.init(nodes: TestConstants.inputs, normalize: false)) //input layer no activation. It'll be ignored anyway
     
@@ -26,7 +26,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
                       activation: .leakyRelu,
                       bias: bias,
                       normalize: true,
-                      bnMomentum: 0.9,
+                      bnMomentum: 0.99,
                       bnLearningRate: 0.01)) //hidden layer
     }
     
@@ -35,7 +35,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     brain.add(modifier: .softmax) //when using softmax activation the output node should use a reLu or leakyRelu activation
     
     brain.add(optimizer: .adam())
-    brain.logLevel = .none
+    brain.logLevel = .low
     
     return brain
   }()
@@ -60,7 +60,6 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
       self.buildTrainingData()
     }
   }
-  
   
   func buildTrainingData() {
     let num = 200
@@ -92,13 +91,6 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     print("Training....")
     
     brain.train(data: self.trainingData, validation: self.validationData, complete:  { (complete) in
-      let lastFive = brain.loss[brain.loss.count - 5..<brain.loss.count]
-      var sum: Float = 0
-      lastFive.forEach { (last) in
-        sum += last
-      }
-      let average = sum / 5
-      XCTAssertTrue(average <= TestConstants.testingLossThreshold, "Network did not learn, average loss was \(average)")
     })
     
     for i in 0..<ColorType.allCases.count {
@@ -110,7 +102,10 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
       XCTAssert(out.max() != nil, "No max value. Training failed")
 
       if let max = out.max(), let first = out.firstIndex(of: max) {
+        XCTAssert(max.isNaN == false, "Result was NaN")
         XCTAssertTrue(first == i, "Color \(color.string) could not be identified")
+      } else {
+        XCTFail("No color to be found...")
       }
     }
   }

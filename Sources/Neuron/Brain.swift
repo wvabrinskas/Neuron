@@ -390,7 +390,7 @@ public class Brain: Logger {
       return
     }
     
-    let mixedData = data.randomize()
+    let mixedData = data//.randomize()
     var setBatches: Bool = false
     var batches: [[TrainingData]] = []
 
