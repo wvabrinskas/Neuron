@@ -8,6 +8,15 @@
 
 import Foundation
 
+public typealias WeightConstraint = ClosedRange<Float>
+
+internal struct LobeCompileModel {
+  var inputNeuronCount: Int
+  var layerType: LobeModel.LayerType
+  var fullyConnected: Bool = true
+  var weightConstraint: WeightConstraint? = nil
+  var initializer: Initializers = .xavierNormal
+}
 
 /// Class that contains a group of Neurons
 public class Lobe {
@@ -18,6 +27,9 @@ public class Lobe {
   public var activation: Activation = .none
   public var isNormalized: Bool = false
   
+  private var initializer: Initializers = .xavierNormal
+  private var weightConstraints: WeightConstraint? = nil
+
   /// default initializer
   /// - Parameter neurons: Neruons to control
   public init(neurons: [Neuron],
@@ -40,6 +52,58 @@ public class Lobe {
     }
     self.neurons = neurons
     self.activation = model.activation
+  }
+  
+  @discardableResult
+  internal func compile(model: LobeCompileModel) -> [[Float]] {
+    
+    self.layer = model.layerType
+    
+    guard model.fullyConnected else {
+      var layerWeights: [[Float]] = []
+
+      for n in 0..<neurons.count {
+        let neuron = neurons[n]
+        neuron.add(input: 0, weight: 0)
+        neuron.layer = model.layerType
+        layerWeights.append([0])
+      }
+      return layerWeights
+    }
+    
+    self.initializer = model.initializer
+    self.weightConstraints = model.weightConstraint
+    
+    var layerWeights: [[Float]] = []
+    
+    neurons.forEach { neuron in
+      neuron.layer = model.layerType
+      
+      var inputs: [Float] = []
+      var weights: [Float] = []
+      
+      for _ in 0..<model.inputNeuronCount {
+        var weight = initializer.calculate(m: self.neurons.count, h: model.inputNeuronCount)
+        
+        if let constrain = weightConstraints {
+          let minBound = constrain.lowerBound
+          let maxBound = constrain.upperBound
+          weight = min(maxBound, max(minBound, weight))
+        }
+        
+        inputs.append(0)
+        weights.append(weight)
+      }
+      
+      layerWeights.append(weights)
+      
+      let biasWeight = initializer.calculate(m: self.neurons.count, h: model.inputNeuronCount)
+      
+      neuron.initialize(weights: weights, inputs: inputs)
+      neuron.biasWeight = biasWeight
+    }
+    
+    return layerWeights
   }
   
   /// Feeds inputs into this layer

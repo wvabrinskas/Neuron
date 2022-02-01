@@ -309,53 +309,30 @@ public class Brain: Logger {
       if i > 0 {
         let lobe = self.lobes[i]
         let layerType: LobeModel.LayerType = i + 1 == lobes.count ? .output : .hidden
-        lobe.layer = layerType
         
-        let neuronGroup = self.lobes[i].neurons
         let inputNeuronGroup = self.lobes[i-1].neurons
         
-        neuronGroup.forEach { (neuron) in
-          neuron.layer = layerType
-          
-          var inputs: [Float] = []
-          var weights: [Float] = []
-          
-          for _ in 0..<inputNeuronGroup.count {
-            var weight = self.initializer.calculate(m: neuronGroup.count, h: inputNeuronGroup.count)
-            
-            if let constrain = self.weightConstraints {
-              let minBound = constrain.lowerBound
-              let maxBound = constrain.upperBound
-              weight = min(maxBound, max(minBound, weight))
-            }
-            
-            inputs.append(0)
-            weights.append(weight)
-          }
-          
-          self.layerWeights.append(weights)
-          
-          let biasWeight = self.initializer.calculate(m: neuronGroup.count, h: inputNeuronGroup.count)
-          
-          neuron.biasWeight = biasWeight
-          neuron.replaceInputs(inputs: inputs)
-          neuron.replaceWeights(weights: weights)
-        }
+        let compileModel = LobeCompileModel.init(inputNeuronCount: inputNeuronGroup.count,
+                                                 layerType: layerType,
+                                                 fullyConnected: true,
+                                                 weightConstraint: self.weightConstraints,
+                                                 initializer: self.initializer)
         
+        let weights = lobe.compile(model: compileModel)
+        self.layerWeights.append(contentsOf: weights)
+
       } else {
         
+        let compileModel = LobeCompileModel.init(inputNeuronCount: 0,
+                                                 layerType: .input,
+                                                 fullyConnected: false,
+                                                 weightConstraint: self.weightConstraints,
+                                                 initializer: self.initializer)
+        
         //first layer weight initialization with 0 since it's just the input layer
-        let neuronGroup = self.lobes[i].neurons
-        self.lobes[i].layer = .input
-        
-        for n in 0..<neuronGroup.count {
-          //first layer only has one input per input value
-          neuronGroup[n].add(input: 0, weight: 0)
-          neuronGroup[n].layer = .input
-          
-          self.layerWeights.append([0])
-        }
-        
+        let inputLayer = self.lobes[i]
+        let weights = inputLayer.compile(model: compileModel)
+        self.layerWeights.append(contentsOf: weights)
       }
     }
     

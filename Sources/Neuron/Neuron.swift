@@ -27,7 +27,6 @@ public class Neuron {
   private var learningRate: Float = 0.01
   private var activationDerivative: Float = 0
   private var optimizer: OptimizerFunction?
-  private var initializer: Initializers = .xavierNormal
   
   /// Default initializer. Creates a Neuron object
   /// - Parameters:
@@ -51,15 +50,14 @@ public class Neuron {
   /// Initializes the weights at this neuron using the given initializer
   /// - Parameter count: Number of weights to generate
   /// - Parameter initializer: The initialier to generate the weights
-  public func initializeWeights(count: Int, initializer: Initializers = .xavierNormal) {
-    self.initializer = initializer
-    self.inputValues.removeAll()
-    self.weights.removeAll()
-  
-    for _ in 0..<count {
-      let weight = initializer.calculate(m: count, h: count)
-      self.add(input: 0, weight: weight)
+  public func initialize(weights: [Float], inputs: [Float]) {
+    guard weights.count == inputs.count else {
+      print("Error: Can not replace inputs of different size")
+      return
     }
+    
+    self.weights = weights
+    self.inputValues = inputs
   }
   
   public func add(input: Float, weight: Float) {
@@ -116,8 +114,10 @@ public class Neuron {
   /// Clears this node of all its weights and
   /// replaces them with a random number between 0 and 1
   public func clear() {
-    //this doesnt work...
-    self.initializeWeights(count: self.inputValues.count, initializer: self.initializer)
+    //TODO: figure out how to reinitialize this weights with the initilizer
+    let clearedWeights = [Float](repeating: Float.random(in: 0...1), count: self.weights.count)
+    let clearedInputs = [Float](repeating: 0, count: self.inputValues.count)
+    self.initialize(weights: clearedWeights, inputs: clearedInputs)
   }
   
   public func gradients() -> [Float] {
