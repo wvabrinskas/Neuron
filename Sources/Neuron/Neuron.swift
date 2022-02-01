@@ -46,6 +46,10 @@ public class Neuron {
       self.add(input: input.inputValue, weight: input.weight)
     }
   }
+  
+  public func addOptimizer(optimizer: Optimizer) {
+    self.optimizer = optimizer.get()
+  }
 
   /// Initializes the weights at this neuron using the given initializer
   /// - Parameter count: Number of weights to generate
@@ -127,8 +131,6 @@ public class Neuron {
   
   /// Adjusts the weights of all inputs
   public func adjustWeights(_ constrain: ClosedRange<Float>? = nil) {
-    //DISPATCH QUEUE BREAKS EVERYTHING NEED BETTER OPTIMIZATION =(
-    //WITH OUT IT MAKES IT MUCH SLOWER BUT WITH IT IT FORMS A RACE CONDITION =(
     let delta = self.delta ?? 0
     
     biasWeight -= self.learningRate * delta
@@ -139,13 +141,11 @@ public class Neuron {
       let gradient = gradients[i]
       
       if let optim = self.optimizer {
-        self.weights[i] = optim.run(alpha: self.learningRate,
-                                    weight: self.weights[i],
+        self.weights[i] = optim.run(weight: self.weights[i],
                                     gradient: gradient)
       } else {
         self.weights[i] -= self.learningRate * gradient
       }
-      
       
       if let constrain = constrain {
         let minBound = constrain.lowerBound

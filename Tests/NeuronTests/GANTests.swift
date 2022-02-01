@@ -31,7 +31,7 @@ final class GANTests: XCTestCase {
     brain.add(.init(nodes: wordLength, activation: .tanh, bias: bias))
     
     brain.logLevel = .none
-    brain.add(optimizer: .adam())
+    brain.add(optimizer: .adam(alpha: 0.01))
     
     return brain
   }()
@@ -47,8 +47,8 @@ final class GANTests: XCTestCase {
     brain.add(.init(nodes: 1, activation: .sigmoid, bias: bias))
     
     brain.logLevel = .none
-    brain.add(optimizer: .adam())
-    
+    brain.add(optimizer: .adam(alpha: 0.01))
+
     return brain
   }()
   

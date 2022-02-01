@@ -16,6 +16,7 @@ internal struct LobeCompileModel {
   var fullyConnected: Bool = true
   var weightConstraint: WeightConstraint? = nil
   var initializer: Initializers = .xavierNormal
+  var optimizer: Optimizer? = nil
 }
 
 /// Class that contains a group of Neurons
@@ -64,6 +65,11 @@ public class Lobe {
 
       for n in 0..<neurons.count {
         let neuron = neurons[n]
+        
+        if let optim = model.optimizer {
+          neuron.addOptimizer(optimizer: optim)
+        }
+        
         neuron.add(input: 0, weight: 0)
         neuron.layer = model.layerType
         layerWeights.append([0])
@@ -99,6 +105,10 @@ public class Lobe {
       
       let biasWeight = initializer.calculate(m: self.neurons.count, h: model.inputNeuronCount)
       
+      if let optim = model.optimizer {
+        neuron.addOptimizer(optimizer: optim)
+      }
+
       neuron.initialize(weights: weights, inputs: inputs)
       neuron.biasWeight = biasWeight
     }
@@ -156,6 +166,7 @@ public class Lobe {
     let rows = inputsToUse.count
     let columns = neurons.count
     var layerWeights = neurons.flatMap { $0.weights }
+    
     layerWeights.transpose(columns: columns, rows: rows)
     
     let dotProducts = inputsToUse.multiDotProduct(B: layerWeights,
@@ -222,10 +233,10 @@ public class Lobe {
   }
   
   /// Adjusts all the weights in all the neurons in this Lobe
-  public func adjustWeights(_ constrain: ClosedRange<Float>? = nil) {
+  public func adjustWeights() {
     //dispatch queue breaks everything per usual...
     neurons.forEach { neuron in
-      neuron.adjustWeights(constrain)
+      neuron.adjustWeights(self.weightConstraints)
     }
   }
   

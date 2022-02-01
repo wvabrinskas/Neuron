@@ -10,14 +10,14 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
   ]
   
   public lazy var brain: Brain? = {
-    let bias: Float = 0.0001
+    let bias: Float = 0.0000001
     
     let brain = Brain(learningRate: 0.0001,
-                      epochs: 8000,
+                      epochs: 5000,
                       lossFunction: .crossEntropy,
                       lossThreshold: TestConstants.lossThreshold,
                       initializer: .xavierNormal,
-                      descent: .mbgd(size: 16))
+                      descent: .bgd)
     
     brain.add(.init(nodes: TestConstants.inputs, normalize: false)) //input layer no activation. It'll be ignored anyway
     
@@ -25,16 +25,16 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
       brain.add(.init(nodes: TestConstants.hidden,
                       activation: .leakyRelu,
                       bias: bias,
-                      normalize: true,
+                      normalize: false,
                       bnMomentum: 0.99,
                       bnLearningRate: 0.01)) //hidden layer
     }
     
-    brain.add(.init(nodes: TestConstants.outputs, activation: .leakyRelu, bias: bias, normalize: false)) //output layer
+    brain.add(.init(nodes: TestConstants.outputs, activation: .none, bias: bias, normalize: false)) //output layer
     
     brain.add(modifier: .softmax) //when using softmax activation the output node should use a reLu or leakyRelu activation
     
-    brain.add(optimizer: .adam())
+    brain.add(optimizer: .adam(alpha: 0.0001))
     brain.logLevel = .low
     
     return brain
@@ -90,7 +90,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     
     print("Training....")
     
-    brain.train(data: self.trainingData, validation: self.validationData, complete:  { (complete) in
+    brain.train(data: self.trainingData.randomize(), validation: self.validationData, complete:  { (complete) in
     })
     
     for i in 0..<ColorType.allCases.count {
@@ -117,9 +117,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     guard let brain = brain else {
       return
     }
-    
-    self.testTraining()
-    
+      
     let url = brain.exportModelURL()
     print("📄 model: \(String(describing: url))")
     XCTAssertTrue(url != nil, "Could not build exported model")

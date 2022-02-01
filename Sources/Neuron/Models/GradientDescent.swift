@@ -10,4 +10,5 @@ import Foundation
 public enum GradientDescent: Equatable {
   case sgd
   case mbgd(size: Int)
+  case bgd
 }
