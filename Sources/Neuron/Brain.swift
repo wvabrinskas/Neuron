@@ -385,11 +385,7 @@ public class Brain: Logger {
             
       switch self.descent {
       case .bgd:
-        data.forEach { obj in
-          self.zeroGradients()
-          self.trainIndividual(data: obj)
-        }
-        
+        self.trainOnBatch(batch: data)
       case .sgd:
         guard let obj = mixedData.randomElement() else {
           return
@@ -405,32 +401,7 @@ public class Brain: Logger {
         }
         
         batches.forEach { (batch) in
-          self.trainable = true
-          self.zeroGradients()
-
-          var batchDescents: [[Float]] = []
-                    
-          batch.forEach { (tData) in
-            self.zeroGradients()
-
-            //feed the data through the network
-            let output = self.feed(input: tData.data)
-            
-            //set the output errors for set
-            let deltas = self.getOutputDeltas(outputs: output,
-                                              correctValues: tData.correct)
-
-            batchDescents.append(deltas)
-          }
-          
-          if let lastLayerCount = self.lobes.last?.neurons.count {
-            let result = batchDescents.reduce([Float].init(repeating: 0,
-                                                           count: lastLayerCount), +)
-            let average = result.map { $0 / Float(batch.count) }
-            self.backpropagate(with: average)
-            self.adjustWeights()
-          }
-
+          self.trainOnBatch(batch: batch)
         }
       }
       
@@ -498,8 +469,35 @@ public class Brain: Logger {
     //false because the training wasnt completed with validation
     complete?(false)
   }
-
   
+  private func trainOnBatch(batch: [TrainingData]) {
+    self.trainable = true
+    self.zeroGradients()
+    
+    var batchDescents: [[Float]] = []
+              
+    batch.forEach { tData in
+      self.zeroGradients()
+
+      //feed the data through the network
+      let output = self.feed(input: tData.data)
+      
+      //set the output errors for set
+      let deltas = self.getOutputDeltas(outputs: output,
+                                        correctValues: tData.correct)
+
+      batchDescents.append(deltas)
+    }
+    
+    if let lastLayerCount = self.lobes.last?.neurons.count {
+      let result = batchDescents.reduce([Float].init(repeating: 0,
+                                                     count: lastLayerCount), +)
+      let average = result.map { $0 / Float(batch.count) }
+      self.backpropagate(with: average)
+      self.adjustWeights()
+    }
+  }
+
   /// Clears the whole network and resets all the weights to a random value
   public func clear() {
     self.previousValidationErrors = []

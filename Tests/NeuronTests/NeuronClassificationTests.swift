@@ -10,14 +10,14 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
   ]
   
   public lazy var brain: Brain? = {
-    let bias: Float = 0.0000001
+    let bias: Float = 0.0001
     
-    let brain = Brain(learningRate: 0.0001,
+    let brain = Brain(learningRate: 0.1,
                       epochs: 5000,
                       lossFunction: .crossEntropy,
                       lossThreshold: TestConstants.lossThreshold,
                       initializer: .xavierNormal,
-                      descent: .bgd)
+                      descent: .mbgd(size: 16))
     
     brain.add(.init(nodes: TestConstants.inputs, normalize: false)) //input layer no activation. It'll be ignored anyway
     
@@ -34,8 +34,8 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     
     brain.add(modifier: .softmax) //when using softmax activation the output node should use a reLu or leakyRelu activation
     
-    brain.add(optimizer: .adam(alpha: 0.0001))
-    brain.logLevel = .low
+    //brain.add(optimizer: .adam(alpha: 0.0001))
+    brain.logLevel = .none
     
     return brain
   }()
@@ -90,7 +90,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     
     print("Training....")
     
-    brain.train(data: self.trainingData.randomize(), validation: self.validationData, complete:  { (complete) in
+    brain.train(data: self.trainingData, validation: self.validationData, complete:  { (complete) in
     })
     
     for i in 0..<ColorType.allCases.count {
