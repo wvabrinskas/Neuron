@@ -403,13 +403,7 @@ public class Brain: Logger {
           self.trainOnBatch(batch: batch)
         }
       }
-      
-      //maybe add to serial background queue, dispatch queue crashes
-      /// feed a model and its correct values through the network to calculate the loss
-      let loss = self.calcAverageLoss(self.feed(input: data[0].data),
-                                      correct: data[0].correct)
-      self.loss.append(loss)
-      
+
       self.log(type: .message, priority: .low, message: "loss at epoch \(i): \(loss)")
       
       self.log(type: .message,
@@ -420,8 +414,8 @@ public class Brain: Logger {
       if let validationData = validation.randomElement(), validation.count > 0 {
         self.trainable = false
         
-        let errorForValidation = self.calcAverageLoss(self.feed(input: validationData.data),
-                                                      correct: validationData.correct)
+        let errorForValidation = self.loss(self.feed(input: validationData.data),
+                                                     correct: validationData.correct)
         
         //if validation error is greater than previous then we are complete with training
         //bail out to prevent overfitting
@@ -484,6 +478,12 @@ public class Brain: Logger {
       //set the output errors for set
       let deltas = self.getOutputDeltas(outputs: output,
                                         correctValues: tData.correct)
+      
+      //maybe add to serial background queue, dispatch queue crashes
+      /// feed a model and its correct values through the network to calculate the loss
+      let loss = self.loss(output,
+                                      correct: tData.correct)
+      self.loss.append(loss)
 
       batchDescents.append(deltas)
     }
@@ -571,17 +571,8 @@ public class Brain: Logger {
     return modOut
   }
 
-  internal func calcAverageLoss(_ predicted: [Float], correct: [Float]) -> Float {
-    var sum: Float = 0
-    
-    for i in 0..<predicted.count {
-      let predicted = predicted[i]
-      let correct = correct[i]
-      let error = self.lossFunction.calculate(predicted, correct: correct)
-      sum += error
-    }
-    
-    return sum / Float(predicted.count)
+  internal func loss(_ predicted: [Float], correct: [Float]) -> Float {
+    self.lossFunction.calculate(predicted, correct: correct)
   }
   
   internal func getOutputDeltas(outputs: [Float], correctValues: [Float]) -> [Float] {

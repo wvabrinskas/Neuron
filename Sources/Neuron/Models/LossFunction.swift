@@ -14,21 +14,44 @@ public enum LossFunction {
   case crossEntropy
   case binaryCrossEntropy
   
-  public func calculate(_ predicted: Float, correct: Float) -> Float {
+  public func calculate(_ predicted: [Float], correct: [Float]) -> Float {
+    guard predicted.count == correct.count else {
+      return 0
+    }
     
     switch self {
     case .meanSquareError:
-      let sq = pow(predicted - correct, 2)
-      return sq
+      var sum: Float = 0
+      
+      for i in 0..<predicted.count {
+        let predicted = predicted[i]
+        let correct = correct[i]
+        let sq = pow(predicted - correct, 2)
+        sum += sq
+      }
+      
+      return sum / Float(predicted.count)
       
     case .crossEntropy:
-      let p = correct == 0 ? 1 - predicted : predicted
-      let result = (correct * log2(p + 1e-10))
-      return -result
-  
+      var sum: Float = 0
+
+      for i in 0..<predicted.count {
+        let predicted = predicted[i]
+        let correct = correct[i]
+        
+        let p = correct == 0 ? 1 - predicted : predicted
+        sum += (correct * log2(p + 1e-10))
+      }
+      
+      return -sum
+      
     case .binaryCrossEntropy:
-      let y = correct
-      let p = predicted
+      guard correct.count == 1 else {
+        return 0
+      }
+      
+      let y = correct[0]
+      let p = predicted[0]
 
       func clipped(_ value: Float) -> Float {
         return max(1e-10, value)

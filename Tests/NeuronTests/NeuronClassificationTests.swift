@@ -89,9 +89,13 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     }
     
     print("Training....")
+    let expectation = XCTestExpectation()
     
     brain.train(data: self.trainingData, validation: self.validationData, complete:  { (complete) in
+      expectation.fulfill()
     })
+    
+    wait(for: [expectation], timeout: 40)
     
     for i in 0..<ColorType.allCases.count {
       let color = ColorType.allCases[i]
@@ -107,6 +111,10 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
       } else {
         XCTFail("No color to be found...")
       }
+    }
+    
+    brain.loss.forEach { l in
+      print(l)
     }
   }
   
