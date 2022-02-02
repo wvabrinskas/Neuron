@@ -391,8 +391,7 @@ public class Brain: Logger {
           return
         }
         
-        self.zeroGradients()
-        self.trainIndividual(data: obj)
+        self.trainOnBatch(batch: [obj])
         
       case let .mbgd(size: size):
         if setBatches == false {
@@ -534,29 +533,6 @@ public class Brain: Logger {
     return ExportManager.getCSV(filename: name, self.loss)
   }
   
-  private func trainIndividual(data: TrainingData, adjustWeights: Bool = true) {
-    
-    guard data.correct.count == self.outputLayer.count else {
-      self.log(type: .error,
-               priority: .alwaysShow,
-               message: "Error: correct data count does not match ouput node count, bailing out")
-      return
-    }
-    
-    //feed the data through the network
-    let output = self.feed(input: data.data)
-    
-    //set the output errors for set
-    let deltas = self.getOutputDeltas(outputs: output, correctValues: data.correct)
-    
-    //propagate backwards through the network
-    self.backpropagate(with: deltas)
-    
-    if adjustWeights {
-      //adjust all the weights after back propagation is complete
-      self.adjustWeights()
-    }
-  }
   
   internal func averageError() -> Float {
     previousValidationErrors.sum / Float(previousValidationErrors.count)
