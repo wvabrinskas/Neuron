@@ -219,7 +219,7 @@ public class Lobe {
         let inputWeight = neuron.weights[p]
         let neuronDelta = inputs[n]
         
-        let currentNeuronDelta = neuronDelta * inputWeight
+        let currentNeuronDelta = neuronDelta * inputWeight //error' * weight -> calculates the error' w.r.t to weight
         
         delta += currentNeuronDelta
       }

@@ -480,11 +480,7 @@ public class Brain: Logger {
     self.trainable = true
     self.zeroGradients()
     
-    var batchDescents: [[Float]] = []
-              
     batch.forEach { tData in
-      self.zeroGradients()
-
       //feed the data through the network
       let output = self.feed(input: tData.data)
       
@@ -492,19 +488,11 @@ public class Brain: Logger {
       let deltas = self.getOutputDeltas(outputs: output,
                                         correctValues: tData.correct)
       
-      batchDescents.append(deltas)
-      
+      self.backpropagate(with: deltas)
     }
     
-    if let lastLayerCount = self.lobes.last?.neurons.count {
-      let result = batchDescents.reduce([Float].init(repeating: 0,
-                                                     count: lastLayerCount), +)
-      let average = result.map { $0 / Float(batch.count) }
-      self.backpropagate(with: average)
-      self.adjustWeights(batchSize: batch.count)
-      
-      self.optimizer?.step()
-    }
+    self.adjustWeights(batchSize: batch.count)
+    self.optimizer?.step()
   }
 
   /// Clears the whole network and resets all the weights to a random value

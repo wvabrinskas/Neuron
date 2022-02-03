@@ -96,11 +96,11 @@ public class Neuron {
   
   public func calculateGradients(delta: Float) {
     self.delta = delta
-    self.gradients += self.inputValues * (delta * self.activationDerivative)
+    self.gradients = self.gradients + (self.inputValues * (delta * self.activationDerivative))
   }
   
   public func zeroGradients() {
-    self.gradients = [Float].init(repeating: 0, count: self.gradients.count)
+    self.gradients = [Float].init(repeating: 0, count: self.weights.count)
   }
   
   /// Applies the activation of a given sum.
