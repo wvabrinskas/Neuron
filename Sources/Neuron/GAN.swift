@@ -245,7 +245,8 @@ public class GAN: Logger {
         }
         
         //adjust weights AFTER calculating gradients
-        dis.adjustWeights()
+        //figure out batch size
+        dis.adjustWeights(batchSize: 1)
       }
       
       for _ in 0..<self.generatorTrainPerEpoch {
@@ -285,7 +286,7 @@ public class GAN: Logger {
         //get discriminator gradients for each generator parameter first
         if let firstLayerGradients = dis.firstNonEmptyLayerDeltas() {
           gen.backpropagate(with: firstLayerGradients)
-          gen.adjustWeights()
+          gen.adjustWeights(batchSize: 1) //figure out batch size?
         }
   
       }

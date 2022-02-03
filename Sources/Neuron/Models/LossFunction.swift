@@ -40,10 +40,10 @@ public enum LossFunction {
         let correct = correct[i]
         
         let p = correct == 0 ? 1 - predicted : predicted
-        sum += (correct * log2(p + 1e-10))
+        sum += (-correct * log2(p + 1e-10))
       }
       
-      return -sum
+      return sum
       
     case .binaryCrossEntropy:
       guard correct.count == 1 else {
@@ -66,10 +66,10 @@ public enum LossFunction {
   public func derivative(_ predicted: Float, correct: Float) -> Float {
     switch self {
     case .meanSquareError:
-      //−1∗(2(y−p)
-      return -1 * (2 * (correct - predicted))
+      return predicted - correct
     case .crossEntropy:
       //only if Softmax is the modifier
+      //TODO: Use actual cross entropy derivate and calculate using the chain rule -> Softmax' * CrossEntropy'
       return predicted - correct
       
     case .binaryCrossEntropy:

@@ -23,6 +23,8 @@ public enum Optimizer: Codable {
 
 public protocol OptimizerFunction: AnyObject {
   func run(weight: Float, gradient: Float) -> Float
+  func step()
+  func zero()
 }
 
 public class Adam: OptimizerFunction {
@@ -34,7 +36,7 @@ public class Adam: OptimizerFunction {
   
   private var m: Float = 0
   private var v: Float = 0
-  public var t: Float = 1
+  private var t: Float = 1
   
   public init(b1: Float = 0.9,
               b2: Float = 0.999,
@@ -53,7 +55,14 @@ public class Adam: OptimizerFunction {
     let mHat = m / (1 - pow(b1, Float(t)))
     let vHat = v / (1 - pow(b2, Float(t)))
     let newW = weight - alpha * mHat / (sqrt(vHat) + eps)
-    t += 1
     return newW
+  }
+  
+  public func zero() {
+    self.t = 0
+  }
+  
+  public func step() {
+    self.t += 1
   }
 }

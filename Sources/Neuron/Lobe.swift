@@ -16,7 +16,7 @@ internal struct LobeCompileModel {
   var fullyConnected: Bool = true
   var weightConstraint: WeightConstraint? = nil
   var initializer: Initializers = .xavierNormal
-  var optimizer: Optimizer? = nil
+  var optimizer: OptimizerFunction? = nil
 }
 
 /// Class that contains a group of Neurons
@@ -188,7 +188,7 @@ public class Lobe {
   /// - Parameters:
   ///   - deltas: the deltas to apply
   ///   - update: boolean to indicate if you add the incoming deltas or just set to the incoming deltas
-  public func setLayerDeltas(with deltas: [Float], update: Bool = false) {
+  public func calculateGradients(with deltas: [Float]) {
     guard deltas.count == neurons.count else {
       return
     }
@@ -196,16 +196,14 @@ public class Lobe {
     for i in 0..<neurons.count {
       let delta = deltas[i]
       let neuron = neurons[i]
-      
-      let updatedDelta = update ? (neuron.delta ?? 0) + delta : delta
-      neuron.delta = updatedDelta
+      neuron.calculateGradients(delta: delta)
     }
   }
   
   /// Calculates deltas for each neuron for the next layer in the network. Updates the current layer deltas with the input previous layer deltas.
   /// - Parameter previousLayerDeltas: Incoming delta's from the previous layer
   /// - Returns: The next set of deltas to be passed to the next layer in the backpropagation.
-  public func backpropagate(inputs: [Float], previousLayerCount: Int) -> [Float] {
+  public func calculateDeltas(inputs: [Float], previousLayerCount: Int) -> [Float] {
 
     guard self.layer != .input else {
       return []
@@ -233,10 +231,10 @@ public class Lobe {
   }
   
   /// Adjusts all the weights in all the neurons in this Lobe
-  public func adjustWeights() {
+  public func adjustWeights(batchSize: Int) {
     //dispatch queue breaks everything per usual...
     neurons.forEach { neuron in
-      neuron.adjustWeights(self.weightConstraints)
+      neuron.adjustWeights(self.weightConstraints, batchSize: batchSize)
     }
   }
   
@@ -249,19 +247,19 @@ public class Lobe {
   
   public func zeroGradients() {
     neurons.forEach { neuron in
-      neuron.delta = nil
+      neuron.zeroGradients()
     }
   }
   
   public func gradients() -> [[Float]] {
-    return neurons.map { $0.gradients() }
+    return neurons.map { $0.gradients }
   }
   
   /// Backpropagation deltas at this specific layer
   /// - Returns: The deltas as floats
   public func deltas() -> [Float] {
-    let gradients = neurons.compactMap { $0.delta }
-    return gradients
+    let deltas = neurons.compactMap { $0.delta }
+    return deltas
   }
   
   /// Updates the parameters for each Neuron such as learning rate, bias, etc.

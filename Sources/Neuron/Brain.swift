@@ -57,10 +57,13 @@ public class Brain: Logger {
   
   private var descent: GradientDescent
   
-  private var optimizer: Optimizer?
+  private var optimizer: OptimizerFunction?
+  private var optimizerType: Optimizer?
   
   private var outputLayer: [Neuron] { self.lobes.last?.neurons ?? [] }
-    
+  
+  private var trainingData: [TrainingData] = []
+      
   internal var weightConstraints: ClosedRange<Float>? = nil
   
   /// Creates a Brain object that manages a network of Neuron objects
@@ -147,7 +150,8 @@ public class Brain: Logger {
   /// Be sure to call this before calling `compile()`
   /// - Parameter optimizer: The optimizer type to add
   public func add(optimizer: Optimizer) {
-    self.optimizer = optimizer
+    self.optimizer = optimizer.get()
+    self.optimizerType = optimizer
   }
   
   /// Returns a model that can be imported later
@@ -200,7 +204,7 @@ public class Brain: Logger {
     
     let model = ExportModel(layers: layers,
                             learningRate: learningRate,
-                            optimizer: optimizer)
+                            optimizer: optimizerType)
     return model
   }
   
@@ -393,7 +397,7 @@ public class Brain: Logger {
         
         self.trainOnBatch(batch: [obj])
         
-      case let .mbgd(size: size):
+      case.mbgd(let size):
         if setBatches == false {
           setBatches = true
           batches = mixedData.batched(into: size)
@@ -404,6 +408,13 @@ public class Brain: Logger {
         }
       }
 
+      //maybe add to serial background queue, dispatch queue crashes
+      /// feed a model and its correct values through the network to calculate the loss
+      let loss = self.loss(self.feed(input: data[0].data),
+                           correct: data[0].correct)
+      
+      self.loss.append(loss)
+      
       self.log(type: .message, priority: .low, message: "loss at epoch \(i): \(loss)")
       
       self.log(type: .message,
@@ -414,9 +425,12 @@ public class Brain: Logger {
       if let validationData = validation.randomElement(), validation.count > 0 {
         self.trainable = false
         
-        let errorForValidation = self.loss(self.feed(input: validationData.data),
-                                                     correct: validationData.correct)
+        let output = self.feed(input: validationData.data)
+        let errorForValidation = self.loss(output,
+                                           correct: validationData.correct)
         
+        self.log(type: .message, priority: .low, message: "val error at epoch \(i): \(errorForValidation) \(output) \(validationData.correct)")
+
         //if validation error is greater than previous then we are complete with training
         //bail out to prevent overfitting
         let threshold: Float = self.lossThreshold
@@ -442,7 +456,6 @@ public class Brain: Logger {
           }
         }
         
-        self.log(type: .message, priority: .low, message: "val error at epoch \(i): \(errorForValidation)")
         if previousValidationErrors.count == checkBatchCount {
           previousValidationErrors.removeFirst()
         }
@@ -479,13 +492,8 @@ public class Brain: Logger {
       let deltas = self.getOutputDeltas(outputs: output,
                                         correctValues: tData.correct)
       
-      //maybe add to serial background queue, dispatch queue crashes
-      /// feed a model and its correct values through the network to calculate the loss
-      let loss = self.loss(output,
-                                      correct: tData.correct)
-      self.loss.append(loss)
-
       batchDescents.append(deltas)
+      
     }
     
     if let lastLayerCount = self.lobes.last?.neurons.count {
@@ -493,7 +501,9 @@ public class Brain: Logger {
                                                      count: lastLayerCount), +)
       let average = result.map { $0 / Float(batch.count) }
       self.backpropagate(with: average)
-      self.adjustWeights()
+      self.adjustWeights(batchSize: batch.count)
+      
+      self.optimizer?.step()
     }
   }
 
@@ -575,6 +585,7 @@ public class Brain: Logger {
     self.lossFunction.calculate(predicted, correct: correct)
   }
   
+  //calculates the error at the output layer w.r.t to the weights.
   internal func getOutputDeltas(outputs: [Float], correctValues: [Float]) -> [Float] {
     guard correctValues.count == self.outputLayer.count,
           outputs.count == self.outputLayer.count else {
@@ -603,8 +614,8 @@ public class Brain: Logger {
     return self.lobes.map { $0.gradients() }
   }
 
-  internal func adjustWeights() {
-    self.lobes.forEach { $0.adjustWeights() }
+  internal func adjustWeights(batchSize: Int) {
+    self.lobes.forEach { $0.adjustWeights(batchSize: batchSize) }
   }
   
   internal func backpropagate(with deltas: [Float]) {
@@ -617,7 +628,7 @@ public class Brain: Logger {
         
     var updatingDeltas = deltas
     
-    reverse.first?.setLayerDeltas(with: updatingDeltas, update: true)
+    reverse.first?.calculateGradients(with: updatingDeltas)
 
     //subtracting 1 because we dont need to propagate through to the weights in the input layer
     //those will always be 0 since no computation happens at the input layer
@@ -626,11 +637,11 @@ public class Brain: Logger {
       let previousLobe = reverse[i + 1]
       
       //incoming inputs are the new deltas for the current layer
-      updatingDeltas = currentLobe.backpropagate(inputs: updatingDeltas,
-                                                 previousLayerCount: previousLobe.neurons.count)
+      updatingDeltas = currentLobe.calculateDeltas(inputs: updatingDeltas,
+                                                   previousLayerCount: previousLobe.neurons.count)
       
-      previousLobe.setLayerDeltas(with: updatingDeltas, update: true)
-
+      //calculatte gradients for next layer since we calculated the deltas for this current one. This is in reverse so technically it's in order..
+      previousLobe.calculateGradients(with: updatingDeltas)
     }
   }
   

@@ -20,7 +20,8 @@ public class Neuron {
   public var delta: Float? = nil
   public var bias: Float
   public var biasWeight: Float = 0.0
-  
+  public var gradients: [Float] = []
+
   internal var activationType: Activation
   internal var layer: LobeModel.LayerType = .output
 
@@ -47,8 +48,8 @@ public class Neuron {
     }
   }
   
-  public func addOptimizer(optimizer: Optimizer) {
-    self.optimizer = optimizer.get()
+  public func addOptimizer(optimizer: OptimizerFunction) {
+    self.optimizer = optimizer
   }
 
   /// Initializes the weights at this neuron using the given initializer
@@ -62,6 +63,7 @@ public class Neuron {
     
     self.weights = weights
     self.inputValues = inputs
+    self.gradients = [Float].init(repeating: 0, count: self.weights.count)
   }
   
   public func add(input: Float, weight: Float) {
@@ -92,8 +94,13 @@ public class Neuron {
     self.inputValues = inputs
   }
   
-  public func derivative() -> Float {
-    return activationDerivative
+  public func calculateGradients(delta: Float) {
+    self.delta = delta
+    self.gradients += self.inputValues * (delta * self.activationDerivative)
+  }
+  
+  public func zeroGradients() {
+    self.gradients = [Float].init(repeating: 0, count: self.gradients.count)
   }
   
   /// Applies the activation of a given sum.
@@ -124,25 +131,20 @@ public class Neuron {
     self.initialize(weights: clearedWeights, inputs: clearedInputs)
   }
   
-  public func gradients() -> [Float] {
-    let deltaTimeDeriv = self.derivative() * (delta ?? 0)
-    return self.inputValues * deltaTimeDeriv
-  }
-  
   /// Adjusts the weights of all inputs
-  public func adjustWeights(_ constrain: ClosedRange<Float>? = nil) {
+  public func adjustWeights(_ constrain: ClosedRange<Float>? = nil, batchSize: Int) {
     let delta = self.delta ?? 0
     
     biasWeight -= self.learningRate * delta
     
-    let gradients = self.gradients()
+    let gradients = self.gradients
     
     for i in 0..<gradients.count {
-      let gradient = gradients[i]
+      let gradient = gradients[i] / Float(batchSize) //account for batch size since we append gradients as we back prop
       
       if let optim = self.optimizer {
         self.weights[i] = optim.run(weight: self.weights[i],
-                                    gradient: gradient)
+                                    gradient: gradient) 
       } else {
         self.weights[i] -= self.learningRate * gradient
       }

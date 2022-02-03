@@ -41,7 +41,7 @@ public struct Layer: Codable {
 public struct ExportModel: Codable {
   public var layers: [Layer]
   public var learningRate: Float
-  public var optimizer: Optimizer? 
+  public var optimizer: Optimizer?
 
   public init(layers: [Layer],
               learningRate: Float,

@@ -13,7 +13,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     let bias: Float = 0.0001
     
     let brain = Brain(learningRate: 0.01,
-                      epochs: 5000,
+                      epochs: 500,
                       lossFunction: .crossEntropy,
                       lossThreshold: TestConstants.lossThreshold,
                       initializer: .xavierNormal,
@@ -34,7 +34,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     
     brain.add(modifier: .softmax) //when using softmax activation the output node should use a reLu or leakyRelu activation
     
-    //brain.add(optimizer: .adam(alpha: 0.0001))
+   // brain.add(optimizer: .adam(alpha: 0.001))
     brain.logLevel = .none
     
     return brain
@@ -114,7 +114,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     }
     
     brain.loss.forEach { l in
-      print(l)
+     // print(l)
     }
   }
   
