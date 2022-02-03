@@ -89,7 +89,7 @@ public class Lobe {
       var weights: [Float] = []
       
       for _ in 0..<model.inputNeuronCount {
-        var weight = initializer.calculate(m: self.neurons.count, h: model.inputNeuronCount)
+        var weight = initializer.calculate(input: self.neurons.count, out: model.inputNeuronCount)
         
         if let constrain = weightConstraints {
           let minBound = constrain.lowerBound
@@ -103,7 +103,7 @@ public class Lobe {
       
       layerWeights.append(weights)
       
-      let biasWeight = initializer.calculate(m: self.neurons.count, h: model.inputNeuronCount)
+      let biasWeight = initializer.calculate(input: self.neurons.count, out: model.inputNeuronCount)
       
       if let optim = model.optimizer {
         neuron.addOptimizer(optimizer: optim)

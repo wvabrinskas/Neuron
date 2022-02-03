@@ -61,9 +61,7 @@ public class Brain: Logger {
   private var optimizerType: Optimizer?
   
   private var outputLayer: [Neuron] { self.lobes.last?.neurons ?? [] }
-  
-  private var trainingData: [TrainingData] = []
-      
+        
   internal var weightConstraints: ClosedRange<Float>? = nil
   
   /// Creates a Brain object that manages a network of Neuron objects

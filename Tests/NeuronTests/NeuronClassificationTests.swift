@@ -112,10 +112,6 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
         XCTFail("No color to be found...")
       }
     }
-    
-    brain.loss.forEach { l in
-     // print(l)
-    }
   }
   
   //executes in alphabetical order
