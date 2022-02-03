@@ -188,16 +188,21 @@ public class Lobe {
   /// - Parameters:
   ///   - deltas: the deltas to apply
   ///   - update: boolean to indicate if you add the incoming deltas or just set to the incoming deltas
-  public func calculateGradients(with deltas: [Float]) {
+  @discardableResult
+  public func calculateGradients(with deltas: [Float]) -> [[Float]] {
     guard deltas.count == neurons.count else {
-      return
+      return []
     }
     
+    var gradients: [[Float]] = []
     for i in 0..<neurons.count {
       let delta = deltas[i]
       let neuron = neurons[i]
       neuron.calculateGradients(delta: delta)
+      gradients.append(neuron.gradients)
     }
+    
+    return gradients
   }
   
   /// Calculates deltas for each neuron for the next layer in the network. Updates the current layer deltas with the input previous layer deltas.

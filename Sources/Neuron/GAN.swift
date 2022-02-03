@@ -281,14 +281,11 @@ public class GAN: Logger {
         }
         
         //backprop discrimator
-        dis.backpropagate(with: [self.generatorLoss])
+        let firstLayerDeltas = dis.backpropagate(with: [self.generatorLoss]).firstLayerDeltas
                 
         //get discriminator gradients for each generator parameter first
-        if let firstLayerGradients = dis.firstNonEmptyLayerDeltas() {
-          gen.backpropagate(with: firstLayerGradients)
-          gen.adjustWeights(batchSize: 1) //figure out batch size?
-        }
-  
+        gen.backpropagate(with: firstLayerDeltas)
+        gen.adjustWeights(batchSize: 1) //figure out batch size?
       }
       
       epochCompleted?(i)

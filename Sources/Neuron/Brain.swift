@@ -606,17 +606,20 @@ public class Brain: Logger {
     self.lobes.forEach { $0.adjustWeights(batchSize: batchSize) }
   }
   
-  internal func backpropagate(with deltas: [Float]) {
+  @discardableResult
+  internal func backpropagate(with deltas: [Float]) -> (firstLayerDeltas: [Float], gradients: [[[Float]]]) {
     //reverse so we can loop through from the beggining of the array starting at the output node
     let reverse: [Lobe] = self.lobes.reversed()
 
     guard reverse.count > 0 else {
-      return
+      return ([], [])
     }
         
     var updatingDeltas = deltas
     
     reverse.first?.calculateGradients(with: updatingDeltas)
+    
+    var gradients: [[[Float]]] = []
 
     //subtracting 1 because we dont need to propagate through to the weights in the input layer
     //those will always be 0 since no computation happens at the input layer
@@ -629,8 +632,11 @@ public class Brain: Logger {
                                                    previousLayerCount: previousLobe.neurons.count)
       
       //calculatte gradients for next layer since we calculated the deltas for this current one. This is in reverse so technically it's in order..
-      previousLobe.calculateGradients(with: updatingDeltas)
+      let newGradients = previousLobe.calculateGradients(with: updatingDeltas)
+      gradients.append(newGradients)
     }
+    
+    return (updatingDeltas, gradients)
   }
   
   internal func firstNonEmptyLayerDeltas() -> [Float]? {
