@@ -167,7 +167,7 @@ public class Lobe {
     let columns = neurons.count
     var layerWeights = neurons.flatMap { $0.weights }
     
-    layerWeights.transpose(columns: columns, rows: rows)
+    layerWeights = layerWeights.transpose(columns: columns, rows: rows)
     
     let dotProducts = inputsToUse.multiDotProduct(B: layerWeights,
                                                   columns: Int32(columns),
