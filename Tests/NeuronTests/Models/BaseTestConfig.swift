@@ -25,9 +25,11 @@ public extension BaseTestConfig {
     
     for layer in brain.layerWeights {
       layer.forEach { (float) in
-        flattenedWeights.append(float)
+        let flattenedLayerWeights = float.compactMap({ $0 })
+        flattenedWeights.append(contentsOf: flattenedLayerWeights)
       }
     }
+    
     return flattenedWeights
   }
 

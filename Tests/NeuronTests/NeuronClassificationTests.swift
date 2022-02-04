@@ -10,10 +10,10 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
   ]
   
   public lazy var brain: Brain? = {
-    let bias: Float = 0.0001
+    let bias: Float = 0.00001
     
-    let brain = Brain(learningRate: 0.001,
-                      epochs: 500,
+    let brain = Brain(learningRate: 0.01,
+                      epochs: 200,
                       lossFunction: .crossEntropy,
                       lossThreshold: TestConstants.lossThreshold,
                       initializer: .xavierNormal,
@@ -67,14 +67,8 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     for _ in 0..<num {
       trainingData.append(TrainingData(data: ColorType.red.color(), correct: ColorType.red.correctValues()))
       validationData.append(TrainingData(data: ColorType.red.color(), correct: ColorType.red.correctValues()))
-    }
-    
-    for _ in 0..<num {
       trainingData.append(TrainingData(data: ColorType.green.color(), correct: ColorType.green.correctValues()))
       validationData.append(TrainingData(data: ColorType.green.color(), correct: ColorType.green.correctValues()))
-    }
-    
-    for _ in 0..<num {
       trainingData.append(TrainingData(data: ColorType.blue.color(), correct: ColorType.blue.correctValues()))
       validationData.append(TrainingData(data: ColorType.blue.color(), correct: ColorType.blue.correctValues()))
     }
@@ -113,6 +107,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
       }
     }
     
+    brain.loss.forEach { print($0) }
 //    brain.loss.forEach { i in
 //      print(i)
 //    }

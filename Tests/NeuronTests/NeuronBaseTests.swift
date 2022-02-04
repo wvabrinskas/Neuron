@@ -52,7 +52,7 @@ final class NeuronBaseTests: XCTestCase, BaseTestConfig {
     var brainWeights = brain.layerWeights
         
     if let brainFirst = brainWeights.first {
-      let replace = [Float].init(repeating: 1.0, count: brainFirst.count)
+      let replace = [[Float]].init(repeating: [1.0], count: brainFirst.count)
       brainWeights[0] = replace
       
       brain.replaceWeights(weights: brainWeights)

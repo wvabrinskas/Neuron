@@ -70,7 +70,7 @@ public class Lobe {
           neuron.addOptimizer(optimizer: optim)
         }
         
-        neuron.add(input: 0, weight: 0)
+        neuron.initialize(weights: [0], inputs: [0])
         neuron.layer = model.layerType
         layerWeights.append([0])
       }
@@ -144,34 +144,23 @@ public class Lobe {
   /// Gets the activated results for the current inputs or the passed in inputs at this layer
   /// - Parameter inputs: Optional inputs to replace at this layer. If this is left out this layer will activate against the currently set inputs
   /// - Returns: The activated results at this layer
-  public func getActivated(replacingInputs inputs: [Float] = []) -> [Float] {
-    
-    //calculate dot products for hidden layers
-    guard let existingNeuronInputs = self.neurons.first?.inputValues else {
-      return []
+  public func getActivated(replacingInputs inputs: [Float]) -> [Float] {
+  
+    self.neurons.forEach { neuron in
+      neuron.replaceInputs(inputs: inputs)
     }
-    
-    var inputsToUse = existingNeuronInputs
-    
-    if inputs.count > 0 {
-      inputsToUse = inputs
-      
-      self.neurons.forEach { neuron in
-        neuron.replaceInputs(inputs: inputs)
-      }
-    }
-    
+
     var activatedResults: [Float] = []
         
-    let rows = inputsToUse.count
+    let rows = inputs.count
     let columns = neurons.count
     var layerWeights = neurons.flatMap { $0.weights }
     
     layerWeights = layerWeights.transpose(columns: columns, rows: rows)
     
-    let dotProducts = inputsToUse.multiDotProduct(B: layerWeights,
-                                                  columns: Int32(columns),
-                                                  rows: Int32(rows))
+    let dotProducts = inputs.multiDotProduct(B: layerWeights,
+                                             columns: Int32(columns),
+                                             rows: Int32(rows))
     
     for i in 0..<dotProducts.count {
       let product = dotProducts[i]
@@ -208,7 +197,7 @@ public class Lobe {
   /// Calculates deltas for each neuron for the next layer in the network. Updates the current layer deltas with the input previous layer deltas.
   /// - Parameter previousLayerDeltas: Incoming delta's from the previous layer
   /// - Returns: The next set of deltas to be passed to the next layer in the backpropagation.
-  public func calculateDeltas(inputs: [Float], previousLayerCount: Int) -> [Float] {
+  public func calculateDeltasForPreviousLayer(inputs: [Float], previousLayerCount: Int) -> [Float] {
 
     guard self.layer != .input else {
       return []
@@ -254,6 +243,10 @@ public class Lobe {
     neurons.forEach { neuron in
       neuron.zeroGradients()
     }
+  }
+  
+  public func weights() -> [[Float]] {
+    return neurons.map { $0.weights }
   }
   
   public func gradients() -> [[Float]] {

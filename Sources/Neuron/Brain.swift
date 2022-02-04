@@ -50,7 +50,7 @@ public class Brain: Logger {
   internal var model: ExportModel?
   
   /// Initialized layer weights for unit test purposes only
-  internal var layerWeights: [[Float]] = []
+  internal var layerWeights: [[[Float]]] = []
   
   /// Distribution for initialization
   internal static let dist = NormalDistribution()
@@ -122,26 +122,20 @@ public class Brain: Logger {
   
   /// Replaces the weights in the network
   /// - Parameter weights: the weights to replace the existing weights with
-  public func replaceWeights(weights: [[Float]]) {
-    var i = 0
-    var newWeights: [[Float]] = []
-    self.lobes.forEach { (lobe) in
+  public func replaceWeights(weights: [[[Float]]]) {
+    for l in 0..<self.lobes.count {
+      let lobe = self.lobes[l]
       
-      lobe.neurons.forEach { (n) in
-        var j = 0
-        var newNodeWeights: [Float] = []
-        n.replaceWeights(weights: weights[i])
-        
-        n.weights.forEach { weight in
-          newNodeWeights.append(weight)
-          j += 1
-        }
-        
-        newWeights.append(newNodeWeights)
-        i += 1
+      let weightsForLayer = weights[l]
+      
+      for n in 0..<lobe.neurons.count {
+        let neuron = lobe.neurons[n]
+        let weightsForNeuron = weightsForLayer[n]
+        neuron.replaceWeights(weights: weightsForNeuron)
       }
     }
-    self.layerWeights = newWeights
+
+    self.layerWeights = lobes.map { $0.weights() }
   }
   
   /// Adds an optimizer to the gradient descent algorithm.
@@ -268,7 +262,6 @@ public class Brain: Logger {
         neuron.biasWeight = biasWeight
         
         neurons.append(neuron)
-        self.layerWeights.append(weights)
       }
       
       var lobe = Lobe(neurons: neurons,
@@ -290,6 +283,8 @@ public class Brain: Logger {
       
       self.lobes.append(lobe)
     }
+    
+    self.layerWeights = self.lobes.map { $0.weights() }
     
     self.compiled = true
   }
@@ -326,7 +321,7 @@ public class Brain: Logger {
                                                  optimizer: self.optimizer)
         
         let weights = lobe.compile(model: compileModel)
-        self.layerWeights.append(contentsOf: weights)
+        self.layerWeights.append(weights)
 
       } else {
         
@@ -340,7 +335,7 @@ public class Brain: Logger {
         //first layer weight initialization with 0 since it's just the input layer
         let inputLayer = self.lobes[i]
         let weights = inputLayer.compile(model: compileModel)
-        self.layerWeights.append(contentsOf: weights)
+        self.layerWeights.append(weights)
       }
     }
     
@@ -387,23 +382,29 @@ public class Brain: Logger {
             
       switch self.descent {
       case .bgd:
-        self.trainOnBatch(batch: data)
+        let loss = self.trainOnBatch(batch: data)
+        self.loss.append(loss)
       case .sgd:
         guard let obj = mixedData.randomElement() else {
           return
         }
         
-        self.trainOnBatch(batch: [obj])
-        
+        let loss = self.trainOnBatch(batch: [obj])
+        self.loss.append(loss)
+
       case.mbgd(let size):
         if setBatches == false {
           setBatches = true
           batches = mixedData.batched(into: size)
         }
         
-        batches.forEach { (batch) in
-          self.trainOnBatch(batch: batch)
+        var lossOnBatches: Float = 0
+        
+        batches.randomize().forEach { (batch) in
+          lossOnBatches += self.trainOnBatch(batch: batch)
         }
+        
+        self.loss.append(lossOnBatches / Float(batches.count))
       }
       
       self.log(type: .message,
@@ -417,7 +418,7 @@ public class Brain: Logger {
         let output = self.feed(input: validationData.data)
         let errorForValidation = self.loss(output,
                                            correct: validationData.correct)
-        
+                
 //        self.log(type: .message, priority: .low, message: "val error at epoch \(i): \(errorForValidation) \(output) \(validationData.correct)")
 
         //if validation error is greater than previous then we are complete with training
@@ -465,33 +466,28 @@ public class Brain: Logger {
     complete?(false)
   }
   
-  private func trainOnBatch(batch: [TrainingData]) {
+  private func trainOnBatch(batch: [TrainingData]) -> Float {
     self.trainable = true
     self.zeroGradients()
     
-    var losses: [Float] = []
+    var batchLoss: Float = 0
     batch.forEach { tData in
       //feed the data through the network
       let output = self.feed(input: tData.data)
       
-      let newLoss = self.loss(output, correct: tData.correct)
-      losses.append(newLoss)
+      batchLoss += self.loss(output, correct: tData.correct)
       
       //set the output errors for set
       let deltas = self.getOutputDeltas(outputs: output,
                                         correctValues: tData.correct)
-      
+  
       self.backpropagate(with: deltas)
     }
-    
-    let lossAvg = losses.sum / Float(losses.count)
-
-    self.loss.append(lossAvg)
-    
-    self.log(type: .message, priority: .low, message: "loss at batch: \(lossAvg)")
-    
+        
     self.adjustWeights(batchSize: batch.count)
     self.optimizer?.step()
+    
+    return batchLoss / Float(batch.count)
   }
 
   /// Clears the whole network and resets all the weights to a random value
@@ -502,6 +498,10 @@ public class Brain: Logger {
     self.lobes.forEach { (lobe) in
       lobe.clear()
     }
+  }
+  
+  public func weights() -> [[[Float]]] {
+    lobes.map { $0.weights() }
   }
   
   /// Feed-forward through the network to get the result
@@ -543,6 +543,8 @@ public class Brain: Logger {
     for i in 0..<self.lobes.count {
       let currentLayer = self.lobes[i]
       let newInputs: [Float] = currentLayer.feed(inputs: x, training: self.trainable)
+    //print(x, "->", currentLayer.layer, "->", newInputs)
+
       x = newInputs
     }
     
@@ -615,31 +617,25 @@ public class Brain: Logger {
     }
         
     var updatingDeltas = deltas
-    
-    reverse.first?.calculateGradients(with: updatingDeltas)
-    
     var gradients: [[[Float]]] = []
-
+    
     //subtracting 1 because we dont need to propagate through to the weights in the input layer
     //those will always be 0 since no computation happens at the input layer
     for i in 0..<reverse.count - 1 {
       let currentLobe = reverse[i]
       let previousLobe = reverse[i + 1]
       
-      //incoming inputs are the new deltas for the current layer
-      updatingDeltas = currentLobe.calculateDeltas(inputs: updatingDeltas,
-                                                   previousLayerCount: previousLobe.neurons.count)
+      //calculate gradients for current layer with previous layer errors aka deltas
+      let newGradients = currentLobe.calculateGradients(with: updatingDeltas)
+
+      //current lobe is calculating the deltas for the previous lobe
+      updatingDeltas = currentLobe.calculateDeltasForPreviousLayer(inputs: updatingDeltas,
+                                                                   previousLayerCount: previousLobe.neurons.count)
       
-      //calculatte gradients for next layer since we calculated the deltas for this current one. This is in reverse so technically it's in order..
-      let newGradients = previousLobe.calculateGradients(with: updatingDeltas)
       gradients.append(newGradients)
     }
     
-    return (updatingDeltas, gradients)
-  }
-  
-  internal func firstNonEmptyLayerDeltas() -> [Float]? {
-    return lobes.first(where: { $0.deltas().count > 0 })?.deltas()
+    return (updatingDeltas, gradients.reversed())
   }
   
   internal func zeroGradients() {

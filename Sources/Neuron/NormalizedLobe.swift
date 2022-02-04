@@ -75,9 +75,10 @@ public class NormalizedLobe: Lobe {
     return normalizedResults
   }
   
-  public override func calculateDeltas(inputs: [Float], previousLayerCount: Int) -> [Float] {
+  //TODO: I dont think this is right and should be somewhere else
+  public override func calculateDeltasForPreviousLayer(inputs: [Float], previousLayerCount: Int) -> [Float] {
     let normalizedBackpropInputs = normalizer.backward(gradient: inputs)
-    let backpropResults = super.calculateDeltas(inputs: normalizedBackpropInputs, previousLayerCount: previousLayerCount)
+    let backpropResults = super.calculateDeltasForPreviousLayer(inputs: normalizedBackpropInputs, previousLayerCount: previousLayerCount)
     return backpropResults
   }
 }
