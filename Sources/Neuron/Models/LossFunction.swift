@@ -40,10 +40,10 @@ public enum LossFunction {
         let correct = correct[i]
         
         let p = correct == 0 ? 1 - predicted : predicted
-        sum += (-correct * log2(p + 1e-10))
+        sum += (correct * log2(p + 1e-10))
       }
       
-      return sum
+      return -sum
       
     case .binaryCrossEntropy:
       guard correct.count == 1 else {

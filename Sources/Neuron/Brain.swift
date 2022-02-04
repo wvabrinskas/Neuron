@@ -405,15 +405,6 @@ public class Brain: Logger {
           self.trainOnBatch(batch: batch)
         }
       }
-
-      //maybe add to serial background queue, dispatch queue crashes
-      /// feed a model and its correct values through the network to calculate the loss
-      let loss = self.loss(self.feed(input: data[0].data),
-                           correct: data[0].correct)
-      
-      self.loss.append(loss)
-      
-      self.log(type: .message, priority: .low, message: "loss at epoch \(i): \(loss)")
       
       self.log(type: .message,
                priority: .high,
@@ -427,7 +418,7 @@ public class Brain: Logger {
         let errorForValidation = self.loss(output,
                                            correct: validationData.correct)
         
-        self.log(type: .message, priority: .low, message: "val error at epoch \(i): \(errorForValidation) \(output) \(validationData.correct)")
+//        self.log(type: .message, priority: .low, message: "val error at epoch \(i): \(errorForValidation) \(output) \(validationData.correct)")
 
         //if validation error is greater than previous then we are complete with training
         //bail out to prevent overfitting
@@ -457,8 +448,8 @@ public class Brain: Logger {
         if previousValidationErrors.count == checkBatchCount {
           previousValidationErrors.removeFirst()
         }
-        previousValidationErrors.append(abs(errorForValidation))
         
+        previousValidationErrors.append(errorForValidation)
       }
       
       epochCompleted?(i)
@@ -478,9 +469,13 @@ public class Brain: Logger {
     self.trainable = true
     self.zeroGradients()
     
+    var losses: [Float] = []
     batch.forEach { tData in
       //feed the data through the network
       let output = self.feed(input: tData.data)
+      
+      let newLoss = self.loss(output, correct: tData.correct)
+      losses.append(newLoss)
       
       //set the output errors for set
       let deltas = self.getOutputDeltas(outputs: output,
@@ -488,6 +483,12 @@ public class Brain: Logger {
       
       self.backpropagate(with: deltas)
     }
+    
+    let lossAvg = losses.sum / Float(losses.count)
+
+    self.loss.append(lossAvg)
+    
+    self.log(type: .message, priority: .low, message: "loss at batch: \(lossAvg)")
     
     self.adjustWeights(batchSize: batch.count)
     self.optimizer?.step()

@@ -24,7 +24,7 @@ public enum Initializers: String, Codable {
     switch self {
       
     case .xavierUniform:
-      let min = Float(sqrt(-6) / sqrt((Double(input) + Double(out))))
+      let min = -Float(sqrt(6) / sqrt((Double(input) + Double(out))))
       let max = Float(sqrt(6) / sqrt((Double(input) + Double(out))))
       
       return Float.random(in: min...max)
@@ -33,7 +33,7 @@ public enum Initializers: String, Codable {
       return Brain.dist.nextFloat() * Float(sqrt(2 / (Double(input) + Double(out))))
       
     case .heUniform:
-      let min = Float(sqrt(-6) / sqrt((Double(input))))
+      let min = -Float(sqrt(6) / sqrt((Double(input))))
       let max = Float(sqrt(6) / sqrt((Double(input))))
       
       return Float.random(in: min...max)

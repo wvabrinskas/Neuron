@@ -135,7 +135,12 @@ public class Neuron {
   public func adjustWeights(_ constrain: ClosedRange<Float>? = nil, batchSize: Int) {
     let delta = self.delta ?? 0
     
-    biasWeight -= self.learningRate * delta
+    //update bias weight as well using optimizer
+    if let optimizer = optimizer {
+      biasWeight = optimizer.runBias(weight: biasWeight, gradient: delta)
+    } else {
+      biasWeight -= self.learningRate * delta
+    }
     
     let gradients = self.gradients
     
