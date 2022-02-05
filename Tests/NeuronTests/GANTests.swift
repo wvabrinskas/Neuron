@@ -31,8 +31,7 @@ final class GANTests: XCTestCase {
     brain.add(.init(nodes: wordLength, activation: .tanh, bias: bias))
     
     brain.logLevel = .none
-    brain.add(optimizer: .adam())
-    brain.compile() //build network
+    brain.add(optimizer: .adam(alpha: 0.001))
     
     return brain
   }()
@@ -48,9 +47,8 @@ final class GANTests: XCTestCase {
     brain.add(.init(nodes: 1, activation: .sigmoid, bias: bias))
     
     brain.logLevel = .none
-    brain.add(optimizer: .adam())
-    brain.compile() //build network
-    
+    brain.add(optimizer: .adam(alpha: 0.01))
+
     return brain
   }()
   
@@ -61,8 +59,8 @@ final class GANTests: XCTestCase {
                   gradientPenaltyCenter: 1,
                   batchSize: 10)
     
-    gan.add(generator: self.generator)
-    gan.add(discriminator: self.discriminator)
+    gan.add(generator: self.generator) //compiles
+    gan.add(discriminator: self.discriminator) //compiles
     
     gan.logLevel = .none
     gan.lossFunction = .wasserstein

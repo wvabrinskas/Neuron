@@ -146,7 +146,7 @@ final class NeuronPretrainedClassificationTests: XCTestCase, BaseTestConfig {
     
     for l in 0..<brain.lobes.count {
       let lobe = brain.lobes[l]
-      let weightsAtLayer = lobe.neurons.map({ $0.inputs.map({ $0.weight} )})
+      let weightsAtLayer = lobe.neurons.map({ $0.weights })
       let weightsAtPretrained = allWeights[l]
       
       for i in 0..<weightsAtLayer.count {
@@ -199,7 +199,8 @@ final class NeuronPretrainedClassificationTests: XCTestCase, BaseTestConfig {
     
     for layer in brain.layerWeights {
       layer.forEach { (float) in
-        flattenedWeights.append(float)
+        let flattenedLayerWeights = float.compactMap({ $0 })
+        flattenedWeights.append(contentsOf: flattenedLayerWeights)
       }
     }
     

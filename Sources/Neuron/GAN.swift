@@ -13,7 +13,7 @@ public enum GANType {
 }
 
 public enum GANTrainingType: String {
-  case real, fake, generator
+  case real, fake
 
 }
 
@@ -25,7 +25,7 @@ public enum GANLossFunction {
     switch self {
     case .minimax:
       switch type {
-      case .real, .generator:
+      case .real:
         return 1.0
       case .fake:
         return 0
@@ -35,7 +35,7 @@ public enum GANLossFunction {
       switch type {
       case .real:
         return 1
-      case .fake, .generator:
+      case .fake:
         return -1
       }
     }
@@ -47,8 +47,6 @@ public enum GANLossFunction {
       switch type {
       case .fake:
         return log(1 - value)
-      case .generator:
-        return log(value)
       case .real:
         return log(value)
       }
@@ -189,34 +187,32 @@ public class GAN: Logger {
 
     let epochs = singleStep ? 1 : self.epochs
 
-    
     self.log(type: .message, priority: .alwaysShow, message: "Training started...")
     
     for i in 0..<epochs {
-      
-      let noise = randomNoise()
-      
       //prepare data into batches
-      let realData = self.getRandomBatch(data: data)
-      
       for _ in 0..<self.criticTrainPerEpoch {
+        //freeze the generator
+        gen.trainable = false
+        dis.trainable = true
+        
         //zero out gradients before training discriminator
         dis.zeroGradients()
-        
-        //get next batch of real data
-        let realDataBatch = self.getRandomBatch(data: realData)
+
+        let noise = randomNoise()
+
+        let realDataBatch = self.getRandomBatch(data: data)
+        let fakeDataBatch = self.getGeneratedData(type: .fake, noise: noise)
+
         //train discriminator on real data combined with fake data
         let realOutput = self.trainOn(data: realDataBatch, type: .real)
-        
-        //get next batch of fake data by generating new fake data
-        let fakeDataBatch = self.getGeneratedData(type: .fake, noise: noise)
 
         //tran discriminator on new fake data generated after epoch
         let fakeOutput = self.trainOn(data: fakeDataBatch, type: .fake)
         
         if self.lossFunction == .minimax {
-          let realLoss = realOutput.loss.reduce(0, +) / Float(self.batchSize)
-          let fakeLoss = fakeOutput.loss.reduce(0, +) / Float(self.batchSize)
+          let realLoss = realOutput.loss.sum / Float(self.batchSize)
+          let fakeLoss = fakeOutput.loss.sum / Float(self.batchSize)
           
           //backprop discrimator
           dis.backpropagate(with: [realLoss])
@@ -234,41 +230,41 @@ public class GAN: Logger {
           
         } else if self.lossFunction == .wasserstein {
           
-          let averageRealOut = -1 * (realOutput.loss.reduce(0, +) / Float(self.batchSize))
-          let averageFakeOut = -1 * (fakeOutput.loss.reduce(0, +) / Float(self.batchSize))
+          let averageRealOut = (realOutput.loss.sum / Float(self.batchSize))
+          let averageFakeOut = (fakeOutput.loss.sum / Float(self.batchSize))
           
           let lambda: Float = gradientPenaltyLambda
-          let penalty = lambda * self.gradientPenalty(realData: realData)
-          
+          let penalty = lambda * self.gradientPenalty(realData: realDataBatch)
+
           self.gradientPenalty = penalty
           
-          //real - fake because we multiplied by negative one above. had we not we would have to reverse this equation
-          self.discriminatorLoss = averageRealOut - averageFakeOut + penalty
+          self.discriminatorLoss = -(averageRealOut - averageFakeOut) + penalty
           
           //backprop discrimator
           dis.backpropagate(with: [discriminatorLoss])
-
-//          dis.backpropagate(with: [averageRealOut])
-//          dis.backpropagate(with: [averageFakeOut]) //want to subtract in backprop calc
-//          dis.backpropagate(with: [penalty])
         }
         
         //adjust weights AFTER calculating gradients
-        dis.adjustWeights()
+        //figure out batch size
+        dis.adjustWeights(batchSize: 1)
       }
       
       for _ in 0..<self.generatorTrainPerEpoch {
+        //freeze the generator
+        gen.trainable = true
+        dis.trainable = false
         
+        let noise = randomNoise()
         //zero out gradients before training generator
         gen.zeroGradients()
         dis.zeroGradients()
 
         //train generator on newly trained discriminator
-        let realFakeData = self.getGeneratedData(type: .generator, noise: noise)
-        let genOutput = self.trainOn(data: realFakeData, type: .generator)
+        let realFakeData = self.getGeneratedData(type: .fake, noise: noise)
+        let genOutput = self.trainOn(data: realFakeData, type: .fake)
         
         if self.lossFunction == .minimax {
-          let sumOfGenLoss = genOutput.loss.reduce(0, +)
+          let sumOfGenLoss = genOutput.loss.sum
           
           //we want to maximize lossfunction log(D(G(z))
           //negative because the Neuron only supports MINIMIZING gradients
@@ -277,21 +273,19 @@ public class GAN: Logger {
           self.generatorLoss = genLoss
           
         } else if self.lossFunction == .wasserstein {
-          let sumOfGenLoss = genOutput.loss.reduce(0, +)
+          let sumOfGenLoss = genOutput.loss.sum
           let averageGenLoss = sumOfGenLoss / Float(self.batchSize)
           
+          //minimize gradients
           self.generatorLoss = -1 * averageGenLoss
         }
         
         //backprop discrimator
-        dis.backpropagate(with: [self.generatorLoss])
+        let firstLayerDeltas = dis.backpropagate(with: [self.generatorLoss]).firstLayerDeltas
                 
         //get discriminator gradients for each generator parameter first
-        if let firstLayerGradients = dis.lobes.first(where: { $0.deltas().count > 0 })?.deltas() {
-          gen.backpropagate(with: firstLayerGradients)
-          gen.adjustWeights()
-        }
-  
+        gen.backpropagate(with: firstLayerDeltas)
+        gen.adjustWeights(batchSize: 1) //figure out batch size?
       }
       
       epochCompleted?(i)
@@ -311,12 +305,16 @@ public class GAN: Logger {
       return 0
     }
     
+    defer {
+      dis.zeroGradients()
+    }
+    
     let noise = self.randomNoise()
     
     var gradients: [[Float]] = []
     
     let real = self.getRandomBatch(data: realData)
-    let fake = self.getGeneratedData(type: .real, noise: noise)
+    let fake = self.getGeneratedData(type: .fake, noise: noise)
     
     for i in 0..<self.batchSize {
       dis.zeroGradients()
@@ -334,6 +332,7 @@ public class GAN: Logger {
         for i in 0..<realNew.count {
           let realVal = realNew[i] * epsilon
           let fakeVal = fakeNew[i] * (1 - epsilon)
+          
           inter.append(realVal + fakeVal)
         }
       }
@@ -343,19 +342,17 @@ public class GAN: Logger {
 
       dis.backpropagate(with: [loss])
       
-      if let firstLayerGradients = dis.gradients().first {
-        let flattenedGradients = firstLayerGradients.flatMap { $0 }
-        gradients.append(flattenedGradients)
+      //skip first layer gradients
+      if let networkGradients = dis.gradients()[safe: 1]?.flatMap({ $0 }) {
+        gradients.append(networkGradients)
       }
     }
     
-    let squared = gradients.map { $0.reduce(into: 0.0) { result, num in
-      return result += pow(num, 2)
-    } }
+    let squared = gradients.map { $0.sumOfSquares }
 
     let center = self.gradientPenaltyCenter
     
-    let penalty = squared.map { pow((sqrt($0) - center), 2) }.reduce(0, +) / (Float(squared.count) + 1e-8)
+    let penalty = squared.map { pow((sqrt($0) - center), 2) }.sum / (Float(squared.count) + 1e-8)
     return penalty
   }
     
@@ -399,6 +396,10 @@ public class GAN: Logger {
   }
   
   public func add(discriminator dis: Brain) {
+    guard dis.lobes.last?.neurons.count == 1 else {
+      self.log(type: .error, priority: .alwaysShow, message: "Discriminator should only have 1 output neuron")
+      return
+    }
     self.discriminator = dis
     dis.compile()
   }

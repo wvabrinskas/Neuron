@@ -11,28 +11,41 @@ import NumSwift
 public class BatchNormalizer {
   @TestNaN public var gamma: Float = 1
   @TestNaN public var beta: Float = 0
-  private var movingMean: Float = 0
-  private var movingVariance: Float = 0
+  @TestNaN public var movingMean: Float = 1
+  @TestNaN public var movingVariance: Float = 1
+  public let learningRate: Float
+  public let momentum: Float
+  
   private var normalizedActivations: [Float] = []
   private var standardDeviation: Float = 0
-  private let momentum: Float = 0.9
   private let e: Float = 0.00005 //this is a standard smoothing term
-  private let learningRate: Float
-  
-  public init(gamma: Float = 1, beta: Float = 0, learningRate: Float) {
+
+  public init(gamma: Float = 1,
+              beta: Float = 0,
+              momentum: Float,
+              learningRate: Float,
+              movingMean: Float = 1,
+              movingVariance: Float = 1) {
     self.gamma = gamma
     self.beta = beta
     self.learningRate = learningRate
+    self.movingVariance = movingVariance
+    self.movingMean = movingMean
+    self.momentum = momentum
   }
 
-  public func normalize(activations: [Float]) -> [Float] {
+  public func normalize(activations: [Float], training: Bool) -> [Float] {
+    
+    //gamma * (batch - self.moving_mean) / sqrt(self.moving_var + epsilon) + beta.
     
     let total = Float(activations.count)
     
-    let mean = activations.reduce(0, +) / total
+    let mean = training == true ? activations.sum / total : movingMean
     
-    let variance = activations.map { pow($0 - mean, 2) }.reduce(0, +) / total
-        
+    let diffVar = activations - mean
+
+    let variance = training == true ? diffVar.sumOfSquares / total : movingVariance
+            
     let std = sqrt(variance + e)
       
     standardDeviation = std
@@ -41,16 +54,18 @@ public class BatchNormalizer {
     
     normalizedActivations = normalized
     
-    movingMean = momentum * movingMean + (1 - momentum) * mean
-    movingVariance = momentum * movingVariance + (1 - movingVariance) * variance
-    
-    let normalizedScaledAndShifted = normalized.map { gamma * $0 + beta }
+    if training {
+      movingMean = momentum * movingMean + (1 - momentum) * mean
+      movingVariance = momentum * movingVariance + (1 - momentum) * variance
+    }
+        
+    let normalizedScaledAndShifted = gamma * normalized + beta
     
     return normalizedScaledAndShifted
   }
   
   public func backward(gradient: [Float]) -> [Float] {
-    let dBeta = gradient.reduce(0, +)
+    let dBeta = gradient.sum
     
     guard gradient.count == normalizedActivations.count else {
       return gradient
@@ -65,12 +80,13 @@ public class BatchNormalizer {
     let combineXandDxNorm = normalizedActivations * dxNorm
     let dxNormTimesXNormSum: Float = combineXandDxNorm.sum
  
-    let dxNormSum = dxNorm.reduce(0, +)
+    let dxNormSum = dxNorm.sum
     let std = standardDeviation
     
     let dGamma = (gradient * normalizedActivations).sum
     
-    let dx = ((1 / n) / std) * ((dxNorm * n) - (dxNormSum - normalizedActivations) * dxNormTimesXNormSum)
+    let t = dxNorm * n
+    let dx = (t - (dxNormSum - normalizedActivations) * dxNormTimesXNormSum) * ((1 / n) / std)
       
     outputGradients = dx
     
