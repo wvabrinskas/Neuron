@@ -407,6 +407,12 @@ public class Brain: Logger {
         self.loss.append(lossOnBatches / Float(batches.count))
       }
       
+      if let lastLoss = self.loss.last {
+        self.log(type: .message,
+                 priority: .low,
+                 message: "loss: \(lastLoss)")
+      }
+
       self.log(type: .message,
                priority: .high,
                message: "epoch completed time: \(Date().timeIntervalSince(epochStartDate))")
@@ -419,8 +425,6 @@ public class Brain: Logger {
         let errorForValidation = self.loss(output,
                                            correct: validationData.correct)
                 
-//        self.log(type: .message, priority: .low, message: "val error at epoch \(i): \(errorForValidation) \(output) \(validationData.correct)")
-
         //if validation error is greater than previous then we are complete with training
         //bail out to prevent overfitting
         let threshold: Float = self.lossThreshold
@@ -543,7 +547,6 @@ public class Brain: Logger {
     for i in 0..<self.lobes.count {
       let currentLayer = self.lobes[i]
       let newInputs: [Float] = currentLayer.feed(inputs: x, training: self.trainable)
-    //print(x, "->", currentLayer.layer, "->", newInputs)
 
       x = newInputs
     }
