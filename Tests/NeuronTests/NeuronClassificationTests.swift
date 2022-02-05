@@ -35,7 +35,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     brain.add(modifier: .softmax) //when using softmax activation the output node should use a reLu or leakyRelu activation
     
    // brain.add(optimizer: .adam(alpha: 0.01))
-    brain.logLevel = .low
+    brain.logLevel = .none
     
     return brain
   }()
@@ -106,11 +106,6 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
         XCTFail("No color to be found...")
       }
     }
-    
-    brain.loss.forEach { print($0) }
-//    brain.loss.forEach { i in
-//      print(i)
-//    }
   }
   
   //executes in alphabetical order

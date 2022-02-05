@@ -17,7 +17,7 @@ class SimpleTests: XCTestCase {
     
     let brain = Brain(learningRate: 1,
                       epochs: 1,
-                      lossFunction: .crossEntropy,
+                      lossFunction: .binaryCrossEntropy,
                       lossThreshold: TestConstants.lossThreshold,
                       initializer: .xavierNormal,
                       descent: .bgd)
@@ -82,7 +82,8 @@ class SimpleTests: XCTestCase {
 
     let backprop = complexBrain.backpropagate(with: error)
 
-    XCTAssert(backprop.gradients == [[[-0.25], [-0.25]], [[-0.125, -0.125], [-0.125, -0.125]], [[-0.25, -0.25]]])
+    let expectedGradients: [[[Float]]] = [[[-0.25], [-0.25]], [[-0.125, -0.125], [-0.125, -0.125]], [[-0.25, -0.25]]].reversed()
+    XCTAssert(backprop.gradients == expectedGradients)
     complexBrain.adjustWeights(batchSize: 1)
     
     XCTAssert(complexBrain.weights() == [[[0.0]], [[0.75], [0.75]], [[0.625, 0.625], [0.625, 0.625]], [[0.75, 0.75]]])

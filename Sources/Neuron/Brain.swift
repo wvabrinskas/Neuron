@@ -635,7 +635,7 @@ public class Brain: Logger {
       gradients.append(newGradients)
     }
     
-    return (updatingDeltas, gradients.reversed())
+    return (updatingDeltas, gradients)
   }
   
   internal func zeroGradients() {
