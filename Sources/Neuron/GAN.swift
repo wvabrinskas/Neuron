@@ -205,10 +205,10 @@ public class GAN: Logger {
         let fakeDataBatch = self.getGeneratedData(type: .fake, noise: noise)
 
         //train discriminator on real data combined with fake data
-        let realOutput = self.trainOn(data: realDataBatch, type: .real)
+        let realOutput = self.trainOnBatch(data: realDataBatch, type: .real)
 
         //tran discriminator on new fake data generated after epoch
-        let fakeOutput = self.trainOn(data: fakeDataBatch, type: .fake)
+        let fakeOutput = self.trainOnBatch(data: fakeDataBatch, type: .fake)
         
         if self.lossFunction == .minimax {
           let realLoss = realOutput.loss.sum / Float(self.batchSize)
@@ -238,7 +238,8 @@ public class GAN: Logger {
 
           self.gradientPenalty = penalty
           
-          self.discriminatorLoss = -(averageRealOut - averageFakeOut) + penalty
+          //negative because Neuron only minimizes gradients so we want to revert the sign so W - lr * -g becomes W + lr * g
+          self.discriminatorLoss = -1 * ((averageRealOut - averageFakeOut) + penalty)
           
           //backprop discrimator
           dis.backpropagate(with: [discriminatorLoss])
@@ -261,7 +262,7 @@ public class GAN: Logger {
 
         //train generator on newly trained discriminator
         let realFakeData = self.getGeneratedData(type: .fake, noise: noise)
-        let genOutput = self.trainOn(data: realFakeData, type: .fake)
+        let genOutput = self.trainOnBatch(data: realFakeData, type: .fake)
         
         if self.lossFunction == .minimax {
           let sumOfGenLoss = genOutput.loss.sum
@@ -356,7 +357,7 @@ public class GAN: Logger {
     return penalty
   }
     
-  private func trainOn(data: [TrainingData], type: GANTrainingType) -> (loss: [Float], output: [Float]) {
+  private func trainOnBatch(data: [TrainingData], type: GANTrainingType) -> (loss: [Float], output: [Float]) {
     //train on each sample
     
     var losses: [Float] = []
