@@ -41,7 +41,7 @@ public class Neuron {
     self.learningRate = nucleus.learningRate
     self.bias = nucleus.bias
     self.activationType = activation
-    self.optimizer = optimizer?.get()
+    self.optimizer = optimizer?.get(learningRate: learningRate)
     
     for input in inputs {
       self.add(input: input.inputValue, weight: input.weight)

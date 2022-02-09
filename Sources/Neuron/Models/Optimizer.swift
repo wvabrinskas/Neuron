@@ -10,13 +10,12 @@ import Foundation
 public enum Optimizer: Codable {
   case adam(b1: Float = 0.9,
             b2: Float = 0.999,
-            eps: Float = 1e-8,
-            alpha: Float)
+            eps: Float = 1e-8)
   
-  func get() -> OptimizerFunction {
+  func get(learningRate: Float) -> OptimizerFunction {
     switch self {
-    case let .adam(b1, b2, eps, alpha):
-      return Adam(b1: b1, b2: b2, eps: eps, alpha: alpha)
+    case let .adam(b1, b2, eps):
+      return Adam(b1: b1, b2: b2, eps: eps, alpha: learningRate)
     }
   }
 }

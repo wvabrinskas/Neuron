@@ -142,7 +142,7 @@ public class Brain: Logger {
   /// Be sure to call this before calling `compile()`
   /// - Parameter optimizer: The optimizer type to add
   public func add(optimizer: Optimizer) {
-    self.optimizer = optimizer.get()
+    self.optimizer = optimizer.get(learningRate: self.learningRate)
     self.optimizerType = optimizer
   }
   
