@@ -7,6 +7,7 @@
 
 import Foundation
 import Logger
+import NumSwift
 
 public enum GANType {
   case generator, discriminator
@@ -234,12 +235,12 @@ public class GAN: Logger {
           let averageFakeOut = (fakeOutput.loss.sum / Float(self.batchSize))
           
           let lambda: Float = gradientPenaltyLambda
-          let penalty = lambda * self.gradientPenalty(realData: realDataBatch)
+          let penalty = self.gradientPenalty(realData: realDataBatch)
 
           self.gradientPenalty = penalty
           
           //negative because Neuron only minimizes gradients so we want to revert the sign so W - lr * -g becomes W + lr * g
-          self.discriminatorLoss = -1 * ((averageRealOut - averageFakeOut) + penalty)
+          self.discriminatorLoss = averageFakeOut - averageRealOut + lambda * penalty
           
           //backprop discrimator
           dis.backpropagate(with: [discriminatorLoss])
@@ -301,6 +302,7 @@ public class GAN: Logger {
     complete?(false)
   }
   
+  
   private func gradientPenalty(realData: [TrainingData]) -> Float {
     guard let dis = self.discriminator else {
       return 0
@@ -330,16 +332,11 @@ public class GAN: Logger {
           return 0
         }
         
-        for i in 0..<realNew.count {
-          let realVal = realNew[i] * epsilon
-          let fakeVal = fakeNew[i] * (1 - epsilon)
-          
-          inter.append(realVal + fakeVal)
-        }
+        inter = (realNew * epsilon) + (fakeNew * (1 - epsilon))
       }
       
       let output = self.discriminate(inter).first ?? 0
-      let loss = self.lossFunction.label(type: .real) - output
+      let loss = self.lossFunction.loss(.real, value: output)
 
       dis.backpropagate(with: [loss])
       
@@ -349,11 +346,11 @@ public class GAN: Logger {
       }
     }
     
-    let squared = gradients.map { $0.sumOfSquares }
+    let gradientNorm = gradients.map { $0.sumOfSquares }
 
     let center = self.gradientPenaltyCenter
     
-    let penalty = squared.map { pow((sqrt($0) - center), 2) }.sum / (Float(squared.count) + 1e-8)
+    let penalty = gradientNorm.map { pow((sqrt($0) - center), 2) }.sum / (Float(gradientNorm.count) + 1e-8)
     return penalty
   }
     
