@@ -212,8 +212,8 @@ public class GAN: Logger {
         let fakeOutput = self.trainOnBatch(data: fakeDataBatch, type: .fake)
         
         if self.lossFunction == .minimax {
-          let realLoss = realOutput.loss.sum / Float(self.batchSize)
-          let fakeLoss = fakeOutput.loss.sum / Float(self.batchSize)
+          let realLoss = realOutput.loss
+          let fakeLoss = fakeOutput.loss
           
           //backprop discrimator
           dis.backpropagate(with: [realLoss])
@@ -231,8 +231,8 @@ public class GAN: Logger {
           
         } else if self.lossFunction == .wasserstein {
           
-          let averageRealOut = (realOutput.loss.sum / Float(self.batchSize))
-          let averageFakeOut = (fakeOutput.loss.sum / Float(self.batchSize))
+          let averageRealOut = realOutput.loss
+          let averageFakeOut = fakeOutput.loss
           
           let lambda: Float = gradientPenaltyLambda
           let penalty = self.gradientPenalty(realData: realDataBatch)
@@ -266,17 +266,16 @@ public class GAN: Logger {
         let genOutput = self.trainOnBatch(data: realFakeData, type: .fake)
         
         if self.lossFunction == .minimax {
-          let sumOfGenLoss = genOutput.loss.sum
+          let averageLoss = genOutput.loss
           
           //we want to maximize lossfunction log(D(G(z))
           //negative because the Neuron only supports MINIMIZING gradients
-          let genLoss = -1 * (sumOfGenLoss / Float(self.batchSize))
+          let genLoss = -1 * averageLoss
           
           self.generatorLoss = genLoss
           
         } else if self.lossFunction == .wasserstein {
-          let sumOfGenLoss = genOutput.loss.sum
-          let averageGenLoss = sumOfGenLoss / Float(self.batchSize)
+          let averageGenLoss = genOutput.loss
           
           //minimize gradients
           self.generatorLoss = averageGenLoss
@@ -354,11 +353,11 @@ public class GAN: Logger {
     return penalty
   }
     
-  private func trainOnBatch(data: [TrainingData], type: GANTrainingType) -> (loss: [Float], output: [Float]) {
+  private func trainOnBatch(data: [TrainingData], type: GANTrainingType) -> (loss: Float, output: [Float]) {
     //train on each sample
-    
-    var losses: [Float] = []
     var outputs: [Float] = []
+    
+    var averageLoss: Float = 0
     
     for i in 0..<data.count {
       //get sample from generator
@@ -376,11 +375,11 @@ public class GAN: Logger {
       let loss = self.lossFunction.loss(type, value: first)
       
       //add losses together
-      losses.append(loss)
+      averageLoss += loss / Float(data.count)
     }
-    
+        
     //get average loss over batch
-    return (loss: losses, output: outputs)
+    return (loss: averageLoss, output: outputs)
   }
   
 //MARK: Public Functions
