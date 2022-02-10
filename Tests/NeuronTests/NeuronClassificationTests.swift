@@ -85,7 +85,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     print("Training....")
     let expectation = XCTestExpectation()
     
-    brain.train(data: self.trainingData, validation: self.validationData, complete:  { (complete) in
+    brain.train(data: self.trainingData.randomize(), validation: self.validationData, complete:  { (complete) in
       expectation.fulfill()
     })
     

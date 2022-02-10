@@ -19,6 +19,7 @@ public class BatchNormalizer {
   private var normalizedActivations: [Float] = []
   private var standardDeviation: Float = 0
   private let e: Float = 0.00005 //this is a standard smoothing term
+  private var ivar: Float = 0
 
   public init(gamma: Float = 1,
               beta: Float = 0,
@@ -35,9 +36,7 @@ public class BatchNormalizer {
   }
 
   public func normalize(activations: [Float], training: Bool) -> [Float] {
-    
-    //gamma * (batch - self.moving_mean) / sqrt(self.moving_var + epsilon) + beta.
-    
+        
     let total = Float(activations.count)
     
     let mean = training == true ? activations.sum / total : movingMean
@@ -47,10 +46,12 @@ public class BatchNormalizer {
     let variance = training == true ? diffVar.sumOfSquares / total : movingVariance
             
     let std = sqrt(variance + e)
+    
+    ivar = 1 / std
       
     standardDeviation = std
   
-    let normalized = activations.map { ($0 - mean) / std }
+    let normalized = (activations - mean) * ivar
     
     normalizedActivations = normalized
     
@@ -65,8 +66,6 @@ public class BatchNormalizer {
   }
   
   public func backward(gradient: [Float]) -> [Float] {
-    let dBeta = gradient.sum
-    
     guard gradient.count == normalizedActivations.count else {
       return gradient
     }
@@ -75,21 +74,23 @@ public class BatchNormalizer {
     
     let n: Float = Float(gradient.count)
     
-    let dxNorm: [Float] = gradient * gamma
+    let dxHat: [Float] = gradient * gamma
     
-    let combineXandDxNorm = normalizedActivations * dxNorm
-    let dxNormTimesXNormSum: Float = combineXandDxNorm.sum
- 
-    let dxNormSum = dxNorm.sum
-    let std = standardDeviation
+    let firstTerm = (1 / n) * ivar
     
-    let dGamma = (gradient * normalizedActivations).sum
+    let secondTerm = n * dxHat
     
-    let t = dxNorm * n
-    let dx = (t - (dxNormSum - normalizedActivations) * dxNormTimesXNormSum) * ((1 / n) / std)
+    let thirdTerm = dxHat.sum
+    
+    let fourthTerm = normalizedActivations * (normalizedActivations * dxHat).sum
+    
+    let dx = firstTerm * (secondTerm - thirdTerm - fourthTerm)
       
     outputGradients = dx
     
+    let dGamma = (gradient * normalizedActivations).sum
+    let dBeta = gradient.sum
+
     gamma -= learningRate * dGamma
     beta -= learningRate * dBeta
     

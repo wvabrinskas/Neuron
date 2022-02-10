@@ -104,4 +104,14 @@ class SimpleTests: XCTestCase {
     
     XCTAssert(brain.weights() == [[[0.0]], [[0.875]], [[0.875]]])
   }
+  
+  func testBatchNormalizer() {
+    let batchNormalizer = BatchNormalizer(momentum: 0.99, learningRate: 0.01)
+    let input: [Float] = [0.5, 0.1, 0.5]
+    let output = batchNormalizer.normalize(activations: input, training: true)
+    print(output)
+    
+    print(batchNormalizer.backward(gradient: output))
+    
+  }
 }
