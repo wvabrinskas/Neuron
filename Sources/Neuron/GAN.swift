@@ -196,19 +196,23 @@ public class GAN: Logger {
         //freeze the generator
         gen.trainable = false
         dis.trainable = true
-        
-        //zero out gradients before training discriminator
-        dis.zeroGradients()
+
 
         let noise = randomNoise()
 
         let realDataBatch = self.getRandomBatch(data: data)
         let fakeDataBatch = self.getGeneratedData(type: .fake, noise: noise)
 
-        //train discriminator on real data combined with fake data
+        //zero out gradients before training discriminator on real image
+        dis.zeroGradients()
+        
+        //train discriminator on real data
         let realOutput = self.trainOnBatch(data: realDataBatch, type: .real)
 
-        //tran discriminator on new fake data generated after epoch
+        //zero out gradients before training discriminator on fake image
+        dis.zeroGradients()
+
+        //tran discriminator on new fake data
         let fakeOutput = self.trainOnBatch(data: fakeDataBatch, type: .fake)
         
         if self.lossFunction == .minimax {
@@ -334,7 +338,7 @@ public class GAN: Logger {
         inter = (realNew * epsilon) + (fakeNew * (1 - epsilon))
       }
       
-      let output = self.discriminate(inter).first ?? 0
+      let output = self.discriminate(inter)
       let loss = self.lossFunction.loss(.real, value: output)
 
       dis.backpropagate(with: [loss])
@@ -366,13 +370,11 @@ public class GAN: Logger {
       //feed sample
       let output = self.discriminate(sample)
       
-      let first = output.first ?? 0
-  
       //append outputs for wasserstein
-      outputs.append(first)
+      outputs.append(output)
       
       //get loss for type
-      let loss = self.lossFunction.loss(type, value: first)
+      let loss = self.lossFunction.loss(type, value: output)
       
       //add losses together
       averageLoss += loss / Float(data.count)
@@ -413,12 +415,13 @@ public class GAN: Logger {
   }
   
   @discardableResult
-  public func discriminate(_ input: [Float]) -> [Float] {
+  //we only expect ONE output neuron
+  public func discriminate(_ input: [Float]) -> Float {
     guard let dis = self.discriminator else {
-      return []
+      return 0
     }
     
-    let output = dis.feed(input: input)
+    let output = dis.feed(input: input).first ?? 0
     return output
   }
   
