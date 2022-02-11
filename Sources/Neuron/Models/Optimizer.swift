@@ -63,7 +63,6 @@ public class Adam: OptimizerFunction {
   public func run(weight: Float, gradient: Float) -> Float {
     m = b1 * m + (1 - b1) * gradient
     v = b2 * v + (1 - b2) * pow(gradient, 2)
-    //  m_hat = m / (1 - np.power(beta_1, t)) + (1 - beta_1) * g / (1 - np.power(beta_1, t))
     let mHat = m / (1 - pow(b1, Float(t))) + (1 - b1) * gradient / (1 - pow(b1, Float(t)))
     let vHat = v / (1 - pow(b2, Float(t)))
     let newW = weight - alpha * mHat / (sqrt(vHat) + eps)
