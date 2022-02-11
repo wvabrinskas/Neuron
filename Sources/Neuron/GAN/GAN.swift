@@ -9,58 +9,12 @@ import Foundation
 import Logger
 import NumSwift
 
-public enum GANType {
-  case generator, discriminator
-}
 
-public enum GANTrainingType: String {
-  case real, fake
-
-}
-
-public enum GANLossFunction {
-  case minimax
-  case wasserstein
+public class GAN: Logger, GANTrainingDataBuilder {
+  internal var generator: Brain?
+  internal var discriminator: Brain?
+  internal var batchSize: Int
   
-  public func label(type: GANTrainingType) -> Float {
-    switch self {
-    case .minimax:
-      switch type {
-      case .real:
-        return 1.0
-      case .fake:
-        return 0
-      }
-      
-    case .wasserstein:
-      switch type {
-      case .real:
-        return 1
-      case .fake:
-        return -1
-      }
-    }
-  }
-  
-  public func loss(_ type: GANTrainingType, value: Float) -> Float {
-    switch self {
-    case .minimax:
-      switch type {
-      case .fake:
-        return log(1 - value)
-      case .real:
-        return log(value)
-      }
-    case .wasserstein:
-      return self.label(type: type) * value
-    }
-  }
-}
-
-public class GAN: Logger {
-  private var generator: Brain?
-  private var discriminator: Brain?
-  private var batchSize: Int
   private var criticTrainPerEpoch: Int = 5
   private var generatorTrainPerEpoch: Int = 5
   private var discriminatorLossHistory: [Float] = []
@@ -134,48 +88,7 @@ public class GAN: Logger {
     return false
   }
 
-  private func getRandomBatch(data: [TrainingData]) -> [TrainingData] {
-    var newData: [TrainingData] = []
-    for _ in 0..<self.batchSize {
-      if let element = data.randomElement() {
-        newData.append(element)
-      }
-    }
-    return newData
-  }
-
-  private func getGeneratedData(type: GANTrainingType,
-                                noise: [Float],
-                                size: Int) -> [TrainingData] {
-    var fakeData: [TrainingData] = []
-    guard let gen = generator else {
-      return []
-    }
-    
-    for _ in 0..<size {
-      let sample = gen.feed(input: noise)
-      
-      let label = lossFunction.label(type: type)
-      
-      var training = TrainingData(data: sample, correct: [label])
-      //assuming the label is 1.0 or greater
-      //we need to reverse if label is <= 0
-      if let noise = self.discriminatorNoiseFactor, noise > 0, noise < 1 {
-        //cap factor between 0 and 1
-        let factor = min(1.0, max(0.0, noise))
-        let min = min(label, abs(label - factor))
-        let max = max(label, abs(label - factor))
-        
-        training = TrainingData(data: sample, correct: [Float.random(in: (min...max))])
-      }
-      fakeData.append(training)
-    }
-    
-    return fakeData
-  }
-
   private func startTraining(data: [TrainingData],
-                             singleStep: Bool = false,
                              epochCompleted: ((_ epoch: Int) -> ())? = nil,
                              complete: ((_ complete: Bool) -> ())? = nil) {
     
@@ -187,7 +100,7 @@ public class GAN: Logger {
       return
     }
 
-    let epochs = singleStep ? 1 : self.epochs
+    let epochs = self.epochs
 
     self.log(type: .message, priority: .alwaysShow, message: "Training started...")
     
@@ -201,7 +114,9 @@ public class GAN: Logger {
         let noise = randomNoise()
 
         let realDataBatch = self.getRandomBatch(data: data)
-        let fakeDataBatch = self.getGeneratedData(type: .fake, noise: noise)
+        let fakeDataBatch = self.getGeneratedData(type: .fake,
+                                                  noise: noise,
+                                                  size: self.batchSize)
 
         //zero out gradients before training discriminator on real image
         dis.zeroGradients()
@@ -239,8 +154,11 @@ public class GAN: Logger {
           let averageFakeOut = fakeOutput.loss
           
           let lambda: Float = gradientPenaltyLambda
-          let penalty = self.gradientPenalty(realData: realDataBatch,
-                                             fakeData: fakeDataBatch)
+          
+          let penalty = GradientPenalty.calculate(gan: self,
+                                                  real: realDataBatch,
+                                                  fake: fakeDataBatch)
+
 
           self.gradientPenalty = penalty * lambda
           
@@ -346,55 +264,6 @@ public class GAN: Logger {
 //    let penalty = gradientNorm.map { pow((sqrt($0) - center), 2) }.sum / (Float(gradientNorm.count) + 1e-8)
 //
 //  }
-  
-  private func gradientPenalty(realData: [TrainingData], fakeData: [TrainingData]) -> Float {
-    guard let dis = self.discriminator else {
-      return 0
-    }
-    
-    defer {
-      dis.zeroGradients()
-    }
-        
-    var gradients: [[Float]] = []
-    
-    let real = realData
-    let fake = fakeData
-    
-    for i in 0..<self.batchSize {
-      dis.zeroGradients()
-      
-      let epsilon = Float.random(in: 0...1)
-      var inter: [Float] = []
-      if i < real.count && i < fake.count {
-        let realNew = real[i].data
-        let fakeNew = fake[i].data
-        
-        guard realNew.count == fakeNew.count else {
-          return 0
-        }
-        
-        inter = (realNew * epsilon) + (fakeNew * (1 - epsilon))
-      }
-      
-      let output = self.discriminate(inter)
-      let loss = self.lossFunction.loss(.real, value: output)
-
-      dis.backpropagate(with: [loss])
-      
-      //skip first layer gradients
-      if let networkGradients = dis.gradients()[safe: 1]?.flatMap({ $0 }) {
-        gradients.append(networkGradients)
-      }
-    }
-    
-    let gradientNorm = gradients.map { $0.sumOfSquares }
-
-    let center = self.gradientPenaltyCenter
-    
-    let penalty = gradientNorm.map { pow((sqrt($0) - center), 2) }.sum / (Float(gradientNorm.count) + 1e-8)
-    return penalty
-  }
     
   private func disriminateOn(batch: [TrainingData], type: GANTrainingType) -> (loss: Float, output: [Float]) {
     //train on each sample
@@ -443,12 +312,10 @@ public class GAN: Logger {
   }
   
   public func train(data: [TrainingData] = [],
-                    singleStep: Bool = false,
                     epochCompleted: ((_ epoch: Int) -> ())? = nil,
                     complete: ((_ success: Bool) -> ())? = nil) {
     
     self.startTraining(data: data,
-                       singleStep: singleStep,
                        epochCompleted: epochCompleted,
                        complete: complete)
   }
