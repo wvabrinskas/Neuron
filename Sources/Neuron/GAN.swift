@@ -66,7 +66,7 @@ public class GAN: Logger {
   private var discriminatorLossHistory: [Float] = []
   private var generatorLossHistory: [Float] = []
   private var gradientPenaltyHistory: [Float] = []
-  private var gradientPenaltyCenter: Float = 0
+  private var gradientPenaltyCenter: Float = 1
   private var gradientPenaltyLambda: Float = 10
   
   public var epochs: Int
@@ -206,13 +206,13 @@ public class GAN: Logger {
         dis.zeroGradients()
         
         //train discriminator on real data
-        let realOutput = self.trainOnBatch(data: realDataBatch, type: .real)
+        let realOutput = self.disriminateOn(batch: realDataBatch, type: .real)
 
         //zero out gradients before training discriminator on fake image
         dis.zeroGradients()
 
         //tran discriminator on new fake data
-        let fakeOutput = self.trainOnBatch(data: fakeDataBatch, type: .fake)
+        let fakeOutput = self.disriminateOn(batch: fakeDataBatch, type: .fake)
         
         if self.lossFunction == .minimax {
           let realLoss = realOutput.loss
@@ -265,8 +265,8 @@ public class GAN: Logger {
         dis.zeroGradients()
 
         //train generator on newly trained discriminator
-        let realFakeData = self.getGeneratedData(type: .fake, noise: noise)
-        let genOutput = self.trainOnBatch(data: realFakeData, type: .fake)
+        let generatedData = self.getGeneratedData(type: .real, noise: noise)
+        let genOutput = self.disriminateOn(batch: generatedData, type: .real)
         
         if self.lossFunction == .minimax {
           let averageLoss = genOutput.loss
@@ -355,15 +355,15 @@ public class GAN: Logger {
     return penalty
   }
     
-  private func trainOnBatch(data: [TrainingData], type: GANTrainingType) -> (loss: Float, output: [Float]) {
+  private func disriminateOn(batch: [TrainingData], type: GANTrainingType) -> (loss: Float, output: [Float]) {
     //train on each sample
     var outputs: [Float] = []
     
     var averageLoss: Float = 0
     
-    for i in 0..<data.count {
+    for i in 0..<batch.count {
       //get sample from generator
-      let sample = data[i].data
+      let sample = batch[i].data
 
       //feed sample
       let output = self.discriminate(sample)
@@ -375,7 +375,7 @@ public class GAN: Logger {
       let loss = self.lossFunction.loss(type, value: output)
       
       //add losses together
-      averageLoss += loss / Float(data.count)
+      averageLoss += loss / Float(batch.count)
     }
         
     //get average loss over batch
