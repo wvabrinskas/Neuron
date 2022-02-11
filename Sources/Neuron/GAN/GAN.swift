@@ -249,7 +249,10 @@ public class GAN: Logger, GANTrainingDataBuilder {
       fakeLossAverage += fakeLoss / Float(fake.count)
     }
     
-    let criticLoss = realLossAverage - fakeLossAverage + gradientPenaltyLambda * penaltyAverage
+    let penalty = gradientPenaltyLambda * penaltyAverage
+    gradientPenalty = penalty
+    
+    let criticLoss = fakeLossAverage - realLossAverage + penalty
     return criticLoss
   }
     
