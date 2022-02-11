@@ -219,8 +219,6 @@ public class GAN: Logger, GANTrainingDataBuilder {
     var realLossAverage: Float = 0
     var fakeLossAverage: Float = 0
     var penaltyAverage: Float = 0
-
-    var gradientCount: Int = 0
     
     for i in 0..<real.count {
       dis.zeroGradients()
@@ -242,10 +240,8 @@ public class GAN: Logger, GANTrainingDataBuilder {
         dis.backpropagate(with: [interLoss])
         
         if let networkGradients = dis.gradients()[safe: 1]?.flatMap({ $0 }) {
-          gradientCount += 1
-          
           let penalty = GradientPenalty.calculate(gradient: networkGradients)
-          penaltyAverage += penalty / Float(gradientCount)
+          penaltyAverage += penalty / Float(real.count)
         }
       }
 
