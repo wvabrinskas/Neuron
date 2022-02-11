@@ -489,7 +489,6 @@ public class Brain: Logger {
     }
         
     self.adjustWeights(batchSize: batch.count)
-    self.optimizer?.step()
     
     return batchLoss / Float(batch.count)
   }
@@ -608,6 +607,7 @@ public class Brain: Logger {
 
   internal func adjustWeights(batchSize: Int) {
     self.lobes.forEach { $0.adjustWeights(batchSize: batchSize) }
+    self.optimizer?.step()
   }
   
   @discardableResult
