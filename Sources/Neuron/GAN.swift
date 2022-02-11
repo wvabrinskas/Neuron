@@ -265,8 +265,8 @@ public class GAN: Logger {
         dis.zeroGradients()
 
         //train generator on newly trained discriminator
-        let generatedData = self.getGeneratedData(type: .fake, noise: noise)
-        let genOutput = self.disriminateOn(batch: generatedData, type: .fake)
+        let generatedData = self.getGeneratedData(type: .real, noise: noise)
+        let genOutput = self.disriminateOn(batch: generatedData, type: .real)
         
         if self.lossFunction == .minimax {
           let averageLoss = genOutput.loss
