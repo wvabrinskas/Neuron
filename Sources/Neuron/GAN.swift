@@ -145,13 +145,14 @@ public class GAN: Logger {
   }
 
   private func getGeneratedData(type: GANTrainingType,
-                                noise: [Float]) -> [TrainingData] {
+                                noise: [Float],
+                                size: Int) -> [TrainingData] {
     var fakeData: [TrainingData] = []
     guard let gen = generator else {
       return []
     }
     
-    for _ in 0..<self.batchSize {
+    for _ in 0..<size {
       let sample = gen.feed(input: noise)
       
       let label = lossFunction.label(type: type)
@@ -238,7 +239,8 @@ public class GAN: Logger {
           let averageFakeOut = fakeOutput.loss
           
           let lambda: Float = gradientPenaltyLambda
-          let penalty = self.gradientPenalty(realData: realDataBatch)
+          let penalty = self.gradientPenalty(realData: realDataBatch,
+                                             fakeData: fakeDataBatch)
 
           self.gradientPenalty = penalty * lambda
           
@@ -265,7 +267,7 @@ public class GAN: Logger {
         dis.zeroGradients()
 
         //train generator on newly trained discriminator
-        let generatedData = self.getGeneratedData(type: .real, noise: noise)
+        let generatedData = self.getGeneratedData(type: .real, noise: noise, size: self.batchSize)
         let genOutput = self.disriminateOn(batch: generatedData, type: .real)
         
         if self.lossFunction == .minimax {
@@ -305,7 +307,47 @@ public class GAN: Logger {
   }
   
   
-  private func gradientPenalty(realData: [TrainingData]) -> Float {
+//  private func gradentPenalty(real: TrainingData, fake: TrainingData) -> Float {
+//    guard let dis = self.discriminator else {
+//      return 0
+//    }
+//
+//    defer {
+//      dis.zeroGradients()
+//    }
+//
+//    var gradients: [Float] = []
+//
+//    let epsilon = Float.random(in: 0...1)
+//
+//    var inter: [Float] = []
+//    let realNew = real.data
+//    let fakeNew = fake.data
+//
+//    guard realNew.count == fakeNew.count else {
+//      return 0
+//    }
+//
+//    inter = (realNew * epsilon) + (fakeNew * (1 - epsilon))
+//
+//    let output = self.discriminate(inter)
+//    let loss = self.lossFunction.loss(.real, value: output)
+//
+//    dis.backpropagate(with: [loss])
+//
+//    //skip first layer gradients
+//    if let networkGradients = dis.gradients()[safe: 1]?.flatMap({ $0 }) {
+//      gradients = networkGradients
+//    }
+//
+//    let gradientNorm = gradients.sumOfSquares
+//    let center = self.gradientPenaltyCenter
+//
+//    let penalty = gradientNorm.map { pow((sqrt($0) - center), 2) }.sum / (Float(gradientNorm.count) + 1e-8)
+//
+//  }
+  
+  private func gradientPenalty(realData: [TrainingData], fakeData: [TrainingData]) -> Float {
     guard let dis = self.discriminator else {
       return 0
     }
@@ -313,13 +355,11 @@ public class GAN: Logger {
     defer {
       dis.zeroGradients()
     }
-    
-    let noise = self.randomNoise()
-    
+        
     var gradients: [[Float]] = []
     
-    let real = self.getRandomBatch(data: realData)
-    let fake = self.getGeneratedData(type: .fake, noise: noise)
+    let real = realData
+    let fake = fakeData
     
     for i in 0..<self.batchSize {
       dis.zeroGradients()
