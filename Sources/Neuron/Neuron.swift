@@ -100,6 +100,7 @@ public class Neuron {
   }
   
   public func zeroGradients() {
+    self.delta = nil
     self.gradients = [Float].init(repeating: 0, count: self.weights.count)
   }
   
