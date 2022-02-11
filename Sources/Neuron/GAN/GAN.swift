@@ -107,6 +107,8 @@ public class GAN: Logger, GANTrainingDataBuilder {
     for i in 0..<epochs {
       //prepare data into batches
       for _ in 0..<self.criticTrainPerEpoch {
+        dis.zeroGradients()
+        
         //freeze the generator
         gen.trainable = false
         dis.trainable = true
@@ -146,7 +148,6 @@ public class GAN: Logger, GANTrainingDataBuilder {
           
           let criticLoss = criticTrain(real: realDataBatch, fake: fakeDataBatch, withPenalty: true)
           
-          //negative because Neuron only minimizes gradients so we want to revert the sign so W - lr * -g becomes W + lr * g
           self.discriminatorLoss = criticLoss
           
           //backprop discrimator
