@@ -13,7 +13,6 @@ public enum GANType {
 
 public enum GANTrainingType: String {
   case real, fake
-
 }
 
 public enum GANLossFunction {

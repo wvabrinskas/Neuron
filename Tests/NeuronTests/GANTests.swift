@@ -55,7 +55,6 @@ final class GANTests: XCTestCase {
   private lazy var ganBrain: GAN = {
     let gan = GAN(epochs: 50,
                   criticTrainPerEpoch: 4,
-                  gradientPenaltyCenter: 1,
                   batchSize: 10)
     
     gan.add(generator: self.generator) //compiles

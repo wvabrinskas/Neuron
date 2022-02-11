@@ -27,7 +27,6 @@ public class GAN: Logger, GANTrainingDataBuilder {
   private var discriminatorLossHistory: [Float] = []
   private var generatorLossHistory: [Float] = []
   private var gradientPenaltyHistory: [Float] = []
-  private var gradientPenaltyCenter: Float = 1
   private var gradientPenaltyLambda: Float = 10
   private var metricsToSet: Set<Metric> = []
   
@@ -71,7 +70,6 @@ public class GAN: Logger, GANTrainingDataBuilder {
               discriminator: Brain? = nil,
               epochs: Int,
               criticTrainPerEpoch: Int = 5,
-              gradientPenaltyCenter: Float = 0,
               gradientPenaltyLambda: Float = 10,
               batchSize: Int,
               metrics: Set<Metric> = []) {
@@ -81,7 +79,6 @@ public class GAN: Logger, GANTrainingDataBuilder {
     self.criticTrainPerEpoch = criticTrainPerEpoch
     self.generator = generator
     self.discriminator = discriminator
-    self.gradientPenaltyCenter = gradientPenaltyCenter
     self.gradientPenaltyLambda = gradientPenaltyLambda
     self.metricsToSet = metrics
     
@@ -134,9 +131,7 @@ public class GAN: Logger, GANTrainingDataBuilder {
         let noise = randomNoise()
 
         let realDataBatch = self.getRandomBatch(data: data)
-        let fakeDataBatch = self.getGeneratedData(type: .fake,
-                                                  noise: noise,
-                                                  size: self.batchSize)
+        let fakeDataBatch = self.getGeneratedData(type: .fake, noise: noise)
                 
         if self.lossFunction == .minimax {
           let minimaxLoss = minimaxDiscriminator(real: realDataBatch, fake: fakeDataBatch)
@@ -161,9 +156,7 @@ public class GAN: Logger, GANTrainingDataBuilder {
       dis.zeroGradients()
 
       //train generator on newly trained discriminator
-      let generatedData = self.getGeneratedData(type: .real,
-                                                noise: noise,
-                                                size: self.batchSize)
+      let generatedData = self.getGeneratedData(type: .real, noise: noise)
       
       if self.lossFunction == .minimax {
         self.generatorLoss =  minimaxGenerator(fake: generatedData)
