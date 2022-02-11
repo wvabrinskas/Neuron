@@ -243,7 +243,7 @@ public class GAN: Logger {
           self.gradientPenalty = penalty * lambda
           
           //negative because Neuron only minimizes gradients so we want to revert the sign so W - lr * -g becomes W + lr * g
-          self.discriminatorLoss = (averageFakeOut - averageRealOut) //+ gradientPenalty)
+          self.discriminatorLoss = (averageFakeOut - averageRealOut + gradientPenalty)
           
           //backprop discrimator
           dis.backpropagate(with: [discriminatorLoss])
