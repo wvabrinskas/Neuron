@@ -322,6 +322,7 @@ public class GAN: Logger {
     let fake = self.getGeneratedData(type: .fake, noise: noise)
     
     for i in 0..<self.batchSize {
+      dis.zeroGradients()
       
       let epsilon = Float.random(in: 0...1)
       var inter: [Float] = []
