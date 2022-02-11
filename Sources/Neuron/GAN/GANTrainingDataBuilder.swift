@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import NumSwift
 
 internal protocol GANTrainingDataBuilder {
   var generator: Brain? { get set }
@@ -18,9 +19,24 @@ internal protocol GANTrainingDataBuilder {
   func getGeneratedData(type: GANTrainingType,
                         noise: [Float],
                         size: Int) -> [TrainingData]
+  func getInterpolated(real: TrainingData, fake: TrainingData) -> TrainingData
 }
 
 internal extension GANTrainingDataBuilder {
+  
+  func getInterpolated(real: TrainingData, fake: TrainingData) -> TrainingData {
+    let epsilon = Float.random(in: 0...1)
+    
+    let realNew = real.data
+    let fakeNew = fake.data
+    
+    let inter = (realNew * epsilon) + (fakeNew * (1 - epsilon))
+    
+    let interTrainingData = TrainingData(data: inter, correct: [1.0])
+    
+    return interTrainingData
+  }
+  
   func getRandomBatch(data: [TrainingData]) -> [TrainingData] {
     var newData: [TrainingData] = []
     for _ in 0..<self.batchSize {

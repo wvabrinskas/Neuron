@@ -117,20 +117,14 @@ public class GAN: Logger, GANTrainingDataBuilder {
         let fakeDataBatch = self.getGeneratedData(type: .fake,
                                                   noise: noise,
                                                   size: self.batchSize)
-
-        //zero out gradients before training discriminator on real image
-        dis.zeroGradients()
-        
-        //train discriminator on real data
-        let realOutput = self.disriminateOn(batch: realDataBatch, type: .real)
-
-        //zero out gradients before training discriminator on fake image
-        dis.zeroGradients()
-
-        //tran discriminator on new fake data
-        let fakeOutput = self.disriminateOn(batch: fakeDataBatch, type: .fake)
         
         if self.lossFunction == .minimax {
+          //train discriminator on real data
+          let realOutput = self.disriminateOn(batch: realDataBatch, type: .real)
+
+          //tran discriminator on new fake data
+          let fakeOutput = self.disriminateOn(batch: fakeDataBatch, type: .fake)
+          
           let realLoss = realOutput.loss
           let fakeLoss = fakeOutput.loss
           
@@ -150,23 +144,13 @@ public class GAN: Logger, GANTrainingDataBuilder {
           
         } else if self.lossFunction == .wasserstein {
           
-          let averageRealOut = realOutput.loss
-          let averageFakeOut = fakeOutput.loss
-          
-          let lambda: Float = gradientPenaltyLambda
-          
-          let penalty = GradientPenalty.calculate(gan: self,
-                                                  real: realDataBatch,
-                                                  fake: fakeDataBatch)
-
-
-          self.gradientPenalty = penalty * lambda
+          let criticLoss = criticTrain(real: realDataBatch, fake: fakeDataBatch, withPenalty: true)
           
           //negative because Neuron only minimizes gradients so we want to revert the sign so W - lr * -g becomes W + lr * g
-          self.discriminatorLoss = (averageFakeOut - averageRealOut + gradientPenalty)
+          self.discriminatorLoss = criticLoss
           
           //backprop discrimator
-          dis.backpropagate(with: [discriminatorLoss])
+          dis.backpropagate(with: [criticLoss])
         }
         
         //adjust weights AFTER calculating gradients
@@ -224,46 +208,52 @@ public class GAN: Logger, GANTrainingDataBuilder {
     complete?(false)
   }
   
-  
-//  private func gradentPenalty(real: TrainingData, fake: TrainingData) -> Float {
-//    guard let dis = self.discriminator else {
-//      return 0
-//    }
-//
-//    defer {
-//      dis.zeroGradients()
-//    }
-//
-//    var gradients: [Float] = []
-//
-//    let epsilon = Float.random(in: 0...1)
-//
-//    var inter: [Float] = []
-//    let realNew = real.data
-//    let fakeNew = fake.data
-//
-//    guard realNew.count == fakeNew.count else {
-//      return 0
-//    }
-//
-//    inter = (realNew * epsilon) + (fakeNew * (1 - epsilon))
-//
-//    let output = self.discriminate(inter)
-//    let loss = self.lossFunction.loss(.real, value: output)
-//
-//    dis.backpropagate(with: [loss])
-//
-//    //skip first layer gradients
-//    if let networkGradients = dis.gradients()[safe: 1]?.flatMap({ $0 }) {
-//      gradients = networkGradients
-//    }
-//
-//    let gradientNorm = gradients.sumOfSquares
-//    let center = self.gradientPenaltyCenter
-//
-//    let penalty = gradientNorm.map { pow((sqrt($0) - center), 2) }.sum / (Float(gradientNorm.count) + 1e-8)
-//
-//  }
+  private func criticTrain(real: [TrainingData],
+                           fake: [TrainingData],
+                           withPenalty: Bool = false) -> Float {
+    
+    guard let dis = discriminator, real.count == fake.count else {
+      return 0 
+    }
+    
+    var realLossAverage: Float = 0
+    var fakeLossAverage: Float = 0
+    var penaltyAverage: Float = 0
+
+    var gradientCount: Int = 0
+    
+    for i in 0..<real.count {
+      let realSample = real[i]
+      let fakeSample = fake[i]
+      let interSample = getInterpolated(real: realSample, fake: fakeSample)
+      
+      let realOut = discriminate(realSample.data)
+      let fakeOut = discriminate(fakeSample.data)
+      
+      let realLoss = self.lossFunction.loss(.real, value: realOut)
+      let fakeLoss = self.lossFunction.loss(.fake, value: fakeOut)
+      
+      if withPenalty {
+        let interOut = discriminate(interSample.data)
+        let interLoss = self.lossFunction.loss(.real, value: interOut)
+        
+        dis.backpropagate(with: [interLoss])
+        
+        if let networkGradients = dis.gradients()[safe: 1]?.flatMap({ $0 }) {
+          gradientCount += 1
+          
+          let penalty = GradientPenalty.calculate(gradient: networkGradients)
+          penaltyAverage += penalty / Float(gradientCount)
+        }
+      }
+
+      realLossAverage += realLoss / Float(real.count)
+      fakeLossAverage += fakeLoss / Float(fake.count)
+    }
+    
+    let criticLoss = realLossAverage - fakeLossAverage + gradientPenaltyLambda * penaltyAverage
+    return criticLoss
+  }
     
   private func disriminateOn(batch: [TrainingData], type: GANTrainingType) -> (loss: Float, output: [Float]) {
     //train on each sample
