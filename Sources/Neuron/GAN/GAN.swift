@@ -223,6 +223,8 @@ public class GAN: Logger, GANTrainingDataBuilder {
     var gradientCount: Int = 0
     
     for i in 0..<real.count {
+      dis.zeroGradients()
+      
       let realSample = real[i]
       let fakeSample = fake[i]
       let interSample = getInterpolated(real: realSample, fake: fakeSample)
