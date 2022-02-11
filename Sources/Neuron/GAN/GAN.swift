@@ -227,15 +227,11 @@ public class GAN: Logger, GANTrainingDataBuilder {
       let fakeSample = fake[i]
       let interSample = getInterpolated(real: realSample, fake: fakeSample)
       
-      let realOut = discriminate(realSample.data)
-      let fakeOut = discriminate(fakeSample.data)
-      
-      let realLoss = self.lossFunction.loss(.real, value: realOut)
-      let fakeLoss = self.lossFunction.loss(.fake, value: fakeOut)
+      let realLoss = disriminateOn(batch: [realSample], type: .real).loss
+      let fakeLoss = disriminateOn(batch: [fakeSample], type: .fake).loss
       
       if withPenalty {
-        let interOut = discriminate(interSample.data)
-        let interLoss = self.lossFunction.loss(.real, value: interOut)
+        let interLoss = disriminateOn(batch: [interSample], type: .real).loss
         
         dis.backpropagate(with: [interLoss])
         
@@ -255,8 +251,14 @@ public class GAN: Logger, GANTrainingDataBuilder {
     let criticLoss = fakeLossAverage - realLossAverage + penalty
     return criticLoss
   }
-    
-  private func disriminateOn(batch: [TrainingData], type: GANTrainingType) -> (loss: Float, output: [Float]) {
+  
+  /// Discrimate on a batch and return the average loss on the batch with each output
+  /// - Parameters:
+  ///   - batch: batch of TrainingData to discriminate against
+  ///   - type: Type of data being passed in
+  /// - Returns: The average loss on the batch and an array of outputs from each data point
+  private func disriminateOn(batch: [TrainingData],
+                             type: GANTrainingType) -> (loss: Float, output: [Float]) {
     //train on each sample
     var outputs: [Float] = []
     
@@ -267,7 +269,7 @@ public class GAN: Logger, GANTrainingDataBuilder {
       let sample = batch[i].data
 
       //feed sample
-      let output = self.discriminate(sample)
+      let output = discriminate(sample)
       
       //append outputs for wasserstein
       outputs.append(output)
