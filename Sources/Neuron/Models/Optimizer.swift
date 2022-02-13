@@ -56,7 +56,7 @@ public class Adam: OptimizerFunction {
     vb = b2 * vb + (1 - b2) * pow(gradient, 2)
     let mHat = mb / (1 - pow(b1, Float(t)))
     let vHat = vb / (1 - pow(b2, Float(t)))
-    let newW = weight - alpha * mHat / (sqrt(vHat) + eps)
+    let newW = weight - alpha * mHat / (sqrt(vHat) + eps) * gradient
     return newW
   }
   
@@ -65,7 +65,7 @@ public class Adam: OptimizerFunction {
     v = b2 * v + (1 - b2) * pow(gradient, 2)
     let mHat = m / (1 - pow(b1, Float(t)))
     let vHat = v / (1 - pow(b2, Float(t)))
-    let newW = weight - alpha * mHat / (sqrt(vHat) + eps)
+    let newW = weight - alpha * (mHat / (sqrt(vHat) + eps)) * gradient
     return newW
   }
   
