@@ -606,8 +606,8 @@ public class Brain: Logger {
   }
 
   internal func adjustWeights(batchSize: Int) {
-    self.lobes.forEach { $0.adjustWeights(batchSize: batchSize) }
     self.optimizer?.step()
+    self.lobes.forEach { $0.adjustWeights(batchSize: batchSize) }
   }
   
   @discardableResult
