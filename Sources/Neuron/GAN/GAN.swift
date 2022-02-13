@@ -23,13 +23,13 @@ public class GAN: Logger, GANTrainingDataBuilder, GANDefinition {
   internal var discriminator: Brain?
   internal var batchSize: Int
   internal var gradientPenaltyLambda: Float = 10
-  internal var lossFunction: GANLossFunction = .minimax
   internal var criticTrainPerEpoch: Int = 5
   internal var discriminatorLossHistory: [Float] = []
   internal var generatorLossHistory: [Float] = []
   internal var gradientPenaltyHistory: [Float] = []
   internal var metricsToSet: Set<Metric> = []
 
+  public var lossFunction: GANLossFunction = .minimax
   public var epochs: Int
   public var logLevel: LogLevel = .none
   public var randomNoise: () -> [Float]
@@ -210,7 +210,7 @@ public class GAN: Logger, GANTrainingDataBuilder, GANDefinition {
   }
   
   internal func criticStep(real: [TrainingData],
-                  fake: [TrainingData]) -> Float {
+                           fake: [TrainingData]) -> Float {
     
     //train discriminator on real data
     let realOutput = batchDiscriminate(real, type: .real)
