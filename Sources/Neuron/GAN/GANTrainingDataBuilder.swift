@@ -8,13 +8,7 @@
 import Foundation
 import NumSwift
 
-internal protocol GANTrainingDataBuilder {
-  var generator: Brain? { get set }
-  var discriminator: Brain? { get set }
-  var batchSize: Int { get set }
-  var lossFunction: GANLossFunction { get set }
-  var discriminatorNoiseFactor: Float? { get set }
-  
+internal protocol GANTrainingDataBuilder where Self: GANDefinition {
   func getRandomBatch(data: [TrainingData]) -> [TrainingData]
   func getGeneratedData(type: GANTrainingType,
                         noise: [Float]) -> [TrainingData]

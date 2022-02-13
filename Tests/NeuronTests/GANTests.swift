@@ -53,15 +53,14 @@ final class GANTests: XCTestCase {
   }()
   
   private lazy var ganBrain: GAN = {
-    let gan = GAN(epochs: 50,
-                  criticTrainPerEpoch: 4,
-                  batchSize: 10)
+    let gan = WGANGP(epochs: 50,
+                     criticTrainPerEpoch: 4,
+                     batchSize: 10)
     
     gan.add(generator: self.generator) //compiles
     gan.add(discriminator: self.discriminator) //compiles
     
     gan.logLevel = .none
-    gan.lossFunction = .wasserstein
     
     gan.randomNoise = { [weak self] in
       guard let strongSelf = self else {

@@ -38,7 +38,7 @@ public class Adam: OptimizerFunction {
   private var v: Float = 0
   private var mb: Float = 0
   private var vb: Float = 0
-  private var t: Float = 0
+  private var t: Float = 1
   
   public init(b1: Float = 0.9,
               b2: Float = 0.999,
