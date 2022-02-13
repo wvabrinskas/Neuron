@@ -272,8 +272,14 @@ extension GAN {
   func wassersteinCritic(real: [TrainingData],
                          fake: [TrainingData],
                          withPenalty: Bool = false) -> Float {
-    guard let dis = discriminator, real.count == fake.count else {
+    
+    guard let dis = discriminator,
+          real.count == fake.count else {
       return 0
+    }
+    
+    defer {
+      discriminator?.zeroGradients()
     }
     
     var realLossAverage: Float = 0
