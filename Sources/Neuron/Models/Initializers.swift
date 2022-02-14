@@ -12,21 +12,34 @@ public enum Initializers: String, Codable {
   ///Generates weights based on a uniform distribution
   case xavierUniform
   
+  case heNormal
+  case heUniform
+  
   /// Calculates a weight given input and output node counts
   /// - Parameters:
-  ///   - m: Node count in or out
-  ///   - h: Node count in or out
+  ///   - input: Node count in
+  ///   - out: Node count out
   /// - Returns: Weight calculated based on type of initializer
-  public func calculate(m: Int, h: Int) -> Float {
+  public func calculate(input: Int, out: Int = 0) -> Float {
     switch self {
-    
+      
     case .xavierUniform:
-      let range = m > h ? Float(h)...Float(m) : Float(m)...Float(h)
-      let random = Float.random(in: range)
-      return random * Float(sqrt(2 / (Double(m) + Double(h))))
+      let min = -Float(sqrt(6) / sqrt((Double(input) + Double(out))))
+      let max = Float(sqrt(6) / sqrt((Double(input) + Double(out))))
+      
+      return Float.random(in: min...max)
       
     case .xavierNormal:
-      return Brain.dist.nextFloat() * Float(sqrt(6.0 / (Double(m) + Double(h))))
+      return Brain.dist.nextFloat() * Float(sqrt(2 / (Double(input) + Double(out))))
+      
+    case .heUniform:
+      let min = -Float(sqrt(6) / sqrt((Double(input))))
+      let max = Float(sqrt(6) / sqrt((Double(input))))
+      
+      return Float.random(in: min...max)
+      
+    case .heNormal:
+      return Brain.dist.nextFloat() * Float(sqrt(2 / (Double(input))))
     }
     
   }

@@ -20,16 +20,16 @@ public class Brain: Logger {
   
   public var learningRate: Float
   
-  public var batchNormalizerLearningRate: Float?
-  
   /// The loss function data from training to be exported
   public var loss: [Float] = []
   
   /// Neuron matrix in the existing brain object
   public var lobes: [Lobe] = []
   
+  public var trainable: Bool = true
+  
   /// If the brain object has been compiled and linked properly
-  public var compiled: Bool = false
+  private(set) var compiled: Bool = false
   
   /// The function to use to calculate the loss of the network
   private var lossFunction: LossFunction
@@ -50,17 +50,18 @@ public class Brain: Logger {
   internal var model: ExportModel?
   
   /// Initialized layer weights for unit test purposes only
-  internal var layerWeights: [[Float]] = []
+  internal var layerWeights: [[[Float]]] = []
   
   /// Distribution for initialization
   internal static let dist = NormalDistribution()
   
   private var descent: GradientDescent
   
-  private var optimizer: Optimizer?
+  private var optimizer: OptimizerFunction?
+  private var optimizerType: Optimizer?
   
-  private var descents: [[Float]] = []
-  
+  private var outputLayer: [Neuron] { self.lobes.last?.neurons ?? [] }
+        
   internal var weightConstraints: ClosedRange<Float>? = nil
   
   /// Creates a Brain object that manages a network of Neuron objects
@@ -74,7 +75,6 @@ public class Brain: Logger {
   ///   - descent: The gradient descent type
   public init(model: ExportModel? = nil,
               learningRate: Float,
-              batchNormalizerLearningRate: Float? = nil,
               epochs: Int,
               lossFunction: LossFunction = .meanSquareError,
               lossThreshold: Float = 0.001,
@@ -90,7 +90,6 @@ public class Brain: Logger {
     self.descent = descent
     self.model = model
     self.weightConstraints = weightConstraints
-    self.batchNormalizerLearningRate = batchNormalizerLearningRate
   }
   
   public init?(model: PretrainedModel,
@@ -123,31 +122,28 @@ public class Brain: Logger {
   
   /// Replaces the weights in the network
   /// - Parameter weights: the weights to replace the existing weights with
-  public func replaceWeights(weights: [[Float]]) {
-    var i = 0
-    var newWeights: [[Float]] = []
-    self.lobes.forEach { (lobe) in
+  public func replaceWeights(weights: [[[Float]]]) {
+    for l in 0..<self.lobes.count {
+      let lobe = self.lobes[l]
       
-      lobe.neurons.forEach { (n) in
-        var j = 0
-        var newNodeWeights: [Float] = []
-        n.inputs.forEach { (input) in
-          input.weight = weights[i][j]
-          newNodeWeights.append(input.weight)
-          j += 1
-        }
-        newWeights.append(newNodeWeights)
-        i += 1
+      let weightsForLayer = weights[l]
+      
+      for n in 0..<lobe.neurons.count {
+        let neuron = lobe.neurons[n]
+        let weightsForNeuron = weightsForLayer[n]
+        neuron.replaceWeights(weights: weightsForNeuron)
       }
     }
-    self.layerWeights = newWeights
+
+    self.layerWeights = lobes.map { $0.weights() }
   }
   
   /// Adds an optimizer to the gradient descent algorithm.
   /// Be sure to call this before calling `compile()`
   /// - Parameter optimizer: The optimizer type to add
   public func add(optimizer: Optimizer) {
-    self.optimizer = optimizer
+    self.optimizer = optimizer.get(learningRate: self.learningRate)
+    self.optimizerType = optimizer
   }
   
   /// Returns a model that can be imported later
@@ -165,7 +161,7 @@ public class Brain: Logger {
       var biasWeights: [Float] = []
       
       lobe.neurons.forEach { (neuron) in
-        weights.append(neuron.inputs.map({ $0.weight }))
+        weights.append(neuron.weights)
         biases.append(neuron.bias)
         biasWeights.append(neuron.biasWeight)
       }
@@ -185,7 +181,6 @@ public class Brain: Logger {
                         normalize: lobe.isNormalized)
       
       if let normalLobe = lobe as? NormalizedLobe {
-        let params = normalLobe.normalizerLearningParams
         layer = Layer(activation: lobe.activation,
                       nodes: lobe.neurons.count,
                       weights: weights,
@@ -193,8 +188,7 @@ public class Brain: Logger {
                       bias: biases,
                       biasWeights: biasWeights,
                       normalize: lobe.isNormalized,
-                      beta: params.beta,
-                      gamma: params.gamma)
+                      batchNormalizerParams: normalLobe.normalizerLearningParams)
       }
       
       layers.append(layer)
@@ -202,7 +196,7 @@ public class Brain: Logger {
     
     let model = ExportModel(layers: layers,
                             learningRate: learningRate,
-                            batchNormalizerLearningRate: self.batchNormalizerLearningRate)
+                            optimizer: optimizerType)
     return model
   }
   
@@ -218,9 +212,14 @@ public class Brain: Logger {
                     learningRate: self.learningRate)
     
     if model.normalize {
+      guard let momentum = model.bnMomentum, let bnLearningRate = model.bnLearningRate else {
+        fatalError("please provide a momentum and learning rate for the Batch Normalizer")
+      }
+      
       lobe = NormalizedLobe(model: model,
                             learningRate: self.learningRate,
-                            batchNormLearningRate: self.batchNormalizerLearningRate ?? self.learningRate)
+                            momentum: momentum,
+                            batchNormLearningRate: bnLearningRate)
     }
     
     self.lobes.append(lobe)
@@ -256,31 +255,36 @@ public class Brain: Logger {
         
         let neuron = Neuron(inputs: dendrites,
                             nucleus: nucleus,
-                            activation: layer.activation)
+                            activation: layer.activation,
+                            optimizer: model.optimizer)
         
         neuron.layer = layer.type
         neuron.biasWeight = biasWeight
         
         neurons.append(neuron)
-        self.layerWeights.append(weights)
       }
       
       var lobe = Lobe(neurons: neurons,
                       activation: layer.activation)
       
-      if layer.normalize {
+      if layer.normalize, let bn = layer.batchNormalizerParams {
         lobe = NormalizedLobe(neurons: neurons,
                               activation: layer.activation,
-                              beta: layer.beta ?? 0,
-                              gamma: layer.gamma ?? 1,
+                              beta: bn.beta,
+                              gamma: bn.gamma,
+                              momentum: bn.momentum,
                               learningRate: model.learningRate,
-                              batchNormLearningRate: model.batchNormalizerLearningRate ?? model.learningRate)
+                              batchNormLearningRate: bn.learningRate,
+                              movingMean: bn.movingMean,
+                              movingVariance: bn.movingVariance)
       }
       
       lobe.layer = layer.type
       
       self.lobes.append(lobe)
     }
+    
+    self.layerWeights = self.lobes.map { $0.weights() }
     
     self.compiled = true
   }
@@ -306,57 +310,32 @@ public class Brain: Logger {
       if i > 0 {
         let lobe = self.lobes[i]
         let layerType: LobeModel.LayerType = i + 1 == lobes.count ? .output : .hidden
-        lobe.layer = layerType
         
-        let neuronGroup = self.lobes[i].neurons
         let inputNeuronGroup = self.lobes[i-1].neurons
         
-        neuronGroup.forEach { (neuron) in
-          neuron.layer = layerType
-          
-          var dendrites: [NeuroTransmitter] = []
-          
-          var weights: [Float] = []
-          
-          for _ in 0..<inputNeuronGroup.count {
-            var weight = self.initializer.calculate(m: neuronGroup.count, h: inputNeuronGroup.count)
-            
-            if let constrain = self.weightConstraints {
-              let minBound = constrain.lowerBound
-              let maxBound = constrain.upperBound
-              weight = min(maxBound, max(minBound, weight))
-            }
-            
-            let transmitter = NeuroTransmitter(weight: weight)
-            dendrites.append(transmitter)
-            weights.append(weight)
-          }
-          
-          self.layerWeights.append(weights)
-          
-          let biasWeight = self.initializer.calculate(m: neuronGroup.count, h: inputNeuronGroup.count)
-          
-          neuron.biasWeight = biasWeight
-          neuron.inputs = dendrites
-        }
+        let compileModel = LobeCompileModel.init(inputNeuronCount: inputNeuronGroup.count,
+                                                 layerType: layerType,
+                                                 fullyConnected: true,
+                                                 weightConstraint: self.weightConstraints,
+                                                 initializer: self.initializer,
+                                                 optimizer: self.optimizer)
         
+        let weights = lobe.compile(model: compileModel)
+        self.layerWeights.append(weights)
+
       } else {
         
+        let compileModel = LobeCompileModel.init(inputNeuronCount: 0,
+                                                 layerType: .input,
+                                                 fullyConnected: false,
+                                                 weightConstraint: self.weightConstraints,
+                                                 initializer: self.initializer,
+                                                 optimizer: self.optimizer)
+        
         //first layer weight initialization with 0 since it's just the input layer
-        let neuronGroup = self.lobes[i].neurons
-        self.lobes[i].layer = .input
-        
-        for n in 0..<neuronGroup.count {
-          
-          let transmitter = NeuroTransmitter(weight: 0)
-          
-          //first layer only has one input per input value
-          neuronGroup[n].inputs = [transmitter]
-          neuronGroup[n].layer = .input
-          
-          self.layerWeights.append([0])
-        }
-        
+        let inputLayer = self.lobes[i]
+        let weights = inputLayer.compile(model: compileModel)
+        self.layerWeights.append(weights)
       }
     }
     
@@ -390,76 +369,62 @@ public class Brain: Logger {
       return
     }
     
+    let mixedData = data//.randomize()
+    var setBatches: Bool = false
+    var batches: [[TrainingData]] = []
+
     for i in 0..<epochs {
-      let mixedData = data
-      
+      self.trainable = true
+
       let epochStartDate = Date()
       
       self.log(type: .message, priority: .low, message: "epoch: \(i)")
-      
-      var percentComplete: Float = 0
-      
+            
       switch self.descent {
+      case .bgd:
+        let loss = self.trainOnBatch(batch: data)
+        self.loss.append(loss)
       case .sgd:
-        //train the network with all the data
-        for d in 0..<mixedData.count {
-          self.zeroGradients()
-          
-          let obj = data[d]
-          
-          if d % 20 == 0 {
-            percentComplete = Float(d) / Float(data.count)
-            self.log(type: .message, priority: .medium, message: "\(percentComplete.percent())%")
-          }
-          
-          self.log(type: .message, priority: .high, message: "data iteration: \(d)")
-          
-          self.trainIndividual(data: obj)
-          
+        guard let obj = mixedData.randomElement() else {
+          return
         }
         
-      case let .mbgd(size: size):
-        let batches = mixedData.batched(into: size)
-        
-        batches.forEach { (batch) in
-          self.zeroGradients()
-          
-          batch.forEach { (tData) in
-            self.trainIndividual(data: tData, backprop: false)
-          }
-          
-          let avgDelta = self.averageDelta()
-          let outLayer = self.outputLayer()
-          
-          for i in 0..<outLayer.count {
-            outLayer[i].delta = avgDelta[i]
-          }
-          
-          self.backpropagate()
-          self.adjustWeights()
-          
-          self.descents.removeAll()
+        let loss = self.trainOnBatch(batch: [obj])
+        self.loss.append(loss)
+
+      case.mbgd(let size):
+        if setBatches == false {
+          setBatches = true
+          batches = mixedData.batched(into: size)
         }
+        
+        var lossOnBatches: Float = 0
+        
+        batches.randomize().forEach { (batch) in
+          lossOnBatches += self.trainOnBatch(batch: batch)
+        }
+        
+        self.loss.append(lossOnBatches / Float(batches.count))
       }
       
-      //maybe add to serial background queue, dispatch queue crashes
-      /// feed a model and its correct values through the network to calculate the loss
-      let loss = self.calcAverageLoss(self.feed(input: data[0].data),
-                                      correct: data[0].correct)
-      self.loss.append(loss)
-      
-      self.log(type: .message, priority: .low, message: "loss at epoch \(i): \(loss)")
-      
+      if let lastLoss = self.loss.last {
+        self.log(type: .message,
+                 priority: .low,
+                 message: "loss: \(lastLoss)")
+      }
+
       self.log(type: .message,
                priority: .high,
                message: "epoch completed time: \(Date().timeIntervalSince(epochStartDate))")
       
       //feed validation data through the network
       if let validationData = validation.randomElement(), validation.count > 0 {
+        self.trainable = false
         
-        self.feedInternal(input: validationData.data)
-        let errorForValidation = self.calcAverageErrorForOutput(correct: validationData.correct)
-        
+        let output = self.feed(input: validationData.data)
+        let errorForValidation = self.loss(output,
+                                           correct: validationData.correct)
+                
         //if validation error is greater than previous then we are complete with training
         //bail out to prevent overfitting
         let threshold: Float = self.lossThreshold
@@ -485,12 +450,11 @@ public class Brain: Logger {
           }
         }
         
-        self.log(type: .message, priority: .low, message: "val error at epoch \(i): \(errorForValidation)")
         if previousValidationErrors.count == checkBatchCount {
           previousValidationErrors.removeFirst()
         }
-        previousValidationErrors.append(abs(errorForValidation))
         
+        previousValidationErrors.append(errorForValidation)
       }
       
       epochCompleted?(i)
@@ -506,26 +470,29 @@ public class Brain: Logger {
     complete?(false)
   }
   
-  private func averageDelta() -> [Float] {
-    var sum: [Float] = [Float].init(repeating: 0, count: self.outputLayer().count)
+  private func trainOnBatch(batch: [TrainingData]) -> Float {
+    self.trainable = true
+    self.zeroGradients()
     
-    self.descents.forEach { (descentObj) in
-      sum += descentObj
-    }
-    
-    return sum / Float(self.descents.count)
-  }
+    var batchLoss: Float = 0
+    batch.forEach { tData in
+      //feed the data through the network
+      let output = self.feed(input: tData.data)
+      
+      batchLoss += self.loss(output, correct: tData.correct)
+      
+      //set the output errors for set
+      let deltas = self.getOutputDeltas(outputs: output,
+                                        correctValues: tData.correct)
   
-  internal func averageError() -> Float {
-    var sum: Float = 0
-    
-    previousValidationErrors.forEach { (error) in
-      sum += error
+      self.backpropagate(with: deltas)
     }
+        
+    self.adjustWeights(batchSize: batch.count)
     
-    return sum / Float(previousValidationErrors.count)
+    return batchLoss / Float(batch.count)
   }
-  
+
   /// Clears the whole network and resets all the weights to a random value
   public func clear() {
     self.previousValidationErrors = []
@@ -536,17 +503,19 @@ public class Brain: Logger {
     }
   }
   
+  public func weights() -> [[[Float]]] {
+    lobes.map { $0.weights() }
+  }
+  
   /// Feed-forward through the network to get the result
   /// - Parameters:
   ///   - input: the input array of floats
   /// - Returns: The result of the feed forward through the network as an array of Floats
   public func feed(input: [Float]) -> [Float] {
-    self.feedInternal(input: input)
-    
-    let out = self.get()
-    return out
+    let output = self.feedInternal(input: input)
+    let modified = self.applyModifier(outputs: output)
+    return modified
   }
-  
   
   /// Update the settings for each lobe and each neuron
   /// - Parameter nucleus: Object that describes the network behavior
@@ -564,178 +533,117 @@ public class Brain: Logger {
     return ExportManager.getCSV(filename: name, self.loss)
   }
   
-  private func trainIndividual(data: TrainingData, backprop: Bool = true) {
-    
-    guard data.correct.count == self.outputLayer().count else {
-      self.log(type: .error,
-               priority: .alwaysShow,
-               message: "Error: correct data count does not match ouput node count, bailing out")
-      return
-    }
-    
-    //feed the data through the network
-    self.feedInternal(input: data.data)
-    
-    //set the output errors for set
-    self.setOutputDeltas(data.correct)
-    
-    if backprop {
-      //propagate backwards through the network
-      self.backpropagate()
-      
-      //adjust all the weights after back propagation is complete
-      self.adjustWeights()
-    }
+  
+  internal func averageError() -> Float {
+    previousValidationErrors.sum / Float(previousValidationErrors.count)
   }
   
   /// Feeds the network internally preparing for output or training
   /// - Parameter input: the input data to feed the network
-  internal func feedInternal(input: [Float]) {
+  internal func feedInternal(input: [Float]) -> [Float] {
     var x = input
     
     for i in 0..<self.lobes.count {
       let currentLayer = self.lobes[i]
-      let newInputs: [Float] = currentLayer.feed(inputs: x)
+      let newInputs: [Float] = currentLayer.feed(inputs: x, training: self.trainable)
+
       x = newInputs
     }
+    
+    return x
   }
   
-  /// Get the result of the last layer of the network
-  /// - Parameter ranked: whether the network should sort the output by highest first
-  /// - Returns: Array of floats resulting from the activation functions of the last layer
-  private func get(ranked: Bool = false) -> [Float] {
+  /// Applies the output modifier
+  /// - Parameter outputs: outputs to apply modifier to
+  /// - Returns: the modified output given by the set modifier
+  private func applyModifier(outputs: [Float]) -> [Float] {
     
-    var outputs: [Float] = []
-    
-    self.outputLayer().forEach { (neuron) in
-      outputs.append(neuron.activation())
+    guard let mod = self.outputModifier else {
+      return outputs
     }
     
-    var out = outputs
+    var modOut: [Float] = []
     
-    if let mod = self.outputModifier {
-      var modOut: [Float] = []
-      
-      for i in 0..<out.count {
-        let modVal = mod.calculate(index: i, outputs: out)
-        modOut.append(modVal)
-      }
-      
-      out = modOut
+    for i in 0..<outputs.count {
+      let modVal = mod.calculate(index: i, outputs: outputs)
+      modOut.append(modVal)
     }
     
-    return ranked ? out.sorted(by: { $0 > $1 }) : out
+    return modOut
+  }
+
+  internal func loss(_ predicted: [Float], correct: [Float]) -> Float {
+    self.lossFunction.calculate(predicted, correct: correct)
   }
   
-  /// Get first layer of neurons
-  /// - Returns: Input layer as array of Neuron objects
-  private func inputLayer() -> [Neuron] {
-    return self.lobes.first?.neurons ?? []
-  }
-  
-  /// Get the last layer of neurons
-  /// - Returns: Output layer as array of Neuron objects
-  private func outputLayer() -> [Neuron] {
-    return self.lobes.last?.neurons ?? []
-  }
-  
-  internal func calcAverageLoss(_ predicted: [Float], correct: [Float]) -> Float {
-    var sum: Float = 0
-    
-    for i in 0..<predicted.count {
-      let predicted = predicted[i]
-      let correct = correct[i]
-      let error = self.lossFunction.calculate(predicted, correct: correct)
-      sum += error
-    }
-    
-    return sum / Float(predicted.count)
-  }
-  
-  private func calcAverageErrorForOutput(correct: [Float]) -> Float {
-    let predicted: [Float] = self.get()
-    return self.calcAverageLoss(predicted, correct: correct)
-  }
-  
-  internal func setOutputDeltas(_ correctValues: [Float]) {
-    guard correctValues.count == self.outputLayer().count else {
+  //calculates the error at the output layer w.r.t to the weights.
+  internal func getOutputDeltas(outputs: [Float], correctValues: [Float]) -> [Float] {
+    guard correctValues.count == self.outputLayer.count,
+          outputs.count == self.outputLayer.count else {
       
       self.log(type: .error,
                priority: .alwaysShow,
                message: "Error: correct data count does not match ouput node count, bailing out")
-      return
+      return []
     }
-    
-    //set output error delta
-    let outs = self.get()
     
     var outputErrors: [Float] = []
     
-    for i in 0..<self.outputLayer().count {
+    for i in 0..<self.outputLayer.count {
       let target = correctValues[i]
-      let predicted = outs[i]
-      
-      let outputNeuron = self.outputLayer()[i]
+      let predicted = outputs[i]
       
       let delta = self.lossFunction.derivative(predicted, correct: target)
       
-      outputNeuron.delta = delta
       outputErrors.append(delta)
-      
-      self.log(type: .message,
-               priority: .high,
-               message: "out: \(i), raw: \(outputNeuron.activation()) predicted: \(predicted), actual: \(target) delta: \(String(describing: outputNeuron.delta))")
-      
     }
     
-    self.descents.append(outputErrors)
+    return outputErrors
   }
   
   internal func gradients() -> [[[Float]]] {
     return self.lobes.map { $0.gradients() }
   }
+
+  internal func adjustWeights(batchSize: Int) {
+    self.lobes.forEach { $0.adjustWeights(batchSize: batchSize) }
+    self.optimizer?.step()
+  }
   
-  internal func backpropagate(with deltas: [Float]? = nil) {
+  @discardableResult
+  internal func backpropagate(with deltas: [Float]) -> (firstLayerDeltas: [Float], gradients: [[[Float]]]) {
     //reverse so we can loop through from the beggining of the array starting at the output node
     let reverse: [Lobe] = self.lobes.reversed()
 
     guard reverse.count > 0 else {
-      return
+      return ([], [])
     }
-    
-    let outputLayer = reverse[0]
-    
-//    //for generative adversarial networks we need to set the backprop deltas manually without calculating
-//    if let deltas = deltas {
-//      outputLayer.setLayerDeltas(with: deltas, update: true)
-//    }
-//
-    var updatingDeltas = deltas ?? outputLayer.deltas()
+        
+    var updatingDeltas = deltas
+    var gradients: [[[Float]]] = []
     
     //subtracting 1 because we dont need to propagate through to the weights in the input layer
     //those will always be 0 since no computation happens at the input layer
     for i in 0..<reverse.count - 1 {
       let currentLobe = reverse[i]
       let previousLobe = reverse[i + 1]
-    
-      updatingDeltas = currentLobe.backpropagate(inputs: updatingDeltas,
-                                                 previousLayerCount: previousLobe.neurons.count)
-  
-      //incoming inputs are the new deltas for the current layer
-      previousLobe.setLayerDeltas(with: updatingDeltas, update: true)
+      
+      //calculate gradients for current layer with previous layer errors aka deltas
+      let newGradients = currentLobe.calculateGradients(with: updatingDeltas)
+
+      //current lobe is calculating the deltas for the previous lobe
+      updatingDeltas = currentLobe.calculateDeltasForPreviousLayer(inputs: updatingDeltas,
+                                                                   previousLayerCount: previousLobe.neurons.count)
+      
+      gradients.append(newGradients)
     }
+    
+    return (updatingDeltas, gradients)
   }
   
-  public func zeroGradients() {
+  internal func zeroGradients() {
     self.lobes.forEach { lobe in
       lobe.zeroGradients()
-    }
-  }
-  
-  internal func adjustWeights() {
-    for i in 0..<self.lobes.count {
-      let lobe = self.lobes[i]
-      lobe.adjustWeights(self.weightConstraints)
     }
   }
 }
