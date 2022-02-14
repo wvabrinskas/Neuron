@@ -49,31 +49,29 @@ It is fairly simple to setup the neural network `Brain`. This will be the only o
 ### Initialization
 ```  
   private lazy var brain: Brain = {
-    let bias = 0.01
-
-    let nucleus = Nucleus(learningRate: 0.001,
-                          bias: 0.001)
+    let bias: Float = 0.00001
     
-    let brain = Brain(nucleus: nucleus,
-                      epochs: 10,
+    let brain = Brain(learningRate: 0.01,
+                      epochs: 200,
                       lossFunction: .crossEntropy,
-                      lossThreshold: 0.001, 
-                      initializer: .xavierNormal, 
-                      gradient: .sgd)
+                      lossThreshold: TestConstants.lossThreshold,
+                      initializer: .xavierNormal,
+                      descent: .mbgd(size: 16))
     
-    brain.add(.init(nodes: inputs, bias: bias)) //input layer
-
-    for _ in 0..<numOfHiddenLayers {
-      brain.add(.init(nodes: hidden, activation: .reLu, bias: bias)) 
+    brain.add(.init(nodes: TestConstants.inputs, normalize: false))
+    
+    for _ in 0..<TestConstants.numOfHiddenLayers {
+      
+      brain.add(.init(nodes: TestConstants.hidden,
+                      activation: .leakyRelu,
+                      bias: bias)) //hidden layer
     }
     
-    brain.add(.init(nodes: outputs, bias: bias)) //output layer
-    
+    brain.add(.init(nodes: TestConstants.outputs, activation: .none, bias: bias, normalize: false)
     brain.add(modifier: .softmax)
-
+    
     brain.add(optimizer: .adam())
-
-    brain.logLevel = .high
+    brain.logLevel = .none
     
     return brain
   }()
@@ -167,28 +165,40 @@ The `LobeModel` struct can be created with a simple initializer.
 ```
   public init(nodes: Int,
               activation: Activation = .none,
-              bias: Float = 0, 
-              normalize: Bool = false) {
+              bias: Float = 0,
+              normalize: Bool = false,
+              bnMomentum: Float? = nil,
+              bnLearningRate: Float? = nil) {
     self.nodes = nodes
     self.activation = activation
     self.bias = bias
     self.normalize = normalize
+    self.bnMomentum = bnMomentum
+    self.bnLearningRate = bnLearningRate
   }
   ```
 
-Nodes
+nodes
 - the number of nodes at the layer 
 
-Activation
+activation
 - the activation function to be used at the layer 
 - **NOTE: If the layer is of type `.input` the activation function will be ignored**
 
-Bias
+bias
 - the bias to be added at that layer
 - **NOTE: If the layer is of type `.input` the bias will be ignored**
 
-Normalize 
+normalize 
 - batch normalizes the inputs to this layer
+- `bnMomentum` and `bnLearningRate` are required if this is set to `true` 
+
+bnMomentum
+- Momentum applied to the batch normalizer 
+
+bnLearningRate
+- Learning rate for the batch normalizer 
+
 
 ### Modifiers 
 The network also supports adding an output activation modifier such as softmax 
@@ -212,13 +222,15 @@ After adding all the specified layers and modifiers do not forget to call `compi
 You can also train the `Brain` object by passing an expected value. 
 
 ```
-public func train(data: [TrainingData],
+  public func train(data: [TrainingData],
                     validation: [TrainingData] = [],
-                    complete: ((_ complete: Bool) -> ())? = nil)
+                    epochCompleted: ((_ epoch: Int) -> ())? = nil,
+                    complete: ((_ passedValidation: Bool) -> ())? = nil)
 ```
 
 - `data:` An array of `TrainingData` objects to be used as the training data set. 
 - `validation:` An array of `TrainingData` objects to be used as the validation data set. 
+- `epochCompleted:` A block called when an epoch has completed
 - `complete` A block called when the network has finished training. 
 
 ### Training Data 
@@ -248,7 +260,8 @@ Brain can accept a pretrained model in the form of a `.smodel` file. Basically a
               epochs: Int,
               lossFunction: LossFunction = .crossEntropy,
               lossThreshold: Float = 0.001,
-              initializer: Initializers = .xavierNormal) {
+              initializer: Initializers = .xavierNormal,
+              descent: GradientDescent = .sgd) {
 ```
 
 ### PretrainedModel 
@@ -304,15 +317,26 @@ Neuron supports Generative Adversarial Networks and Wasserstein Generative Adver
 Create two `Brain` objects. One for the discriminator and one for the generator of the network. 
 
 ```
-  private lazy var generator: Brain = {
+ private lazy var generator: Brain = {
     let bias: Float = 0
+    
+    let bnLearningRate: Float = 0.1
+    let bnMomentum: Float = 0.99
+    let normalize: Bool = true
     
     let brain = Brain(learningRate: 0.00001,
                       epochs: 1)
 
-    brain.add(.init(nodes: 7)) //some number of inputs
-    brain.add(.init(nodes: 10, activation: .leakyRelu, bias: bias))
-    brain.add(.init(nodes: wordLength, activation: .tanh, bias: bias))
+    brain.add(.init(nodes: generatorInputs, normalize: false))
+    
+    brain.add(.init(nodes: 8,
+                    activation: .leakyRelu,
+                    bias: bias,
+                    normalize: normalize,
+                    bnMomentum: bnMomentum,
+                    bnLearningRate: bnLearningRate))
+    
+    brain.add(.init(nodes: generatorOutputs, activation: .tanh, bias: bias))
 
     brain.logLevel = .none
     brain.add(optimizer: .adam())
@@ -326,9 +350,9 @@ Create two `Brain` objects. One for the discriminator and one for the generator 
     let brain = Brain(learningRate: 0.00001,
                       epochs: 1)
 
-    brain.add(.init(nodes: wordLength))
-    brain.add(.init(nodes: 10, activation: .leakyRelu, bias: bias))
-    brain.add(.init(nodes: 1, activation: .sigmoid, bias: bias))
+    brain.add(.init(nodes: generatorOutputs)) 
+    brain.add(.init(nodes: 15, activation: .leakyRelu, bias: bias))
+    brain.add(.init(nodes: 1, activation: .leakyRelu, bias: bias))
     
     brain.logLevel = .none
     brain.add(optimizer: .adam())
@@ -338,27 +362,40 @@ Create two `Brain` objects. One for the discriminator and one for the generator 
   }()
   ```
   - The `Brain` objects are neural networks of their own and will compete to minimize the selected loss function. They are created exactly as any `Brain` object is created as mentioned above. Only thing ignored in this initializer is the `epochs`. This will be handled later. 
-  - Create a `GAN` object using the two newly created networks. 
+  - Create a `GAN` object using the two newly created networks. This creates a default `GAN` object using the `minimax` loss function. 
   ```
    let gan = GAN(epochs: 1000,
                   criticTrainPerEpoch: 4,
-                  generatorTrainPerEpoch: 1,
-                  gradientPenaltyCenter: 1,
-                  batchSize: 10)
+                  batchSize: 10,
+                  metrics: [.criticLoss,
+                            .gradientPenalty,
+                            .generatorLoss])
     
     gan.add(generator: self.generator)
     gan.add(discriminator: self.discriminator)
 
     gan.logLevel = .none
-    gan.lossFunction = .wasserstein
   ```
 
   - `epochs` - number of rounds of training the GAN
   - `criticTrainPerEpoch` - the number of epochs to train the critic (discriminator) per epoch of the GAN training. 
-  - `generatorTrainPerEpoc` - the number of epochs to train the generator per epoch of the GAN training. 
-  - `gradienPenaltyCenter` - (optional) when using `wasserstein` as the lost function the gradient penalty is centered around this value in the calculation. A good value is `1` if you're using `wasserstein` loss function. `Default: 0`.
   - `batchSize` - the number of objects to pull from the training data set per epoch. 
+  - `metrics` - A `Set` that defines the metrics the `GAN` should monitor and return at the end of training.
+    - Valid options are `.criticLoss`, `.generatorLoss`, and `.gradientPenalty`
   
+  #### WGANGP
+  You can also create a `WGANGP` object that uses the `wasserstein` loss function with `gradient penalty`. It is created in the exact same way as a `GAN` object. `WGANGP` is a subclass of `GAN` so all functions below also apply to `WGANGP`
+
+  ```
+    let gan = WGANGP(epochs: 100,
+                     criticTrainPerEpoch: 5,
+                     batchSize: 16,
+                     metrics: [.criticLoss,
+                               .gradientPenalty,
+                               .generatorLoss])
+
+  ```
+
   #### GAN Properties
   - `lossFunction` - the loss function for the GAN to minimize. Currentlt it only supports `wasserstein` and `minimax` loss functions. `Default: .minimax`
   - `randomNoise: () -> [Float]` - a block that the `GAN` object will call every epoch to get input data for the generator. The generator takes in random noise from a described latent space. This block is used to define that latent space. 
@@ -376,7 +413,13 @@ Create two `Brain` objects. One for the discriminator and one for the generator 
 - To train the `GAN` you just call `train` on the `GAN` object you created with an array of `TrainingData` objects. Similar to any `Brain` object.
 
 ```
-self.ganBrain.train(data: trainingData) { success in }
+  self.ganBrain.train(data: trainingData) { [weak self] epoch in
+      print("current epoch completed: ", epoch)
+  } complete: { [weak self] metrics in
+      print("critic loss: ", metrics[.criticLoss])
+      print("generator loss: ", metrics[.generatorLoss])
+      print("gradient penalty: ", metrics[.gradientPenalty])
+  }
 ```
 
 - To get generated data from the generator of the `GAN` you just call `getGeneratedSample` on your `GAN` object. This returns an array of `Float` from the generator. 
