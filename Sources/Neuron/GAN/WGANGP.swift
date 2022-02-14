@@ -56,6 +56,7 @@ public class WGANGP: GAN {
       
       dis.backpropagate(with: [interLoss])
       
+      //use index 1 here because we want the output gradient w.r.t the inputs
       if let networkGradients = dis.gradients()[safe: 1]?.flatMap({ $0 }) {
         let penalty = GradientPenalty.calculate(gradient: networkGradients)
         penaltyAverage += penalty / Float(real.count)
