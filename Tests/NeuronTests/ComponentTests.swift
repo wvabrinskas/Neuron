@@ -104,16 +104,16 @@ class ComponentTests: XCTestCase {
     
     XCTAssert(brain.weights() == [[[0.0]], [[0.875]], [[0.875]]])
   }
-  
-  func testBatchNormalizer() {
-    let batchNormalizer = BatchNormalizer(momentum: 0.99, learningRate: 0.01)
-    let input: [Float] = [0.5, 0.1, 0.5]
-    let output = batchNormalizer.normalize(activations: input, training: true)
-    
-    XCTAssert(output == [0.7066101, -1.4132203, 0.7066101])
-        
-    let backprop = batchNormalizer.backward(gradient: output)
-    
-    XCTAssert(backprop == [0.005258338, -0.010517518, 0.005258338])
-  }
+//
+//  func testBatchNormalizer() {
+//    let batchNormalizer = BatchNormalizer(momentum: 0.99, learningRate: 0.01)
+//    let input: [Float] = [0.5, 0.1, 0.5]
+//    let output = batchNormalizer.normalize(activations: input, training: true)
+//
+//    XCTAssert(output == [0.7066101, -1.4132203, 0.7066101])
+//
+//    let backprop = batchNormalizer.backward(gradient: output)
+//
+//    XCTAssert(backprop == [0.005258338, -0.010517518, 0.005258338])
+//  }
 }
