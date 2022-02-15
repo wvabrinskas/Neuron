@@ -235,6 +235,8 @@ public class Brain: Logger {
     guard let model = self.model else {
       return
     }
+    
+    self.optimizer = model.optimizer?.get(learningRate: model.learningRate)
     //go through each layer
     model.layers.forEach { (layer) in
       
@@ -256,7 +258,7 @@ public class Brain: Logger {
         let neuron = Neuron(inputs: dendrites,
                             nucleus: nucleus,
                             activation: layer.activation,
-                            optimizer: model.optimizer)
+                            optimizer: optimizer)
         
         neuron.layer = layer.type
         neuron.biasWeight = biasWeight
