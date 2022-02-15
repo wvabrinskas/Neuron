@@ -36,12 +36,12 @@ public class Neuron {
   public init(inputs: [NeuroTransmitter] = [],
               nucleus: Nucleus,
               activation: Activation,
-              optimizer: Optimizer? = nil) {
+              optimizer: OptimizerFunction? = nil) {
     
     self.learningRate = nucleus.learningRate
     self.bias = nucleus.bias
     self.activationType = activation
-    self.optimizer = optimizer?.get(learningRate: learningRate)
+    self.optimizer = optimizer
     
     for input in inputs {
       self.add(input: input.inputValue, weight: input.weight)
@@ -52,9 +52,7 @@ public class Neuron {
     self.optimizer = optimizer
   }
 
-  /// Initializes the weights at this neuron using the given initializer
-  /// - Parameter count: Number of weights to generate
-  /// - Parameter initializer: The initialier to generate the weights
+  /// Initializes the weights at this neuron
   public func initialize(weights: [Float], inputs: [Float]) {
     guard weights.count == inputs.count else {
       print("Error: Can not replace inputs of different size")
