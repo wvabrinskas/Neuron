@@ -12,7 +12,7 @@ public typealias WeightConstraint = ClosedRange<Float>
 
 internal struct LobeCompileModel {
   var inputNeuronCount: Int
-  var layerType: LobeModel.LayerType
+  var layerType: LayerType
   var fullyConnected: Bool = true
   var weightConstraint: WeightConstraint? = nil
   var initializer: Initializers = .xavierNormal
@@ -21,10 +21,10 @@ internal struct LobeCompileModel {
 
 /// Class that contains a group of Neurons
 public class Lobe {
-  
+
   /// Neurons in the Lobe object
   public var neurons: [Neuron] = []
-  public var layer: LobeModel.LayerType = .output
+  public var layer: LayerType = .output
   public var activation: Activation = .none
   public var isNormalized: Bool = false
   
@@ -39,7 +39,7 @@ public class Lobe {
     self.activation = activation
   }
   
-  public init(model: LobeModel,
+  public init(model: LobeDefinition,
               learningRate: Float) {
     
     let nuc = Nucleus(learningRate: learningRate,

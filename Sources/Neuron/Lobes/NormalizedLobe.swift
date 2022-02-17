@@ -27,21 +27,15 @@ public class NormalizedLobe: Lobe {
                                  learningRate: normalizer.learningRate)
   }
   
-  public init(model: LobeModel,
-              learningRate: Float,
-              momentum: Float,
-              batchNormLearningRate: Float,
-              beta: Float = 0,
-              gamma: Float = 1,
-              movingMean: Float = 1,
-              movingVariance: Float = 1) {
+  public init(model: NormalizedLobeModel,
+              learningRate: Float) {
     
-    self.normalizer = BatchNormalizer(gamma: gamma,
-                                      beta: beta,
-                                      momentum: momentum,
-                                      learningRate: batchNormLearningRate,
-                                      movingMean: movingMean,
-                                      movingVariance: movingVariance)
+    self.normalizer = BatchNormalizer(gamma: 1,
+                                      beta: 0,
+                                      momentum: model.momentum,
+                                      learningRate: model.normalizerLearningRate,
+                                      movingMean: 1,
+                                      movingVariance: 1)
     
     super.init(model: model, learningRate: learningRate)
     self.isNormalized = true

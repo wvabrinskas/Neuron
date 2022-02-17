@@ -19,18 +19,18 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
                       initializer: .xavierNormal,
                       descent: .mbgd(size: 16))
     
-    brain.add(.init(nodes: TestConstants.inputs, normalize: false)) //input layer no activation. It'll be ignored anyway
+    brain.add(LobeModel(nodes: TestConstants.inputs)) //input layer no activation. It'll be ignored anyway
     
     for _ in 0..<TestConstants.numOfHiddenLayers {
-      brain.add(.init(nodes: TestConstants.hidden,
-                      activation: .leakyRelu,
-                      bias: bias,
-                      normalize: false,
-                      bnMomentum: 0.99,
-                      bnLearningRate: 0.01)) //hidden layer
+      let normalLobe = NormalizedLobeModel(nodes: TestConstants.hidden,
+                                           activation: .leakyRelu,
+                                           bias: bias,
+                                           momentum: 0.99,
+                                           normalizerLearningRate: 0.1)
+      brain.add(normalLobe) //hidden layer
     }
     
-    brain.add(.init(nodes: TestConstants.outputs, activation: .none, bias: bias, normalize: false)) //output layer
+    brain.add(LobeModel(nodes: TestConstants.outputs, activation: .none, bias: bias)) //output layer
     
     brain.add(modifier: .softmax) //when using softmax activation the output node should use a reLu or leakyRelu activation
     

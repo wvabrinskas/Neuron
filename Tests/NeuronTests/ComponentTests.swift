@@ -22,13 +22,13 @@ class ComponentTests: XCTestCase {
                       initializer: .xavierNormal,
                       descent: .bgd)
     
-    brain.add(.init(nodes: 1, normalize: false)) //input layer no activation. It'll be ignored anyway
+    brain.add(LobeModel(nodes: 1)) //input layer no activation. It'll be ignored anyway
     
     for _ in 0..<1 {
-      brain.add(.init(nodes: 1, activation: .reLu,  bias: bias)) //hidden layer
+      brain.add(LobeModel(nodes: 1, activation: .reLu,  bias: bias)) //hidden layer
     }
     
-    brain.add(.init(nodes: 1, activation: .reLu, bias: bias)) //output layer
+    brain.add(LobeModel(nodes: 1, activation: .reLu, bias: bias)) //output layer
     brain.logLevel = .low
     
     return brain
@@ -44,13 +44,13 @@ class ComponentTests: XCTestCase {
                       initializer: .xavierNormal,
                       descent: .bgd)
     
-    brain.add(.init(nodes: 1, normalize: false)) //input layer no activation. It'll be ignored anyway
+    brain.add(LobeModel(nodes: 1)) //input layer no activation. It'll be ignored anyway
     
     for _ in 0..<2 {
-      brain.add(.init(nodes: 2, activation: .reLu,  bias: bias)) //hidden layer
+      brain.add(LobeModel(nodes: 2, activation: .reLu,  bias: bias)) //hidden layer
     }
     
-    brain.add(.init(nodes: 1, activation: .reLu, bias: bias)) //output layer
+    brain.add(LobeModel(nodes: 1, activation: .reLu, bias: bias)) //output layer
     brain.logLevel = .low
     
     return brain

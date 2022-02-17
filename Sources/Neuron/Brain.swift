@@ -207,20 +207,15 @@ public class Brain: Logger {
   }
   /// Adds a layer to the neural network
   /// - Parameter model: The lobe model describing the layer to be added
-  public func add(_ model: LobeModel) {
+  public func add(_ model: LobeDefinition) {
     var lobe = Lobe(model: model,
                     learningRate: self.learningRate)
     
-    if model.normalize {
-      guard let momentum = model.bnMomentum, let bnLearningRate = model.bnLearningRate else {
-        fatalError("please provide a momentum and learning rate for the Batch Normalizer")
-      }
-      
-      lobe = NormalizedLobe(model: model,
-                            learningRate: self.learningRate,
-                            momentum: momentum,
-                            batchNormLearningRate: bnLearningRate)
+    if let bnModel = model as? NormalizedLobeModel  {
+      lobe = NormalizedLobe(model: bnModel,
+                            learningRate: self.learningRate)
     }
+    
     
     self.lobes.append(lobe)
   }
@@ -311,7 +306,7 @@ public class Brain: Logger {
     for i in 0..<lobes.count {
       if i > 0 {
         let lobe = self.lobes[i]
-        let layerType: LobeModel.LayerType = i + 1 == lobes.count ? .output : .hidden
+        let layerType: LayerType = i + 1 == lobes.count ? .output : .hidden
         
         let inputNeuronGroup = self.lobes[i-1].neurons
         

@@ -23,7 +23,7 @@ public class Neuron {
   public var gradients: [Float] = []
 
   internal var activationType: Activation
-  internal var layer: LobeModel.LayerType = .output
+  internal var layer: LayerType = .output
 
   private var learningRate: Float = 0.01
   private var activationDerivative: Float = 0

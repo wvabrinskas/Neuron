@@ -25,10 +25,10 @@ final class GANTests: XCTestCase {
     let brain = Brain(learningRate: 0.00001,
                       epochs: 1)
     
-    brain.add(.init(nodes: generatorInputs))
-    brain.add(.init(nodes: 5, activation: .leakyRelu, bias: bias))
+    brain.add(LobeModel(nodes: generatorInputs))
+    brain.add(LobeModel(nodes: 5, activation: .leakyRelu, bias: bias))
     // brain.add(.init(nodes: 5, activation: .leakyRelu, bias: bias))
-    brain.add(.init(nodes: wordLength, activation: .tanh, bias: bias))
+    brain.add(LobeModel(nodes: wordLength, activation: .tanh, bias: bias))
     
     brain.logLevel = .none
     brain.add(optimizer: .adam())
@@ -41,10 +41,10 @@ final class GANTests: XCTestCase {
     let brain = Brain(learningRate: 0.00001,
                       epochs: 1)
     
-    brain.add(.init(nodes: wordLength))
-    brain.add(.init(nodes: 5, activation: .leakyRelu, bias: bias))
+    brain.add(LobeModel(nodes: wordLength))
+    brain.add(LobeModel(nodes: 5, activation: .leakyRelu, bias: bias))
     // brain.add(.init(nodes: 10, activation: .leakyRelu, bias: bias))
-    brain.add(.init(nodes: 1, activation: .sigmoid, bias: bias))
+    brain.add(LobeModel(nodes: 1, activation: .sigmoid, bias: bias))
     
     brain.logLevel = .none
     brain.add(optimizer: .adam())
