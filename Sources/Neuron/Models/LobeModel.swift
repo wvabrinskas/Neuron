@@ -58,15 +58,34 @@ public struct ConvolutionalLobeModel: LobeDefinition {
   public var nodes: Int
   public var activation: Activation
   public var bias: Float
-  public var poolingType: ConvolutionalLobe.PoolType
+  public var filterSize: (Int, Int)
+  public var inputSize: (Int, Int)
   
-  public init(nodes: Int,
+  public init(inputSize: (Int, Int),
               activation: Activation = .none,
               bias: Float = 0,
-              poolingType: ConvolutionalLobe.PoolType) {
+              filterSize: (Int, Int) = (3, 3)) {
     self.bias = bias
     self.activation = activation
-    self.nodes = nodes
+    self.nodes = inputSize.0 * inputSize.0
+    self.filterSize = filterSize
+    self.inputSize = inputSize
+  }
+}
+
+public struct PoolingLobeModel: LobeDefinition {
+  public var nodes: Int
+  public var activation: Activation
+  public var bias: Float
+  public var poolingType: PoolingLobe.PoolType
+  public var inputSize: (Int, Int)
+
+  public init(inputSize: (Int, Int),
+              poolingType: PoolingLobe.PoolType = .max) {
+    self.nodes = (inputSize.0 * inputSize.1) / 4
+    self.activation = .none
+    self.bias = 0
     self.poolingType = poolingType
+    self.inputSize = inputSize
   }
 }

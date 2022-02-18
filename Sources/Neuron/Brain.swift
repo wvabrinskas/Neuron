@@ -209,11 +209,16 @@ public class Brain: Logger {
   /// - Parameter model: The lobe model describing the layer to be added
   public func add(_ model: LobeDefinition) {
     var lobe = Lobe(model: model,
-                    learningRate: self.learningRate)
+                    learningRate: learningRate)
     
     if let bnModel = model as? NormalizedLobeModel  {
       lobe = NormalizedLobe(model: bnModel,
-                            learningRate: self.learningRate)
+                            learningRate: learningRate)
+    }
+    
+    if let convModel = model as? ConvolutionalLobeModel {
+      lobe = ConvolutionalLobe(model: convModel,
+                               learningRate: learningRate)
     }
     
     
@@ -308,9 +313,9 @@ public class Brain: Logger {
         let lobe = self.lobes[i]
         let layerType: LayerType = i + 1 == lobes.count ? .output : .hidden
         
-        let inputNeuronGroup = self.lobes[i-1].neurons
+        let inputNeuronGroup = self.lobes[i-1].outputCount
         
-        let compileModel = LobeCompileModel.init(inputNeuronCount: inputNeuronGroup.count,
+        let compileModel = LobeCompileModel.init(inputNeuronCount: inputNeuronGroup,
                                                  layerType: layerType,
                                                  fullyConnected: true,
                                                  weightConstraint: self.weightConstraints,
@@ -629,8 +634,8 @@ public class Brain: Logger {
       let newGradients = currentLobe.calculateGradients(with: updatingDeltas)
 
       //current lobe is calculating the deltas for the previous lobe
-      updatingDeltas = currentLobe.calculateDeltasForPreviousLayer(inputs: updatingDeltas,
-                                                                   previousLayerCount: previousLobe.neurons.count)
+      updatingDeltas = currentLobe.calculateDeltasForPreviousLayer(incomingDeltas: updatingDeltas,
+                                                                   previousLayerCount: previousLobe.outputCount)
       
       gradients.append(newGradients)
     }

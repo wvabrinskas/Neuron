@@ -27,7 +27,10 @@ public class Lobe {
   public var layer: LayerType = .output
   public var activation: Activation = .none
   public var isNormalized: Bool = false
-  
+  public var outputCount: Int {
+    return neurons.count
+  }
+
   private var initializer: Initializers = .xavierNormal
   private var weightConstraints: WeightConstraint? = nil
 
@@ -197,7 +200,7 @@ public class Lobe {
   /// Calculates deltas for each neuron for the next layer in the network. Updates the current layer deltas with the input previous layer deltas.
   /// - Parameter previousLayerDeltas: Incoming delta's from the previous layer
   /// - Returns: The next set of deltas to be passed to the next layer in the backpropagation.
-  public func calculateDeltasForPreviousLayer(inputs: [Float], previousLayerCount: Int) -> [Float] {
+  public func calculateDeltasForPreviousLayer(incomingDeltas: [Float], previousLayerCount: Int) -> [Float] {
 
     guard self.layer != .input else {
       return []
@@ -211,7 +214,7 @@ public class Lobe {
       for n in 0..<neurons.count {
         let neuron = neurons[n]
         let inputWeight = neuron.weights[p]
-        let neuronDelta = inputs[n]
+        let neuronDelta = incomingDeltas[n]
         
         let currentNeuronDelta = neuronDelta * inputWeight //error' * weight -> calculates the error' w.r.t to weight
         

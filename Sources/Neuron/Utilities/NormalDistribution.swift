@@ -13,7 +13,7 @@ public struct NormalDistribution {
   public let mean: Float
   public let deviation: Float
   
-  public init(randomSource: GKRandomSource = GKRandomSource(), mean: Float = 0, deviation: Float = 1) {
+  public init(randomSource: GKRandomSource = GKRandomSource(), mean: Float = 0, deviation: Float = 0.01) {
     precondition(deviation >= 0)
     self.randomSource = randomSource
     self.mean = mean

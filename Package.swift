@@ -16,7 +16,7 @@ let package = Package(
             targets: ["Neuron"]),
     ],
     dependencies: [
-      .package(url: "https://github.com/wvabrinskas/NumSwift.git", from: "1.0.0"),
+      .package(url: "https://github.com/wvabrinskas/NumSwift.git", .branch("develop")),
       .package(url: "https://github.com/wvabrinskas/Logger.git", from: "1.0.6")
     ],
     targets: [
