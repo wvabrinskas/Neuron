@@ -15,6 +15,8 @@ public class ConvolutionalLobe: Lobe {
   private let inputSize: (rows: Int, columns: Int)
   
   private var forwardInputs: [Float] = []
+  private var inputGradients: [[Float]] = []
+  private var filterGradients: [[Float]] = []
 
   public init(model: ConvolutionalLobeModel,
               learningRate: Float) {
@@ -51,7 +53,7 @@ public class ConvolutionalLobe: Lobe {
     
     let reshapedDeltas = deltas.reshape(columns: inputSize.columns)
     
-    let inputGradients = reshapedDeltas.conv2D(filter180).reshape(columns: 1)
+    inputGradients = reshapedDeltas.conv2D(filter180).reshape(columns: 1)
     
     var forward2dInputs = forwardInputs.reshape(columns: inputSize.columns)
     
@@ -65,7 +67,13 @@ public class ConvolutionalLobe: Lobe {
   }
   
   public override func calculateDeltasForPreviousLayer(incomingDeltas: [Float], previousLayerCount: Int) -> [Float] {
-    return []
+    return inputGradients.flatMap { $0 }
+  }
+  
+  public override func clear() {
+    self.inputGradients.removeAll()
+    self.filterGradients.removeAll()
+    self.neurons.forEach { $0.clear() }
   }
   
   public override func feed(inputs: [Float], training: Bool) -> [Float] {

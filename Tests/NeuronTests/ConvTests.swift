@@ -47,7 +47,7 @@ final class ConvTests: XCTestCase {
     
     b.add(LobeModel(nodes: 5, activation: .sigmoid, bias: 0))
     
-   // b.add(modifier: .softmax)
+    b.add(modifier: .softmax)
     b.compile()
     
     return b
@@ -57,6 +57,10 @@ final class ConvTests: XCTestCase {
     let result = brain.feed(input: image)
     print(result)
     
-    //brain.backpropagate(with: [0, 0.1, 0.5, -0.1, -0.5])
+    let correct: [Float] = [0,0,1,0,0]
+    let out = brain.getOutputDeltas(outputs: result, correctValues: correct)
+    print(out)
+    
+    brain.backpropagate(with: out)
   }
 }

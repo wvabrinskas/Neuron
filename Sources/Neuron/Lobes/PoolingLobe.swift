@@ -63,6 +63,11 @@ public class PoolingLobe: Lobe {
     return poolingGradients.flatMap { $0 }
   }
   
+  public override func clear() {
+    self.poolingGradients.removeAll()
+    self.neurons.forEach { $0.clear() }
+  }
+  
   internal func pool(input: [[Float]]) -> [Float] {
     forwardPooledMaxIndicies.removeAll()
 
