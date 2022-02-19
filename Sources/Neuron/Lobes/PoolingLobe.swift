@@ -68,6 +68,15 @@ public class PoolingLobe: Lobe {
     self.neurons.forEach { $0.clear() }
   }
   
+  public override func zeroGradients() {
+    self.poolingGradients.removeAll()
+    self.neurons.forEach { $0.zeroGradients() }
+  }
+  
+  public override func adjustWeights(batchSize: Int) {
+    //no op
+  }
+  
   internal func pool(input: [[Float]]) -> [Float] {
     forwardPooledMaxIndicies.removeAll()
 

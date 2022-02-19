@@ -24,9 +24,9 @@ public class Neuron {
 
   internal var activationType: Activation
   internal var layer: LayerType = .output
+  internal var activationDerivative: Float = 0
 
   private var learningRate: Float = 0.01
-  private var activationDerivative: Float = 0
   private var optimizer: OptimizerFunction?
   
   /// Default initializer. Creates a Neuron object
