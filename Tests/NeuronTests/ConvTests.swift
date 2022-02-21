@@ -11,6 +11,18 @@ import GameKit
 @testable import Neuron
 
 final class ConvTests: XCTestCase {
+  private lazy var imageGray: [[[Float]]] = {
+    let img: [[Float]] = [[0, 0, 0, 0, 0, 0, 0, 0],
+                          [0, 0, 0.5, 1, 1, 0.5, 0, 0],
+                          [0, 0, 0.5, 1, 1, 0.5, 0, 0],
+                          [0, 0, 0.5, 1, 1, 0.5, 0, 0],
+                          [0, 0, 0.5, 1, 1, 0.5, 0, 0],
+                          [0, 0, 0.5, 1, 1, 0.5, 0, 0],
+                          [0, 0, 0.5, 1, 1, 0.5, 0, 0],
+                          [0, 0, 0, 0, 0, 0, 0, 0]]
+    
+    return [img]
+  }()
   
   private lazy var image: [Float] = {
     let img: [[Float]] = [[0, 0, 0, 0, 0, 0, 0, 0],
@@ -46,8 +58,8 @@ final class ConvTests: XCTestCase {
     
     b.add(LobeModel(nodes: 64))
     
-    b.add(ConvolutionalLobeModel(inputSize: (8, 8),
-                                 activation: .none,
+    b.add(ConvolutionalLobeModel(inputSize: (8, 8, 1),
+                                 activation: .reLu,
                                  bias: 0))
     
     b.add(PoolingLobeModel(inputSize: (8, 8)))
@@ -59,13 +71,21 @@ final class ConvTests: XCTestCase {
 //    b.add(PoolingLobeModel(inputSize: (4, 4)))
     
     b.add(LobeModel(nodes: 10, activation: .reLu, bias: 0))
-    b.add(LobeModel(nodes: 5, activation: .sigmoid, bias: 0))
+    b.add(LobeModel(nodes: 5, activation: .none, bias: 0))
     
     b.add(modifier: .softmax)
-    b.add(optimizer: .adam())
     b.compile()
     
     return b
+  }()
+  
+  private lazy var convBrain: ConvLobe = {
+    ConvLobe(model: .init(inputSize: (8,8,1),
+                          activation: .reLu,
+                          bias: 0,
+                          filterSize: (3,3),
+                          filterCount: 32),
+             learningRate: 0.001)
   }()
   
   func testFeed() {
@@ -96,5 +116,16 @@ final class ConvTests: XCTestCase {
       
     }
 
+  }
+  
+  func testConvLobe() {
+    let out = convBrain.feed(inputs: imageGray, training: true)
+    
+    var i = 0
+    out.forEach { first in
+      print("index: ", i)
+      first.forEach { print($0) }
+      i += 1
+    }
   }
 }

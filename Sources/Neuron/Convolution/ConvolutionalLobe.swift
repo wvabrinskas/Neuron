@@ -10,16 +10,17 @@ import NumSwift
 
 public class ConvolutionalLobe: Lobe {
   
-  private var filter: [[Float]] = []
+  private var filters: [[[Float]]] = []
   private let filterSize: (Int, Int)
-  private let inputSize: (rows: Int, columns: Int)
+  private let inputSize: (rows: Int, columns: Int, depth: Int)
   private let learningRate: Float
   
   private var forwardInputs: [Float] = []
   private var inputGradients: [[Float]] = []
-  private var filterGradients: [[Float]] = []
+  private var filterGradients: [[[Float]]] = []
   private var initializer: Initializers = .xavierNormal
   private var optimizer: OptimizerFunction?
+  private var filterCount: Int = 1
 
   public init(model: ConvolutionalLobeModel,
               learningRate: Float,
@@ -31,35 +32,52 @@ public class ConvolutionalLobe: Lobe {
     self.learningRate = learningRate
     self.initializer = initializer
     self.optimizer = optimizer
+    self.filterCount = model.filterCount
     
     super.init(model: model, learningRate: learningRate)
     
-    initializeFilter()
+    initializeFilters()
   }
   
-  private func initializeFilter() {
+  private func initializeFilters() {
     let distribution = NormalDistribution(mean: 0, deviation: 0.01)
     
-    for _ in 0..<filterSize.0 {
-      var filterRow: [Float] = []
+    for _ in 0..<filterCount {
       
-      for _ in 0..<filterSize.1 {
-        let weight = distribution.nextFloat()
-        filterRow.append(weight)
+      var filter: [[Float]] = []
+      
+      for _ in 0..<filterSize.0 {
+        var filterRow: [Float] = []
+        
+        for _ in 0..<filterSize.1 {
+          let weight = distribution.nextFloat()
+          filterRow.append(weight)
+        }
+        
+        filter.append(filterRow)
       }
       
-      filter.append(filterRow)
+      filters.append(filter)
     }
   }
   
   public override func adjustWeights(batchSize: Int) {
     //adjust filter weights
+    for i in 0..<filterGradients.count {
+      adjustFilterFor(index: i)
+    }
+  }
+  
+  private func adjustFilterFor(index: Int) {
+    var filter = filters[index]
+    let gradients = filterGradients[index]
+    
     var newFilters: [[Float]] = []
     
     for f in 0..<filterGradients.count {
       let currentFilterRow = filter[f]
       
-      let filterGradient = filterGradients[f]
+      let filterGradient = gradients[f]
 
       var newFilter: [Float] = []
       if let optimizer = optimizer {
@@ -80,6 +98,8 @@ public class ConvolutionalLobe: Lobe {
     }
 
     filter = newFilters
+    
+    filterGradients[index] = filter
   }
   
   //TODO: optimize this!
@@ -90,8 +110,15 @@ public class ConvolutionalLobe: Lobe {
     let reshapedDeltas = activatedDeltas.reshape(columns: inputSize.columns)
 
     //Full Conv
-    let filter180 = filter.flip180()
-    inputGradients = reshapedDeltas.conv2D(filter180).reshape(columns: inputSize.columns)
+    //sum of filters
+    var inputGrads: [Float] = []
+    for i in 0..<filters.count {
+      let filter = filters[i]
+      let filter180 = filter.flip180()
+      inputGrads = inputGrads + reshapedDeltas.conv2D(filter180)
+    }
+    
+    inputGradients = inputGrads.reshape(columns: inputSize.columns)
     
     calculateFilterGradients(deltas: reshapedDeltas)
 
@@ -122,7 +149,7 @@ public class ConvolutionalLobe: Lobe {
       }
     }
     
-    self.filterGradients = updateFilters
+   // self.filterGradients = updateFilters
   }
   
   public override func calculateDeltasForPreviousLayer(incomingDeltas: [Float], previousLayerCount: Int) -> [Float] {
@@ -147,8 +174,16 @@ public class ConvolutionalLobe: Lobe {
     
     //we need to know the input shape from the previous layer
     //using input size
+    //sum of filters
+
+    var convolved: [Float] = []
     let reshapedInputs = inputs.reshape(columns: inputSize.columns)
-    let convolved = reshapedInputs.conv2D(filter)
+    
+    for i in 0..<filters.count {
+      let filter = filters[i]
+      let newConvolved = reshapedInputs.conv2D(filter)
+      convolved = convolved + newConvolved
+    }
         
     var activated: [Float] = []
     

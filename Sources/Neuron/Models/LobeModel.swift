@@ -59,17 +59,20 @@ public struct ConvolutionalLobeModel: LobeDefinition {
   public var activation: Activation
   public var bias: Float
   public var filterSize: (Int, Int)
-  public var inputSize: (Int, Int)
+  public var inputSize: (Int, Int, Int)
+  public var filterCount: Int
   
-  public init(inputSize: (Int, Int),
+  public init(inputSize: (Int, Int, Int),
               activation: Activation = .none,
               bias: Float = 0,
-              filterSize: (Int, Int) = (3, 3)) {
+              filterSize: (Int, Int) = (3, 3),
+              filterCount: Int = 1) {
     self.bias = bias
     self.activation = activation
-    self.nodes = inputSize.0 * inputSize.0
+    self.nodes = inputSize.0 * inputSize.1
     self.filterSize = filterSize
     self.inputSize = inputSize
+    self.filterCount = filterCount
   }
 }
 
