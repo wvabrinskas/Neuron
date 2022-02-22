@@ -8,7 +8,20 @@
 import Foundation
 import NumSwift
 
-public class ConvLobe {
+public protocol ConvolutionalSupportedLobe {
+  var neurons: [[Neuron]] { get }
+  var layer: LayerType { get }
+  var activation: Activation { get }
+  
+  func feed(inputs: [[[Float]]], training: Bool) -> [[[Float]]]
+  func calculateGradients(with deltas: [[[Float]]]) -> [[[Float]]]
+  func calculateDeltasForPreviousLayer() -> [[[Float]]]
+  func adjustWeights(batchSize: Int)
+  func zeroGradients()
+  func clear()
+}
+
+public class ConvLobe: ConvolutionalSupportedLobe {
   public var neurons: [[Neuron]] = []
   public var layer: LayerType = .output
   public var activation: Activation = .none
@@ -59,7 +72,7 @@ public class ConvLobe {
   }
   
   private func initializeFilters() {
-    let distribution = NormalDistribution(mean: 0, deviation: 0.01)
+    let distribution = NormalDistribution(mean: 0, deviation: 0.1)
     
     for _ in 0..<filterCount {
       
@@ -144,14 +157,18 @@ public class ConvLobe {
       for i in 0..<filters.count {
         let filter = filters[i]
         let filter180 = filter.flip180()
-        inputGrads = inputGrads + reshapedDeltas.conv2D(filter180)
+        if inputGrads.isEmpty {
+          inputGrads = reshapedDeltas.conv2D(filter180)
+        } else {
+          inputGrads = inputGrads + reshapedDeltas.conv2D(filter180)
+        }
       }
       
       let currentInputGradients = inputGrads.reshape(columns: inputSize.columns)
             
       allInputGradients.append(currentInputGradients)
       
-      calculateFilterGradients(deltas: reshapedDeltas, filterIndex: i)
+      calculateFilterGradients(deltas: reshapedDeltas)
     }
 
     inputGradients = allInputGradients
@@ -159,50 +176,52 @@ public class ConvLobe {
     return inputGradients
   }
   
-  private func calculateFilterGradients(deltas: [[Float]], filterIndex: Int) {
+  private func calculateFilterGradients(deltas: [[Float]]) {
     
-    let forward2dInputs = forwardInputs[filterIndex]
-    
-    let shape = forward2dInputs.shape
-    let rows = shape[safe: 0] ?? 0
-    let columns = shape[safe: 1] ?? 0
-    
-    var updateFilters: [[Float]] = [[Float]].init(repeating: [Float].init(repeating: 0,
-                                                                          count: filterSize.0),
-                                                  count: filterSize.1)
-    for r in 0..<rows - filterSize.0 {
-      for c in 0..<columns - filterSize.1 {
-        let gradient = deltas[r][c]
-        
-        for fr in 0..<filterSize.1 {
-          let dataRow = Array(forward2dInputs[r + fr][c..<c + filterSize.1])
-          let gradientRow = dataRow * gradient
-          let updated = updateFilters[fr] + gradientRow
-          updateFilters[fr] = updated
+    for inputIndex in 0..<forwardInputs.count {
+      let forward2dInputs = forwardInputs[inputIndex]
+      
+      let shape = forward2dInputs.shape
+      let rows = shape[safe: 0] ?? 0
+      let columns = shape[safe: 1] ?? 0
+      
+      var updateFilters: [[Float]] = [[Float]].init(repeating: [Float].init(repeating: 0,
+                                                                            count: filterSize.0),
+                                                    count: filterSize.1)
+      for r in 0..<rows - filterSize.0 {
+        for c in 0..<columns - filterSize.1 {
+          let gradient = deltas[r][c]
+          
+          for fr in 0..<filterSize.1 {
+            let dataRow = Array(forward2dInputs[r + fr][c..<c + filterSize.1])
+            let gradientRow = dataRow * gradient
+            let updated = updateFilters[fr] + gradientRow
+            updateFilters[fr] = updated
+          }
         }
       }
+      
+      filterGradients.append(updateFilters)
     }
-    
-    filterGradients.append(updateFilters)
+
   }
   
-//  public func calculateDeltasForPreviousLayer(incomingDeltas: [Float], previousLayerCount: Int) -> [Float] {
-//    return inputGradients.flatMap { $0 }
-//  }
-//
+  public func calculateDeltasForPreviousLayer() -> [[[Float]]] {
+    return inputGradients
+  }
+
+  public func zeroGradients() {
+    self.inputGradients.removeAll()
+    self.filterGradients.removeAll()
+    self.neurons.forEach { $0.forEach { $0.zeroGradients() } }
+  }
   
-//  public func zeroGradients() {
-//    self.inputGradients.removeAll()
-//    self.filterGradients.removeAll()
-//    self.neurons.forEach { $0.zeroGradients() }
-//  }
-  
-//  public func clear() {
-//    self.inputGradients.removeAll()
-//    self.filterGradients.removeAll()
-//    self.neurons.forEach { $0.clear() }
-//  }
-//
+  public func clear() {
+    self.inputGradients.removeAll()
+    self.filterGradients.removeAll()
+    self.neurons.forEach { $0.forEach { $0.clear() } }
+  }
+
   public func feed(inputs: [[[Float]]], training: Bool) -> [[[Float]]] {
     //store inputs to calculate gradients for backprop
     forwardInputs = inputs
@@ -218,7 +237,6 @@ public class ConvLobe {
       var convolved: [Float] = []
       for i in 0..<inputs.count {
         let input = inputs[i]
-        let inputNuerons: [Neuron] = neurons[i]
         let newConvolved = input.conv2D(filter)
 
         if convolved.count == 0 {

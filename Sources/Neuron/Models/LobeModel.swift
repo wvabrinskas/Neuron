@@ -18,6 +18,12 @@ public protocol LobeDefinition {
   var bias: Float { get set }
 }
 
+public protocol ConvolutionalLobeDefinition {
+  var activation: Activation { get }
+  var bias: Float { get }
+  var inputSize: (Int, Int, Int) { get }
+}
+
 /// The model that defines how to construct a Lobe object
 public struct LobeModel: LobeDefinition {
   public var nodes: Int
@@ -54,8 +60,7 @@ public struct NormalizedLobeModel: LobeDefinition {
   }
 }
 
-public struct ConvolutionalLobeModel: LobeDefinition {
-  public var nodes: Int
+public struct ConvolutionalLobeModel: ConvolutionalLobeDefinition {
   public var activation: Activation
   public var bias: Float
   public var filterSize: (Int, Int)
@@ -69,26 +74,25 @@ public struct ConvolutionalLobeModel: LobeDefinition {
               filterCount: Int = 1) {
     self.bias = bias
     self.activation = activation
-    self.nodes = inputSize.0 * inputSize.1
     self.filterSize = filterSize
     self.inputSize = inputSize
     self.filterCount = filterCount
   }
 }
 
-public struct PoolingLobeModel: LobeDefinition {
-  public var nodes: Int
+public struct PoolingLobeModel: ConvolutionalLobeDefinition {
   public var activation: Activation
   public var bias: Float
   public var poolingType: PoolingLobe.PoolType
-  public var inputSize: (Int, Int)
+  public var inputSize: (Int, Int, Int)
+  public var flatten: Bool
 
-  public init(inputSize: (Int, Int),
-              poolingType: PoolingLobe.PoolType = .max) {
-    self.nodes = (inputSize.0 * inputSize.1) / 4
+  public init(poolingType: PoolingLobe.PoolType = .max,
+              flatten: Bool = false) {
     self.activation = .none
     self.bias = 0
     self.poolingType = poolingType
-    self.inputSize = inputSize
+    self.inputSize = (0,0,0)
+    self.flatten = flatten
   }
 }

@@ -216,18 +216,6 @@ public class Brain: Logger {
                             learningRate: learningRate)
     }
     
-    if let convModel = model as? ConvolutionalLobeModel {
-      lobe = ConvolutionalLobe(model: convModel,
-                               learningRate: learningRate,
-                               optimizer: optimizer,
-                               initializer: initializer)
-    }
-    
-    if let poolModel = model as? PoolingLobeModel {
-      lobe = PoolingLobe(model: poolModel,
-                         learningRate: learningRate)
-    }
-    
     self.lobes.append(lobe)
   }
   

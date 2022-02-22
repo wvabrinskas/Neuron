@@ -11,14 +11,24 @@ import Logger
 
 public class ConvBrain: Logger {
   public var logLevel: LogLevel = .low
-  private var inputSize: (Int, Int, Int)
   
+  private var inputSize: (Int, Int, Int)
+  private var fullyConnected: Brain
   private var learningRate: Float
 
   public init(learningRate: Float,
-              inputSize: (Int, Int, Int)) {
+              inputSize: (Int, Int, Int),
+              fullyConnected: Brain) {
     self.learningRate = learningRate
     self.inputSize = inputSize
+    self.fullyConnected = fullyConnected
+  }
+  
+  public func addFullyConnected(_ brain: Brain) {
+    self.fullyConnected = brain
+    if brain.compiled == false {
+      brain.compile()
+    }
   }
 
 //  public func add(_ model: LobeDefinition) {
