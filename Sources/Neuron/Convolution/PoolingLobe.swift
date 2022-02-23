@@ -9,22 +9,22 @@ import Foundation
 import NumSwift
 
 public class PoolingLobe: ConvolutionalSupportedLobe {
+  
   public var neurons: [[Neuron]] = [] //pooling lobes dont need neurons
   public var layer: LayerType = .hidden
   public let activation: Activation = .none
   
-  private let poolType: PoolType
-  private var inputSize: TensorSize = (0,0,0)
+  private var inputSize: TensorSize
   private var forwardPooledMaxIndicies: [[(r: Int, c: Int)]] = []
   private var forwardInputs: [[[Float]]] = []
   private var poolingGradients: [[[Float]]] = []
-  
-  public enum PoolType {
-    case average, max
+  public var outputSize: TensorSize {
+    //pooling will cut the size in half
+    return (inputSize.rows / 2, inputSize.columns / 2, inputSize.depth)
   }
 
   public init(model: PoolingLobeModel) {
-    self.poolType = model.poolingType
+    self.inputSize = model.inputSize
   }
 
   //no calculations happen here since there is math it's all done int eh calculate gradients function
@@ -101,14 +101,9 @@ public class PoolingLobe: ConvolutionalSupportedLobe {
         let bottom = input[r][c + 1]
         let diag = input[r + 1][c + 1]
         
-        if poolType == .max {
-          let max = max(max(max(current, right), bottom), diag)
-          pooledIndicies.append((r: r, c: c))
-          rowResults.append(max)
-        } else {
-          let average = (current + right + bottom + diag) / 4
-          rowResults.append(average)
-        }
+        let max = max(max(max(current, right), bottom), diag)
+        pooledIndicies.append((r: r, c: c))
+        rowResults.append(max)
       }
       
       results.append(rowResults)

@@ -74,8 +74,8 @@ public class Brain: Logger {
   ///   - initializer: The weight initializer algoriUthm
   ///   - descent: The gradient descent type
   public init(model: ExportModel? = nil,
-              learningRate: Float,
-              epochs: Int,
+              learningRate: Float = 0.001,
+              epochs: Int = 10,
               lossFunction: LossFunction = .meanSquareError,
               lossThreshold: Float = 0.001,
               initializer: Initializers = .xavierNormal,

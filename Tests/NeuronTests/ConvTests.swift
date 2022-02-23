@@ -69,9 +69,8 @@ final class ConvTests: XCTestCase {
 
   private lazy var brain: Brain = {
 
-    let b = Brain(learningRate: 0.00001,
-                  epochs: 100,
-                  lossFunction: .crossEntropy)
+    let b = Brain(lossFunction: .crossEntropy,
+                  initializer: .xavierNormal)
 
     b.add(LobeModel(nodes: 512, activation: .reLu, bias: 0.001))
     b.add(LobeModel(nodes: 30, activation: .reLu, bias: 0.001))
@@ -83,50 +82,24 @@ final class ConvTests: XCTestCase {
     return b
   }()
   
-  private lazy var convBrain: ConvolutionalLobe = {
-    ConvolutionalLobe(model: .init(inputSize: (8,8,3),
-                                   activation: .reLu,
-                                   bias: 1,
-                                   filterSize: (3,3,3),
-                                   filterCount: 32),
-                      learningRate: 0.00001)
+  private lazy var convBrain: ConvBrain = {
+    let brain = ConvBrain(epochs: 100,
+                          learningRate: 0.0001,
+                          inputSize: (8,8,3),
+                          fullyConnected: brain)
+    
+    brain.addConvolution(filterCount: 32)
+    brain.addMaxPool()
+    return brain
   }()
-  
-  private let flatten = Flatten()
-  private let pool = PoolingLobe(model: .init())
 
   func testConvLobe() {
-    //conv
-    let convOut = convBrain.feed(inputs: imageGray, training: true)
+    let data = ConvTrainingData(data: imageGray, label: [0,1,0])
+    let brainOut = convBrain.feed(data: data)
     
-    //pool
-    let out = pool.feed(inputs: convOut, training: true)
-    
-    //flatten
-    let flat = flatten.feed(inputs: out)
-    
-
-    //fully connected
-    let brainOut = brain.feed(input: flat)
     let loss = brain.getOutputDeltas(outputs: brainOut, correctValues: [0,1,0])
     
-    print(loss)
-//
-    let brainBackprop = brain.backpropagate(with: loss)
-//
-    let deltas = brainBackprop.firstLayerDeltas
-//
-//    //reverse flatten
-    let gradients = flatten.backpropagate(deltas: deltas)
-//
-//    //pooling gradients
-    let poolGradients = pool.calculateGradients(with: gradients)
-    
-//
-//    //conv gradients
-    let convGradients = convBrain.calculateGradients(with: poolGradients)
-    
-    print3d(array: convGradients)
+    print(brainOut)
   }
   
   func print3d(array: [[[Any]]]) {

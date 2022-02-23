@@ -14,6 +14,7 @@ public protocol ConvolutionalSupportedLobe {
   var neurons: [[Neuron]] { get }
   var layer: LayerType { get }
   var activation: Activation { get }
+  var outputSize: TensorSize { get }
   
   func feed(inputs: [[[Float]]], training: Bool) -> [[[Float]]]
   func calculateGradients(with deltas: [[[Float]]]) -> [[[Float]]]
@@ -27,7 +28,10 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
   public var neurons: [[Neuron]] = []
   public var layer: LayerType = .output
   public var activation: Activation = .none
-  
+  public var outputSize: TensorSize {
+    return (inputSize.rows, inputSize.columns, filterCount)
+  }
+
   private var filters: [Filter] = []
   private let filterSize: TensorSize
   private let inputSize: TensorSize

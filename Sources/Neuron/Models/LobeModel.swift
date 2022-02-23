@@ -83,16 +83,11 @@ public struct ConvolutionalLobeModel: ConvolutionalLobeDefinition {
 public struct PoolingLobeModel: ConvolutionalLobeDefinition {
   public var activation: Activation
   public var bias: Float
-  public var poolingType: PoolingLobe.PoolType
   public var inputSize: TensorSize
-  public var flatten: Bool
 
-  public init(poolingType: PoolingLobe.PoolType = .max,
-              flatten: Bool = false) {
+  public init(inputSize: TensorSize) {
     self.activation = .none
     self.bias = 0
-    self.poolingType = poolingType
-    self.inputSize = (0,0,0)
-    self.flatten = flatten
+    self.inputSize = inputSize
   }
 }
