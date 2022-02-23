@@ -14,7 +14,7 @@ public class PoolingLobe: ConvolutionalSupportedLobe {
   public let activation: Activation = .none
   
   private let poolType: PoolType
-  private var inputSize: (rows: Int, columns: Int, depth: Int) = (0,0,0)
+  private var inputSize: TensorSize = (0,0,0)
   private var forwardPooledMaxIndicies: [[(r: Int, c: Int)]] = []
   private var forwardInputs: [[[Float]]] = []
   private var poolingGradients: [[[Float]]] = []
@@ -37,8 +37,8 @@ public class PoolingLobe: ConvolutionalSupportedLobe {
 
     let inputShape = inputs.shape
     
-    if let r = inputShape[safe: 0],
-       let c = inputShape[safe: 1],
+    if let r = inputShape[safe: 1],
+       let c = inputShape[safe: 0],
        let d = inputShape[safe: 2] {
       inputSize = (r, c, d)
     }

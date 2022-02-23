@@ -12,16 +12,33 @@ import GameKit
 
 final class ConvTests: XCTestCase {
   private lazy var imageGray: [[[Float]]] = {
-    let img: [[Float]] = [[0, 0, 0, 0, 0, 0, 0, 0],
-                          [0, 0, 0.5, 1, 1, 0.5, 0, 0],
-                          [0, 0, 0.5, 1, 1, 0.5, 0, 0],
-                          [0, 0, 0.5, 1, 1, 0.5, 0, 0],
-                          [0, 0, 0.5, 1, 1, 0.5, 0, 0],
-                          [0, 0, 0.5, 1, 1, 0.5, 0, 0],
-                          [0, 0, 0.5, 1, 1, 0.5, 0, 0],
-                          [0, 0, 0, 0, 0, 0, 0, 0]]
+    let r: [[Float]] = [[0, 0, 0, 0, 0, 0, 0, 0],
+                        [0, 0, 0, 1, 1, 0, 0, 0],
+                        [0, 0, 0, 1, 1, 0, 0, 0],
+                        [0, 0, 0, 1, 1, 0, 0, 0],
+                        [0, 0, 0, 1, 1, 0, 0, 0],
+                        [0, 0, 0, 1, 1, 0, 0, 0],
+                        [0, 0, 0, 1, 1, 0, 0, 0],
+                        [0, 0, 0, 0, 0, 0, 0, 0]]
     
-    return [img]
+    let g: [[Float]] = [[0, 0, 0, 0, 0, 0, 0, 0],
+                        [0, 0, 0.5, 0, 0, 0.5, 0, 0],
+                        [0, 0, 0.5, 0, 0, 0.5, 0, 0],
+                        [0, 0, 0.5, 0, 0, 0.5, 0, 0],
+                        [0, 0, 0.5, 0, 0, 0.5, 0, 0],
+                        [0, 0, 0.5, 0, 0, 0.5, 0, 0],
+                        [0, 0, 0.5, 0, 0, 0.5, 0, 0],
+                        [0, 0, 0, 0, 0, 0, 0, 0]]
+    
+    let b: [[Float]] = [[0, 0, 0, 0, 0, 0, 0, 0],
+                        [0, 0, 0.5, 0, 0, 0.5, 0, 0],
+                        [0, 0, 0.5, 0, 0, 0.5, 0, 0],
+                        [0, 0, 0.5, 0, 0, 0.5, 0, 0],
+                        [0, 0, 0.5, 0, 0, 0.5, 0, 0],
+                        [0, 0, 0.5, 0, 0, 0.5, 0, 0],
+                        [0, 0, 0.5, 0, 0, 0.5, 0, 0],
+                        [0, 0, 0, 0, 0, 0, 0, 0]]
+    return [r, g, b]
   }()
   
   private lazy var image: [Float] = {
@@ -56,9 +73,9 @@ final class ConvTests: XCTestCase {
                   epochs: 100,
                   lossFunction: .crossEntropy)
 
-    b.add(LobeModel(nodes: 48, activation: .reLu, bias: 0))
-    b.add(LobeModel(nodes: 10, activation: .reLu, bias: 0))
-    b.add(LobeModel(nodes: 3, activation: .none, bias: 0))
+    b.add(LobeModel(nodes: 512, activation: .reLu, bias: 0.001))
+    b.add(LobeModel(nodes: 30, activation: .reLu, bias: 0.001))
+    b.add(LobeModel(nodes: 3, activation: .reLu))
 
     b.add(modifier: .softmax)
     b.compile()
@@ -66,80 +83,55 @@ final class ConvTests: XCTestCase {
     return b
   }()
   
-  private lazy var convBrain: ConvLobe = {
-    ConvLobe(model: .init(inputSize: (8,8,1),
-                          activation: .reLu,
-                          bias: 0,
-                          filterSize: (3,3),
-                          filterCount: 3),
-             learningRate: 0.00001)
+  private lazy var convBrain: ConvolutionalLobe = {
+    ConvolutionalLobe(model: .init(inputSize: (8,8,3),
+                                   activation: .reLu,
+                                   bias: 1,
+                                   filterSize: (3,3,3),
+                                   filterCount: 32),
+                      learningRate: 0.00001)
   }()
   
-//  func testFeed() {
-//    let correct: [Float] = [0,0,1,0,0]
-//    let correct2: [Float] = [1,0,0,0,0]
-//
-//    let trainingData = TrainingData(data: image, correct: correct)
-//    let trainingData2 = TrainingData(data: image2, correct: correct2)
-//
-//    for i in 0..<1000 {
-//      brain.zeroGradients()
-//
-//      var image = trainingData.data
-//      var expected = trainingData.correct
-//
-//      if i % 2 == 0 {
-//        image = trainingData2.data
-//        expected = trainingData2.correct
-//      }
-//
-//      let result = brain.feed(input: image)
-//      let out = brain.getOutputDeltas(outputs: result, correctValues: expected)
-//      let loss = brain.loss(result, correct: expected)
-//
-//      print(loss)
-//      brain.backpropagate(with: out)
-//      brain.adjustWeights(batchSize: 1)
-//
-//    }
+  private let flatten = Flatten()
+  private let pool = PoolingLobe(model: .init())
 
- // }
-  
   func testConvLobe() {
     //conv
     let convOut = convBrain.feed(inputs: imageGray, training: true)
-    
-    let pool = PoolingLobe(model: .init())
     
     //pool
     let out = pool.feed(inputs: convOut, training: true)
     
     //flatten
-    let flat = out.flatMap { $0.flatMap { $0 } }
+    let flat = flatten.feed(inputs: out)
     
+
     //fully connected
     let brainOut = brain.feed(input: flat)
     let loss = brain.getOutputDeltas(outputs: brainOut, correctValues: [0,1,0])
     
+    print(loss)
+//
     let brainBackprop = brain.backpropagate(with: loss)
-
+//
     let deltas = brainBackprop.firstLayerDeltas
-    
-    //get output dimensions from ConvLobe / PoolingLobe
-    let outputSize = (4,4,3)
-    let batchedDeltas = deltas.batched(into: outputSize.0 * outputSize.1)
-   
-    let gradients = batchedDeltas.map { $0.reshape(columns: outputSize.1) }
-    
+//
+//    //reverse flatten
+    let gradients = flatten.backpropagate(deltas: deltas)
+//
+//    //pooling gradients
     let poolGradients = pool.calculateGradients(with: gradients)
     
+//
+//    //conv gradients
     let convGradients = convBrain.calculateGradients(with: poolGradients)
     
-    //flatten layer is just the multi dimensional output flattened to a 1D array
-    //to get back to the multidimensional just reshap to multi dimensions with previous conv / pool layer
-    //dimensions
+    print3d(array: convGradients)
+  }
+  
+  func print3d(array: [[[Any]]]) {
     var i = 0
-    convGradients.forEach { first in
+    array.forEach { first in
       print("index: ", i)
       first.forEach { print($0) }
       i += 1

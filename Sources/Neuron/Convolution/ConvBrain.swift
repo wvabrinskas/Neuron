@@ -8,13 +8,13 @@
 import Foundation
 import Logger
 
-
 public class ConvBrain: Logger {
   public var logLevel: LogLevel = .low
   
   private var inputSize: (Int, Int, Int)
   private var fullyConnected: Brain
   private var learningRate: Float
+  private let flatten: Flatten = .init()
 
   public init(learningRate: Float,
               inputSize: (Int, Int, Int),

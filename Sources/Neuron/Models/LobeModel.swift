@@ -21,7 +21,7 @@ public protocol LobeDefinition {
 public protocol ConvolutionalLobeDefinition {
   var activation: Activation { get }
   var bias: Float { get }
-  var inputSize: (Int, Int, Int) { get }
+  var inputSize: TensorSize { get }
 }
 
 /// The model that defines how to construct a Lobe object
@@ -63,14 +63,14 @@ public struct NormalizedLobeModel: LobeDefinition {
 public struct ConvolutionalLobeModel: ConvolutionalLobeDefinition {
   public var activation: Activation
   public var bias: Float
-  public var filterSize: (Int, Int)
-  public var inputSize: (Int, Int, Int)
+  public var filterSize: TensorSize
+  public var inputSize: TensorSize
   public var filterCount: Int
   
-  public init(inputSize: (Int, Int, Int),
+  public init(inputSize: TensorSize,
               activation: Activation = .none,
               bias: Float = 0,
-              filterSize: (Int, Int) = (3, 3),
+              filterSize: TensorSize = (3, 3, 3),
               filterCount: Int = 1) {
     self.bias = bias
     self.activation = activation
@@ -84,7 +84,7 @@ public struct PoolingLobeModel: ConvolutionalLobeDefinition {
   public var activation: Activation
   public var bias: Float
   public var poolingType: PoolingLobe.PoolType
-  public var inputSize: (Int, Int, Int)
+  public var inputSize: TensorSize
   public var flatten: Bool
 
   public init(poolingType: PoolingLobe.PoolType = .max,
