@@ -13,71 +13,21 @@ import Combine
 
 final class ConvTests: XCTestCase {
   var cancellables: Set<AnyCancellable> = []
-
-  private lazy var imageGray: [[[Float]]] = {
-    let r: [[Float]] = [[0, 0, 0, 0, 0, 0, 0, 0],
-                        [0, 0, 0, 1, 1, 0, 0, 0],
-                        [0, 0, 0, 1, 1, 0, 0, 0],
-                        [0, 0, 0, 1, 1, 0, 0, 0],
-                        [0, 0, 0, 1, 1, 0, 0, 0],
-                        [0, 0, 0, 1, 1, 0, 0, 0],
-                        [0, 0, 0, 1, 1, 0, 0, 0],
-                        [0, 0, 0, 0, 0, 0, 0, 0]]
-    
-    let g: [[Float]] = [[0, 0, 0, 0, 0, 0, 0, 0],
-                        [0, 0, 0.5, 0, 0, 0.5, 0, 0],
-                        [0, 0, 0.5, 0, 0, 0.5, 0, 0],
-                        [0, 0, 0.5, 0, 0, 0.5, 0, 0],
-                        [0, 0, 0.5, 0, 0, 0.5, 0, 0],
-                        [0, 0, 0.5, 0, 0, 0.5, 0, 0],
-                        [0, 0, 0.5, 0, 0, 0.5, 0, 0],
-                        [0, 0, 0, 0, 0, 0, 0, 0]]
-    
-    let b: [[Float]] = [[0, 0, 0, 0, 0, 0, 0, 0],
-                        [0, 0, 0.5, 0, 0, 0.5, 0, 0],
-                        [0, 0, 0.5, 0, 0, 0.5, 0, 0],
-                        [0, 0, 0.5, 0, 0, 0.5, 0, 0],
-                        [0, 0, 0.5, 0, 0, 0.5, 0, 0],
-                        [0, 0, 0.5, 0, 0, 0.5, 0, 0],
-                        [0, 0, 0.5, 0, 0, 0.5, 0, 0],
-                        [0, 0, 0, 0, 0, 0, 0, 0]]
-    return [r, g, b]
-  }()
+  let mnist = MNIST()
   
-  private lazy var image: [Float] = {
-    let img: [[Float]] = [[0, 0, 0, 0, 0, 0, 0, 0],
-                          [0, 0, 0.5, 1, 1, 0.5, 0, 0],
-                          [0, 0, 0.5, 1, 1, 0.5, 0, 0],
-                          [0, 0, 0.5, 1, 1, 0.5, 0, 0],
-                          [0, 0, 0.5, 1, 1, 0.5, 0, 0],
-                          [0, 0, 0.5, 1, 1, 0.5, 0, 0],
-                          [0, 0, 0.5, 1, 1, 0.5, 0, 0],
-                          [0, 0, 0, 0, 0, 0, 0, 0]]
-    
-    return img.flatMap { $0 }
-  }()
-  
-  private lazy var image2: [Float] = {
-    let img: [[Float]] = [[0, 0.5, 0.5, 0.5, 0.5, 0, 0, 0],
-                          [0.5, 1, 1, 1, 1, 0.5, 0, 0],
-                          [0.5, 1, 0, 0, 1, 0.5, 0, 0],
-                          [0.5, 1, 0, 0, 1, 0.5, 0, 0],
-                          [0.5, 1, 0, 0, 1, 0.5, 0, 0],
-                          [0.5, 1, 0, 0, 1, 0.5, 0, 0],
-                          [0.5, 1, 1, 1, 1, 0.5, 0, 0],
-                          [0, 0.5, 0.5, 0.5, 0.5, 0, 0, 0]]
-    
-    return img.flatMap { $0 }
-  }()
+  override func setUp() {
+    super.setUp()
 
+  }
+  
   private lazy var brain: Brain = {
 
     let b = Brain(lossFunction: .crossEntropy,
-                  initializer: .xavierNormal)
+                  initializer: .heNormal)
 
-    b.add(LobeModel(nodes: 256, activation: .reLu, bias: 0.001))
-    b.add(LobeModel(nodes: 30, activation: .reLu, bias: 0.001))
-    b.add(LobeModel(nodes: 3, activation: .reLu))
+    b.add(LobeModel(nodes: 6272))
+    b.add(LobeModel(nodes: 100, activation: .reLu, bias: 0))
+    b.add(LobeModel(nodes: 10, activation: .reLu)) //10 possible numbers in mnist
 
     b.add(modifier: .softmax)
     b.compile()
@@ -86,46 +36,47 @@ final class ConvTests: XCTestCase {
   }()
   
   private lazy var convBrain: ConvBrain = {
-    let brain = ConvBrain(epochs: 100,
-                          learningRate: 0.0001,
-                          inputSize: (8,8,3),
+    let brain = ConvBrain(epochs: 10,
+                          learningRate: 0.01,
+                          inputSize: (28,28,1),
                           batchSize: 1,
                           fullyConnected: brain)
     
-    brain.addConvolution(filterCount: 32)
-    brain.addMaxPool()
-    brain.addConvolution(filterCount: 64)
+    brain.addConvolution(filterSize: (3,3,1), filterCount: 32) //need to specify filter size since this wont be built automatically
     brain.addMaxPool()
     
     return brain
   }()
 
   func testConvLobe() {
-    let data = ConvTrainingData(data: imageGray, label: [0,1,0])
-    let brainOut = convBrain.feed(data: data)
-    
-    let loss = brain.getOutputDeltas(outputs: brainOut, correctValues: [0,1,0])
-    
-    print(brainOut)
-  }
-  
-  func testImportMNIST() {
-    let mnist = MNIST()
+    var dataset: DatasetData?
     
     let expectation = XCTestExpectation()
-        
+    
     mnist.dataPublisher
       .receive(on: DispatchQueue.main)
       .sink { val in
-        print(val.training.count)
+        dataset = val
         expectation.fulfill()
       }
       .store(in: &self.cancellables)
+    
     mnist.build()
+    
+    wait(for: [expectation], timeout: 1000)
+    
+    guard let dataset = dataset else {
+      XCTFail()
+      return
+    }
 
-    wait(for: [expectation], timeout: 40)
+    convBrain.train(data: dataset) { epoch in
+      print(self.convBrain.loss.last)
+    } completed: { loss in
+      print(loss)
+    }
   }
-  
+
   func print3d(array: [[[Any]]]) {
     var i = 0
     array.forEach { first in

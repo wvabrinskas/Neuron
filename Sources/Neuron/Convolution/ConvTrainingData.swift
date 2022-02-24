@@ -8,7 +8,7 @@
 import Foundation
 
 
-public struct ConvTrainingData {
+public struct ConvTrainingData: Equatable {
   public var data: [[[Float]]]
   public var label: [Float]
   

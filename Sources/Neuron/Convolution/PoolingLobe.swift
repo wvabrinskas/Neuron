@@ -27,11 +27,6 @@ public class PoolingLobe: ConvolutionalSupportedLobe {
     self.inputSize = model.inputSize
   }
 
-  //no calculations happen here since there is math it's all done int eh calculate gradients function
-  public func calculateDeltasForPreviousLayer() -> [[[Float]]] {
-    return poolingGradients
-  }
-  
   public func feed(inputs: [[[Float]]], training: Bool) -> [[[Float]]] {
     forwardPooledMaxIndicies.removeAll()
 

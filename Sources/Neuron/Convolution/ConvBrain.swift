@@ -6,10 +6,12 @@
 //
 
 import Foundation
+import NumSwift
 import Logger
 
 public class ConvBrain: Logger {
   public var logLevel: LogLevel = .low
+  public var loss: [Float] = []
   
   private var inputSize: TensorSize
   private var fullyConnected: Brain
@@ -18,16 +20,19 @@ public class ConvBrain: Logger {
   private var lobes: [ConvolutionalSupportedLobe] = []
   private let epochs: Int
   private let batchSize: Int
+  private let optimizer: OptimizerFunction?
   
   public init(epochs: Int,
               learningRate: Float,
               inputSize: TensorSize,
               batchSize: Int,
-              fullyConnected: Brain) {
+              fullyConnected: Brain,
+              optimizer: Optimizer? = nil) {
     self.epochs = epochs
     self.learningRate = learningRate
     self.inputSize = inputSize
     self.batchSize = batchSize
+    self.optimizer = optimizer?.get(learningRate: learningRate)
     
     self.fullyConnected = fullyConnected
     self.fullyConnected.learningRate = learningRate
@@ -57,7 +62,9 @@ public class ConvBrain: Logger {
                                        filterSize: filter,
                                        filterCount: filterCount)
     
-    let lobe = ConvolutionalLobe(model: model, learningRate: learningRate)
+    let lobe = ConvolutionalLobe(model: model,
+                                 learningRate: learningRate,
+                                 optimizer: optimizer)
     lobes.append(lobe)
   }
   
@@ -83,12 +90,103 @@ public class ConvBrain: Logger {
     return brainOut
   }
   
+  public func train(data: DatasetData,
+                    epochCompleted: ((_ epoch: Int) -> ())? = nil,
+                    completed: ((_ loss: [Float]) -> ())? = nil) {
+    
+    self.log(type: .success, priority: .alwaysShow, message: "Training started.....")
+    
+    let trainingData = data.training.batched(into: batchSize)
+    let _ = data.val //dont know yet
+    
+    for e in 0..<epochs {
+      guard let randomTrainable = trainingData.randomElement() else {
+        return
+      }
+      
+      let batchLoss = trainOn(batch: randomTrainable)
+      
+      loss.append(batchLoss)
+      
+      self.log(type: .message, priority: .alwaysShow, message: "epoch: \(e)")
+      epochCompleted?(e)
+    }
+    
+    completed?(loss)
+  }
+  
+  private func trainOn(batch: [ConvTrainingData]) -> Float {
+    //zero gradients at the start of training on a batch
+    zeroGradients()
+    
+    var lossOnBatch: Float = 0
+    
+    for b in 0..<batch.count {
+      
+      let trainable = batch[b]
+      let out = feedInternal(input: trainable)
+      
+      lossOnBatch += fullyConnected.loss(out, correct: trainable.label) / Float(batch.count)
+      
+      let outputDeltas = fullyConnected.getOutputDeltas(outputs: out,
+                                                        correctValues: trainable.label)
+      
+      backpropagate(deltas: outputDeltas)
+    }
+    
+    //adjust weights here
+    fullyConnected.adjustWeights(batchSize: batch.count)
+    
+    //adjust conv weights
+    adjustWeights()
+    
+    return lossOnBatch
+  }
+  
+  internal func adjustWeights() {
+    lobes.forEach { $0.adjustWeights(batchSize: batchSize) }
+    
+    optimizer?.step()
+  }
+  
+  internal func backpropagate(deltas: [Float]) {
+    let backpropBrain = fullyConnected.backpropagate(with: deltas)
+    let firstLayerDeltas = backpropBrain.firstLayerDeltas
+    
+    //backprop conv
+    var reversedLobes = lobes
+    reversedLobes.reverse()
+    
+    var newDeltas = flatten.backpropagate(deltas: firstLayerDeltas)
+    
+    reversedLobes.forEach { lobe in
+      newDeltas = lobe.calculateGradients(with: newDeltas)
+    }
+  }
+  
+  internal func feedInternal(input: ConvTrainingData) -> [Float] {
+    var out = input.data
+    
+    //feed all the standard lobes
+    lobes.forEach { lobe in
+      let newOut = lobe.feed(inputs: out, training: true)
+      out = newOut
+    }
+    
+    //flatten outputs
+    let flat = flatten.feed(inputs: out)
+    //feed to fully connected
+    let result = fullyConnected.feed(input: flat)
+    return result
+  }
+  
   public func zeroGradients() {
     lobes.forEach { $0.zeroGradients() }
     fullyConnected.zeroGradients()
   }
   
   public func clear() {
+    loss.removeAll()
     lobes.forEach { $0.clear() }
     fullyConnected.clear()
   }

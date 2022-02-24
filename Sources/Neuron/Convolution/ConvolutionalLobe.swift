@@ -18,7 +18,6 @@ public protocol ConvolutionalSupportedLobe {
   
   func feed(inputs: [[[Float]]], training: Bool) -> [[[Float]]]
   func calculateGradients(with deltas: [[[Float]]]) -> [[[Float]]]
-  func calculateDeltasForPreviousLayer() -> [[[Float]]]
   func adjustWeights(batchSize: Int)
   func zeroGradients()
   func clear()
@@ -38,6 +37,7 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
   private let learningRate: Float
   private var forwardInputs: [[[Float]]] = []
   private var inputGradients: [[[Float]]] = []
+  private var currentInputGradients: [[[Float]]] = []
   private var initializer: Initializers = .xavierNormal
   private var optimizer: OptimizerFunction?
   private var filterCount: Int = 1
@@ -117,7 +117,7 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
   }
 
   public func adjustWeights(batchSize: Int) {
-    filters.forEach { $0.adjustWeights() }
+    filters.forEach { $0.adjustWeights(batchSize: batchSize) }
   }
   
   //TODO: optimize this!
@@ -125,7 +125,7 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
     
     let flippedTransposed = filters.map { $0.flip180() }.transposed() as [[[[Float]]]]
         
-    var inputGradientsForFilter: [[Float]] = []//indexed off of current filter index
+    var inputGradientsForFilter: [[Float]] = []
 
     for i in 0..<deltas.count {
       let delta = deltas[i].flatMap { $0 }
@@ -152,14 +152,25 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
       
       calculateFilterGradients(deltas: reshapedDeltas, index: i)
     }
+        
+    defer {
+      //not even sure we need to do this....
+//      var flatCurrent = inputGradients.flatMap { $0 }
+//      for i in 0..<inputGradientsForFilter.count {
+//        flatCurrent[i] = flatCurrent[i] + inputGradientsForFilter[i]
+//      }
+//      inputGradients = flatCurrent.map { $0.reshape(columns: inputSize.columns) }
+    }
     
-    inputGradients = inputGradientsForFilter.map { $0.reshape(columns: inputSize.columns) }
+    currentInputGradients = inputGradientsForFilter.map { $0.reshape(columns: inputSize.columns) }
     
-    return inputGradients
+    //return CURRENT calculated gradient add to exising gradients after
+    return currentInputGradients
   }
 
   private func calculateFilterGradients(deltas: [[Float]], index: Int) {
-    var filterGradients: [[[Float]]] = []
+    let filterGradients: [[[Float]]] = filters[index].gradients
+    var newGradients: [[[Float]]] = []
     
     for inputIndex in 0..<forwardInputs.count {
       let forward2dInputs = forwardInputs[inputIndex]
@@ -171,6 +182,11 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
       var updateFilters: [[Float]] = [[Float]].init(repeating: [Float].init(repeating: 0,
                                                                             count: filterSize.rows),
                                                     count: filterSize.columns)
+      if filterGradients[safe: inputIndex] != nil {
+        //append to previous gradients will be dividing by batch size later
+        updateFilters = filterGradients[inputIndex]
+      }
+      
       for r in 0..<rows - filterSize.rows {
         for c in 0..<columns - filterSize.columns {
           let gradient = deltas[r][c]
@@ -184,14 +200,10 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
         }
       }
       
-      filterGradients.append(updateFilters)
+      newGradients.append(updateFilters)
     }
     
-    filters[index].setGradients(gradients: filterGradients)
-  }
-  
-  public func calculateDeltasForPreviousLayer() -> [[[Float]]] {
-    return inputGradients
+    filters[index].setGradients(gradients: newGradients)
   }
 
   public func zeroGradients() {

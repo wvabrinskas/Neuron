@@ -10,8 +10,8 @@ import NumSwift
 
 internal class Filter {
   internal var kernels: [[[Float]]] = []
+  internal var gradients: [[[Float]]] = []
   
-  private var gradients: [[[Float]]] = []
   private var optimizer: OptimizerFunction?
   private var learningRate: Float
   
@@ -82,7 +82,7 @@ internal class Filter {
     gradients.removeAll()
   }
   
-  internal func adjustWeights() {
+  internal func adjustWeights(batchSize: Int) {
     
     for f in 0..<gradients.count {
       let currentFilter = kernels[f]
@@ -98,7 +98,7 @@ internal class Filter {
         if let optimizer = optimizer {
           
           for i in 0..<currentFilterRow.count {
-            let g = currentGradientRow[i]
+            let g = currentGradientRow[i] / Float(batchSize)
             let w = currentFilterRow[i]
             let newWeight = optimizer.run(weight: w, gradient: g)
             newFilterRow.append(newWeight)
