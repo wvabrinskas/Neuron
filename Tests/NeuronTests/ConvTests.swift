@@ -9,8 +9,11 @@ import Foundation
 import XCTest
 import GameKit
 @testable import Neuron
+import Combine
 
 final class ConvTests: XCTestCase {
+  var cancellables: Set<AnyCancellable> = []
+
   private lazy var imageGray: [[[Float]]] = {
     let r: [[Float]] = [[0, 0, 0, 0, 0, 0, 0, 0],
                         [0, 0, 0, 1, 1, 0, 0, 0],
@@ -72,7 +75,7 @@ final class ConvTests: XCTestCase {
     let b = Brain(lossFunction: .crossEntropy,
                   initializer: .xavierNormal)
 
-    b.add(LobeModel(nodes: 512, activation: .reLu, bias: 0.001))
+    b.add(LobeModel(nodes: 256, activation: .reLu, bias: 0.001))
     b.add(LobeModel(nodes: 30, activation: .reLu, bias: 0.001))
     b.add(LobeModel(nodes: 3, activation: .reLu))
 
@@ -86,10 +89,14 @@ final class ConvTests: XCTestCase {
     let brain = ConvBrain(epochs: 100,
                           learningRate: 0.0001,
                           inputSize: (8,8,3),
+                          batchSize: 1,
                           fullyConnected: brain)
     
     brain.addConvolution(filterCount: 32)
     brain.addMaxPool()
+    brain.addConvolution(filterCount: 64)
+    brain.addMaxPool()
+    
     return brain
   }()
 
@@ -100,6 +107,23 @@ final class ConvTests: XCTestCase {
     let loss = brain.getOutputDeltas(outputs: brainOut, correctValues: [0,1,0])
     
     print(brainOut)
+  }
+  
+  func testImportMNIST() {
+    let mnist = MNIST()
+    
+    let expectation = XCTestExpectation()
+        
+    mnist.trainingData.publisher.eraseToAnyPublisher()
+      .sink(receiveValue: { data in
+      print(data.data.count)
+      expectation.fulfill()
+    })
+    .store(in: &cancellables)
+        
+    mnist.build()
+    
+    wait(for: [expectation], timeout: 40)
   }
   
   func print3d(array: [[[Any]]]) {

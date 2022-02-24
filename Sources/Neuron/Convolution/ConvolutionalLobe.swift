@@ -93,9 +93,6 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
     //store inputs to calculate gradients for backprop
     forwardInputs = inputs
     
-    //we need to know the input shape from the previous layer
-    //using input size
-    //sum of filters
     var results: [[[Float]]] = []
 
     for f in 0..<filters.count {
@@ -160,7 +157,7 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
     
     return inputGradients
   }
-  //TODO: figure out how to calculate gradients for new Filter
+
   private func calculateFilterGradients(deltas: [[Float]], index: Int) {
     var filterGradients: [[[Float]]] = []
     

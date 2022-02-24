@@ -17,14 +17,17 @@ public class ConvBrain: Logger {
   private let flatten: Flatten = .init()
   private var lobes: [ConvolutionalSupportedLobe] = []
   private let epochs: Int
+  private let batchSize: Int
   
   public init(epochs: Int,
               learningRate: Float,
               inputSize: TensorSize,
+              batchSize: Int,
               fullyConnected: Brain) {
     self.epochs = epochs
     self.learningRate = learningRate
     self.inputSize = inputSize
+    self.batchSize = batchSize
     
     self.fullyConnected = fullyConnected
     self.fullyConnected.learningRate = learningRate
@@ -76,6 +79,7 @@ public class ConvBrain: Logger {
     
     let flat = flatten.feed(inputs: out)
     let brainOut = fullyConnected.feed(input: flat)
+    
     return brainOut
   }
   
