@@ -114,15 +114,15 @@ final class ConvTests: XCTestCase {
     
     let expectation = XCTestExpectation()
         
-    mnist.trainingData.publisher.eraseToAnyPublisher()
-      .sink(receiveValue: { data in
-      print(data.data.count)
-      expectation.fulfill()
-    })
-    .store(in: &cancellables)
-        
+    mnist.dataPublisher
+      .receive(on: DispatchQueue.main)
+      .sink { val in
+        print(val.training.count)
+        expectation.fulfill()
+      }
+      .store(in: &self.cancellables)
     mnist.build()
-    
+
     wait(for: [expectation], timeout: 40)
   }
   

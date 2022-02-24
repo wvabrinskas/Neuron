@@ -9,9 +9,17 @@ import Foundation
 import NumSwift
 import Combine
 
-public class MNIST {
-  @Published public var trainingData: [ConvTrainingData] = []
-  @Published public var validationData: [ConvTrainingData] = []
+typealias MNISTData = (training: [ConvTrainingData], val: [ConvTrainingData])
+ 
+public class MNIST: ObservableObject {
+  public var trainingData: [ConvTrainingData] = []
+  public var validationData: [ConvTrainingData] = []
+  public var complete: Bool = false
+  
+  private let dataPassthroughSubject = PassthroughSubject<MNISTData, Never>()
+  public var dataPublisher: AnyPublisher<(training: [ConvTrainingData], val: [ConvTrainingData]), Never> {
+    dataPassthroughSubject.eraseToAnyPublisher()
+  }
   private let mnistSize: TensorSize = (28,28,1)
   public let loadQueue: DispatchQueue = DispatchQueue(label: "mnist.load.queue.neuron",
                                                        qos: .default,
@@ -49,8 +57,13 @@ public class MNIST {
   }
   
   public func build() {
+    guard complete == false else {
+      print("MNIST has already been loaded")
+      return
+    }
+    
     print("Loading MNIST dataset into memory. This could take a while")
-    DispatchQueue.global().async { [weak self] in
+    loadQueue.async { [weak self] in
       guard let sSelf = self else {
         return
       }
@@ -59,6 +72,7 @@ public class MNIST {
       let trainingLabels = sSelf.get(type: .trainingLabels)
       let valData = sSelf.get(type: .valSet)
       let valLabels = sSelf.get(type: .valLabels)
+
       
       var trainingDataWithLabels: [ConvTrainingData] = []
       for t in 0..<trainingData.count {
@@ -81,6 +95,9 @@ public class MNIST {
       }
       
       sSelf.validationData = valDataWithLabels
+      
+      sSelf.dataPassthroughSubject.send((sSelf.trainingData, sSelf.validationData))
+      sSelf.complete = true
     }
 
   }
