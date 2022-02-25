@@ -45,17 +45,17 @@ public class ConvBrain: Logger {
     self.optimizer = optimizer?.get(learningRate: learningRate)
   }
   
-  public func addConvolution(bias: Float = 1.0,
+  public func addConvolution(bias: Float = 0,
                              filterSize: TensorSize = (3,3,3),
                              filterCount: Int) {
-    let inputSize = lobes.last?.outputSize ?? inputSize
     
-    var filter = filterSize
-    if let filterDepth = lobes.last?.outputSize.depth {
-      filter = (filterSize.rows, filterSize.columns, filterDepth)
-    }
-  
-    let model = ConvolutionalLobeModel(inputSize: inputSize,
+    //if we have a previous layer calculuate the new depth else use the input size depth
+    let incomingSize = lobes.last?.outputSize ?? inputSize
+    
+    let filterDepth = incomingSize.depth
+    let filter = (filterSize.rows, filterSize.columns, filterDepth)
+    
+    let model = ConvolutionalLobeModel(inputSize: incomingSize,
                                        activation: .reLu,
                                        bias: bias,
                                        filterSize: filter,
@@ -183,6 +183,7 @@ public class ConvBrain: Logger {
     
     if flat.count != previousFlattenedCount {
       fullyConnected.replaceInputs(flat.count)
+      previousFlattenedCount = flat.count
     }
     
     let result = fullyConnected.feed(input: flat)

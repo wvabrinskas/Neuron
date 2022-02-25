@@ -26,7 +26,7 @@ final class ConvTests: XCTestCase {
                           inputSize: (28,28,1),
                           batchSize: 128)
     
-    brain.addConvolution(filterSize: (3,3,1), filterCount: 32) //need to specify filter size since this wont be built automatically
+    brain.addConvolution(filterCount: 32)
     brain.addMaxPool()
     brain.addConvolution(filterCount: 64)
     brain.addMaxPool()
