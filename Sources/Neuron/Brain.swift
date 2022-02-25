@@ -208,6 +208,10 @@ public class Brain: Logger {
   /// Adds a layer to the neural network
   /// - Parameter model: The lobe model describing the layer to be added
   public func add(_ model: LobeDefinition) {
+    guard lobes.count >= 1 else {
+      fatalError("ERROR: Please call addInputs(_ count: Int) before adding a hidden layer")
+    }
+    
     var lobe = Lobe(model: model,
                     learningRate: learningRate)
     
@@ -283,6 +287,7 @@ public class Brain: Logger {
     self.layerWeights = self.lobes.map { $0.weights() }
     
     self.compiled = true
+    self.model = nil
   }
   
   /// Connects all the lobes together in the network builing the complete network 
@@ -302,40 +307,56 @@ public class Brain: Logger {
     self.layerWeights.removeAll()
     
     //link all the layers generating the matrix
-    for i in 0..<lobes.count {
-      if i > 0 {
-        let lobe = self.lobes[i]
-        let layerType: LayerType = i + 1 == lobes.count ? .output : .hidden
-        
-        let inputNeuronGroup = self.lobes[i-1].outputCount
-        
-        let compileModel = LobeCompileModel.init(inputNeuronCount: inputNeuronGroup,
-                                                 layerType: layerType,
-                                                 fullyConnected: true,
-                                                 weightConstraint: self.weightConstraints,
-                                                 initializer: self.initializer,
-                                                 optimizer: self.optimizer)
-        
-        let weights = lobe.compile(model: compileModel)
-        self.layerWeights.append(weights)
-
-      } else {
-        
-        let compileModel = LobeCompileModel.init(inputNeuronCount: 0,
-                                                 layerType: .input,
-                                                 fullyConnected: false,
-                                                 weightConstraint: self.weightConstraints,
-                                                 initializer: self.initializer,
-                                                 optimizer: self.optimizer)
-        
-        //first layer weight initialization with 0 since it's just the input layer
-        let inputLayer = self.lobes[i]
-        let weights = inputLayer.compile(model: compileModel)
-        self.layerWeights.append(weights)
-      }
+    for i in 1..<lobes.count {
+      let lobe = self.lobes[i]
+      let layerType: LayerType = i + 1 == lobes.count ? .output : .hidden
+      
+      let inputNeuronGroup = self.lobes[i-1].outputCount
+      
+      let compileModel = LobeCompileModel.init(inputNeuronCount: inputNeuronGroup,
+                                               layerType: layerType,
+                                               fullyConnected: true,
+                                               weightConstraint: self.weightConstraints,
+                                               initializer: self.initializer,
+                                               optimizer: self.optimizer)
+      
+      let weights = lobe.compile(model: compileModel)
+      self.layerWeights.append(weights)
     }
     
     compiled = true
+  }
+  
+  public func addInputs(_ count: Int) {
+    let compileModel = LobeCompileModel.init(inputNeuronCount: 0,
+                                             layerType: .input,
+                                             fullyConnected: false,
+                                             weightConstraint: self.weightConstraints,
+                                             initializer: self.initializer,
+                                             optimizer: self.optimizer)
+    
+    //first layer weight initialization with 0 since it's just the input layer
+    let inputLayer = Lobe(model: LobeModel(nodes: count),
+                          learningRate: self.learningRate)
+    
+    let weights = inputLayer.compile(model: compileModel)
+    self.layerWeights.append(weights)
+    
+    if self.lobes.first != nil {
+      self.lobes[0] = inputLayer
+    } else {
+      self.lobes.append(inputLayer)
+    }
+  }
+  
+  public func replaceInputs(_ count: Int) {
+    addInputs(count)
+    recompile()
+  }
+  
+  private func recompile() {
+    compiled = false
+    compile()
   }
   
   /// Supervised training function

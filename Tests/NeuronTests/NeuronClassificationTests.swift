@@ -19,7 +19,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
                       initializer: .xavierNormal,
                       descent: .mbgd(size: 16))
     
-    brain.add(LobeModel(nodes: TestConstants.inputs)) //input layer no activation. It'll be ignored anyway
+    brain.addInputs(TestConstants.inputs)
     
     for _ in 0..<TestConstants.numOfHiddenLayers {
       let normalLobe = NormalizedLobeModel(nodes: TestConstants.hidden,

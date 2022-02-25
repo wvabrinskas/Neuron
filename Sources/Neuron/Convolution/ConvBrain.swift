@@ -100,13 +100,12 @@ public class ConvBrain: Logger {
     let _ = data.val //dont know yet
     
     for e in 0..<epochs {
-      guard let randomTrainable = trainingData.randomElement() else {
-        return
+      
+      for batch in trainingData {
+        let batchLoss = trainOn(batch: batch)
+        loss.append(batchLoss)
+        print(batchLoss)
       }
-      
-      let batchLoss = trainOn(batch: randomTrainable)
-      
-      loss.append(batchLoss)
       
       self.log(type: .message, priority: .alwaysShow, message: "epoch: \(e)")
       epochCompleted?(e)
@@ -115,30 +114,34 @@ public class ConvBrain: Logger {
     completed?(loss)
   }
   
+  let group = DispatchGroup()
+
   private func trainOn(batch: [ConvTrainingData]) -> Float {
     //zero gradients at the start of training on a batch
     zeroGradients()
     
     var lossOnBatch: Float = 0
-    
+  
     for b in 0..<batch.count {
-      
       let trainable = batch[b]
-      let out = feedInternal(input: trainable)
       
-      lossOnBatch += fullyConnected.loss(out, correct: trainable.label) / Float(batch.count)
+      let out = self.feedInternal(input: trainable)
       
-      let outputDeltas = fullyConnected.getOutputDeltas(outputs: out,
+      let loss = self.fullyConnected.loss(out, correct: trainable.label) / Float(batch.count)
+      
+      let outputDeltas = self.fullyConnected.getOutputDeltas(outputs: out,
                                                         correctValues: trainable.label)
       
-      backpropagate(deltas: outputDeltas)
+      self.backpropagate(deltas: outputDeltas)
+      
+      lossOnBatch += loss
     }
     
     //adjust weights here
-    fullyConnected.adjustWeights(batchSize: batch.count)
+    self.fullyConnected.adjustWeights(batchSize: batch.count)
     
     //adjust conv weights
-    adjustWeights()
+    self.adjustWeights()
     
     return lossOnBatch
   }

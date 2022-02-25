@@ -120,7 +120,6 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
     filters.forEach { $0.adjustWeights(batchSize: batchSize) }
   }
   
-  //TODO: optimize this!
   public func calculateGradients(with deltas: [[[Float]]]) -> [[[Float]]] {
     
     let flippedTransposed = filters.map { $0.flip180() }.transposed() as [[[[Float]]]]
@@ -153,15 +152,6 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
       calculateFilterGradients(deltas: reshapedDeltas, index: i)
     }
         
-    defer {
-      //not even sure we need to do this....
-//      var flatCurrent = inputGradients.flatMap { $0 }
-//      for i in 0..<inputGradientsForFilter.count {
-//        flatCurrent[i] = flatCurrent[i] + inputGradientsForFilter[i]
-//      }
-//      inputGradients = flatCurrent.map { $0.reshape(columns: inputSize.columns) }
-    }
-    
     currentInputGradients = inputGradientsForFilter.map { $0.reshape(columns: inputSize.columns) }
     
     //return CURRENT calculated gradient add to exising gradients after

@@ -21,13 +21,12 @@ final class ConvTests: XCTestCase {
   }
   
   private lazy var brain: Brain = {
-
     let b = Brain(lossFunction: .crossEntropy,
                   initializer: .heNormal)
 
     b.add(LobeModel(nodes: 6272))
-    b.add(LobeModel(nodes: 100, activation: .reLu, bias: 0))
-    b.add(LobeModel(nodes: 10, activation: .reLu)) //10 possible numbers in mnist
+    b.add(LobeModel(nodes: 100, activation: .reLu))
+    b.add(LobeModel(nodes: 10, activation: .none))
 
     b.add(modifier: .softmax)
     b.compile()
@@ -36,13 +35,15 @@ final class ConvTests: XCTestCase {
   }()
   
   private lazy var convBrain: ConvBrain = {
-    let brain = ConvBrain(epochs: 10,
+    let brain = ConvBrain(epochs: 100,
                           learningRate: 0.01,
                           inputSize: (28,28,1),
-                          batchSize: 1,
+                          batchSize: 128,
                           fullyConnected: brain)
     
     brain.addConvolution(filterSize: (3,3,1), filterCount: 32) //need to specify filter size since this wont be built automatically
+    brain.addMaxPool()
+    brain.addConvolution(filterSize: (3,3,1), filterCount: 64) //need to specify filter size since this wont be built automatically
     brain.addMaxPool()
     
     return brain

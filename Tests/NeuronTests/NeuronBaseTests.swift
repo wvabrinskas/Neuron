@@ -26,7 +26,7 @@ final class NeuronBaseTests: XCTestCase, BaseTestConfig {
                       lossThreshold: TestConstants.lossThreshold,
                       initializer: .xavierNormal)
     
-    brain.add(LobeModel(nodes: TestConstants.inputs, bias: bias)) //input layer
+    brain.addInputs(TestConstants.inputs) //input layer
     
     for _ in 0..<TestConstants.numOfHiddenLayers {
       brain.add(LobeModel(nodes: TestConstants.hidden, activation: .reLu, bias: bias)) //hidden layer

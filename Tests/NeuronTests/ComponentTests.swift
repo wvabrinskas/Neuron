@@ -22,7 +22,7 @@ class ComponentTests: XCTestCase {
                       initializer: .xavierNormal,
                       descent: .bgd)
     
-    brain.add(LobeModel(nodes: 1)) //input layer no activation. It'll be ignored anyway
+    brain.addInputs(1) //input layer no activation. It'll be ignored anyway
     
     for _ in 0..<1 {
       brain.add(LobeModel(nodes: 1, activation: .reLu,  bias: bias)) //hidden layer
