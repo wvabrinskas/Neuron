@@ -14,36 +14,35 @@ public class ConvBrain: Logger {
   public var loss: [Float] = []
   
   private var inputSize: TensorSize
-  private var fullyConnected: Brain
+  private lazy var fullyConnected: Brain = {
+    let b = Brain(learningRate: learningRate,
+                  lossFunction: .crossEntropy,
+                  initializer: .heNormal)
+
+    b.addInputs(0) //can be some arbitrary number will update later
+    b.add(modifier: .softmax)
+    return b
+  }()
+  
   private var learningRate: Float
   private let flatten: Flatten = .init()
   private var lobes: [ConvolutionalSupportedLobe] = []
   private let epochs: Int
   private let batchSize: Int
   private let optimizer: OptimizerFunction?
+  private var compiled: Bool = false
+  private var previousFlattenedCount: Int = 0
   
   public init(epochs: Int,
               learningRate: Float,
               inputSize: TensorSize,
               batchSize: Int,
-              fullyConnected: Brain,
               optimizer: Optimizer? = nil) {
     self.epochs = epochs
     self.learningRate = learningRate
     self.inputSize = inputSize
     self.batchSize = batchSize
     self.optimizer = optimizer?.get(learningRate: learningRate)
-    
-    self.fullyConnected = fullyConnected
-    self.fullyConnected.learningRate = learningRate
-  }
-  
-  public func addFullyConnected(_ brain: Brain) {
-    self.fullyConnected = brain
-    brain.learningRate = learningRate
-    if brain.compiled == false {
-      brain.compile()
-    }
   }
   
   public func addConvolution(bias: Float = 1.0,
@@ -77,22 +76,17 @@ public class ConvBrain: Logger {
   }
   
   public func feed(data: ConvTrainingData) -> [Float] {
-    var out: [[[Float]]] = data.data
-    
-    lobes.forEach { lobe in
-      let newOut = lobe.feed(inputs: out, training: false)
-      out = newOut
-    }
-    
-    let flat = flatten.feed(inputs: out)
-    let brainOut = fullyConnected.feed(input: flat)
-    
-    return brainOut
+    return feedInternal(input: data)
   }
   
   public func train(data: DatasetData,
                     epochCompleted: ((_ epoch: Int) -> ())? = nil,
                     completed: ((_ loss: [Float]) -> ())? = nil) {
+    
+    guard compiled else {
+      self.log(type: .error, priority: .alwaysShow, message: "Please call compile() before training")
+      return
+    }
     
     self.log(type: .success, priority: .alwaysShow, message: "Training started.....")
     
@@ -114,8 +108,15 @@ public class ConvBrain: Logger {
     completed?(loss)
   }
   
-  let group = DispatchGroup()
-
+  public func addDense(_ count: Int) {
+    fullyConnected.add(LobeModel(nodes: count, activation: .reLu))
+  }
+  
+  public func compile() {
+    fullyConnected.compile()
+    self.compiled = true && fullyConnected.compiled
+  }
+  
   private func trainOn(batch: [ConvTrainingData]) -> Float {
     //zero gradients at the start of training on a batch
     zeroGradients()
@@ -179,6 +180,11 @@ public class ConvBrain: Logger {
     //flatten outputs
     let flat = flatten.feed(inputs: out)
     //feed to fully connected
+    
+    if flat.count != previousFlattenedCount {
+      fullyConnected.replaceInputs(flat.count)
+    }
+    
     let result = fullyConnected.feed(input: flat)
     return result
   }
