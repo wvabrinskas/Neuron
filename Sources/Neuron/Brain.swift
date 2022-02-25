@@ -53,7 +53,7 @@ public class Brain: Logger {
   internal var layerWeights: [[[Float]]] = []
   
   /// Distribution for initialization
-  internal static let dist = NormalDistribution()
+  internal static let dist = NormalDistribution(mean: 0, deviation: 0.1)
   
   private var descent: GradientDescent
   
@@ -227,6 +227,10 @@ public class Brain: Logger {
   /// - Parameter mod: The modifier to apply to the outputs
   public func add(modifier mod: OutputModifier) {
     self.outputModifier = mod
+  }
+  
+  public func replaceOptimizer(_ optimizer: OptimizerFunction?) {
+    self.optimizer = optimizer
   }
   
   private func compileWithModel() {
@@ -492,6 +496,7 @@ public class Brain: Logger {
     self.zeroGradients()
     
     var batchLoss: Float = 0
+    var runningDeltas: [Float] = []
     batch.forEach { tData in
       //feed the data through the network
       let output = self.feed(input: tData.data)
@@ -502,11 +507,21 @@ public class Brain: Logger {
       let deltas = self.getOutputDeltas(outputs: output,
                                         correctValues: tData.correct)
   
-      self.backpropagate(with: deltas)
+      if runningDeltas.isEmpty {
+        runningDeltas = deltas
+      } else {
+        runningDeltas = runningDeltas + deltas
+      }
     }
-        
-    self.adjustWeights(batchSize: batch.count)
+         
+    runningDeltas = runningDeltas / Float(batch.count)
     
+    self.backpropagate(with: runningDeltas)
+
+    self.adjustWeights(batchSize: 1)
+    
+    self.optimizer?.step()
+
     return batchLoss / Float(batch.count)
   }
 
@@ -624,7 +639,6 @@ public class Brain: Logger {
 
   internal func adjustWeights(batchSize: Int) {
     self.lobes.forEach { $0.adjustWeights(batchSize: batchSize) }
-    self.optimizer?.step()
   }
   
   @discardableResult

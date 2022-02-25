@@ -127,12 +127,12 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
     var inputGradientsForFilter: [[Float]] = []
 
     for i in 0..<deltas.count {
-      let delta = deltas[i].flatMap { $0 }
+      let delta = deltas[i]
       
       //get activation derivatives
       let neuronsForDeltas = neurons[i]
       let activationDerivs = neuronsForDeltas.map { $0.activationDerivative }
-      let activatedDeltas = delta * activationDerivs
+      let activatedDeltas = delta.flatMap { $0 } * activationDerivs
       let reshapedDeltas = activatedDeltas.reshape(columns: inputSize.columns)
       
       for f in 0..<flippedTransposed.count {

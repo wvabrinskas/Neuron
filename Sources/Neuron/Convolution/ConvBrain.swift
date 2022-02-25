@@ -17,10 +17,11 @@ public class ConvBrain: Logger {
   private lazy var fullyConnected: Brain = {
     let b = Brain(learningRate: learningRate,
                   lossFunction: .crossEntropy,
-                  initializer: .heNormal)
+                  initializer: .xavierNormal)
 
     b.addInputs(0) //can be some arbitrary number will update later
     b.add(modifier: .softmax)
+    b.replaceOptimizer(optimizer)
     return b
   }()
   
@@ -75,6 +76,15 @@ public class ConvBrain: Logger {
     lobes.append(lobe)
   }
   
+  public func addDenseNormal(_ count: Int) {
+    let bnModel = NormalizedLobeModel(nodes: count,
+                                      activation: .reLu,
+                                      bias: 0,
+                                      momentum: 0.99,
+                                      normalizerLearningRate: 0.1)
+    fullyConnected.add(bnModel)
+  }
+  
   public func feed(data: ConvTrainingData) -> [Float] {
     return feedInternal(input: data)
   }
@@ -98,7 +108,6 @@ public class ConvBrain: Logger {
       for batch in trainingData {
         let batchLoss = trainOn(batch: batch)
         loss.append(batchLoss)
-        print(batchLoss)
       }
       
       self.log(type: .message, priority: .alwaysShow, message: "epoch: \(e)")
@@ -122,35 +131,44 @@ public class ConvBrain: Logger {
     zeroGradients()
     
     var lossOnBatch: Float = 0
-  
+    var runningOutputDeltas: [Float] = []
+    
     for b in 0..<batch.count {
       let trainable = batch[b]
       
       let out = self.feedInternal(input: trainable)
       
-      let loss = self.fullyConnected.loss(out, correct: trainable.label) / Float(batch.count)
+      let loss = self.fullyConnected.loss(out, correct: trainable.label)
       
       let outputDeltas = self.fullyConnected.getOutputDeltas(outputs: out,
-                                                        correctValues: trainable.label)
+                                                             correctValues: trainable.label)
       
-      self.backpropagate(deltas: outputDeltas)
+      if runningOutputDeltas.isEmpty {
+        runningOutputDeltas = outputDeltas
+      } else {
+        runningOutputDeltas = runningOutputDeltas + outputDeltas
+      }
       
       lossOnBatch += loss
     }
     
-    //adjust weights here
-    self.fullyConnected.adjustWeights(batchSize: batch.count)
+    runningOutputDeltas = runningOutputDeltas / Float(batch.count)
     
-    //adjust conv weights
-    self.adjustWeights()
+    print(lossOnBatch / Float(batch.count))
+
+    backpropagate(deltas: runningOutputDeltas)
     
-    return lossOnBatch
-  }
-  
-  internal func adjustWeights() {
-    lobes.forEach { $0.adjustWeights(batchSize: batchSize) }
+    adjustWeights(batchSize: 1)
     
     optimizer?.step()
+    
+    return lossOnBatch / Float(batch.count)
+  }
+  
+  internal func adjustWeights(batchSize: Int) {
+    fullyConnected.adjustWeights(batchSize: batchSize)
+    
+    lobes.forEach { $0.adjustWeights(batchSize: batchSize) }
   }
   
   internal func backpropagate(deltas: [Float]) {

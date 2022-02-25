@@ -148,7 +148,7 @@ public class MNIST: Dataset {
     }
     
     let t = read(path: path, offset: Int(type.startingByte), scaleBy: type.modifier)
-    
+
     return t.reshape(columns: type.shape.columns).batched(into: type.shape.rows)
   }
 }

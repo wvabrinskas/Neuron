@@ -10,6 +10,7 @@ import XCTest
 import GameKit
 @testable import Neuron
 import Combine
+import Accelerate
 
 final class ConvTests: XCTestCase {
   var cancellables: Set<AnyCancellable> = []
@@ -22,15 +23,14 @@ final class ConvTests: XCTestCase {
   
   private lazy var convBrain: ConvBrain = {
     let brain = ConvBrain(epochs: 100,
-                          learningRate: 0.01,
+                          learningRate: 0.001,
                           inputSize: (28,28,1),
-                          batchSize: 128)
+                          batchSize: 8,
+                          optimizer: .adam())
     
     brain.addConvolution(filterCount: 32)
     brain.addMaxPool()
-    brain.addConvolution(filterCount: 64)
-    brain.addMaxPool()
-    brain.addDense(100)
+    brain.addDense(300)
     brain.addDense(10)
     
     brain.compile()
