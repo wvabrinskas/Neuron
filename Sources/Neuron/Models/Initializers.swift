@@ -20,13 +20,7 @@ public enum Initializers: String, Codable {
   }
 }
 
-public protocol InitializerFunction {
-  var type: Initializers { get }
-  var dist: NormalDistribution { get }
-  func calculate(input: Int, out: Int) -> Float
-}
-
-public struct Initializer: InitializerFunction {
+public struct Initializer {
   public let type: Initializers
   public let dist: NormalDistribution = NormalDistribution(mean: 0, deviation: 1)
   
