@@ -52,9 +52,6 @@ public class Brain: Logger {
   /// Initialized layer weights for unit test purposes only
   internal var layerWeights: [[[Float]]] = []
   
-  /// Distribution for initialization
-  internal static let dist = NormalDistribution(mean: 0, deviation: 0.1)
-  
   private var descent: GradientDescent
   
   private var optimizer: OptimizerFunction?

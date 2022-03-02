@@ -31,7 +31,7 @@ public class Lobe {
     return neurons.count
   }
 
-  private var initializer: Initializers = .xavierNormal
+  private var initializer: Initializer = Initializer(type: .xavierNormal)
   private var weightConstraints: WeightConstraint? = nil
 
   /// default initializer
@@ -80,7 +80,7 @@ public class Lobe {
       return layerWeights
     }
     
-    self.initializer = model.initializer
+    self.initializer = model.initializer.build()
     self.weightConstraints = model.weightConstraint
     
     var layerWeights: [[Float]] = []

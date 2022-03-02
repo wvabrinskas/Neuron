@@ -14,12 +14,17 @@ internal class Filter {
   
   private var optimizer: OptimizerFunction?
   private var learningRate: Float
+  private var filterSize: TensorSize
   
-  internal init(size: (Int, Int, Int),
+  internal init(size: TensorSize,
+                inputSize: TensorSize,
                 optimizer: OptimizerFunction? = nil,
+                initializer: Initializers = .heNormal,
                 learningRate: Float) {
-    let distribution = NormalDistribution(mean: 0, deviation: 0.1)
-
+    //this is better but more sporadic..
+    //let distribution = NormalDistribution(mean: 0.5, deviation: 0.01)
+    let initializerFunction = initializer.build()
+    
     for _ in 0..<size.2 {
       var kernel: [[Float]] = []
       
@@ -27,7 +32,7 @@ internal class Filter {
         var filterRow: [Float] = []
         
         for _ in 0..<size.1 {
-          let weight = distribution.nextFloat()
+          let weight = initializerFunction.calculate(input: inputSize.rows * inputSize.columns)
           filterRow.append(weight)
         }
         
@@ -37,6 +42,7 @@ internal class Filter {
       kernels.append(kernel)
     }
     
+    self.filterSize = size
     self.learningRate = learningRate
     self.optimizer = optimizer
   }
@@ -47,7 +53,7 @@ internal class Filter {
   
   //input depth should equal the filter depth
   //return 1D array to apply activations more easily
-  internal func apply(to inputs: [[[Float]]]) -> [Float] {
+  internal func apply(to inputs: [[[Float]]], inputSize: TensorSize) -> [Float] {
     guard inputs.count == kernels.count else {
       fatalError("filter depth does not match input depth")
       //return []
@@ -58,7 +64,9 @@ internal class Filter {
       let currentFilter = kernels[i]
       let input = inputs[i]
       
-      let conv = input.conv2D(currentFilter)
+      let conv = input.conv2D(currentFilter,
+                              filterSize: (filterSize.rows, filterSize.columns),
+                              inputSize: (inputSize.rows, inputSize.columns))
       
       if convolved.isEmpty {
         convolved = conv
@@ -75,11 +83,11 @@ internal class Filter {
   }
   
   internal func zeroGradients() {
-    gradients.removeAll()
+    gradients = []
   }
   
   internal func clear() {
-    gradients.removeAll()
+    gradients = []
   }
   
   internal func adjustWeights(batchSize: Int) {

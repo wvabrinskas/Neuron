@@ -17,10 +17,9 @@ public class ConvBrain: Logger {
   private lazy var fullyConnected: Brain = {
     let b = Brain(learningRate: learningRate,
                   lossFunction: .crossEntropy,
-                  initializer: .xavierNormal)
+                  initializer: .heNormal)
 
     b.addInputs(0) //can be some arbitrary number will update later
-    b.add(modifier: .softmax)
     b.replaceOptimizer(optimizer)
     return b
   }()
@@ -85,6 +84,10 @@ public class ConvBrain: Logger {
     fullyConnected.add(bnModel)
   }
   
+  public func addSoftmax() {
+    fullyConnected.add(modifier: .softmax)
+  }
+  
   public func feed(data: ConvTrainingData) -> [Float] {
     return feedInternal(input: data)
   }
@@ -100,7 +103,8 @@ public class ConvBrain: Logger {
     
     self.log(type: .success, priority: .alwaysShow, message: "Training started.....")
     
-    let trainingData = data.training.batched(into: batchSize)
+    let training = Array(data.training[0..<1000])
+    let trainingData = training.batched(into: batchSize)
     let _ = data.val //dont know yet
     
     for e in 0..<epochs {
@@ -117,8 +121,8 @@ public class ConvBrain: Logger {
     completed?(loss)
   }
   
-  public func addDense(_ count: Int) {
-    fullyConnected.add(LobeModel(nodes: count, activation: .reLu))
+  public func addDense(_ count: Int, activation: Activation = .reLu) {
+    fullyConnected.add(LobeModel(nodes: count, activation: activation))
   }
   
   public func compile() {
@@ -154,7 +158,7 @@ public class ConvBrain: Logger {
     
     runningOutputDeltas = runningOutputDeltas / Float(batch.count)
     
-    print(lossOnBatch / Float(batch.count))
+    //print(lossOnBatch / Float(batch.count))
 
     backpropagate(deltas: runningOutputDeltas)
     

@@ -15,13 +15,27 @@ public enum Initializers: String, Codable {
   case heNormal
   case heUniform
   
-  /// Calculates a weight given input and output node counts
-  /// - Parameters:
-  ///   - input: Node count in
-  ///   - out: Node count out
-  /// - Returns: Weight calculated based on type of initializer
+  public func build() -> Initializer {
+    Initializer(type: self)
+  }
+}
+
+public protocol InitializerFunction {
+  var type: Initializers { get }
+  var dist: NormalDistribution { get }
+  func calculate(input: Int, out: Int) -> Float
+}
+
+public struct Initializer: InitializerFunction {
+  public let type: Initializers
+  public let dist: NormalDistribution = NormalDistribution(mean: 0, deviation: 1)
+  
+  public init(type: Initializers) {
+    self.type = type
+  }
+  
   public func calculate(input: Int, out: Int = 0) -> Float {
-    switch self {
+    switch type {
       
     case .xavierUniform:
       let min = -Float(sqrt(6) / sqrt((Double(input) + Double(out))))
@@ -30,7 +44,7 @@ public enum Initializers: String, Codable {
       return Float.random(in: min...max)
       
     case .xavierNormal:
-      return Brain.dist.nextFloat() * Float(sqrt(2 / (Double(input) + Double(out))))
+      return dist.nextFloat() * Float(sqrt(2 / (Double(input) + Double(out))))
       
     case .heUniform:
       let min = -Float(sqrt(6) / sqrt((Double(input))))
@@ -39,7 +53,7 @@ public enum Initializers: String, Codable {
       return Float.random(in: min...max)
       
     case .heNormal:
-      return Brain.dist.nextFloat() * Float(sqrt(2 / (Double(input))))
+      return dist.nextFloat() * Float(sqrt(2 / (Double(input))))
     }
     
   }
