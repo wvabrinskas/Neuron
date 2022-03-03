@@ -19,7 +19,7 @@ internal class Filter {
   internal init(size: TensorSize,
                 inputSize: TensorSize,
                 optimizer: OptimizerFunction? = nil,
-                initializer: Initializers = .heNormal,
+                initializer: Initializers = .heUniform,
                 learningRate: Float) {
     //this is better but more sporadic..
     //let distribution = NormalDistribution(mean: 0.5, deviation: 0.01)

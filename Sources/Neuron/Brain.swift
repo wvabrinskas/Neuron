@@ -305,7 +305,9 @@ public class Brain: Logger {
     guard lobes.count > 0 else {
       fatalError("no lobes to connect bailing out.")
     }
-    self.layerWeights.removeAll()
+    
+    //keep the first layer since there's nothing we need to do with it
+    self.layerWeights = [self.layerWeights[safe: 0]  ?? []]
     
     //link all the layers generating the matrix
     for i in 1..<lobes.count {
@@ -418,7 +420,7 @@ public class Brain: Logger {
         
         var lossOnBatches: Float = 0
         
-        batches.randomize().forEach { (batch) in
+        batches.forEach { (batch) in
           lossOnBatches += self.trainOnBatch(batch: batch)
         }
         

@@ -22,7 +22,7 @@ public enum Initializers: String, Codable {
 
 public struct Initializer {
   public let type: Initializers
-  public let dist: NormalDistribution = NormalDistribution(mean: 0, deviation: 1)
+  private let dist: NormalDistribution = NormalDistribution(mean: 0, deviation: 1)
   
   public init(type: Initializers) {
     self.type = type

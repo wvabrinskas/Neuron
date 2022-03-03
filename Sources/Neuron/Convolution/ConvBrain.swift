@@ -17,7 +17,7 @@ public class ConvBrain: Logger {
   private lazy var fullyConnected: Brain = {
     let b = Brain(learningRate: learningRate,
                   lossFunction: .crossEntropy,
-                  initializer: .heNormal)
+                  initializer: .heUniform)
 
     b.addInputs(0) //can be some arbitrary number will update later
     b.replaceOptimizer(optimizer)
@@ -158,7 +158,7 @@ public class ConvBrain: Logger {
     
     runningOutputDeltas = runningOutputDeltas / Float(batch.count)
     
-    //print(lossOnBatch / Float(batch.count))
+    print(lossOnBatch / Float(batch.count))
 
     backpropagate(deltas: runningOutputDeltas)
     
