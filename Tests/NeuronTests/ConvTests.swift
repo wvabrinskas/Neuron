@@ -23,13 +23,16 @@ final class ConvTests: XCTestCase {
   
   private lazy var convBrain: ConvBrain = {
     let brain = ConvBrain(epochs: 30,
-                          learningRate: 0.0001,
+                          learningRate: 0.01,
                           inputSize: (28,28,1),
-                          batchSize: 32)
+                          batchSize: 100,
+                          optimizer: .adam(b1: 0.9))
     
+    brain.addConvolution(filterCount: 16)
+    brain.addMaxPool()
     brain.addConvolution(filterCount: 32)
     brain.addMaxPool()
-    brain.addDense(100)
+    brain.addDense(1000)
     brain.addDense(10, activation: .none)
     brain.addSoftmax()
     
@@ -38,34 +41,34 @@ final class ConvTests: XCTestCase {
     return brain
   }()
 
-//  func testConvLobe() {
-//    var dataset: DatasetData?
-//
-//    let expectation = XCTestExpectation()
-//
-//    mnist.dataPublisher
-//      .receive(on: DispatchQueue.main)
-//      .sink { val in
-//        dataset = val
-//        expectation.fulfill()
-//      }
-//      .store(in: &self.cancellables)
-//
-//    mnist.build()
-//
-//    wait(for: [expectation], timeout: 1000)
-//
-//    guard let dataset = dataset else {
-//      XCTFail()
-//      return
-//    }
-//
-//    convBrain.train(data: dataset) { epoch in
-//      print(self.convBrain.loss.last)
-//    } completed: { loss in
-//      //print(loss)
-//    }
-//  }
+  func testConvLobe() {
+    var dataset: DatasetData?
+
+    let expectation = XCTestExpectation()
+
+    mnist.dataPublisher
+      .receive(on: DispatchQueue.main)
+      .sink { val in
+        dataset = val
+        expectation.fulfill()
+      }
+      .store(in: &self.cancellables)
+
+    mnist.build()
+
+    wait(for: [expectation], timeout: 1000)
+
+    guard let dataset = dataset else {
+      XCTFail()
+      return
+    }
+
+    convBrain.train(data: dataset) { epoch in
+      print(self.convBrain.loss.last)
+    } completed: { loss in
+      //print(loss)
+    }
+  }
 
   func print3d(array: [[[Any]]]) {
     var i = 0
