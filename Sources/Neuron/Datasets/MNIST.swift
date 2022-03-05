@@ -111,14 +111,14 @@ public class MNIST: Dataset {
         let trainingData = trainingDataSets.first { $0.type == .trainingSet }?.data ?? []
         let trainingLabels = trainingDataSets.first { $0.type == .trainingLabels }?.data ?? []
         
-        for i in 0..<trainingData.count - 59000 {
+        for i in 0..<trainingData.count {
           let tD = trainingData[i]
           let tL = trainingLabels[i].first?.first ?? -1
           let conv = ConvTrainingData(data: [tD], label: self.buildLabel(value: Int(tL))) //only one channel for MNIST
           trainingDataWithLabels.append(conv)
         }
         
-        for i in 0..<validationData.count - 9000 {
+        for i in 0..<validationData.count {
           let tD = validationData[i]
           let tL = validationLabels[i].first?.first ?? -1
           let conv = ConvTrainingData(data: [tD], label: self.buildLabel(value: Int(tL))) //only one channel for MNIST

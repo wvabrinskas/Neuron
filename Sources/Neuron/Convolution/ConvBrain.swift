@@ -17,7 +17,7 @@ public class ConvBrain: Logger {
   private lazy var fullyConnected: Brain = {
     let b = Brain(learningRate: learningRate,
                   lossFunction: .crossEntropy,
-                  initializer: .heUniform)
+                  initializer: .heNormal)
 
     b.addInputs(0) //can be some arbitrary number will update later
     b.replaceOptimizer(optimizer)
@@ -136,6 +136,7 @@ public class ConvBrain: Logger {
     
     var lossOnBatch: Float = 0
     
+    //TODO: figure out a way to perform this concurrently
     for b in 0..<batch.count {
       let trainable = batch[b]
       
