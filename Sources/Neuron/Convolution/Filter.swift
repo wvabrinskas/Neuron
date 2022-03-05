@@ -19,12 +19,9 @@ internal class Filter {
   internal init(size: TensorSize,
                 inputSize: TensorSize,
                 optimizer: OptimizerFunction? = nil,
-                initializer: Initializers = .heNormal,
+                initializer: Initializer,
                 learningRate: Float) {
-    //this is better but more sporadic..
-    //let distribution = NormalDistribution(mean: 0.5, deviation: 0.01)
-    let initializerFunction = initializer.build()
-    
+   
     for _ in 0..<size.2 {
       var kernel: [[Float]] = []
       
@@ -32,7 +29,7 @@ internal class Filter {
         var filterRow: [Float] = []
         
         for _ in 0..<size.1 {
-          let weight = initializerFunction.calculate(input: inputSize.rows * inputSize.columns)
+          let weight = initializer.calculate(input: inputSize.rows * inputSize.columns)
           filterRow.append(weight)
         }
         

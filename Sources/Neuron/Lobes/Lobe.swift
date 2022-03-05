@@ -15,7 +15,7 @@ internal struct LobeCompileModel {
   var layerType: LayerType
   var fullyConnected: Bool = true
   var weightConstraint: WeightConstraint? = nil
-  var initializer: Initializers = .xavierNormal
+  var initializer: InitializerType = .xavierNormal
   var optimizer: OptimizerFunction? = nil
 }
 

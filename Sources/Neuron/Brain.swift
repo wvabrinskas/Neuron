@@ -45,7 +45,7 @@ public class Brain: Logger {
   private var previousValidationErrors: [Float] = []
   
   /// The initializer to generate the layer weights
-  private var initializer: Initializers
+  private var initializer: InitializerType
   
   internal var model: ExportModel?
   
@@ -75,7 +75,7 @@ public class Brain: Logger {
               epochs: Int = 10,
               lossFunction: LossFunction = .meanSquareError,
               lossThreshold: Float = 0.001,
-              initializer: Initializers = .xavierNormal,
+              initializer: InitializerType = .xavierNormal,
               descent: GradientDescent = .sgd,
               weightConstraints: ClosedRange<Float>? = nil) {
     
@@ -93,7 +93,7 @@ public class Brain: Logger {
                epochs: Int,
                lossFunction: LossFunction = .crossEntropy,
                lossThreshold: Float = 0.001,
-               initializer: Initializers = .xavierNormal,
+               initializer: InitializerType = .xavierNormal,
                descent: GradientDescent = .sgd) {
     
     do {

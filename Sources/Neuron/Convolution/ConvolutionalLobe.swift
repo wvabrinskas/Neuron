@@ -37,8 +37,7 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
   private let learningRate: Float
   private var forwardInputs: [[[Float]]] = []
   private var inputGradients: [[[Float]]] = []
-  private var currentInputGradients: [[[Float]]] = []
-  private var initializer: Initializers = .xavierNormal
+  private var initializer: Initializer
   private var optimizer: OptimizerFunction?
   private var filterCount: Int = 1
   private let bias: Float
@@ -46,7 +45,7 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
   public init(model: ConvolutionalLobeModel,
               learningRate: Float,
               optimizer: OptimizerFunction? = nil,
-              initializer: Initializers = .xavierNormal) {
+              initializer: Initializer) {
     
     precondition(model.filterSize.depth == model.inputSize.depth, "input depth must equal filter depth")
 
@@ -85,6 +84,7 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
       let filter = Filter(size: filterSize,
                           inputSize: inputSize,
                           optimizer: optimizer,
+                          initializer: initializer,
                           learningRate: learningRate)
       filters.append(filter)
     }
@@ -125,7 +125,7 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
   }
   
   public func calculateGradients(with deltas: [[[Float]]]) -> [[[Float]]] {
-    currentInputGradients.removeAll()
+    var currentInputGradients: [[[Float]]] = []
     
     let flippedTransposed = filters.map { $0.flip180() }.transposed() as [[[[Float]]]]
         
@@ -161,7 +161,6 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
       calculateFilterGradients(deltas: reshapedDeltas, index: i)
     }
             
-    //return CURRENT calculated gradient add to exising gradients after
     return currentInputGradients
   }
 
@@ -208,7 +207,6 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
   }
 
   public func zeroGradients() {
-    self.currentInputGradients = []
     self.inputGradients = []
     self.filters.forEach { $0.zeroGradients() }
     self.neurons.forEach { $0.forEach { $0.zeroGradients() } }

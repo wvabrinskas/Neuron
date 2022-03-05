@@ -32,17 +32,20 @@ public class ConvBrain: Logger {
   private let optimizer: OptimizerFunction?
   private var compiled: Bool = false
   private var previousFlattenedCount: Int = 0
+  private var initializer: Initializer
   
   public init(epochs: Int,
               learningRate: Float,
               inputSize: TensorSize,
               batchSize: Int,
-              optimizer: Optimizer? = nil) {
+              optimizer: Optimizer? = nil,
+              initializer: InitializerType = .heNormal) {
     self.epochs = epochs
     self.learningRate = learningRate
     self.inputSize = inputSize
     self.batchSize = batchSize
     self.optimizer = optimizer?.get(learningRate: learningRate)
+    self.initializer = initializer.build()
   }
   
   public func addConvolution(bias: Float = 0,
@@ -63,7 +66,8 @@ public class ConvBrain: Logger {
     
     let lobe = ConvolutionalLobe(model: model,
                                  learningRate: learningRate,
-                                 optimizer: optimizer)
+                                 optimizer: optimizer,
+                                 initializer: initializer)
     lobes.append(lobe)
   }
   
@@ -137,6 +141,7 @@ public class ConvBrain: Logger {
     var lossOnBatch: Float = 0
     
     //TODO: figure out a way to perform this concurrently
+    // maybe a state that holds all the variables?
     for b in 0..<batch.count {
       let trainable = batch[b]
       
