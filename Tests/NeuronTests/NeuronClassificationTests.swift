@@ -12,7 +12,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
                       lossFunction: .crossEntropy,
                       lossThreshold: TestConstants.lossThreshold,
                       initializer: .xavierNormal,
-                      descent: .mbgd(size: 16))
+                      descent: .bgd)
     
     brain.addInputs(TestConstants.inputs)
     

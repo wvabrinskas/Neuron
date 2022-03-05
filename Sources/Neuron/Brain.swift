@@ -500,14 +500,13 @@ public class Brain: Logger {
       //feed the data through the network
       let output = self.feed(input: tData.data)
       
-      batchLoss += self.loss(output, correct: tData.correct)
+      batchLoss += self.loss(output, correct: tData.correct) / Float(batch.count)
       
       //set the output errors for set
       let deltas = self.getOutputDeltas(outputs: output,
                                         correctValues: tData.correct)
   
       self.backpropagate(with: deltas)
-      batchLoss += batchLoss / Float(batch.count)
     }
          
     self.adjustWeights(batchSize: batch.count)

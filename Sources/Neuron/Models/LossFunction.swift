@@ -38,7 +38,7 @@ public enum LossFunction {
       for i in 0..<predicted.count {
         let predicted = predicted[i]
         let correct = correct[i]
-        sum += -1 * (correct * log(predicted))
+        sum += -1 * (correct * log(predicted + 1e-10))
       }
       
       return sum
