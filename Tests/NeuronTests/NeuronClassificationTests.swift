@@ -7,30 +7,31 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
   public lazy var brain: Brain? = {
     let bias: Float = 0.00001
     
-    let brain = Brain(learningRate: 0.01,
+    let brain = Brain(learningRate: 0.001,
                       epochs: 2000,
                       lossFunction: .crossEntropy,
                       lossThreshold: TestConstants.lossThreshold,
                       initializer: .xavierNormal,
-                      descent: .mbgd(size: 64))
+                      descent: .mbgd(size: 16))
     
     brain.addInputs(TestConstants.inputs)
     
     for _ in 0..<TestConstants.numOfHiddenLayers {
-//      let normalLobe = NormalizedLobeModel(nodes: TestConstants.hidden,
-//                                           activation: .leakyRelu,
-//                                           bias: bias,
-//                                           momentum: 0.99,
-//                                           normalizerLearningRate: 0.01)
-      brain.add(LobeModel(nodes: TestConstants.hidden, activation: .leakyRelu, bias: bias)) //hidden layer
+      let normalLobe = NormalizedLobeModel(nodes: TestConstants.hidden,
+                                           activation: .leakyRelu,
+                                           bias: bias,
+                                           momentum: 0.99,
+                                           normalizerLearningRate: 0.01)
+      brain.add(normalLobe)
+      //brain.add(LobeModel(nodes: TestConstants.hidden, activation: .leakyRelu, bias: bias)) //hidden layer
     }
     
     brain.add(LobeModel(nodes: TestConstants.outputs, activation: .none, bias: bias)) //output layer
     
     brain.add(modifier: .softmax) //when using softmax activation the output node should use a reLu or leakyRelu activation
     
-    //brain.add(optimizer: .adam())
-    brain.logLevel = .none
+   // brain.add(optimizer: .adam())
+    brain.logLevel = .low
     
     return brain
   }()
@@ -57,7 +58,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
   }
   
   func buildTrainingData() {
-    let num = 600
+    let num = 200
 
     for _ in 0..<num {
       trainingData.append(TrainingData(data: ColorType.red.color(), correct: ColorType.red.correctValues()))
@@ -69,11 +70,10 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     }
     
   }
- 
   
   //MARK: I really dont think we need to test training this is more of a test when building new architecture into the framework
   /// Uncomment out if you want to run a test training with out integrating into an app
-//  func testTraining() {
+  func testTraining() {
 //    XCTAssertTrue(brain != nil, "Brain is empty")
 //
 //    guard let brain = brain else {
@@ -83,7 +83,9 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
 //    print("Training....")
 //    let expectation = XCTestExpectation()
 //
-//    brain.train(data: self.trainingData.randomize(), validation: self.validationData, complete:  { (complete) in
+//    brain.train(data: self.trainingData,
+//                validation: self.validationData,
+//                complete:  { (complete) in
 //      expectation.fulfill()
 //    })
 //
@@ -96,15 +98,16 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
 //      print("Guess \(color.string): \(out)")
 //
 //      XCTAssert(out.max() != nil, "No max value. Training failed")
-//
-//      if let max = out.max(), let first = out.firstIndex(of: max) {
+//      
+//      let max = out.max
+//      if let first = out.firstIndex(of: max) {
 //        XCTAssert(max.isNaN == false, "Result was NaN")
 //        XCTAssertTrue(first == i, "Color \(color.string) could not be identified")
 //      } else {
 //        XCTFail("No color to be found...")
 //      }
 //    }
-//  }
+  }
   
   //executes in alphabetical order
   func testXport() {

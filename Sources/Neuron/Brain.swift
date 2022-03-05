@@ -495,7 +495,7 @@ public class Brain: Logger {
     self.zeroGradients()
     
     var batchLoss: Float = 0
-    var runningDeltas: [Float] = []
+
     batch.forEach { tData in
       //feed the data through the network
       let output = self.feed(input: tData.data)
@@ -506,22 +506,15 @@ public class Brain: Logger {
       let deltas = self.getOutputDeltas(outputs: output,
                                         correctValues: tData.correct)
   
-      if runningDeltas.isEmpty {
-        runningDeltas = deltas
-      } else {
-        runningDeltas = runningDeltas + deltas
-      }
+      self.backpropagate(with: deltas)
+      batchLoss += batchLoss / Float(batch.count)
     }
          
-    runningDeltas = runningDeltas / Float(batch.count)
-    
-    self.backpropagate(with: runningDeltas)
-
-    self.adjustWeights(batchSize: 1)
+    self.adjustWeights(batchSize: batch.count)
     
     self.optimizer?.step()
 
-    return batchLoss / Float(batch.count)
+    return batchLoss
   }
 
   /// Clears the whole network and resets all the weights to a random value

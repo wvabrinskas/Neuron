@@ -23,16 +23,15 @@ final class ConvTests: XCTestCase {
   
   private lazy var convBrain: ConvBrain = {
     let brain = ConvBrain(epochs: 30,
-                          learningRate: 0.01,
+                          learningRate: 0.001,
                           inputSize: (28,28,1),
-                          batchSize: 100,
-                          optimizer: .adam(b1: 0.9))
+                          batchSize: 64)
     
+    brain.addConvolution(filterCount: 6)
+    brain.addMaxPool()
     brain.addConvolution(filterCount: 16)
     brain.addMaxPool()
-    brain.addConvolution(filterCount: 32)
-    brain.addMaxPool()
-    brain.addDense(1000)
+    brain.addDense(64)
     brain.addDense(10, activation: .none)
     brain.addSoftmax()
     

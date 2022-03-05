@@ -10,7 +10,7 @@ import Foundation
 
 public struct TestConstants {
   public static let inputs = 4 //UIColor values rgba
-  public static let hidden = 5
+  public static let hidden = 10
   public static let outputs = ColorType.allCases.count
   public static let numOfHiddenLayers = 1
   public static let lossThreshold: Float = 0.1

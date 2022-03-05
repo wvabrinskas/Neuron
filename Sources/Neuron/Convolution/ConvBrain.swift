@@ -135,7 +135,6 @@ public class ConvBrain: Logger {
     zeroGradients()
     
     var lossOnBatch: Float = 0
-    var runningOutputDeltas: [Float] = []
     
     for b in 0..<batch.count {
       let trainable = batch[b]
@@ -147,26 +146,18 @@ public class ConvBrain: Logger {
       let outputDeltas = self.fullyConnected.getOutputDeltas(outputs: out,
                                                              correctValues: trainable.label)
       
-      if runningOutputDeltas.isEmpty {
-        runningOutputDeltas = outputDeltas
-      } else {
-        runningOutputDeltas = runningOutputDeltas + outputDeltas
-      }
-      
-      lossOnBatch += loss
-    }
-    
-    runningOutputDeltas = runningOutputDeltas / Float(batch.count)
-    
-    print(lossOnBatch / Float(batch.count))
+      backpropagate(deltas: outputDeltas)
 
-    backpropagate(deltas: runningOutputDeltas)
-    
-    adjustWeights(batchSize: 1)
+      lossOnBatch += loss / Float(batch.count)
+    }
+        
+    print(lossOnBatch)
+
+    adjustWeights(batchSize: batch.count)
     
     optimizer?.step()
     
-    return lossOnBatch / Float(batch.count)
+    return lossOnBatch
   }
   
   internal func adjustWeights(batchSize: Int) {

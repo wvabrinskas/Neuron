@@ -152,8 +152,6 @@ public class Lobe {
     self.neurons.forEach { neuron in
       neuron.replaceInputs(inputs: inputs)
     }
-
-    var activatedResults: [Float] = []
         
     let rows = inputs.count
     let columns = neurons.count
@@ -165,12 +163,14 @@ public class Lobe {
                                              columns: Int32(columns),
                                              rows: Int32(rows))
     
-    for i in 0..<dotProducts.count {
-      let product = dotProducts[i]
-      let neuron = neurons[i]
-      
+    var activatedResults: [Float] = [Float](repeating: 0, count: dotProducts.count)
+    
+    dotProducts.concurrentForEach { element, index in
+      let product = element
+      let neuron = neurons[index]
       let result = neuron.applyActivation(sum: product)
-      activatedResults.append(result)
+      
+      activatedResults[index] = result
     }
 
     return activatedResults
