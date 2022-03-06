@@ -58,77 +58,87 @@ public class MNIST: Dataset {
     }
   }
   
+  /// Build with support for Combine
   public func build() {
+    Task {
+      await build()
+    }
+  }
+  
+  /// Build with async/await support
+  /// - Returns: downloaded dataset
+  public func build() async -> DatasetData {
     guard complete == false else {
       print("MNIST has already been loaded")
-      return
+      return self.data
     }
+    
     print("Loading MNIST dataset into memory. This could take a while")
-
-    Task {
-      self.data = await withTaskGroup(of: (data: [[[Float]]], type: MNISTType).self, body: { group in
-        
-        var trainingDataSets: [(data: [[[Float]]], type: MNISTType)] = []
-        trainingDataSets.reserveCapacity(2)
-
-        var valDataSets: [(data: [[[Float]]], type: MNISTType)] = []
-        valDataSets.reserveCapacity(2)
-        
-        group.addTask(priority: .userInitiated) {
-          let trainingData = self.get(type: .trainingSet)
-          return (trainingData, .trainingSet)
-        }
-        
-        group.addTask(priority: .userInitiated) {
-          let trainingData = self.get(type: .trainingLabels)
-          return (trainingData, .trainingLabels)
-        }
-        
-        group.addTask(priority: .userInitiated) {
-          let trainingData = self.get(type: .valSet)
-          return (trainingData, .valSet)
-        }
-        
-        group.addTask(priority: .userInitiated) {
-          let trainingData = self.get(type: .valLabels)
-          return (trainingData, .valLabels)
-        }
-        
-        for await data in group {
-          if data.type == .trainingLabels || data.type == .trainingSet {
-            trainingDataSets.append(data)
-          } else if data.type == .valLabels || data.type == .valSet {
-            valDataSets.append(data)
-          }
-        }
-          
-        var trainingDataWithLabels: [ConvTrainingData] = []
-        var validationDataWithLabels: [ConvTrainingData] = []
-        
-        let validationData = valDataSets.first { $0.type == .valSet }?.data ?? []
-        let validationLabels = valDataSets.first { $0.type == .valLabels }?.data ?? []
-
-        let trainingData = trainingDataSets.first { $0.type == .trainingSet }?.data ?? []
-        let trainingLabels = trainingDataSets.first { $0.type == .trainingLabels }?.data ?? []
-        
-        for i in 0..<trainingData.count {
-          let tD = trainingData[i]
-          let tL = trainingLabels[i].first?.first ?? -1
-          let conv = ConvTrainingData(data: [tD], label: self.buildLabel(value: Int(tL))) //only one channel for MNIST
-          trainingDataWithLabels.append(conv)
-        }
-        
-        for i in 0..<validationData.count {
-          let tD = validationData[i]
-          let tL = validationLabels[i].first?.first ?? -1
-          let conv = ConvTrainingData(data: [tD], label: self.buildLabel(value: Int(tL))) //only one channel for MNIST
-          validationDataWithLabels.append(conv)
-        }
-        
-        return (trainingDataWithLabels, validationDataWithLabels)
-      })
+    
+    
+    self.data = await withTaskGroup(of: (data: [[[Float]]], type: MNISTType).self, body: { group in
       
-    }
+      var trainingDataSets: [(data: [[[Float]]], type: MNISTType)] = []
+      trainingDataSets.reserveCapacity(2)
+      
+      var valDataSets: [(data: [[[Float]]], type: MNISTType)] = []
+      valDataSets.reserveCapacity(2)
+      
+      group.addTask(priority: .userInitiated) {
+        let trainingData = self.get(type: .trainingSet)
+        return (trainingData, .trainingSet)
+      }
+      
+      group.addTask(priority: .userInitiated) {
+        let trainingData = self.get(type: .trainingLabels)
+        return (trainingData, .trainingLabels)
+      }
+      
+      group.addTask(priority: .userInitiated) {
+        let trainingData = self.get(type: .valSet)
+        return (trainingData, .valSet)
+      }
+      
+      group.addTask(priority: .userInitiated) {
+        let trainingData = self.get(type: .valLabels)
+        return (trainingData, .valLabels)
+      }
+      
+      for await data in group {
+        if data.type == .trainingLabels || data.type == .trainingSet {
+          trainingDataSets.append(data)
+        } else if data.type == .valLabels || data.type == .valSet {
+          valDataSets.append(data)
+        }
+      }
+      
+      var trainingDataWithLabels: [ConvTrainingData] = []
+      var validationDataWithLabels: [ConvTrainingData] = []
+      
+      let validationData = valDataSets.first { $0.type == .valSet }?.data ?? []
+      let validationLabels = valDataSets.first { $0.type == .valLabels }?.data ?? []
+      
+      let trainingData = trainingDataSets.first { $0.type == .trainingSet }?.data ?? []
+      let trainingLabels = trainingDataSets.first { $0.type == .trainingLabels }?.data ?? []
+      
+      for i in 0..<trainingData.count {
+        let tD = trainingData[i]
+        let tL = trainingLabels[i].first?.first ?? -1
+        let conv = ConvTrainingData(data: [tD], label: self.buildLabel(value: Int(tL))) //only one channel for MNIST
+        trainingDataWithLabels.append(conv)
+      }
+      
+      for i in 0..<validationData.count {
+        let tD = validationData[i]
+        let tL = validationLabels[i].first?.first ?? -1
+        let conv = ConvTrainingData(data: [tD], label: self.buildLabel(value: Int(tL))) //only one channel for MNIST
+        validationDataWithLabels.append(conv)
+      }
+      
+      return (trainingDataWithLabels, validationDataWithLabels)
+    })
+    
+    return data
   }
   
   private func buildLabel(value: Int) -> [Float] {

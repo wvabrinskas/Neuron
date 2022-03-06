@@ -23,9 +23,9 @@ final class ConvTests: XCTestCase {
   
   private lazy var convBrain: ConvBrain = {
     let brain = ConvBrain(epochs: 30,
-                          learningRate: 0.01,
+                          learningRate: 0.001,
                           inputSize: (28,28,1),
-                          batchSize: 16)
+                          batchSize: 1)
     
     brain.addConvolution(filterCount: 6)
     brain.addMaxPool()
@@ -40,29 +40,10 @@ final class ConvTests: XCTestCase {
     return brain
   }()
 
-  func testConvLobe() {
+  func testConvLobe() async {
     
-    var dataset: DatasetData?
-
-    let expectation = XCTestExpectation()
-
-    mnist.dataPublisher
-      .receive(on: DispatchQueue.main)
-      .sink { val in
-        dataset = val
-        expectation.fulfill()
-      }
-      .store(in: &self.cancellables)
-
-    mnist.build()
-
-    wait(for: [expectation], timeout: 1000)
-
-    guard let dataset = dataset else {
-      XCTFail()
-      return
-    }
-
+    let dataset = await mnist.build()
+    
     convBrain.train(data: dataset) { epoch in
       print(self.convBrain.loss.last)
     } completed: { loss in

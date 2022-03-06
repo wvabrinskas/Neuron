@@ -167,40 +167,24 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
   private func calculateFilterGradients(deltas: [[Float]], index: Int) {
     let filterGradients: [[[Float]]] = filters[index].gradients
     var newGradients: [[[Float]]] = []
-    
-    for inputIndex in 0..<forwardInputs.count {
-      let forward2dInputs = forwardInputs[inputIndex]
+        
+    for i in 0..<forwardInputs.count {
+      let currentFilterGradients = filterGradients[safe: i] ?? []
+      let forward2dInputs = forwardInputs[i].zeroPad()
+      let gradient = deltas
       
-      let shape = forward2dInputs.shape
-      let rows = shape[safe: 1] ?? 0
-      let columns = shape[safe: 0] ?? 0
+      var result = NumSwift.conv2dValid(signal: forward2dInputs, filter: gradient)
       
-      var updateFilters: [[Float]] = []
-      
-      if filterGradients[safe: inputIndex] != nil {
-        //append to previous gradients will be dividing by batch size later
-        updateFilters = filterGradients[inputIndex]
-      }
-      
-      for r in 0..<rows - filterSize.rows {
-        for c in 0..<columns - filterSize.columns {
-          let gradient = deltas[r][c]
-          
-          for fr in 0..<filterSize.rows {
-            let dataRow = Array(forward2dInputs[r + fr][c..<c + filterSize.1])
-            let gradientRow = dataRow * gradient
-            
-            if let current = updateFilters[safe: fr] {
-              let updated = current + gradientRow
-              updateFilters[fr] = updated
-            } else {
-              updateFilters.append(gradientRow)
-            }
+      if !currentFilterGradients.isEmpty {
+        //add previous gradients
+        for c in 0..<result.count {
+          if let cRow = currentFilterGradients[safe: c] {
+            result[c] = result[c] + cRow
           }
         }
       }
-      
-      newGradients.append(updateFilters)
+
+      newGradients.append(result)
     }
     
     filters[index].setGradients(gradients: newGradients)

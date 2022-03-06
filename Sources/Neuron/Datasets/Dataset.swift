@@ -17,6 +17,7 @@ public protocol Dataset {
   var dataPublisher: AnyPublisher<DatasetData, Never> { get }
   
   func read<T: FloatingPoint>(path: String, offset: Int, scaleBy: T) -> [T]
+  func build() async -> DatasetData
   func build()
 }
 
