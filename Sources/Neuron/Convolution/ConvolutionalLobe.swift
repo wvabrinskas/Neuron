@@ -128,7 +128,8 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
     var currentInputGradients: [[[Float]]] = []
     
     let flippedTransposed = filters.map { $0.flip180() }.transposed() as [[[[Float]]]]
-        
+    
+    //2D array because each item is the result of conv2d which returns a 1D array
     var inputGradientsForFilter: [[Float]] = []
 
     for i in 0..<deltas.count {
