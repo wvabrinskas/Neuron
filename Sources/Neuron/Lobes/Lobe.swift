@@ -205,25 +205,12 @@ public class Lobe {
     guard self.layer != .input else {
       return []
     }
-
-    var deltas: [Float] = []
     
-    for p in 0..<previousLayerCount {
-      var delta: Float = 0
-      
-      for n in 0..<neurons.count {
-        let neuron = neurons[n]
-        let inputWeight = neuron.weights[p]
-        let neuronDelta = incomingDeltas[n]
-        
-        let currentNeuronDelta = neuronDelta * inputWeight //error' * weight -> calculates the error' w.r.t to weight
-        
-        delta += currentNeuronDelta
-      }
-      
-      deltas.append(delta)
-    }
-
+    let layerWeights = neurons.flatMap { $0.weights }
+    
+    let deltas = incomingDeltas.multiDotProduct(B: layerWeights,
+                                                columns: Int32(previousLayerCount),
+                                                rows: Int32(incomingDeltas.count))
     return deltas
   }
   

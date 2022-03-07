@@ -107,7 +107,7 @@ public class ConvBrain: Logger {
     
     self.log(type: .success, priority: .alwaysShow, message: "Training started.....")
     
-    let training = Array(data.training[0..<1000])
+    let training = data.training
     let trainingData = training.batched(into: batchSize)
     let _ = data.val //dont know yet
     
