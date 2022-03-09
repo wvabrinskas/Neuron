@@ -29,7 +29,8 @@ internal class Filter {
         var filterRow: [Float] = []
         
         for _ in 0..<size.1 {
-          let weight = initializer.calculate(input: inputSize.rows * inputSize.columns)
+          let weight = initializer.calculate(input: size.rows * size.columns * size.depth,
+                                             out: inputSize.rows * inputSize.columns * size.depth)
           filterRow.append(weight)
         }
         

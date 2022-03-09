@@ -17,7 +17,7 @@ public class ConvBrain: Logger {
   private lazy var fullyConnected: Brain = {
     let b = Brain(learningRate: learningRate,
                   lossFunction: .crossEntropy,
-                  initializer: .heNormal)
+                  initializer: initializer.type)
 
     b.addInputs(0) //can be some arbitrary number will update later
     b.replaceOptimizer(optimizer)
@@ -79,12 +79,12 @@ public class ConvBrain: Logger {
     lobes.append(lobe)
   }
   
-  public func addDenseNormal(_ count: Int) {
+  public func addDenseNormal(_ count: Int, rate: Float = 0.1) {
     let bnModel = NormalizedLobeModel(nodes: count,
                                       activation: .reLu,
                                       bias: 0,
                                       momentum: 0.99,
-                                      normalizerLearningRate: 0.1)
+                                      normalizerLearningRate: rate)
     fullyConnected.add(bnModel)
   }
   

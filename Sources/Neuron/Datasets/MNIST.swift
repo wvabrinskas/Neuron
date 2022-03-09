@@ -157,8 +157,16 @@ public class MNIST: Dataset {
       return []
     }
     
-    let t = read(path: path, offset: Int(type.startingByte), scaleBy: type.modifier)
-
-    return t.reshape(columns: type.shape.columns).batched(into: type.shape.rows)
+    var t = read(path: path, offset: Int(type.startingByte), scaleBy: type.modifier)
+    
+//    if type == .valSet || type == .trainingSet {
+//      let r = t.reshape(columns: 28 * 28)
+//      
+//      t = r.flatMap { $0.normalize() }
+//    }
+    
+    let shaped = t.reshape(columns: type.shape.columns).batched(into: type.shape.rows)
+    
+    return shaped
   }
 }

@@ -36,6 +36,7 @@ public extension Dataset {
       }
       
       let result = array.map { T($0) / scaleBy }
+
       return result
         
     } catch {

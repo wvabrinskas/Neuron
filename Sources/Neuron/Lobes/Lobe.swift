@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import NumSwift
 
 public typealias WeightConstraint = ClosedRange<Float>
 
@@ -186,12 +187,12 @@ public class Lobe {
       return []
     }
     
-    var gradients: [[Float]] = []
-    for i in 0..<neurons.count {
-      let delta = deltas[i]
-      let neuron = neurons[i]
-      neuron.calculateGradients(delta: delta)
-      gradients.append(neuron.gradients)
+    var gradients: [[Float]] = Array(repeatElement([Float.zero], count: neurons.count))
+    
+    neurons.concurrentForEach { element, index in
+      let neuron = element
+      let delta = deltas[index]
+      gradients[index] = neuron.calculateGradients(delta: delta)
     }
     
     return gradients
@@ -206,7 +207,7 @@ public class Lobe {
       return []
     }
     
-    let layerWeights = neurons.flatMap { $0.weights }
+    let layerWeights = neurons.flatMap { $0.weights * $0.activationDerivative }
     
     let deltas = incomingDeltas.multiDotProduct(B: layerWeights,
                                                 columns: Int32(previousLayerCount),

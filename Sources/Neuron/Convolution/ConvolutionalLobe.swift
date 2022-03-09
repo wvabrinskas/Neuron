@@ -125,45 +125,7 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
   }
   
   public func calculateGradients(with deltas: [[[Float]]]) -> [[[Float]]] {
-//    var currentInputGradients: [[[Float]]] = []
-//    
-//    let flippedTransposed = filters.map { $0.flip180() }.transposed() as [[[[Float]]]]
-//    
-//    //2D array because each item is the result of conv2d which returns a 1D array
-//    var inputGradientsForFilter: [[Float]] = []
-//
-//    for i in 0..<deltas.count {
-//      let delta = deltas[i]
-//      
-//      //get activation derivatives
-//      let neuronsForDeltas = neurons[i]
-//      let activationDerivs = neuronsForDeltas.map { $0.activationDerivative }
-//      let activatedDeltas = delta.flatMap { $0 } * activationDerivs
-//      let reshapedDeltas = activatedDeltas.reshape(columns: inputSize.columns)
-//      
-//      for f in 0..<flippedTransposed.count {
-//        let filter = flippedTransposed[f]
-//        let kernel = filter[i]
-//        
-//        let gradientsForKernelIndex = reshapedDeltas.conv2D(kernel,
-//                                                            filterSize: (filterSize.rows, filterSize.columns),
-//                                                            inputSize: (inputSize.rows, inputSize.columns))
-//        
-//        if let currentGradientsForFilter = inputGradientsForFilter[safe: f] {
-//          let updatedGradientsForFilter = currentGradientsForFilter + gradientsForKernelIndex
-//          inputGradientsForFilter[f] = updatedGradientsForFilter
-//          currentInputGradients[f] = updatedGradientsForFilter.reshape(columns: inputSize.columns)
-//        } else {
-//          inputGradientsForFilter.append(gradientsForKernelIndex)
-//          currentInputGradients.append(gradientsForKernelIndex.reshape(columns: inputSize.columns))
-//        }
-//      }
-//      
-//      calculateFilterGradients(deltas: reshapedDeltas, index: i)
-//    }
-//    
     let result = concurrentCalculateGradients(deltas: deltas)
-    
     return result
   }
   
@@ -174,7 +136,7 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
     var inputGradientsForFilterTotal: [[[Float]]] = Array(repeatElement(NumSwift.zerosLike((rows: inputSize.depth,
                                                                                             columns: inputSize.columns * inputSize.rows)),
                                                                         count: deltas.count))
-
+    
     deltas.concurrentForEach { element, index in
       let delta = element
       let i = index
@@ -203,7 +165,7 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
       
       inputGradientsForFilterTotal[i] = inputGradientsForFilter
       
-      calculateFilterGradients(deltas: reshapedDeltas, index: i)
+      calculateFilterGradients(deltas: delta, index: i)
     }
     
     
@@ -225,11 +187,6 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
       
       return new
     }
-//
-//    let total: [[Float]] = inputGradientsForFilterTotal.map { val in
-//      let add = val.reduce(zeros, +)
-//      return add
-//    }
     
     let result = total.map { $0.reshape(columns: inputSize.columns) }
     return result

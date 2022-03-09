@@ -18,7 +18,6 @@ public struct NormalDistribution {
     self.randomSource = randomSource
     self.mean = mean
     self.deviation = deviation
-    
   }
   
   public func nextFloat() -> Float {
