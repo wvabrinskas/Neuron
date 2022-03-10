@@ -78,7 +78,12 @@ internal class Filter {
       }
     }
     
-    return convolved + bias
+    //save some calculations if bias is == 0
+    if bias != .zero {
+      return convolved + bias
+    }
+    
+    return convolved
   }
   
   internal func setDeltas(deltas: [[Float]]) {
