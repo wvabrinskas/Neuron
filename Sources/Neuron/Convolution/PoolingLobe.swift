@@ -44,7 +44,7 @@ public class PoolingLobe: ConvolutionalSupportedLobe {
   }
   
   public func calculateGradients(with deltas: [[[Float]]]) -> [[[Float]]] {
-    poolingGradients.removeAll()
+    poolingGradients.removeAll(keepingCapacity: true)
     
     for i in 0..<deltas.count {
       let delta = deltas[i].flatMap { $0 }
@@ -66,14 +66,14 @@ public class PoolingLobe: ConvolutionalSupportedLobe {
   }
   
   public func clear() {
-    self.forwardPooledMaxIndicies = []
-    self.poolingGradients = []
+    self.forwardPooledMaxIndicies.removeAll(keepingCapacity: true)
+    self.poolingGradients.removeAll(keepingCapacity: true)
     self.neurons.forEach { $0.forEach { $0.clear() } }
   }
   
   public func zeroGradients() {
-    self.forwardPooledMaxIndicies = []
-    self.poolingGradients = []
+    self.forwardPooledMaxIndicies.removeAll(keepingCapacity: true)
+    self.poolingGradients.removeAll(keepingCapacity: true)
     self.neurons.forEach { $0.forEach { $0.zeroGradients() } }
   }
   

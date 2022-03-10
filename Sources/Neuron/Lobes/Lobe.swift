@@ -191,7 +191,7 @@ public class Lobe {
     
     neurons.concurrentForEach { element, index in
       let neuron = element
-      let delta = deltas[index]
+      let delta = deltas[index] * neuron.activationDerivative 
       gradients[index] = neuron.calculateGradients(delta: delta)
     }
     

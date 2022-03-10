@@ -166,7 +166,7 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
       
       inputGradientsForFilterTotal[i] = inputGradientsForFilter
       
-      calculateFilterGradients(deltas: delta, index: i)
+      calculateFilterGradients(deltas: reshapedDeltas, index: i)
     }
     
     let shape = (inputSize.depth, inputSize.columns * inputSize.rows)
@@ -220,13 +220,13 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
   }
 
   public func zeroGradients() {
-    self.inputGradients = []
+    self.inputGradients.removeAll(keepingCapacity: true)
     self.filters.forEach { $0.zeroGradients() }
     self.neurons.forEach { $0.forEach { $0.zeroGradients() } }
   }
   
   public func clear() {
-    self.inputGradients = []
+    self.inputGradients.removeAll(keepingCapacity: true)
     self.filters.forEach { $0.clear() }
     self.neurons.forEach { $0.forEach { $0.clear() } }
   }
