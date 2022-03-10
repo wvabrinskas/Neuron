@@ -66,12 +66,14 @@ public class PoolingLobe: ConvolutionalSupportedLobe {
   }
   
   public func clear() {
-    self.poolingGradients.removeAll()
+    self.forwardPooledMaxIndicies = []
+    self.poolingGradients = []
     self.neurons.forEach { $0.forEach { $0.clear() } }
   }
   
   public func zeroGradients() {
-    self.poolingGradients.removeAll()
+    self.forwardPooledMaxIndicies = []
+    self.poolingGradients = []
     self.neurons.forEach { $0.forEach { $0.zeroGradients() } }
   }
   
@@ -87,17 +89,30 @@ public class PoolingLobe: ConvolutionalSupportedLobe {
     let rows = inputSize.rows
     let columns = inputSize.columns
         
-    for r in stride(from: 0, through: rows - 1, by: 2) {
+    for r in stride(from: 0, through: rows, by: 2) {
+      guard r < input.count else {
+        continue
+      }
       rowResults = []
       
-      for c in stride(from: 0, through: columns - 1, by: 2) {
+      for c in stride(from: 0, through: columns, by: 2) {
+        guard c < input[r].count else {
+          continue
+        }
         let current = input[r][c]
         let right = input[r + 1][c]
         let bottom = input[r][c + 1]
         let diag = input[r + 1][c + 1]
         
+        let indiciesToCheck = [(current, r,c),
+                               (right ,r + 1, c),
+                               (bottom, r, c + 1),
+                               (diag, r + 1, c + 1)]
+        
         let max = max(max(max(current, right), bottom), diag)
-        pooledIndicies.append((r: r, c: c))
+        if let firstIndicies = indiciesToCheck.first(where: { $0.0 == max }) {
+          pooledIndicies.append((r: firstIndicies.1, c: firstIndicies.2))
+        }
         rowResults.append(max)
       }
       
