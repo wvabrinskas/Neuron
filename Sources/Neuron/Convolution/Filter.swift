@@ -11,17 +11,22 @@ import NumSwift
 internal class Filter {
   internal var kernels: [[[Float]]] = []
   internal var gradients: [[[Float]]] = []
+  internal var deltas: [[Float]] = []
   
   private var optimizer: OptimizerFunction?
   private var learningRate: Float
   private var filterSize: TensorSize
+  private var bias: Float
   
   internal init(size: TensorSize,
                 inputSize: TensorSize,
                 optimizer: OptimizerFunction? = nil,
                 initializer: Initializer,
-                learningRate: Float) {
+                learningRate: Float,
+                bias: Float = 0) {
    
+    self.bias = bias
+    
     for _ in 0..<size.2 {
       var kernel: [[Float]] = []
       
@@ -29,8 +34,8 @@ internal class Filter {
         var filterRow: [Float] = []
         
         for _ in 0..<size.1 {
-          let weight = initializer.calculate(input: size.rows * size.columns * size.depth,
-                                             out: inputSize.rows * inputSize.columns * size.depth)
+          let weight = initializer.calculate(input: inputSize.depth * size.rows * size.columns,
+                                             out: inputSize.depth * size.rows * size.columns)
           filterRow.append(weight)
         }
         
@@ -73,7 +78,11 @@ internal class Filter {
       }
     }
     
-    return convolved
+    return convolved + bias
+  }
+  
+  internal func setDeltas(deltas: [[Float]]) {
+    self.deltas = deltas
   }
   
   internal func setGradients(gradients: [[[Float]]]) {
@@ -81,14 +90,19 @@ internal class Filter {
   }
   
   internal func zeroGradients() {
+    deltas = []
     gradients = []
   }
   
   internal func clear() {
+    deltas = []
     gradients = []
   }
   
   internal func adjustWeights(batchSize: Int) {
+    
+    let summedDeltas = deltas.flatMap { $0 }.sum
+    bias -= learningRate * summedDeltas
     
     for f in 0..<gradients.count {
       let currentFilter = kernels[f]

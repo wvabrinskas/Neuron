@@ -79,11 +79,13 @@ public class ConvBrain: Logger {
     lobes.append(lobe)
   }
   
-  public func addDenseNormal(_ count: Int, rate: Float = 0.1) {
+  public func addDenseNormal(_ count: Int,
+                             rate: Float = 0.1,
+                             momentum: Float = 0.99) {
     let bnModel = NormalizedLobeModel(nodes: count,
                                       activation: .reLu,
                                       bias: 0,
-                                      momentum: 0.99,
+                                      momentum: momentum,
                                       normalizerLearningRate: rate)
     fullyConnected.add(bnModel)
   }

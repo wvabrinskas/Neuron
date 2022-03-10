@@ -73,41 +73,41 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
   
   //MARK: I really dont think we need to test training this is more of a test when building new architecture into the framework
   /// Uncomment out if you want to run a test training with out integrating into an app
-//  func testTraining() {
-//    XCTAssertTrue(brain != nil, "Brain is empty")
-//
-//    guard let brain = brain else {
-//      return
-//    }
-//
-//    print("Training....")
-//    let expectation = XCTestExpectation()
-//
-//    brain.train(data: self.trainingData.randomize(),
-//                validation: self.validationData,
-//                complete:  { (complete) in
-//      expectation.fulfill()
-//    })
-//
-//    wait(for: [expectation], timeout: 40)
-//
-//    for i in 0..<ColorType.allCases.count {
-//      let color = ColorType.allCases[i]
-//
-//      let out = brain.feed(input: color.color())
-//      print("Guess \(color.string): \(out)")
-//
-//      XCTAssert(out.max() != nil, "No max value. Training failed")
-//
-//      let max = out.max
-//      if let first = out.firstIndex(of: max) {
-//        XCTAssert(max.isNaN == false, "Result was NaN")
-//        XCTAssertTrue(first == i, "Color \(color.string) could not be identified")
-//      } else {
-//        XCTFail("No color to be found...")
-//      }
-//    }
-//  }
+  func testTraining() {
+    XCTAssertTrue(brain != nil, "Brain is empty")
+
+    guard let brain = brain else {
+      return
+    }
+
+    print("Training....")
+    let expectation = XCTestExpectation()
+
+    brain.train(data: self.trainingData.randomize(),
+                validation: self.validationData,
+                complete:  { (complete) in
+      expectation.fulfill()
+    })
+
+    wait(for: [expectation], timeout: 40)
+
+    for i in 0..<ColorType.allCases.count {
+      let color = ColorType.allCases[i]
+
+      let out = brain.feed(input: color.color())
+      print("Guess \(color.string): \(out)")
+
+      XCTAssert(out.max() != nil, "No max value. Training failed")
+
+      let max = out.max
+      if let first = out.firstIndex(of: max) {
+        XCTAssert(max.isNaN == false, "Result was NaN")
+        XCTAssertTrue(first == i, "Color \(color.string) could not be identified")
+      } else {
+        XCTFail("No color to be found...")
+      }
+    }
+  }
 //
   //executes in alphabetical order
   func testXport() {

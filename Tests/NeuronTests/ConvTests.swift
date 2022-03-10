@@ -26,11 +26,11 @@ final class ConvTests: XCTestCase {
                           learningRate: 0.001,
                           inputSize: (28,28,1),
                           batchSize: 64,
-                          initializer: .xavierNormal)
+                          initializer: .heNormal)
     
-    brain.addConvolution(filterCount: 32)
+    brain.addConvolution(filterCount: 16)
     brain.addMaxPool()
-    brain.addDense(64)
+    brain.addDenseNormal(100, rate: 0.001)
     brain.addDense(10, activation: .none)
     brain.addSoftmax()
     

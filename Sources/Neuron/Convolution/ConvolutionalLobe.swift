@@ -85,7 +85,8 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
                           inputSize: inputSize,
                           optimizer: optimizer,
                           initializer: initializer,
-                          learningRate: learningRate)
+                          learningRate: learningRate,
+                          bias: bias)
       filters.append(filter)
     }
   }
@@ -99,7 +100,7 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
     filters.concurrentForEach { element, index in
       let filter = element
       let convolved = filter.apply(to: inputs,
-                                   inputSize: inputSize) + bias
+                                   inputSize: inputSize)
       
       //activate
       var activated: [Float] = []
@@ -168,7 +169,6 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
       calculateFilterGradients(deltas: delta, index: i)
     }
     
-    
     let shape = (inputSize.depth, inputSize.columns * inputSize.rows)
     let zeros = NumSwift.zerosLike(shape)
     
@@ -198,10 +198,10 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
         
     for i in 0..<forwardInputs.count {
       let currentFilterGradients = filterGradients[safe: i] ?? []
+      //we zero pad because the input image is zero padded when convolution is applied in the forward
       let forward2dInputs = forwardInputs[i].zeroPad()
-      let gradient = deltas
       
-      var result = NumSwift.conv2dValid(signal: forward2dInputs, filter: gradient)
+      var result = NumSwift.conv2dValid(signal: forward2dInputs, filter: deltas)
       
       if !currentFilterGradients.isEmpty {
         //add previous gradients
@@ -215,6 +215,7 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
       newGradients.append(result)
     }
     
+    filters[index].setDeltas(deltas: deltas)
     filters[index].setGradients(gradients: newGradients)
   }
 
