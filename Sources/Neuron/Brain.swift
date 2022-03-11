@@ -28,6 +28,13 @@ public class Brain: Logger {
   
   public var trainable: Bool = true
   
+  public var accuracy: Float {
+    guard totalGuesses > 0 else {
+      return 0
+    }
+    return Float(totalCorrectGuesses) / Float(totalGuesses) * 100.0
+  }
+  
   /// If the brain object has been compiled and linked properly
   private(set) var compiled: Bool = false
   
@@ -58,6 +65,8 @@ public class Brain: Logger {
   private var optimizerType: Optimizer?
   
   private var outputLayer: [Neuron] { self.lobes.last?.neurons ?? [] }
+  private var totalCorrectGuesses: Int = 0
+  private var totalGuesses: Int = 0
         
   internal var weightConstraints: ClosedRange<Float>? = nil
   
@@ -372,9 +381,7 @@ public class Brain: Logger {
                     validation: [TrainingData] = [],
                     epochCompleted: ((_ epoch: Int) -> ())? = nil,
                     complete: ((_ passedValidation: Bool) -> ())? = nil) {
-    
-    previousValidationErrors.removeAll()
-    
+        
     let trainingStartDate = Date()
     
     guard data.count > 0 else {
@@ -389,16 +396,18 @@ public class Brain: Logger {
       return
     }
     
-    let mixedData = data//.randomize()
+    let mixedData = data
     var setBatches: Bool = false
     var batches: [[TrainingData]] = []
+    
+    let valBatches = validation.batched(into: 10)
 
     for i in 0..<epochs {
       self.trainable = true
 
       let epochStartDate = Date()
       
-      self.log(type: .message, priority: .low, message: "epoch: \(i)")
+      self.log(type: .message, priority: .medium, message: "epoch: \(i)")
             
       switch self.descent {
       case .bgd:
@@ -430,7 +439,10 @@ public class Brain: Logger {
       if let lastLoss = self.loss.last {
         self.log(type: .message,
                  priority: .low,
-                 message: "loss: \(lastLoss)")
+                 message: "    loss: \(lastLoss)")
+        self.log(type: .message,
+                 priority: .low,
+                 message: "    accuracy: \(accuracy)")
       }
 
       self.log(type: .message,
@@ -438,43 +450,31 @@ public class Brain: Logger {
                message: "epoch completed time: \(Date().timeIntervalSince(epochStartDate))")
       
       //feed validation data through the network
-      if let validationData = validation.randomElement(), validation.count > 0 {
+      if let validationData = valBatches.randomElement(), validation.count > 0 {
         self.trainable = false
         
-        let output = self.feed(input: validationData.data)
-        let errorForValidation = self.loss(output,
-                                           correct: validationData.correct)
-                
+        let errorForValidation = self.validateOnBatch(batch: validationData)
+        
+        self.log(type: .message,
+                 priority: .low,
+                 message: "val loss: \(errorForValidation)")
+        
         //if validation error is greater than previous then we are complete with training
         //bail out to prevent overfitting
         let threshold: Float = self.lossThreshold
-        //only append if % 10 != 0
-        let checkBatchCount = 5
-        
-        if i % checkBatchCount == 0 {
+        if errorForValidation <= threshold {
           
-          self.log(type: .message, priority: .medium, message: "validating....")
+          self.log(type: .success, priority: .alwaysShow, message: "SUCCESS: training is complete...")
+          self.log(type: .message, priority: .alwaysShow, message: "Loss: \(self.loss.last ?? 0)")
           
-          if self.averageError() <= threshold {
-            
-            self.log(type: .success, priority: .alwaysShow, message: "SUCCESS: training is complete...")
-            self.log(type: .message, priority: .alwaysShow, message: "Loss: \(self.loss.last ?? 0)")
-            
-            self.log(type: .success,
-                     priority: .high,
-                     message: "training completed time: \(Date().timeIntervalSince(trainingStartDate))")
-            
-            
-            complete?(true)
-            return
-          }
+          self.log(type: .success,
+                   priority: .high,
+                   message: "training completed time: \(Date().timeIntervalSince(trainingStartDate))")
+          
+          
+          complete?(true)
+          return
         }
-        
-        if previousValidationErrors.count == checkBatchCount {
-          previousValidationErrors.removeFirst()
-        }
-        
-        previousValidationErrors.append(errorForValidation)
       }
       
       epochCompleted?(i)
@@ -490,6 +490,22 @@ public class Brain: Logger {
     complete?(false)
   }
   
+  private func validateOnBatch(batch: [TrainingData]) -> Float {
+    self.trainable = false
+    
+    var batchLoss: Float = 0
+
+    batch.forEach { vData in
+      //feed the data through the network
+      let output = self.feed(input: vData.data)
+      calculateAccuracy(output, label: vData.correct)
+
+      batchLoss += self.loss(output, correct: vData.correct) / Float(batch.count)
+    }
+    
+    return batchLoss
+  }
+  
   private func trainOnBatch(batch: [TrainingData]) -> Float {
     self.trainable = true
     self.zeroGradients()
@@ -499,6 +515,8 @@ public class Brain: Logger {
     batch.forEach { tData in
       //feed the data through the network
       let output = self.feed(input: tData.data)
+      
+      calculateAccuracy(output, label: tData.correct)
       
       batchLoss += self.loss(output, correct: tData.correct) / Float(batch.count)
       
@@ -514,6 +532,23 @@ public class Brain: Logger {
     self.optimizer?.step()
 
     return batchLoss
+  }
+  
+  private func calculateAccuracy(_ guess: [Float], label: [Float]) {
+    //only useful for classification problems
+    
+    let max = label.indexOfMax
+    let guessMax = guess.indexOfMax
+    if outputLayer.count > 1 {
+      if max.0 == guessMax.0 {
+        totalCorrectGuesses += 1
+      }
+    } else {
+      if max.1 - guessMax.1 < 0.5 {
+        totalCorrectGuesses += 1
+      }
+    }
+    totalGuesses += 1
   }
 
   /// Clears the whole network and resets all the weights to a random value

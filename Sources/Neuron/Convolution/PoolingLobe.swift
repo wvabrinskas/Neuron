@@ -28,7 +28,10 @@ public class PoolingLobe: ConvolutionalSupportedLobe {
   }
 
   public func feed(inputs: [[[Float]]], training: Bool) -> [[[Float]]] {
-    forwardPooledMaxIndicies.removeAll()
+    if training {
+      forwardPooledMaxIndicies.removeAll()
+      forwardInputs = inputs
+    }
 
     let inputShape = inputs.shape
     
@@ -38,7 +41,6 @@ public class PoolingLobe: ConvolutionalSupportedLobe {
       inputSize = (r, c, d)
     }
     
-    forwardInputs = inputs
     let results = inputs.map { pool(input: $0) }
     return results
   }

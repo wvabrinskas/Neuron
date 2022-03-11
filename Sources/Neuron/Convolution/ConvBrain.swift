@@ -13,6 +13,7 @@ public class ConvBrain: Logger {
   public var logLevel: LogLevel = .low
   public var loss: [Float] = []
   
+  private var bias: Float
   private var inputSize: TensorSize
   private lazy var fullyConnected: Brain = {
     let b = Brain(learningRate: learningRate,
@@ -36,6 +37,7 @@ public class ConvBrain: Logger {
   
   public init(epochs: Int,
               learningRate: Float,
+              bias: Float = 1.0,
               inputSize: TensorSize,
               batchSize: Int,
               optimizer: Optimizer? = nil,
@@ -46,10 +48,10 @@ public class ConvBrain: Logger {
     self.batchSize = batchSize
     self.optimizer = optimizer?.get(learningRate: learningRate)
     self.initializer = initializer.build()
+    self.bias = bias
   }
   
-  public func addConvolution(bias: Float = 0,
-                             filterSize: TensorSize = (3,3,3),
+  public func addConvolution(filterSize: TensorSize = (3,3,3),
                              filterCount: Int) {
     
     //if we have a previous layer calculuate the new depth else use the input size depth
@@ -95,7 +97,7 @@ public class ConvBrain: Logger {
   }
   
   public func feed(data: ConvTrainingData) -> [Float] {
-    return feedInternal(input: data)
+    return feedInternal(input: data, training: false)
   }
   
   public func train(data: DatasetData,
@@ -109,16 +111,30 @@ public class ConvBrain: Logger {
     
     self.log(type: .success, priority: .alwaysShow, message: "Training started.....")
     
-    let training = data.training
+    let training = Array(data.training[0...2000])
     let trainingData = training.batched(into: batchSize)
-    let _ = data.val //dont know yet
     
+    let val = Array(data.val[0...2000])
+    let validationData = val.batched(into: batchSize)
+
     for e in 0..<epochs {
       
+      var b = 0
       for batch in trainingData {
         let batchLoss = trainOn(batch: batch)
         loss.append(batchLoss)
+        b += 1
+        
+        if b % 5 == 0 {
+          if let val = validationData.randomElement() {
+            let valLoss = self.validateOn(batch: val)
+            self.log(type: .message, priority: .low, message: "validation loss: \(valLoss)")
+          }
+        }
+        
+        self.log(type: .message, priority: .low, message: "training loss: \(batchLoss)")
       }
+      
       
       self.log(type: .message, priority: .alwaysShow, message: "epoch: \(e)")
       epochCompleted?(e)
@@ -136,6 +152,20 @@ public class ConvBrain: Logger {
     self.compiled = true && fullyConnected.compiled
   }
   
+  private func validateOn(batch: [ConvTrainingData]) -> Float {
+    var lossOnBatch: Float = 0
+
+    for b in 0..<batch.count {
+      let trainable = batch[b]
+      let out = self.feedInternal(input: trainable, training: false)
+      let loss = self.fullyConnected.loss(out, correct: trainable.label)
+      
+      lossOnBatch += loss / Float(batch.count)
+    }
+    
+    return lossOnBatch
+  }
+  
   private func trainOn(batch: [ConvTrainingData]) -> Float {
     //zero gradients at the start of training on a batch
     zeroGradients()
@@ -147,7 +177,7 @@ public class ConvBrain: Logger {
     for b in 0..<batch.count {
       let trainable = batch[b]
       
-      let out = self.feedInternal(input: trainable)
+      let out = self.feedInternal(input: trainable, training: true)
       
       let loss = self.fullyConnected.loss(out, correct: trainable.label)
       
@@ -159,8 +189,6 @@ public class ConvBrain: Logger {
       lossOnBatch += loss / Float(batch.count)
     }
         
-    print(lossOnBatch)
-
     adjustWeights(batchSize: batch.count)
     
     optimizer?.step()
@@ -171,7 +199,11 @@ public class ConvBrain: Logger {
   internal func adjustWeights(batchSize: Int) {
     fullyConnected.adjustWeights(batchSize: batchSize)
     
-    lobes.forEach { $0.adjustWeights(batchSize: batchSize) }
+    lobes.concurrentForEach { element, index in
+      element.adjustWeights(batchSize: batchSize)
+    }
+    
+   // lobes.forEach { $0.adjustWeights(batchSize: batchSize) }
   }
   
   internal func backpropagate(deltas: [Float]) {
@@ -179,8 +211,7 @@ public class ConvBrain: Logger {
     let firstLayerDeltas = backpropBrain.firstLayerDeltas
     
     //backprop conv
-    var reversedLobes = lobes
-    reversedLobes.reverse()
+    let reversedLobes = lobes.reversed()
     
     var newDeltas = flatten.backpropagate(deltas: firstLayerDeltas)
     
@@ -189,17 +220,19 @@ public class ConvBrain: Logger {
     }
   }
   
-  internal func feedInternal(input: ConvTrainingData) -> [Float] {
+  internal func feedInternal(input: ConvTrainingData, training: Bool) -> [Float] {
+    fullyConnected.trainable = training
+
     var out = input.data
     
     //feed all the standard lobes
     lobes.forEach { lobe in
-      let newOut = lobe.feed(inputs: out, training: true)
+      let newOut = lobe.feed(inputs: out, training: training)
       out = newOut
     }
     
     //flatten outputs
-    let flat = flatten.feed(inputs: out)
+    let flat = flatten.feed(inputs: out, training: training)
     //feed to fully connected
     
     if flat.count != previousFlattenedCount {

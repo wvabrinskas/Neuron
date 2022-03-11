@@ -11,12 +11,14 @@ import NumSwift
 public class Flatten {
   private var inputSize: (Int, Int, Int) = (0,0,0)
   
-  public func feed(inputs: [[[Float]]]) -> [Float] {
-    let shape = inputs.shape
-    if let r = shape[safe: 1],
-        let c = shape[safe: 0],
-       let d = shape[safe: 2] {
-      inputSize = (r, c, d)
+  public func feed(inputs: [[[Float]]], training: Bool) -> [Float] {
+    if training {
+      let shape = inputs.shape
+      if let r = shape[safe: 1],
+          let c = shape[safe: 0],
+         let d = shape[safe: 2] {
+        inputSize = (r, c, d)
+      }
     }
     
     return inputs.flatMap { $0.flatMap { $0 } }

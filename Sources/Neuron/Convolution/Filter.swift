@@ -23,7 +23,7 @@ internal class Filter {
                 optimizer: OptimizerFunction? = nil,
                 initializer: Initializer,
                 learningRate: Float,
-                bias: Float = 0) {
+                bias: Float = 1.0) {
    
     self.bias = bias
     
@@ -106,7 +106,7 @@ internal class Filter {
   
   internal func adjustWeights(batchSize: Int) {
     
-    let summedDeltas = deltas.flatMap { $0 }.sum
+    let summedDeltas = deltas.flatMap { $0 }.sum 
     bias -= learningRate * summedDeltas
     
     for f in 0..<gradients.count {
@@ -116,14 +116,14 @@ internal class Filter {
       var newKernel: [[Float]] = []
       for row in 0..<filterGradient.count {
         let currentFilterRow = currentFilter[row]
-        let currentGradientRow = filterGradient[row]
+        let currentGradientRow = filterGradient[row] / Float(batchSize)
         
         var newFilterRow: [Float] = []
 
         if let optimizer = optimizer {
           
           for i in 0..<currentFilterRow.count {
-            let g = currentGradientRow[i] / Float(batchSize)
+            let g = currentGradientRow[i]
             let w = currentFilterRow[i]
             let newWeight = optimizer.run(weight: w, gradient: g)
             newFilterRow.append(newWeight)

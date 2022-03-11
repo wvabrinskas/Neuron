@@ -133,12 +133,14 @@ public class Lobe {
         return []
       }
       
-      for i in 0..<inputs.count {
-        let input = inputs[i]
-        let neuron = neurons[i]
-        neuron.replaceInputs(inputs: [input])
+      if training {
+        for i in 0..<inputs.count {
+          let input = inputs[i]
+          let neuron = neurons[i]
+          neuron.replaceInputs(inputs: [input])
+        }
       }
-      
+
       return inputs
     }
   
@@ -187,13 +189,19 @@ public class Lobe {
       return []
     }
     
-    var gradients: [[Float]] = Array(repeatElement([Float.zero], count: neurons.count))
+    var gradients: [[Float]] = []// Array(repeatElement([Float.zero], count: neurons.count))
     
-    neurons.concurrentForEach { element, index in
-      let neuron = element
-      let delta = deltas[index] * neuron.activationDerivative 
-      gradients[index] = neuron.calculateGradients(delta: delta)
+    for i in 0..<neurons.count {
+      let neuron = neurons[i]
+      let delta = deltas[i]
+      gradients.append(neuron.calculateGradients(delta: delta))
     }
+    
+//    neurons.concurrentForEach { element, index in
+//      let neuron = element
+//      let delta = deltas[index] * neuron.activationDerivative
+//      gradients[index] = neuron.calculateGradients(delta: delta)
+//    }
     
     return gradients
   }
@@ -241,7 +249,7 @@ public class Lobe {
   }
   
   public func gradients() -> [[Float]] {
-    return neurons.map { $0.gradients }
+    return neurons.map { $0.weightGradients }
   }
   
   /// Backpropagation deltas at this specific layer

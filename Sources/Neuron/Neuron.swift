@@ -20,7 +20,7 @@ public class Neuron {
   public var delta: Float? = nil
   public var bias: Float
   public var biasWeight: Float = 0.0
-  public var gradients: [Float] = []
+  public var weightGradients: [Float] = []
 
   internal var activationType: Activation
   internal var layer: LayerType = .output
@@ -61,7 +61,7 @@ public class Neuron {
     
     self.weights = weights
     self.inputValues = inputs
-    self.gradients = [Float].init(repeating: 0, count: self.weights.count)
+    self.weightGradients = [Float].init(repeating: 0, count: self.weights.count)
   }
   
   public func add(input: Float, weight: Float) {
@@ -93,15 +93,18 @@ public class Neuron {
   }
   
   public func calculateGradients(delta: Float) -> [Float] {
-    self.delta = delta
-    let newGradient = (self.inputValues * delta)
-    self.gradients = self.gradients + newGradient
+    self.delta = (self.delta ?? 0) + delta
+    
+    var newGradient = (self.inputValues * delta * activationDerivative)
+    newGradient.normalize(1.0)
+    self.weightGradients = self.weightGradients + newGradient
+    
     return newGradient
   }
   
   public func zeroGradients() {
     self.delta = nil
-    self.gradients = [Float].init(repeating: 0, count: self.weights.count)
+    self.weightGradients = [Float].init(repeating: 0, count: self.weights.count)
   }
   
   /// Applies the activation of a given sum.
@@ -134,7 +137,7 @@ public class Neuron {
   
   /// Adjusts the weights of all inputs
   public func adjustWeights(_ constrain: ClosedRange<Float>? = nil, batchSize: Int) {
-    let delta = self.delta ?? 0
+    let delta = self.delta ?? 0 / Float(batchSize)
     
     //update bias weight as well using optimizer
     if let optimizer = optimizer {
@@ -143,7 +146,7 @@ public class Neuron {
       biasWeight -= self.learningRate * delta
     }
     
-    let gradients = self.gradients
+    let gradients = self.weightGradients
     
     for i in 0..<gradients.count {
       let gradient = gradients[i] / Float(batchSize) //account for batch size since we append gradients as we back prop

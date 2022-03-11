@@ -5,14 +5,14 @@ import XCTest
 final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder {
 
   public lazy var brain: Brain? = {
-    let bias: Float = 0//0.00001
+    let bias: Float = 0.0001
     
-    let brain = Brain(learningRate: 0.001,
+    let brain = Brain(learningRate: 0.01,
                       epochs: 1000,
                       lossFunction: .crossEntropy,
                       lossThreshold: TestConstants.lossThreshold,
-                      initializer: .xavierNormal,
-                      descent: .mbgd(size: 32))
+                      initializer: .heNormal,
+                      descent: .mbgd(size: 16))
     
     brain.addInputs(TestConstants.inputs)
     
@@ -21,16 +21,15 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
 //                                           activation: .leakyRelu,
 //                                           bias: bias,
 //                                           momentum: 0.99,
-//                                           normalizerLearningRate: 0.1)
+//                                           normalizerLearningRate: 0.01)
 //      brain.add(normalLobe)
       brain.add(LobeModel(nodes: TestConstants.hidden, activation: .leakyRelu, bias: bias)) //hidden layer
     }
     
-    brain.add(LobeModel(nodes: TestConstants.outputs, activation: .none, bias: bias)) //output layer
+    brain.add(LobeModel(nodes: TestConstants.outputs, activation: .leakyRelu, bias: bias)) //output layer
     
     brain.add(modifier: .softmax) //when using softmax activation the output node should use a reLu or leakyRelu activation
     
-   // brain.add(optimizer: .adam())
     brain.logLevel = .low
     
     return brain
@@ -84,7 +83,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     let expectation = XCTestExpectation()
 
     brain.train(data: self.trainingData.randomize(),
-                validation: self.validationData,
+                validation: self.validationData.randomize(),
                 complete:  { (complete) in
       expectation.fulfill()
     })

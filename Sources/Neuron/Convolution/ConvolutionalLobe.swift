@@ -93,12 +93,14 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
   
   public func feed(inputs: [[[Float]]], training: Bool) -> [[[Float]]] {
     //store inputs to calculate gradients for backprop
-    forwardInputs = inputs
+    if training {
+      forwardInputs = inputs
+    }
     
-    var results: [[[Float]]] = [[[Float]]](repeating: [[0]], count: filters.count)
-        
-    filters.concurrentForEach { element, index in
-      let filter = element
+    var results: [[[Float]]] = []//[[[Float]]](repeating: [[0]], count: filters.count)
+    
+    var i = 0
+    filters.forEach { filter in
       let convolved = filter.apply(to: inputs,
                                    inputSize: inputSize)
       
@@ -107,14 +109,19 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
       
       for c in 0..<convolved.count {
         let input = convolved[c]
-        let neuron = neurons[index][c]
+        let neuron = neurons[i][c]
         
         activated.append(neuron.applyActivation(sum: input))
       }
       
       let reshapedActivated = activated.reshape(columns: inputSize.columns)
-      results[index] = reshapedActivated
+      results.append(reshapedActivated)
+      i += 1
     }
+        
+//    filters.concurrentForEach { element, index in
+//      results[index] = reshapedActivated
+//    }
 
     return results
   }
@@ -155,12 +162,16 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
         let filter = flippedTransposed[f]
         let kernel = filter[i]
         
-        let gradientsForKernelIndex = reshapedDeltas.conv2D(kernel,
+        var gradientsForKernelIndex = reshapedDeltas.conv2D(kernel,
                                                             filterSize: (filterSize.rows, filterSize.columns),
                                                             inputSize: (inputSize.rows, inputSize.columns))
         
+        //normalize gradients
+        gradientsForKernelIndex.normalize(1.0)
+        
         let currentGradientsForFilter = inputGradientsForFilter[f]
         let updatedGradientsForFilter = currentGradientsForFilter + gradientsForKernelIndex
+        
         inputGradientsForFilter[f] = updatedGradientsForFilter
       }
       
@@ -203,12 +214,15 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
       
       var result = NumSwift.conv2dValid(signal: forward2dInputs, filter: deltas)
       
-      if !currentFilterGradients.isEmpty {
-        //add previous gradients
-        for c in 0..<result.count {
-          if let cRow = currentFilterGradients[safe: c] {
-            result[c] = result[c] + cRow
-          }
+      //add previous gradients
+      for c in 0..<result.count {
+        var currentResult = result[c]
+        
+        //normalize gradients
+        currentResult.normalize(1.0)
+        
+        if let cRow = currentFilterGradients[safe: c] {
+          result[c] = currentResult + cRow
         }
       }
 
