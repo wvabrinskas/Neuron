@@ -23,13 +23,11 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
 //                                           momentum: 0.99,
 //                                           normalizerLearningRate: 0.01)
 //      brain.add(normalLobe)
-      brain.add(LobeModel(nodes: TestConstants.hidden, activation: .leakyRelu, bias: bias)) //hidden layer
+      brain.add(LobeModel(nodes: TestConstants.hidden, activation: .reLu, bias: bias)) //hidden layer
     }
     
-    brain.add(LobeModel(nodes: TestConstants.outputs, activation: .leakyRelu, bias: bias)) //output layer
-    
-    brain.add(modifier: .softmax) //when using softmax activation the output node should use a reLu or leakyRelu activation
-    
+    brain.add(LobeModel(nodes: TestConstants.outputs, activation: .softmax, bias: bias)) //output layer
+        
     brain.logLevel = .low
     
     return brain

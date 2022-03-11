@@ -166,7 +166,16 @@ public class Lobe {
                                              columns: Int32(columns),
                                              rows: Int32(rows))
     
-    var activatedResults: [Float] = [Float](repeating: 0, count: dotProducts.count)
+    var activatedResults: [Float] = []
+
+    if activation == .softmax {
+      for i in 0..<neurons.count {
+        activatedResults.append(OutputModifier.softmax.calculate(index: i, outputs: dotProducts))
+      }
+      return activatedResults
+    }
+    
+    activatedResults = [Float](repeating: 0, count: dotProducts.count)
     
     dotProducts.concurrentForEach { element, index in
       let product = element

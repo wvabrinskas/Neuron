@@ -22,9 +22,9 @@ public class Neuron {
   public var biasWeight: Float = 0.0
   public var weightGradients: [Float] = []
 
-  internal var activationType: Activation
+  internal var activationType: Activation = .none
   internal var layer: LayerType = .output
-  internal var activationDerivative: Float = 0
+  internal var activationDerivative: Float = 1
 
   private var learningRate: Float = 0.01
   private var optimizer: OptimizerFunction?

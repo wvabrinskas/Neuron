@@ -58,7 +58,6 @@ final class NeuronPretrainedClassificationTests: XCTestCase, BaseTestConfig {
                         lossThreshold: TestConstants.lossThreshold,
                         initializer: .xavierNormal)
       
-      brain?.add(modifier: .softmax)
       self.brain = brain
       self.model = brain?.model
       
@@ -115,8 +114,6 @@ final class NeuronPretrainedClassificationTests: XCTestCase, BaseTestConfig {
                          initializer: .xavierNormal,
                          descent: .sgd)
     
-    newBrain.add(modifier: .softmax)
-
     newBrain.compile()
     
     for i in 0..<ColorType.allCases.count {

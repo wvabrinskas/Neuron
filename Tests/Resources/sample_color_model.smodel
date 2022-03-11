@@ -121,7 +121,7 @@
       "normalize" : false,
       "type" : "output",
       "nodes" : 3,
-      "activation" : "none"
+      "activation" : "softmax"
     }
   ],
   "learningRate" : 0.10000000149011612

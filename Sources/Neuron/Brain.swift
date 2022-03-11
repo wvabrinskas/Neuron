@@ -44,10 +44,7 @@ public class Brain: Logger {
   /// The threshold to compare the validation error with to determine whether or not to stop training.
   /// Default: 0.001. A number between 0 and 0.1 is usually accepted
   private var lossThreshold: Float
-  
-  /// Output modifier for the output layer. ex. softmax
-  private var outputModifier: OutputModifier? = nil
-  
+
   /// The previous set of validation errors
   private var previousValidationErrors: [Float] = []
   
@@ -211,6 +208,8 @@ public class Brain: Logger {
   public func exportModelURL() -> URL? {
     return ExportManager.getModel(filename: "model", model: self.exportModel())
   }
+  
+  //TODO: Refactor to support easy layer adding like the ConvBrain
   /// Adds a layer to the neural network
   /// - Parameter model: The lobe model describing the layer to be added
   public func add(_ model: LobeDefinition) {
@@ -227,12 +226,6 @@ public class Brain: Logger {
     }
     
     self.lobes.append(lobe)
-  }
-  
-  /// Adds an output modifier to the output layer
-  /// - Parameter mod: The modifier to apply to the outputs
-  public func add(modifier mod: OutputModifier) {
-    self.outputModifier = mod
   }
   
   public func replaceOptimizer(_ optimizer: OptimizerFunction?) {
@@ -534,7 +527,7 @@ public class Brain: Logger {
     return batchLoss
   }
   
-  private func calculateAccuracy(_ guess: [Float], label: [Float]) {
+  internal func calculateAccuracy(_ guess: [Float], label: [Float]) {
     //only useful for classification problems
     
     let max = label.indexOfMax
@@ -571,8 +564,7 @@ public class Brain: Logger {
   /// - Returns: The result of the feed forward through the network as an array of Floats
   public func feed(input: [Float]) -> [Float] {
     let output = self.feedInternal(input: input)
-    let modified = self.applyModifier(outputs: output)
-    return modified
+    return output
   }
   
   /// Update the settings for each lobe and each neuron
@@ -610,24 +602,10 @@ public class Brain: Logger {
     
     return x
   }
-  
-  /// Applies the output modifier
-  /// - Parameter outputs: outputs to apply modifier to
-  /// - Returns: the modified output given by the set modifier
-  private func applyModifier(outputs: [Float]) -> [Float] {
-    
-    guard let mod = self.outputModifier else {
-      return outputs
-    }
-    
-    var modOut: [Float] = []
-    
-    for i in 0..<outputs.count {
-      let modVal = mod.calculate(index: i, outputs: outputs)
-      modOut.append(modVal)
-    }
-    
-    return modOut
+
+  internal func metrics(_ predicted: [Float], correct: [Float]) -> (accuracy: Float, loss: Float) {
+    calculateAccuracy(predicted, label: correct)
+    return (accuracy, lossFunction.calculate(predicted, correct: correct))
   }
 
   internal func loss(_ predicted: [Float], correct: [Float]) -> Float {

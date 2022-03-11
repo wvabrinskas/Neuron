@@ -22,6 +22,7 @@ public class ConvBrain: Logger {
 
     b.addInputs(0) //can be some arbitrary number will update later
     b.replaceOptimizer(optimizer)
+    b.logLevel = logLevel
     return b
   }()
   
@@ -91,11 +92,7 @@ public class ConvBrain: Logger {
                                       normalizerLearningRate: rate)
     fullyConnected.add(bnModel)
   }
-  
-  public func addSoftmax() {
-    fullyConnected.add(modifier: .softmax)
-  }
-  
+
   public func feed(data: ConvTrainingData) -> [Float] {
     return feedInternal(input: data, training: false)
   }
@@ -133,6 +130,8 @@ public class ConvBrain: Logger {
         }
         
         self.log(type: .message, priority: .low, message: "training loss: \(batchLoss)")
+        self.log(type: .message, priority: .low, message: "accuracy: \(fullyConnected.accuracy)")
+
       }
       
       
@@ -178,6 +177,8 @@ public class ConvBrain: Logger {
       let trainable = batch[b]
       
       let out = self.feedInternal(input: trainable, training: true)
+      
+      fullyConnected.calculateAccuracy(out, label: trainable.label)
       
       let loss = self.fullyConnected.loss(out, correct: trainable.label)
       
