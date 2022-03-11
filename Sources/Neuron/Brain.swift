@@ -10,8 +10,14 @@ import Foundation
 import Logger
 import GameplayKit
 import NumSwift
+import Combine
 
 public class Brain: Logger {
+  
+  public enum Metric: Hashable {
+    case loss, accuracy, valLoss
+  }
+  
   /// The verbosity of the printed logs
   public var logLevel: LogLevel = .none
   
@@ -20,7 +26,6 @@ public class Brain: Logger {
   
   public var learningRate: Float
   
-  /// The loss function data from training to be exported
   public var loss: [Float] = []
   
   /// Neuron matrix in the existing brain object
@@ -44,9 +49,6 @@ public class Brain: Logger {
   /// The threshold to compare the validation error with to determine whether or not to stop training.
   /// Default: 0.001. A number between 0 and 0.1 is usually accepted
   private var lossThreshold: Float
-
-  /// The previous set of validation errors
-  private var previousValidationErrors: [Float] = []
   
   /// The initializer to generate the layer weights
   private var initializer: InitializerType
@@ -64,6 +66,8 @@ public class Brain: Logger {
   private var outputLayer: [Neuron] { self.lobes.last?.neurons ?? [] }
   private var totalCorrectGuesses: Int = 0
   private var totalGuesses: Int = 0
+  public var metrics: [Metric: Float] = [:]
+  private var metricsToGather: Set<Metric> = []
         
   internal var weightConstraints: ClosedRange<Float>? = nil
   
@@ -83,7 +87,8 @@ public class Brain: Logger {
               lossThreshold: Float = 0.001,
               initializer: InitializerType = .xavierNormal,
               descent: GradientDescent = .sgd,
-              weightConstraints: ClosedRange<Float>? = nil) {
+              weightConstraints: ClosedRange<Float>? = nil,
+              metrics: Set<Metric> = []) {
     
     self.learningRate = learningRate
     self.lossFunction = lossFunction
@@ -93,6 +98,7 @@ public class Brain: Logger {
     self.descent = descent
     self.model = model
     self.weightConstraints = weightConstraints
+    self.metricsToGather = metrics
   }
   
   public init?(model: PretrainedModel,
@@ -401,20 +407,29 @@ public class Brain: Logger {
       let epochStartDate = Date()
       
       self.log(type: .message, priority: .medium, message: "epoch: \(i)")
-            
+      
+      var epochLoss: Float = 0
+      
       switch self.descent {
       case .bgd:
         let loss = self.trainOnBatch(batch: data)
-        self.loss.append(loss)
+        epochLoss = loss
+
       case .sgd:
-        guard let obj = mixedData.randomElement() else {
-          return
+        if setBatches == false {
+          setBatches = true
+          batches = mixedData.batched(into: 1)
         }
         
-        let loss = self.trainOnBatch(batch: [obj])
-        self.loss.append(loss)
-
-      case.mbgd(let size):
+        var lossOnBatches: Float = 0
+        
+        batches.forEach { (batch) in
+          lossOnBatches += self.trainOnBatch(batch: batch) / Float(batches.count)
+        }
+        
+        epochLoss = lossOnBatches
+        
+      case .mbgd(let size):
         if setBatches == false {
           setBatches = true
           batches = mixedData.batched(into: size)
@@ -423,20 +438,22 @@ public class Brain: Logger {
         var lossOnBatches: Float = 0
         
         batches.forEach { (batch) in
-          lossOnBatches += self.trainOnBatch(batch: batch)
+          lossOnBatches += self.trainOnBatch(batch: batch) / Float(batches.count)
         }
         
-        self.loss.append(lossOnBatches / Float(batches.count))
+        epochLoss = lossOnBatches
       }
       
-      if let lastLoss = self.loss.last {
-        self.log(type: .message,
-                 priority: .low,
-                 message: "    loss: \(lastLoss)")
-        self.log(type: .message,
-                 priority: .low,
-                 message: "    accuracy: \(accuracy)")
-      }
+      loss.append(epochLoss)
+      addMetric(value: epochLoss, key: .loss)
+      
+      self.log(type: .message,
+               priority: .low,
+               message: "    loss: \(metrics[.loss] ?? 0)")
+      self.log(type: .message,
+               priority: .low,
+               message: "    accuracy: \(accuracy)")
+    
 
       self.log(type: .message,
                priority: .high,
@@ -448,6 +465,8 @@ public class Brain: Logger {
         
         let errorForValidation = self.validateOnBatch(batch: validationData)
         
+        addMetric(value: errorForValidation, key: .valLoss)
+        
         self.log(type: .message,
                  priority: .low,
                  message: "val loss: \(errorForValidation)")
@@ -458,7 +477,7 @@ public class Brain: Logger {
         if errorForValidation <= threshold {
           
           self.log(type: .success, priority: .alwaysShow, message: "SUCCESS: training is complete...")
-          self.log(type: .message, priority: .alwaysShow, message: "Loss: \(self.loss.last ?? 0)")
+          self.log(type: .message, priority: .alwaysShow, message: "Loss: \(self.metrics[.loss] ?? 0)")
           
           self.log(type: .success,
                    priority: .high,
@@ -477,7 +496,7 @@ public class Brain: Logger {
              priority: .low,
              message: "training completed time: \(Date().timeIntervalSince(trainingStartDate))")
     
-    self.log(type: .message, priority: .low, message: "Loss: \(self.loss.last ?? 0)")
+    self.log(type: .message, priority: .low, message: "Loss: \(self.metrics[.loss] ?? 0)")
     
     //false because the training wasnt completed with validation
     complete?(false)
@@ -491,8 +510,9 @@ public class Brain: Logger {
     batch.forEach { vData in
       //feed the data through the network
       let output = self.feed(input: vData.data)
+      
       calculateAccuracy(output, label: vData.correct)
-
+      
       batchLoss += self.loss(output, correct: vData.correct) / Float(batch.count)
     }
     
@@ -510,7 +530,7 @@ public class Brain: Logger {
       let output = self.feed(input: tData.data)
       
       calculateAccuracy(output, label: tData.correct)
-      
+          
       batchLoss += self.loss(output, correct: tData.correct) / Float(batch.count)
       
       //set the output errors for set
@@ -529,7 +549,7 @@ public class Brain: Logger {
   
   internal func calculateAccuracy(_ guess: [Float], label: [Float]) {
     //only useful for classification problems
-    
+
     let max = label.indexOfMax
     let guessMax = guess.indexOfMax
     if outputLayer.count > 1 {
@@ -542,12 +562,13 @@ public class Brain: Logger {
       }
     }
     totalGuesses += 1
+    
+    addMetric(value: accuracy, key: .accuracy)
   }
 
   /// Clears the whole network and resets all the weights to a random value
   public func clear() {
-    self.previousValidationErrors = []
-    self.loss.removeAll()
+    metrics.removeAll()
     //clears the whole matrix
     self.lobes.forEach { (lobe) in
       lobe.clear()
@@ -580,12 +601,7 @@ public class Brain: Logger {
   /// - Returns: The url of the exported file if successful.
   public func exportLoss(_ filename: String? = nil) -> URL? {
     let name = filename ?? "loss-\(Int(Date().timeIntervalSince1970))"
-    return ExportManager.getCSV(filename: name, self.loss)
-  }
-  
-  
-  internal func averageError() -> Float {
-    previousValidationErrors.sum / Float(previousValidationErrors.count)
+    return ExportManager.getCSV(filename: name, loss)
   }
   
   /// Feeds the network internally preparing for output or training
@@ -603,9 +619,10 @@ public class Brain: Logger {
     return x
   }
 
-  internal func metrics(_ predicted: [Float], correct: [Float]) -> (accuracy: Float, loss: Float) {
-    calculateAccuracy(predicted, label: correct)
-    return (accuracy, lossFunction.calculate(predicted, correct: correct))
+  private func addMetric(value: Float, key: Metric) {
+    if metricsToGather.contains(key) {
+      metrics[key] = value
+    }
   }
 
   internal func loss(_ predicted: [Float], correct: [Float]) -> Float {

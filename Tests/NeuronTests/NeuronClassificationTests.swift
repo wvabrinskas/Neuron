@@ -1,6 +1,6 @@
 import XCTest
 @testable import Neuron
-
+import Combine
 
 final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder {
 
@@ -11,18 +11,19 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
                       epochs: 1000,
                       lossFunction: .crossEntropy,
                       lossThreshold: TestConstants.lossThreshold,
-                      initializer: .heNormal,
-                      descent: .mbgd(size: 16))
+                      initializer: .xavierNormal,
+                      descent: .mbgd(size: 16),
+                      metrics: [.accuracy, .loss, .valLoss])
     
     brain.addInputs(TestConstants.inputs)
     
     for _ in 0..<TestConstants.numOfHiddenLayers {
-//      let normalLobe = NormalizedLobeModel(nodes: TestConstants.hidden,
-//                                           activation: .leakyRelu,
-//                                           bias: bias,
-//                                           momentum: 0.99,
-//                                           normalizerLearningRate: 0.01)
-//      brain.add(normalLobe)
+      //      let normalLobe = NormalizedLobeModel(nodes: TestConstants.hidden,
+      //                                           activation: .leakyRelu,
+      //                                           bias: bias,
+      //                                           momentum: 0.99,
+      //                                           normalizerLearningRate: 0.01)
+      //      brain.add(normalLobe)
       brain.add(LobeModel(nodes: TestConstants.hidden, activation: .reLu, bias: bias)) //hidden layer
     }
     
@@ -85,7 +86,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
                 complete:  { (complete) in
       expectation.fulfill()
     })
-
+    
     wait(for: [expectation], timeout: 40)
 
     for i in 0..<ColorType.allCases.count {

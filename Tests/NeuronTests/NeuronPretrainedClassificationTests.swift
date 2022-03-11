@@ -75,22 +75,6 @@ final class NeuronPretrainedClassificationTests: XCTestCase, BaseTestConfig {
       return
     }
     
-    print("Training for import tests....")
-    
-    brain.train(data: self.trainingData, validation: self.validationData, complete:  { (complete) in
-      guard brain.loss.count > 5 else {
-        return
-      }
-      
-      let lastFive = brain.loss[brain.loss.count - 5..<brain.loss.count]
-      var sum: Float = 0
-      lastFive.forEach { (last) in
-        sum += last
-      }
-      let average = sum / 5
-      XCTAssertTrue(average <= TestConstants.testingLossThreshold, "Network did not learn, average loss was \(average)")
-    })
-    
     for i in 0..<ColorType.allCases.count {
       let color = ColorType.allCases[i]
       
