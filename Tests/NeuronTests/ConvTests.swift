@@ -44,10 +44,10 @@ final class ConvTests: XCTestCase {
     return brain
   }()
 
-  func testConvLobe() async {
-    let dataset = await mnist.build()
-    convBrain.train(data: dataset)
-  }
+//  func testConvLobe() async {
+//    let dataset = await mnist.build()
+//    convBrain.train(data: dataset)
+//  }
 
   func print3d(array: [[[Any]]]) {
     var i = 0

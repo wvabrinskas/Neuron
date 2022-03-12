@@ -1,25 +1,6 @@
 import XCTest
 @testable import Neuron
 
-extension Array where Element: Comparable {
-  func compare(_ compare: [Element]) -> Bool {
-    guard self.count == compare.count else {
-      return false
-    }
-    
-    var returnValue = false
-    
-    for i in 0..<self.count {
-      let selfVal = self[i]
-      let compVal = compare[i]
-      returnValue = selfVal == compVal
-    }
-    
-    return returnValue
-  }
-}
-
-
 final class NeuronPretrainedClassificationTests: XCTestCase, BaseTestConfig {
 
   static var allTests = [
@@ -134,7 +115,7 @@ final class NeuronPretrainedClassificationTests: XCTestCase, BaseTestConfig {
         let weight = weightsAtLayer[i]
         let weightP = weightsAtPretrained[i]
         
-        XCTAssertTrue(weight.compare(weightP), "Layer weights don't match")
+        XCTAssertTrue(weight == weightP, "Layer weights don't match")
       }
     }
 

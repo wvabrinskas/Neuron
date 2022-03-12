@@ -204,8 +204,6 @@ public class ConvBrain: Logger {
     lobes.concurrentForEach { element, index in
       element.adjustWeights(batchSize: batchSize)
     }
-    
-   // lobes.forEach { $0.adjustWeights(batchSize: batchSize) }
   }
   
   internal func backpropagate(deltas: [Float]) {

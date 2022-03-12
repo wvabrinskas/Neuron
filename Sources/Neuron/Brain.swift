@@ -21,18 +21,18 @@ public class Brain: Logger {
   /// The verbosity of the printed logs
   public var logLevel: LogLevel = .none
   
-  /// Number of times to run the training data set
   public var epochs: Int
   
   public var learningRate: Float
   
   public var loss: [Float] = []
   
-  /// Neuron matrix in the existing brain object
   public var lobes: [Lobe] = []
   
   public var trainable: Bool = true
   
+  public var metrics: [Metric: Float] = [:]
+
   public var accuracy: Float {
     guard totalGuesses > 0 else {
       return 0
@@ -66,7 +66,6 @@ public class Brain: Logger {
   private var outputLayer: [Neuron] { self.lobes.last?.neurons ?? [] }
   private var totalCorrectGuesses: Int = 0
   private var totalGuesses: Int = 0
-  public var metrics: [Metric: Float] = [:]
   private var metricsToGather: Set<Metric> = []
         
   internal var weightConstraints: ClosedRange<Float>? = nil

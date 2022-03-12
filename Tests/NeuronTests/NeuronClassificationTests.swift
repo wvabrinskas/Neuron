@@ -18,18 +18,12 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     brain.addInputs(TestConstants.inputs)
     
     for _ in 0..<TestConstants.numOfHiddenLayers {
-      //      let normalLobe = NormalizedLobeModel(nodes: TestConstants.hidden,
-      //                                           activation: .leakyRelu,
-      //                                           bias: bias,
-      //                                           momentum: 0.99,
-      //                                           normalizerLearningRate: 0.01)
-      //      brain.add(normalLobe)
       brain.add(LobeModel(nodes: TestConstants.hidden, activation: .reLu, bias: bias)) //hidden layer
     }
     
     brain.add(LobeModel(nodes: TestConstants.outputs, activation: .softmax, bias: bias)) //output layer
         
-    brain.logLevel = .low
+    brain.logLevel = .none
     
     return brain
   }()
@@ -105,6 +99,8 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
         XCTFail("No color to be found...")
       }
     }
+    
+    print(brain.exportModelURL())
   }
 //
   //executes in alphabetical order

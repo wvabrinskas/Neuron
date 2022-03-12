@@ -97,7 +97,7 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
       forwardInputs = inputs
     }
     
-    var results: [[[Float]]] = []//[[[Float]]](repeating: [[0]], count: filters.count)
+    var results: [[[Float]]] = []
     var i = 0
     filters.forEach { filter in
       let convolved = filter.apply(to: inputs,
@@ -117,26 +117,7 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
       results.append(reshapedActivated)
       i += 1
     }
-//
-//    filters.concurrentForEach { element, index in
-//      let filter = element
-//      let i = index
-//      let convolved = filter.apply(to: inputs,
-//                                   inputSize: inputSize)
-//
-//      //activate
-//      var activated: [Float] = []
-//
-//      for c in 0..<convolved.count {
-//        let input = convolved[c]
-//        let neuron = neurons[i][c]
-//
-//        activated.append(neuron.applyActivation(sum: input))
-//      }
-//
-//      let reshapedActivated = activated.reshape(columns: inputSize.columns)
-//      results[index] = reshapedActivated
-//    }
+    
     return results
   }
 
