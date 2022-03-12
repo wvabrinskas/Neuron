@@ -23,18 +23,18 @@ final class ConvTests: XCTestCase {
   
   private lazy var convBrain: ConvBrain = {
     let brain = ConvBrain(epochs: 30,
-                          learningRate: 0.01,
+                          learningRate: 0.001,
                           bias: 1.0,
                           inputSize: (28,28,1),
-                          batchSize: 64,
+                          batchSize: 8,
                           initializer: .heNormal)
     
-    brain.addConvolution(filterCount: 6)
-    brain.addMaxPool()
     brain.addConvolution(filterCount: 16)
     brain.addMaxPool()
-    brain.addDense(128)
-    brain.addDense(64)
+    brain.addConvolution(filterCount: 32)
+    brain.addMaxPool()
+    brain.addDense(64, activation: .reLu)
+    brain.addDense(20, activation: .reLu)
     brain.addDense(10, activation: .softmax)
     
     brain.compile()
@@ -45,14 +45,8 @@ final class ConvTests: XCTestCase {
   }()
 
   func testConvLobe() async {
-    
     let dataset = await mnist.build()
-    
-    convBrain.train(data: dataset) { epoch in
-      print(self.convBrain.loss.last)
-    } completed: { loss in
-      //print(loss)
-    }
+    convBrain.train(data: dataset)
   }
 
   func print3d(array: [[[Any]]]) {

@@ -82,12 +82,18 @@ public class ConvBrain: Logger {
     lobes.append(lobe)
   }
   
+  public func addDense(_ count: Int, activation: Activation = .reLu) {
+    fullyConnected.add(LobeModel(nodes: count,
+                                 activation: activation,
+                                 bias: bias))
+  }
+  
   public func addDenseNormal(_ count: Int,
                              rate: Float = 0.1,
                              momentum: Float = 0.99) {
     let bnModel = NormalizedLobeModel(nodes: count,
                                       activation: .reLu,
-                                      bias: 0,
+                                      bias: bias,
                                       momentum: momentum,
                                       normalizerLearningRate: rate)
     fullyConnected.add(bnModel)
@@ -133,17 +139,12 @@ public class ConvBrain: Logger {
         self.log(type: .message, priority: .low, message: "accuracy: \(fullyConnected.accuracy)")
 
       }
-      
-      
+    
       self.log(type: .message, priority: .alwaysShow, message: "epoch: \(e)")
       epochCompleted?(e)
     }
     
     completed?(loss)
-  }
-  
-  public func addDense(_ count: Int, activation: Activation = .reLu) {
-    fullyConnected.add(LobeModel(nodes: count, activation: activation))
   }
   
   public func compile() {
