@@ -11,6 +11,7 @@ import GameKit
 @testable import Neuron
 import Combine
 import Accelerate
+import NumSwift
 
 final class ConvTests: XCTestCase {
   var cancellables: Set<AnyCancellable> = []
@@ -48,6 +49,65 @@ final class ConvTests: XCTestCase {
 //    let dataset = await mnist.build()
 //    convBrain.train(data: dataset)
 //  }
+  
+  func testPooling() {
+    let inputTensor = (10,10,3)
+    let outputShape = [5,5,3]
+    
+    let inputData = NumSwift.zerosLike(inputTensor)
+    let lobe = PoolingLobe(model: .init(inputSize: inputTensor))
+    
+    let output = lobe.feed(inputs: inputData, training: true)
+    let testOutputTensor = output.shape
+    
+    XCTAssertEqual(testOutputTensor, outputShape, "Pooling lobe output shape is broken")
+    
+    let backwardOutput = lobe.calculateGradients(with: output)
+    XCTAssertEqual(backwardOutput.shape, [inputTensor.0, inputTensor.1, inputTensor.2], "Pooling lobe backward shape is broken")
+  }
+  
+  func testConvolution() {
+    let inputTensor = (10,10,3)
+    
+    let filterCount = 6
+    let outputShape = [10,10,filterCount]
+    
+    let input: [[[Float]]] = NumSwift.zerosLike(inputTensor)
+    
+    let lobe = ConvolutionalLobe(model: .init(inputSize: inputTensor,
+                                              activation: .reLu,
+                                              bias: 0,
+                                              filterSize: (3,3,3),
+                                              filterCount: filterCount),
+                                 learningRate: 0.001,
+                                 initializer: .init(type: .heNormal))
+    
+    let output = lobe.feed(inputs: input, training: true)
+    XCTAssertEqual(output.shape, outputShape, "Convolution lobe output shape is broken")
+    
+    let backwardOutput = lobe.calculateGradients(with: output)
+    XCTAssertEqual(backwardOutput.shape, [inputTensor.0, inputTensor.1, inputTensor.2], "Convolution lobe backward shape is broken")
+  }
+  
+  func testFlatten() {
+    let inputTensor = (10,10,3)
+    let input: [[[Float]]] = NumSwift.zerosLike(inputTensor)
+    
+    let expected = inputTensor.0 * inputTensor.1 * inputTensor.2
+    
+    let lobe = Flatten()
+    let output = lobe.feed(inputs: input, training: true)
+    
+    XCTAssertEqual(output.count, expected, "Flatten is broken")
+    
+    let backwardOutput = lobe.backpropagate(deltas: output)
+    XCTAssertEqual(backwardOutput.shape, [inputTensor.0, inputTensor.1, inputTensor.2], "Convolution lobe backward shape is broken")
+  }
+  
+  func testFullyConnectedExists() {
+    let brain = convBrain
+    XCTAssertTrue(brain.fullyConnected.compiled)
+  }
 
   func print3d(array: [[[Any]]]) {
     var i = 0

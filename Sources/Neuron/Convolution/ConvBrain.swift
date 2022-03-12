@@ -15,7 +15,7 @@ public class ConvBrain: Logger {
   
   private var bias: Float
   private var inputSize: TensorSize
-  private lazy var fullyConnected: Brain = {
+  private(set) lazy var fullyConnected: Brain = {
     let b = Brain(learningRate: learningRate,
                   lossFunction: .crossEntropy,
                   initializer: initializer.type)
