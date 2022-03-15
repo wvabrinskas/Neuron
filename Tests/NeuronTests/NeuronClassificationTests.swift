@@ -26,7 +26,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     
     brain.add(LobeModel(nodes: TestConstants.outputs, activation: .softmax, bias: bias)) //output layer
         
-    brain.logLevel = .none
+    brain.logLevel = .low
     
     return brain
   }()
@@ -80,7 +80,8 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
 
     brain.train(data: self.trainingData.randomize(),
                 validation: self.validationData.randomize(),
-                complete:  { (complete) in
+                complete:  { (metrics) in
+      print(metrics.map { "\($0.key.rawValue): \($0.value)"})
       expectation.fulfill()
     })
     

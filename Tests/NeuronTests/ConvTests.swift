@@ -34,8 +34,8 @@ final class ConvTests: XCTestCase {
     brain.addMaxPool()
     brain.addConvolution(filterCount: 32)
     brain.addMaxPool()
-    brain.addDense(64, activation: .reLu)
-    brain.addDense(20, activation: .reLu)
+    brain.addDenseNormal(128, rate: 0.001, momentum: 0.9)
+    brain.addDenseNormal(64, rate: 0.001, momentum: 0.9)
     brain.addDense(10, activation: .softmax)
     
     brain.compile()

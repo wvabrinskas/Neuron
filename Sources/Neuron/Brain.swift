@@ -14,8 +14,10 @@ import Combine
 
 public class Brain: Logger {
   
-  public enum Metric: Hashable {
-    case loss, accuracy, valLoss
+  public enum Metric: String {
+    case loss = "Training Loss"
+    case accuracy = "Accuracy"
+    case valLoss = "Validation Loss"
   }
   
   /// The verbosity of the printed logs
@@ -378,18 +380,18 @@ public class Brain: Logger {
   public func train(data: [TrainingData],
                     validation: [TrainingData] = [],
                     epochCompleted: ((_ epoch: Int) -> ())? = nil,
-                    complete: ((_ passedValidation: Bool) -> ())? = nil) {
+                    complete: ((_ metrics: [Metric: Float]) -> ())? = nil) {
         
     let trainingStartDate = Date()
     
     guard data.count > 0 else {
       print("data must contain some data")
-      complete?(false)
+      complete?(metrics)
       return
     }
     
     guard compiled == true else {
-      complete?(false)
+      complete?(metrics)
       print("please run compile() on the Brain object before training")
       return
     }
@@ -476,14 +478,14 @@ public class Brain: Logger {
         if errorForValidation <= threshold {
           
           self.log(type: .success, priority: .alwaysShow, message: "SUCCESS: training is complete...")
-          self.log(type: .message, priority: .alwaysShow, message: "Loss: \(self.metrics[.loss] ?? 0)")
+          self.log(type: .message, priority: .alwaysShow, message: "Metrics: \(self.metrics)")
           
           self.log(type: .success,
                    priority: .high,
                    message: "training completed time: \(Date().timeIntervalSince(trainingStartDate))")
           
           
-          complete?(true)
+          complete?(metrics)
           return
         }
       }
@@ -498,7 +500,7 @@ public class Brain: Logger {
     self.log(type: .message, priority: .low, message: "Loss: \(self.metrics[.loss] ?? 0)")
     
     //false because the training wasnt completed with validation
-    complete?(false)
+    complete?(metrics)
   }
   
   private func validateOnBatch(batch: [TrainingData]) -> Float {
