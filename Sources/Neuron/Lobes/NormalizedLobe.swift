@@ -64,15 +64,17 @@ public class NormalizedLobe: Lobe {
   }
 
   public override func feed(inputs: [Float], training: Bool) -> [Float] {
-    let activatedResults = super.feed(inputs: inputs, training: training)
-    let normalizedResults = self.normalizer.normalize(activations: activatedResults, training: training)
-    return normalizedResults
+    let normalizedResults = self.normalizer.normalize(activations: inputs, training: training)
+    let activatedResults = super.feed(inputs: normalizedResults, training: training)
+    return activatedResults
   }
   
   public override func calculateDeltasForPreviousLayer(incomingDeltas: [Float], previousLayerCount: Int) -> [Float] {
-    let normalizedBackpropInputs = normalizer.backward(gradient: incomingDeltas)
-    let backpropResults = super.calculateDeltasForPreviousLayer(incomingDeltas: normalizedBackpropInputs,
+    let backpropResults = super.calculateDeltasForPreviousLayer(incomingDeltas: incomingDeltas,
                                                                 previousLayerCount: previousLayerCount)
-    return backpropResults
+    
+    let normalizedBackpropInputs = normalizer.backward(gradient: backpropResults)
+
+    return normalizedBackpropInputs
   }
 }
