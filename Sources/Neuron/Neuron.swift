@@ -96,7 +96,7 @@ public class Neuron {
     self.delta = (self.delta ?? 0) + delta
     
     var newGradient = (self.inputValues * delta * activationDerivative)
-    newGradient.normalize(1.0)
+    newGradient.l2Normalize(limit: 1.0)
     self.weightGradients = self.weightGradients + newGradient
     
     return newGradient

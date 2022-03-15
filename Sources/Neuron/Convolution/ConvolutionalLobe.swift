@@ -162,7 +162,7 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
                                                             inputSize: (inputSize.rows, inputSize.columns))
         
         //normalize gradients
-        gradientsForKernelIndex.normalize(1.0)
+        gradientsForKernelIndex.l2Normalize(limit: 1.0)
         
         let currentGradientsForFilter = inputGradientsForFilter[f]
         let updatedGradientsForFilter = currentGradientsForFilter + gradientsForKernelIndex
@@ -214,7 +214,7 @@ public class ConvolutionalLobe: ConvolutionalSupportedLobe {
         var currentResult = result[c]
         
         //normalize gradients
-        currentResult.normalize(1.0)
+        currentResult.l2Normalize(limit: 1.0)
         
         if let cRow = currentFilterGradients[safe: c] {
           result[c] = currentResult + cRow

@@ -51,7 +51,7 @@ public class BatchNormalizer {
       
     standardDeviation = std
   
-    let normalized = (activations - mean) * ivar
+    let normalized = diffVar * ivar
     
     normalizedActivations = normalized
     

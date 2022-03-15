@@ -29,6 +29,8 @@
 1. [Data Studying](#Data-Studying)
 1. [Experimental Features](#Experimental)
     1. [GAN and WGAN](#GAN-and-WGAN-support)
+    1. [Convolution / Image Recognition](#Convolution-/-Image-Recognition)
+1. [Datasets](#Datasets)
 1. [TODOs](#TODOs)
 1. [Resources](#Resources)
 
@@ -49,28 +51,24 @@ It is fairly simple to setup the neural network `Brain`. This will be the only o
 ### Initialization
 ```  
   private lazy var brain: Brain = {
-    let bias: Float = 0.00001
+    let bias: Float = 0.0001
     
     let brain = Brain(learningRate: 0.01,
-                      epochs: 200,
+                      epochs: 1000,
                       lossFunction: .crossEntropy,
                       lossThreshold: TestConstants.lossThreshold,
                       initializer: .xavierNormal,
-                      descent: .mbgd(size: 16))
+                      descent: .mbgd(size: 16),
+                      metrics: [.accuracy, .loss, .valLoss])
     
-    brain.add(.init(nodes: TestConstants.inputs, normalize: false))
+    brain.addInputs(TestConstants.inputs)
     
     for _ in 0..<TestConstants.numOfHiddenLayers {
-      
-      brain.add(.init(nodes: TestConstants.hidden,
-                      activation: .leakyRelu,
-                      bias: bias)) //hidden layer
+      brain.add(LobeModel(nodes: TestConstants.hidden, activation: .reLu, bias: bias)) //hidden layer
     }
     
-    brain.add(.init(nodes: TestConstants.outputs, activation: .none, bias: bias, normalize: false)
-    brain.add(modifier: .softmax)
-    
-    brain.add(optimizer: .adam())
+    brain.add(LobeModel(nodes: TestConstants.outputs, activation: .softmax, bias: bias)) //output layer
+        
     brain.logLevel = .none
     
     return brain
@@ -150,34 +148,26 @@ public enum Optimizer {
 ```
 public enum GradientDescent: Equatable {
   case sgd
+  case bgd
   case mbgd(size: Int)
 }
 ```
-- The network supports both Stochastic and Mini-Batch gradient descent. 
+- The network supports Stochastic, Batch, and Mini-Batch gradient descent. 
 - When adding `mbgd` you can specify the batch size.
 
 ## Adding Layers 
 The brain object allows for adding layers in a module way through the `add` function. 
 ```
-  public func add(_ model: LobeModel)
+  public func add(_ model: LobeDefinition)
 ```
-The `LobeModel` struct can be created with a simple initializer. 
+The `LobeDefinition` struct can be created with a simple initializer.
 ```
-  public init(nodes: Int,
-              activation: Activation = .none,
-              bias: Float = 0,
-              normalize: Bool = false,
-              bnMomentum: Float? = nil,
-              bnLearningRate: Float? = nil) {
-    self.nodes = nodes
-    self.activation = activation
-    self.bias = bias
-    self.normalize = normalize
-    self.bnMomentum = bnMomentum
-    self.bnLearningRate = bnLearningRate
-  }
-  ```
-
+public protocol LobeDefinition {
+  var nodes: Int { get set }
+  var activation: Activation { get set }
+  var bias: Float { get set }
+}
+```
 nodes
 - the number of nodes at the layer 
 
@@ -189,31 +179,51 @@ bias
 - the bias to be added at that layer
 - **NOTE: If the layer is of type `.input` the bias will be ignored**
 
-normalize 
-- batch normalizes the inputs to this layer
-- `bnMomentum` and `bnLearningRate` are required if this is set to `true` 
-
-bnMomentum
-- Momentum applied to the batch normalizer 
-
-bnLearningRate
-- Learning rate for the batch normalizer 
-
-
-### Modifiers 
-The network also supports adding an output activation modifier such as softmax 
-
+`LobeModel` A normal fully connected layer model
 ```
-  public func add(modifier mod: OutputModifier) {
-    self.outputModifier = mod
+// The model that defines how to construct a Lobe object
+public struct LobeModel: LobeDefinition {
+  public var nodes: Int
+  public var activation: Activation = .none
+  public var bias: Float = 0
+
+  public init(nodes: Int,
+              activation: Activation = .none,
+              bias: Float = 0) {
+    self.nodes = nodes
+    self.activation = activation
+    self.bias = bias
   }
+}
 ```
+`NormalizedLobeModel` a model that creates a lobe that incorporates batch normalization into the layer. 
+```
+public struct NormalizedLobeModel: LobeDefinition {
+  public var nodes: Int
+  public var activation: Activation
+  public var bias: Float
+  public var momentum: Float
+  public var normalizerLearningRate: Float
+  
+  public init(nodes: Int,
+              activation: Activation = .none,
+              bias: Float = 0,
+              momentum: Float,
+              normalizerLearningRate: Float) {
+    
+    self.nodes = nodes
+    self.activation = activation
+    self.bias = bias
+    self.momentum = momentum
+    self.normalizerLearningRate = normalizerLearningRate
+  }
+}
+```
+`momentum` 
+- the momentum parameter for the batch normalizer 
 
-- Calling `add(modifier)` on the brain object will add the specified output activation to the output layer. 
-- Currently the network on supports Softmax 
-```
-  case softmax
-```
+`normalizerLearningRate` 
+- the learning rate of the batch normalizer
 
 ## Compiling the network
 After adding all the specified layers and modifiers do not forget to call `compile()` on the brain object. This will connect all the layers together using the proper initializer and get the network ready for training. 
@@ -437,6 +447,9 @@ A GAN will attempt to map between one distrubition to another. You can see below
 
 <img width="600" src="images/input_gan.png"> 
 <img width="600" src="images/output_gan.png"> 
+
+## Convolution / Image Recognition
+
 
 # TODOs 
 - GPU Acceleration is still in the works. 
