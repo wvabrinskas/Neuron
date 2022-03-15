@@ -93,7 +93,6 @@ public class ConvBrain: Logger {
                              momentum: Float = 0.99) {
     let bnModel = NormalizedLobeModel(nodes: count,
                                       activation: .reLu,
-                                      bias: bias,
                                       momentum: momentum,
                                       normalizerLearningRate: rate)
     fullyConnected.add(bnModel)

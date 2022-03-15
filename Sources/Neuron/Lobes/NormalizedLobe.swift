@@ -77,4 +77,9 @@ public class NormalizedLobe: Lobe {
 
     return normalizedBackpropInputs
   }
+  
+  public override func adjustWeights(batchSize: Int) {
+    super.adjustWeights(batchSize: batchSize)
+    normalizer.adjustLearnables(batchSize: batchSize)
+  }
 }

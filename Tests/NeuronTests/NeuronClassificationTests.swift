@@ -18,7 +18,10 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     brain.addInputs(TestConstants.inputs)
     
     for _ in 0..<TestConstants.numOfHiddenLayers {
-      brain.add(LobeModel(nodes: TestConstants.hidden, activation: .reLu, bias: bias)) //hidden layer
+      brain.add(NormalizedLobeModel(nodes: TestConstants.hidden,
+                                    activation: .reLu,
+                                    momentum: 0.9,
+                                    normalizerLearningRate: 0.01))
     }
     
     brain.add(LobeModel(nodes: TestConstants.outputs, activation: .softmax, bias: bias)) //output layer
