@@ -119,16 +119,17 @@ The brain object also supports different log levels so you can see what's going 
 ### Loss Threshold
 - The loss value the network should reach over an average of 5 epochs. 
 
-### Initializer 
+### Weight initializers
 - The initializer function the brain object should use to generate the weight values for each layer. 
 ```
-  ///Generates weights based on a normal gaussian distribution. Mean = 0 sd = 1
   case xavierNormal
 
-  ///Generates weights based on a uniform distribution
   case xavierUniform
+
+  case heNormal
+
+  case heUniform
 ```
-- Currently the network supports Xavier normal distribution and Xavier uniform distribution 
 
 ### Optimizer
 - The brain object can add an optimizer to the network by calling: `brain.add(optimizer:)`
@@ -448,38 +449,78 @@ A GAN will attempt to map between one distrubition to another. You can see below
 <img width="600" src="images/input_gan.png"> 
 <img width="600" src="images/output_gan.png"> 
 
-## Convolution / Image Recognition
+# Convolution / Image Recognition
+Neuron supports Convolutional layers through the use of the `ConvBrain` class. This functions semi-similar to the `Brain` object with the exception of how to add layers. 
 
+Call `compile()` after adding all of your layers
+
+## Initialization
+```
+  let brain = ConvBrain(epochs: 30,
+                        learningRate: 0.001,
+                        bias: 1.0,
+                        inputSize: (28,28,1),
+                        batchSize: 8,
+                        initializer: .heNormal)
+```
+`epochs` - the number of iterations over the whole dataset 
+
+`learningRate` - the learning rate of the network
+
+`bias` - bias for the filters 
+
+`inputSize` - input shape of the network `TensorSize` 
+  -  `typealias TensorSize = (rows: Int, columns: Int, depth: Int)`
+
+`batchSize` - subset of the data to run mini-batch gradient descent
+
+`optimizer` - optional optimizer of type `Optimizer` for the gradient descent, eg. `.adam()`
+
+`initializer` - the weight initializer for the filters
+
+## Adding Layers 
+### Convolutional Layer 
+ - Uses `same` convolution to produce the same output dimension as the input. 
+ ```
+ func addConvolution(filterSize: TensorSize = (3,3,3),
+                     filterCount: Int)
+ ```
+ `filterSize` - `TensorSize` of the filters 
+
+ `filterCount` - Number of filters for the layer 
+
+### Max Pooling Layer
+- Uses a `2x2` stride to decrease the input size by half in each dimension except the depth. The depth will remain the same. eg. `(10,10,3) -> (5,5,3)`
+
+```
+func addMaxPool()
+```
+
+### Flatten Layer
+- Takes in a `3 dimensional array` and flattens it to `1 dimension`. eg. `[[[Float]]] -> [Float]`
+- There is no way to add this to the `ConvBrain` as it is added automatically when `compile()` is called. 
+                    
 
 # TODOs 
 - GPU Acceleration is still in the works. 
-- Convolutional layer support
+- Improve convolutional layer support
 - Much more... 
 
 # Resources 
 
-- [Make Your Own Neural Network - Tariq Rashid](https://www.amazon.com/Make-Your-Own-Neural-Network-ebook/dp/B01EER4Z4G)
-- http://www.faqs.org/faqs/ai-faq/neural-nets/part1/preamble.html
-- https://stats.stackexchange.com/questions/181/how-to-choose-the-number-of-hidden-layers-and-nodes-in-a-feedforward-neural-netw
-- https://www.heatonresearch.com/book/
-- http://home.agh.edu.pl/~vlsi/AI/backp_t_en/backprop.html
-- https://medium.com/@yashgarg1232/derivative-of-neural-activation-function-64e9e825b67
-- https://www.datasciencecentral.com/profiles/blogs/matrix-multiplication-in-neural-networks
-- https://sefiks.com/2018/08/21/swish-as-neural-networks-activation-function/
-- https://www.wandb.com/articles/fundamentals-of-neural-networks
-- https://www.dlology.com/blog/quick-notes-on-how-to-choose-optimizer-in-keras/
 - https://towardsdatascience.com/multi-layer-neural-networks-with-sigmoid-function-deep-learning-for-rookies-2-bf464f09eb7f?gi=5b433900266a
 - https://towardsdatascience.com/how-does-back-propagation-in-artificial-neural-networks-work-c7cad873ea74
+- https://missinglink.ai/guides/neural-network-concepts/7-types-neural-network-activation-functions-right/
 - https://github.com/nature-of-code/noc-examples-processing/blob/master/chp10_nn/NOC_10_01_SimplePerceptron/Perceptron.pde
 - http://www.faqs.org/faqs/ai-faq/neural-nets/part1/preamble.html
 - https://stats.stackexchange.com/questions/181/how-to-choose-the-number-of-hidden-layers-and-nodes-in-a-feedforward-neural-netw
 - https://www.heatonresearch.com/book/
 - https://medium.com/@yashgarg1232/derivative-of-neural-activation-function-64e9e825b67
 - https://www.datasciencecentral.com/profiles/blogs/matrix-multiplication-in-neural-networks
-- https://deepai.org/machine-learning-glossary-and-terms/softmax-layer 
+- https://deepai.org/machine-learning-glossary-and-terms/softmax-layer //for calculating percentages from sigmoid output
 - https://deepai.org/machine-learning-glossary-and-terms/sigmoid-function
 - https://missinglink.ai/guides/neural-network-concepts/7-types-neural-network-activation-functions-right/
-- https://arxiv.org/abs/1710.05941v1
+- https://arxiv.org/abs/1710.05941v1 //Swish activation function paper
 - https://sefiks.com/2018/08/21/swish-as-neural-networks-activation-function/
 - https://www.wandb.com/articles/fundamentals-of-neural-networks
 - https://www.dlology.com/blog/quick-notes-on-how-to-choose-optimizer-in-keras/
@@ -522,11 +563,14 @@ Gradient Clipping:
 
 Activation Functions: 
 - https://towardsdatascience.com/activation-functions-neural-networks-1cbd9f8d91d6
+- https://xzz201920.medium.com/activation-functions-linear-non-linear-in-deep-learning-relu-sigmoid-softmax-swish-leaky-relu-a6333be712ea - shows activation functions in a chart
 
 Backpropagation: 
 - http://home.agh.edu.pl/~vlsi/AI/backp_t_en/backprop.html
 - https://ml-cheatsheet.readthedocs.io/en/latest/backpropagation.html
 - https://stats.stackexchange.com/questions/268561/example-of-backpropagation-for-neural-network-with-softmax-and-sigmoid-activatio
+- https://ai.stackexchange.com/questions/11667/is-back-propagation-applied-for-each-data-point-or-for-a-batch-of-data-points
+- 
 
 Validation: 
 - https://elitedatascience.com/overfitting-in-machine-learning
@@ -539,5 +583,71 @@ Weight Initialization
 - https://prateekvishnu.medium.com/xavier-and-he-normal-he-et-al-initialization-8e3d7a087528
 
 Optimizers
-- https://medium.com/datadriveninvestor/overview-of-different-optimizers-for-neural-networks-e0ed119440c3
-- https://ruder.io/optimizing-gradient-descent/index.html#adam
+
+- https://machinelearningmastery.com/adam-optimization-from-scratch/
+- https://towardsdatascience.com/adam-latest-trends-in-deep-learning-optimization-6be9a291375c?gi=5d9e6d09d077
+
+
+Convolutional Layers: 
+- https://towardsdatascience.com/a-comprehensive-guide-to-convolutional-neural-networks-the-eli5-way-3bd2b1164a53
+- https://adeshpande3.github.io/A-Beginner%27s-Guide-To-Understanding-Convolutional-Neural-Networks/
+- https://stanford.edu/~shervine/teaching/cs-230/cheatsheet-convolutional-neural-networks
+- https://agustinus.kristia.de/techblog/2016/07/16/convnet-conv-layer/
+- https://datascience.stackexchange.com/questions/27506/back-propagation-in-cnn/27751#27751
+- https://stats.stackexchange.com/questions/175132/backpropagation-between-pooling-and-convolutional-layers
+- https://pavisj.medium.com/convolutions-and-backpropagations-46026a8f5d2c
+- https://stats.stackexchange.com/questions/361817/back-propagation-in-convolution-layer
+- https://www.analyticssteps.com/blogs/common-architectures-convolution-neural-networks
+- https://github.com/vzhou842/cnn-from-scratch/blob/master/conv.py
+- 
+
+
+Matrix Multiplication
+- https://medium.com/data-science-bootcamp/understand-dot-products-matrix-multiplications-usage-in-deep-learning-in-minutes-beginner-95edf2e66155
+- https://developer.apple.com/documentation/accelerate/1450313-vdsp_dotpr
+- http://mirror.informatimago.com/next/developer.apple.com/documentation/Performance/Conceptual/vDSP/vDSP_Library.pdf
+- 
+
+https://commentpicker.com/random-name-generator.php
+
+GAN 
+- https://developers.google.com/machine-learning/gan/
+- https://machinelearningmastery.com/how-to-implement-wasserstein-loss-for-generative-adversarial-networks/
+- https://datascience.stackexchange.com/questions/32066/could-someone-explain-to-me-how-back-prop-is-done-for-the-generator-in-a-gan
+- https://medium.com/intel-student-ambassadors/tips-on-training-your-gans-faster-and-achieve-better-results-9200354acaa5#:~:text=Batch%20Size%3A&text=While%20training%20your%20GAN%20use,a%20negative%20effect%20on%20training.
+- https://machinelearningmastery.com/practical-guide-to-gan-failure-modes/
+- https://towardsdatascience.com/generative-adversarial-network-gan-for-dummies-a-step-by-step-tutorial-fdefff170391
+- https://www.cs.toronto.edu/~duvenaud/courses/csc2541/slides/gan-foundations.pdf
+- https://web.njit.edu/~usman/courses/cs698_fall19/Brain2Image_%20Converting%20Brain%20Signals%20into%20Images.pdf
+
+https://stackoverflow.com/questions/61390166/wasserstein-gan-implemtation-in-pytorch-how-to-implement-the-loss
+https://github.com/keras-team/keras-contrib/issues/280
+https://github.com/aadhithya/gan-zoo-pytorch/blob/master/models/wgan.py
+
+WGAN 
+- https://paper.dropbox.com/doc/Wasserstein-GAN-GvU0p2V9ThzdwY3BbhoP7
+- https://www.oreilly.com/library/view/generative-deep-learning/9781492041931/ch04.html
+- https://github.com/aadhithya/gan-zoo-pytorch/blob/4ca6d88107288ab23e1d65e255befe200dc0ea62/models/wgan_gp.py
+- 
+
+Batch normalization: 
+- https://towardsdatascience.com/batch-normalization-in-3-levels-of-understanding-14c2da90a338
+- https://towardsdatascience.com/batch-normalization-explained-algorithm-breakdown-23d2794511c
+- http://kratzert.github.io/2016/02/12/understanding-the-gradient-flow-through-the-batch-normalization-layer.html
+- https://deepnotes.io/batchnorm
+- https://kevinzakka.github.io/2016/09/14/batch_normalization/
+- https://stats.stackexchange.com/questions/312046/batch-normalization-how-to-update-gamma-and-beta-during-backpropagation-trainin HUGE HELP 
+- http://www.fundza.com/vectors/normalize/
+- http://mathonline.wikidot.com/the-norm-of-a-vector
+- https://www.youtube.com/watch?v=tNIpEZLv_eg
+Preventing Gradient Exploding / Vanishing
+- https://machinelearningmastery.com/how-to-avoid-exploding-gradients-in-neural-networks-with-gradient-clipping/
+- 
+
+Natural Language Processing
+- https://medium.com/@paritosh_30025/natural-language-processing-text-data-vectorization-af2520529cf7
+
+
+Weight initializations: 
+- https://stackoverflow.com/questions/42670274/how-to-calculate-fan-in-and-fan-out-in-xavier-initialization-for-neural-networks
+- https://adityassrana.github.io/blog/theory/2020/08/26/Weight-Init.html
