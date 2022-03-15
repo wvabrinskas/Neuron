@@ -48,13 +48,12 @@ public struct NormalizedLobeModel: LobeDefinition {
   
   public init(nodes: Int,
               activation: Activation = .none,
-              bias: Float = 0,
               momentum: Float,
               normalizerLearningRate: Float) {
     
     self.nodes = nodes
     self.activation = activation
-    self.bias = bias
+    self.bias = 0 //no bias needed for Normalization layer
     self.momentum = momentum
     self.normalizerLearningRate = normalizerLearningRate
   }
