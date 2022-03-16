@@ -29,7 +29,7 @@
 1. [Data Studying](#Data-Studying)
 1. [Experimental Features](#Experimental)
     1. [GAN and WGAN](#GAN-and-WGAN-support)
-    1. [Convolution / Image Recognition](#Convolution-/-Image-Recognition)
+    1. [Convolution / Image Recognition](#CNN)
 1. [Datasets](#Datasets)
 1. [TODOs](#TODOs)
 1. [Resources](#Resources)
@@ -455,7 +455,7 @@ A GAN will attempt to map between one distrubition to another. You can see below
 <img width="600" src="images/input_gan.png"> 
 <img width="600" src="images/output_gan.png"> 
 
-# Convolution / Image Recognition
+# CNN
 Neuron supports Convolutional layers through the use of the `ConvBrain` class. This functions semi-similar to the `Brain` object with the exception of how to add layers. 
 
 Call `compile()` after adding all of your layers
