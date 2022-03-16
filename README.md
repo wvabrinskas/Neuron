@@ -309,12 +309,18 @@ let out = self.brain.feed(input: data)
 - Returns `[Float]` using the new inputs and the current weights, aka. feed forward.
 
 # Data Studying
-Using the `Brain` object you can also get the result of the loss functions of each epoch as a `CSV` file using the `exportLoss` function on `Brain`. 
-- `exportLoss(_ filename: String? = nil) -> URL?`
-- `filename:` Name of the file to save and export. defaults to `loss-{timeIntervalSince1970}`
-- Returns the url of the exported file if successful.
+Using the any `Trainable` object you can get the `Metrics` associated with that training session. All `Trainable`s like `Brain` and `ConvBrain` allow for capturing metrics through their initializer. Supply the list of metrics you'd like to monitor. 
 
-- Example graph:
+```
+public enum Metric: String {
+  case loss = "Training Loss"
+  case accuracy = "Accuracy"
+  case valLoss = "Validation Loss"
+  case generatorLoss = "Generator Loss"
+  case criticLoss = "Critic Loss"
+  case gradientPenalty = "Gradient Penalty"
+}
+```
 
 <img width="600" src="images/graph-sample.png"> 
 
@@ -461,7 +467,8 @@ Call `compile()` after adding all of your layers
                         bias: 1.0,
                         inputSize: (28,28,1),
                         batchSize: 8,
-                        initializer: .heNormal)
+                        initializer: .heNormal, 
+                        metrics: [.accuracy, .loss, .valLoss])
 ```
 `epochs` - the number of iterations over the whole dataset 
 
@@ -477,6 +484,8 @@ Call `compile()` after adding all of your layers
 `optimizer` - optional optimizer of type `Optimizer` for the gradient descent, eg. `.adam()`
 
 `initializer` - the weight initializer for the filters
+
+`metrics` - A set of metrics to collect while training.
 
 ## Adding Layers 
 ### Convolutional Layer 
@@ -549,16 +558,23 @@ Call `.train(data: DatasetData)` on `ConvBrain`. A neat tip is to set the `logLe
 ```
 typealias DatasetData = (training: [ConvTrainingData], val: [ConvTrainingData])
 
-func train(data: DatasetData,
-                    epochCompleted: ((_ epoch: Int) -> ())? = nil,
-                    completed: ((_ loss: [Float]) -> ())? = nil)
+func train(dataset: InputData,
+                    epochCompleted: ((Int, [Metric : Float]) -> ())? = nil,
+                    complete: (([Metric : Float]) -> ())? = nil) 
 ```
 
-`data` - `DatasetData` is a typealias for supplying an array or training and validation datasets to the network. 
+`data` - `InputData` is a typealias for supplying an array or training and validation datasets to the network. It is part of the `Trainable` protocol.
+
+```
+public protocol Trainable {
+  associatedtype TrainableDatasetType
+  typealias InputData = (training: [TrainableDatasetType], validation: [TrainableDatasetType])
+  ...
+```
 
 `epochCompleted` - an optional block that is called with the completion of every epoch. An epoch is when the network has gone through every item in the training dataset.
 
-`completed` - an optional block that is called when every epoch has been completed and the training is done. This will return the `loss` of the network at the end.
+`completed` - an optional block that is called when every epoch has been completed and the training is done. This will return the `metrics` of the network at the end.
 
 
 # TODOs 

@@ -110,9 +110,11 @@ final class GANTests: XCTestCase {
   
   func testTrainGan() {
     let trainingData = self.trainingDataFromGaussian()
+    let val: [TrainingData] = []
+    let data = (trainingData, val)
     
     let expectation = XCTestExpectation(description: "wait for training to succeed at least")
-    self.ganBrain.train(data: trainingData, complete:  { success in
+    self.ganBrain.train(dataset: data, complete:  { success in
       expectation.fulfill()
     })
     

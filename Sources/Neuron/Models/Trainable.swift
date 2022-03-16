@@ -7,7 +7,7 @@
 
 import Foundation
 
-public protocol Trainable: MetricLogger {
+public protocol Trainable {
   associatedtype TrainableDatasetType
   typealias InputData = (training: [TrainableDatasetType], validation: [TrainableDatasetType])
   
