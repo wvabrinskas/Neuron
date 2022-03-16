@@ -20,7 +20,9 @@ public class BatchNormalizer {
   private var standardDeviation: Float = 0
   private let e: Float = 0.00005 //this is a standard smoothing term
   private var ivar: Float = 0
-
+  private var dGamma: Float = 0
+  private var dBeta: Float = 0
+  
   public init(gamma: Float = 1,
               beta: Float = 0,
               momentum: Float,
@@ -51,7 +53,7 @@ public class BatchNormalizer {
       
     standardDeviation = std
   
-    let normalized = (activations - mean) * ivar
+    let normalized = diffVar * ivar
     
     normalizedActivations = normalized
     
@@ -69,7 +71,7 @@ public class BatchNormalizer {
     guard gradient.count == normalizedActivations.count else {
       return gradient
     }
-    
+
     var outputGradients: [Float] = []
     
     let n: Float = Float(gradient.count)
@@ -88,12 +90,14 @@ public class BatchNormalizer {
       
     outputGradients = dx
     
-    let dGamma = (gradient * normalizedActivations).sum
-    let dBeta = gradient.sum
+    dGamma += (gradient * normalizedActivations).sum
+    dBeta += gradient.sum
 
-    gamma -= learningRate * dGamma
-    beta -= learningRate * dBeta
-    
     return outputGradients
+  }
+  
+  public func adjustLearnables(batchSize: Int) {
+    gamma -= learningRate * (dGamma / Float(batchSize))
+    beta -= learningRate * (dBeta / Float(batchSize))
   }
 }

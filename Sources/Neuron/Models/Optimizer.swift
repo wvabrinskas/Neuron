@@ -26,7 +26,7 @@ public protocol OptimizerFunction: AnyObject {
   func step()
   func zero()
 }
-
+     
 public class Adam: OptimizerFunction {
 
   private var b1: Float = 0.9

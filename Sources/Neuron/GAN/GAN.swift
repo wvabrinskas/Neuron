@@ -10,57 +10,48 @@ import Logger
 import NumSwift
 
 
-typealias Output = (loss: Float, output: [Float])
+public class GAN: Logger, GANTrainingDataBuilder, GANDefinition, Trainable {
+  public typealias TrainableDatasetType = TrainingData
+  internal typealias Output = (loss: Float, output: [Float])
 
-public enum Metric: String {
-  case generatorLoss,
-       criticLoss,
-       gradientPenalty
-}
-
-public class GAN: Logger, GANTrainingDataBuilder, GANDefinition {
   internal var generator: Brain?
   internal var discriminator: Brain?
   internal var batchSize: Int
   internal var gradientPenaltyLambda: Float = 10
   internal var criticTrainPerEpoch: Int = 5
   internal var discriminatorLossHistory: [Float] = []
-  internal var generatorLossHistory: [Float] = []
-  internal var gradientPenaltyHistory: [Float] = []
-  internal var metricsToSet: Set<Metric> = []
-
+  internal var totalCorrectGuesses: Int = 0
+  internal var totalGuesses: Int = 0
+  
+  public var generatorLossHistory: [Float] = []
+  public var gradientPenaltyHistory: [Float] = []
   public var lossFunction: GANLossFunction = .minimax
   public var epochs: Int
   public var logLevel: LogLevel = .none
   public var randomNoise: () -> [Float]
   public var validateGenerator: (_ output: [Float]) -> Bool
   public var discriminatorNoiseFactor: Float?
-  public var metrics: [Metric: Any] = [:]
+  public var metricsToGather: Set<Metric> = []
+  public var metrics: [Metric : Float] = [:]
   
   @TestNaN public var discriminatorLoss: Float = 0 {
     didSet {
       self.discriminatorLossHistory.append(discriminatorLoss)
-      if metricsToSet.contains(.criticLoss) {
-        metrics[.criticLoss] = self.discriminatorLossHistory
-      }
+      addMetric(value: discriminatorLoss, key: .criticLoss)
     }
   }
   
   @TestNaN public var generatorLoss: Float = 0 {
     didSet {
       self.generatorLossHistory.append(generatorLoss)
-      if metricsToSet.contains(.generatorLoss) {
-        metrics[.generatorLoss] = self.generatorLossHistory
-      }
+      addMetric(value: generatorLoss, key: .generatorLoss)
     }
   }
   
   @TestNaN public var gradientPenalty: Float = 0 {
     didSet {
       self.gradientPenaltyHistory.append(gradientPenalty)
-      if metricsToSet.contains(.gradientPenalty) {
-        metrics[.gradientPenalty] = self.gradientPenaltyHistory
-      }
+      addMetric(value: gradientPenalty, key: .gradientPenalty)
     }
   }
   
@@ -79,7 +70,7 @@ public class GAN: Logger, GANTrainingDataBuilder, GANDefinition {
     self.generator = generator
     self.discriminator = discriminator
     self.gradientPenaltyLambda = gradientPenaltyLambda
-    self.metricsToSet = metrics
+    self.metricsToGather = metrics
     
     self.randomNoise = {
       var noise: [Float] = []
@@ -102,13 +93,15 @@ public class GAN: Logger, GANTrainingDataBuilder, GANDefinition {
     return false
   }
   
-  private func startTraining(data: [TrainingData],
-                             epochCompleted: ((_ epoch: Int) -> ())? = nil,
-                             complete: ((_ complete: [Metric: Any]) -> ())? = nil) {
+  private func startTraining(dataset: InputData,
+                             epochCompleted: ((Int, [Metric : Float]) -> ())? = nil,
+                             complete: (([Metric : Float]) -> ())? = nil) {
     
     guard let dis = self.discriminator, let gen = self.generator else {
       return
     }
+    
+    let data = dataset.training
     
     guard data.count > 0 else {
       return
@@ -159,7 +152,7 @@ public class GAN: Logger, GANTrainingDataBuilder, GANDefinition {
       gen.backpropagate(with: firstLayerDeltas)
       gen.adjustWeights(batchSize: 1) //figure out batch size?
       
-      epochCompleted?(i)
+      epochCompleted?(i, metrics)
       
       if self.checkGeneratorValidation(for: i) {
         return
@@ -168,7 +161,7 @@ public class GAN: Logger, GANTrainingDataBuilder, GANDefinition {
     
     self.log(type: .message, priority: .alwaysShow, message: "GAN Training complete")
     
-    complete?(self.metrics)
+    complete?(metrics)
   }
   
   /// Discrimate on a batch and return the average loss on the batch with each output
@@ -246,11 +239,11 @@ public class GAN: Logger, GANTrainingDataBuilder, GANDefinition {
     dis.compile()
   }
   
-  public func train(data: [TrainingData] = [],
-                    epochCompleted: ((_ epoch: Int) -> ())? = nil,
-                    complete: ((_ success: [Metric: Any]) -> ())? = nil) {
+  public func train(dataset: InputData,
+                    epochCompleted: ((Int, [Metric : Float]) -> ())? = nil,
+                    complete: (([Metric : Float]) -> ())? = nil) {
     
-    self.startTraining(data: data,
+    self.startTraining(dataset: dataset,
                        epochCompleted: epochCompleted,
                        complete: complete)
   }

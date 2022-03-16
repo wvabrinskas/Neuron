@@ -29,6 +29,8 @@
 1. [Data Studying](#Data-Studying)
 1. [Experimental Features](#Experimental)
     1. [GAN and WGAN](#GAN-and-WGAN-support)
+    1. [Convolution / Image Recognition](#Convolution-/-Image-Recognition)
+1. [Datasets](#Datasets)
 1. [TODOs](#TODOs)
 1. [Resources](#Resources)
 
@@ -49,28 +51,24 @@ It is fairly simple to setup the neural network `Brain`. This will be the only o
 ### Initialization
 ```  
   private lazy var brain: Brain = {
-    let bias: Float = 0.00001
+    let bias: Float = 0.0001
     
     let brain = Brain(learningRate: 0.01,
-                      epochs: 200,
+                      epochs: 1000,
                       lossFunction: .crossEntropy,
                       lossThreshold: TestConstants.lossThreshold,
                       initializer: .xavierNormal,
-                      descent: .mbgd(size: 16))
+                      descent: .mbgd(size: 16),
+                      metrics: [.accuracy, .loss, .valLoss])
     
-    brain.add(.init(nodes: TestConstants.inputs, normalize: false))
+    brain.addInputs(TestConstants.inputs)
     
     for _ in 0..<TestConstants.numOfHiddenLayers {
-      
-      brain.add(.init(nodes: TestConstants.hidden,
-                      activation: .leakyRelu,
-                      bias: bias)) //hidden layer
+      brain.add(LobeModel(nodes: TestConstants.hidden, activation: .reLu, bias: bias)) //hidden layer
     }
     
-    brain.add(.init(nodes: TestConstants.outputs, activation: .none, bias: bias, normalize: false)
-    brain.add(modifier: .softmax)
-    
-    brain.add(optimizer: .adam())
+    brain.add(LobeModel(nodes: TestConstants.outputs, activation: .softmax, bias: bias)) //output layer
+        
     brain.logLevel = .none
     
     return brain
@@ -121,16 +119,17 @@ The brain object also supports different log levels so you can see what's going 
 ### Loss Threshold
 - The loss value the network should reach over an average of 5 epochs. 
 
-### Initializer 
+### Weight initializers
 - The initializer function the brain object should use to generate the weight values for each layer. 
 ```
-  ///Generates weights based on a normal gaussian distribution. Mean = 0 sd = 1
   case xavierNormal
 
-  ///Generates weights based on a uniform distribution
   case xavierUniform
+
+  case heNormal
+
+  case heUniform
 ```
-- Currently the network supports Xavier normal distribution and Xavier uniform distribution 
 
 ### Optimizer
 - The brain object can add an optimizer to the network by calling: `brain.add(optimizer:)`
@@ -150,34 +149,26 @@ public enum Optimizer {
 ```
 public enum GradientDescent: Equatable {
   case sgd
+  case bgd
   case mbgd(size: Int)
 }
 ```
-- The network supports both Stochastic and Mini-Batch gradient descent. 
+- The network supports Stochastic, Batch, and Mini-Batch gradient descent. 
 - When adding `mbgd` you can specify the batch size.
 
 ## Adding Layers 
 The brain object allows for adding layers in a module way through the `add` function. 
 ```
-  public func add(_ model: LobeModel)
+  public func add(_ model: LobeDefinition)
 ```
-The `LobeModel` struct can be created with a simple initializer. 
+The `LobeDefinition` struct can be created with a simple initializer.
 ```
-  public init(nodes: Int,
-              activation: Activation = .none,
-              bias: Float = 0,
-              normalize: Bool = false,
-              bnMomentum: Float? = nil,
-              bnLearningRate: Float? = nil) {
-    self.nodes = nodes
-    self.activation = activation
-    self.bias = bias
-    self.normalize = normalize
-    self.bnMomentum = bnMomentum
-    self.bnLearningRate = bnLearningRate
-  }
-  ```
-
+public protocol LobeDefinition {
+  var nodes: Int { get set }
+  var activation: Activation { get set }
+  var bias: Float { get set }
+}
+```
 nodes
 - the number of nodes at the layer 
 
@@ -189,31 +180,51 @@ bias
 - the bias to be added at that layer
 - **NOTE: If the layer is of type `.input` the bias will be ignored**
 
-normalize 
-- batch normalizes the inputs to this layer
-- `bnMomentum` and `bnLearningRate` are required if this is set to `true` 
-
-bnMomentum
-- Momentum applied to the batch normalizer 
-
-bnLearningRate
-- Learning rate for the batch normalizer 
-
-
-### Modifiers 
-The network also supports adding an output activation modifier such as softmax 
-
+`LobeModel` A normal fully connected layer model
 ```
-  public func add(modifier mod: OutputModifier) {
-    self.outputModifier = mod
+// The model that defines how to construct a Lobe object
+public struct LobeModel: LobeDefinition {
+  public var nodes: Int
+  public var activation: Activation = .none
+  public var bias: Float = 0
+
+  public init(nodes: Int,
+              activation: Activation = .none,
+              bias: Float = 0) {
+    self.nodes = nodes
+    self.activation = activation
+    self.bias = bias
   }
+}
 ```
+`NormalizedLobeModel` a model that creates a lobe that incorporates batch normalization into the layer. 
+```
+public struct NormalizedLobeModel: LobeDefinition {
+  public var nodes: Int
+  public var activation: Activation
+  public var bias: Float
+  public var momentum: Float
+  public var normalizerLearningRate: Float
+  
+  public init(nodes: Int,
+              activation: Activation = .none,
+              bias: Float = 0,
+              momentum: Float,
+              normalizerLearningRate: Float) {
+    
+    self.nodes = nodes
+    self.activation = activation
+    self.bias = bias
+    self.momentum = momentum
+    self.normalizerLearningRate = normalizerLearningRate
+  }
+}
+```
+`momentum` 
+- the momentum parameter for the batch normalizer 
 
-- Calling `add(modifier)` on the brain object will add the specified output activation to the output layer. 
-- Currently the network on supports Softmax 
-```
-  case softmax
-```
+`normalizerLearningRate` 
+- the learning rate of the batch normalizer
 
 ## Compiling the network
 After adding all the specified layers and modifiers do not forget to call `compile()` on the brain object. This will connect all the layers together using the proper initializer and get the network ready for training. 
@@ -298,12 +309,18 @@ let out = self.brain.feed(input: data)
 - Returns `[Float]` using the new inputs and the current weights, aka. feed forward.
 
 # Data Studying
-Using the `Brain` object you can also get the result of the loss functions of each epoch as a `CSV` file using the `exportLoss` function on `Brain`. 
-- `exportLoss(_ filename: String? = nil) -> URL?`
-- `filename:` Name of the file to save and export. defaults to `loss-{timeIntervalSince1970}`
-- Returns the url of the exported file if successful.
+Using the any `Trainable` object you can get the `Metrics` associated with that training session. All `Trainable`s like `Brain` and `ConvBrain` allow for capturing metrics through their initializer. Supply the list of metrics you'd like to monitor. 
 
-- Example graph:
+```
+public enum Metric: String {
+  case loss = "Training Loss"
+  case accuracy = "Accuracy"
+  case valLoss = "Validation Loss"
+  case generatorLoss = "Generator Loss"
+  case criticLoss = "Critic Loss"
+  case gradientPenalty = "Gradient Penalty"
+}
+```
 
 <img width="600" src="images/graph-sample.png"> 
 
@@ -438,35 +455,173 @@ A GAN will attempt to map between one distrubition to another. You can see below
 <img width="600" src="images/input_gan.png"> 
 <img width="600" src="images/output_gan.png"> 
 
+# Convolution / Image Recognition
+Neuron supports Convolutional layers through the use of the `ConvBrain` class. This functions semi-similar to the `Brain` object with the exception of how to add layers. 
+
+Call `compile()` after adding all of your layers
+
+## Initialization
+```
+init(epochs: Int,
+    learningRate: Float,
+    bias: Float = 1.0,
+    inputSize: TensorSize,
+    batchSize: Int,
+    optimizer: Optimizer? = nil,
+    initializer: InitializerType = .heNormal,
+    metrics: Set<Metric> = [])
+```
+`epochs` - the number of iterations over the whole dataset 
+
+`learningRate` - the learning rate of the network
+
+`bias` - bias for the filters 
+
+`inputSize` - input shape of the network `TensorSize` 
+  -  `typealias TensorSize = (rows: Int, columns: Int, depth: Int)`
+
+`batchSize` - subset of the data to run mini-batch gradient descent
+
+`optimizer` - optional optimizer of type `Optimizer` for the gradient descent, eg. `.adam()`
+
+`initializer` - the weight initializer for the filters
+
+`metrics` - A set of metrics to collect while training.
+
+## Adding Layers 
+### Convolutional Layer 
+ - Uses `same` convolution to produce the same output dimension as the input. 
+ ```
+ func addConvolution(filterSize: TensorSize = (3,3,3),
+                     filterCount: Int)
+ ```
+ `filterSize` - `TensorSize` of the filters 
+
+ `filterCount` - Number of filters for the layer 
+
+### Max Pooling Layer
+- Uses a `2x2` stride to decrease the input size by half in each dimension except the depth. The depth will remain the same. eg. `(10,10,3) -> (5,5,3)`
+
+```
+func addMaxPool()
+```
+
+### Flatten Layer
+- Takes in a `3 dimensional array` and flattens it to `1 dimension`. eg. `[[[Float]]] -> [Float]`
+- There is no way to add this to the `ConvBrain` as it is added automatically when `compile()` is called. 
+
+### Dense Layer
+- Adds a fully connected layer to the `ConvBrain`. 
+```
+func addDense(_ count: Int, activation: Activation = .reLu)
+```
+`count` - number of inputs for this layer. Input layer will be automatically calculated for the fully connected portion so this can be any arbitrary number that makes sense.
+
+`activation` - the activation function for this layer. Defualt is `relu`
+
+### Dense Normalized Layer
+- Adds a fully connected layer tp the `ConvBrain` that utilizes `BatchNormalization` prior to activation. 
+
+```
+func addDenseNormal(_ count: Int,
+                    rate: Float = 0.1,
+                    momentum: Float = 0.99)
+```
+`count` - same applies as `Dense` layer
+`rate` - learning rate for the `BatchNormalizer` 
+`momentum` - momentum for the `BatchNormalizer`
+
+## Compiling 
+Just run `compile()` on `ConvBrain` before attempting to train. 
+
+## Training
+- Training the Convolutional network is just as easy as training the regular fully connected network. Just call `train`. 
+- One major difference is that `ConvBrain` takes in a `ConvTrainingData` object as its training data. 
+
+ConvTrainingData
+```
+public struct ConvTrainingData: Equatable {
+  public var data: [[[Float]]]
+  public var label: [Float]
+  
+  public init(data: [[[Float]]], label: [Float]) {
+    self.data = data
+    self.label = label
+  }
+}
+```
+`data` - the data as a 3D array of `Float`. The dimensions of this array should match the `inputSize` in the `ConvBrain` 
+
+`label` - the label of the data as a 1-hot encoded vector. The size of this array must match the number of output nodes in the fully connected portion. 
+
+### Initializing Training 
+Call `.train(data: DatasetData)` on `ConvBrain`. 
+```
+typealias DatasetData = (training: [ConvTrainingData], val: [ConvTrainingData])
+
+func train(dataset: InputData,
+                    epochCompleted: ((Int, [Metric : Float]) -> ())? = nil,
+                    complete: (([Metric : Float]) -> ())? = nil) 
+```
+
+`data` - `InputData` is a typealias for supplying an array or training and validation datasets to the network. It is part of the `Trainable` protocol.
+
+```
+public protocol Trainable {
+  associatedtype TrainableDatasetType
+  typealias InputData = (training: [TrainableDatasetType], validation: [TrainableDatasetType])
+  ...
+```
+
+`epochCompleted` - an optional block that is called with the completion of every epoch. An epoch is when the network has gone through every item in the training dataset.
+
+`completed` - an optional block that is called when every epoch has been completed and the training is done. This will return the `metrics` of the network at the end.
+
+### Feeding the Network
+You can pass in a `ConvTrainingData` object into the `feed` function to get the output. 
+
+```
+func feed(data: ConvTrainingData) -> [Float]
+```
+
+`data` - The input data object. Should be the same as the `inputSize` of the `ConvBrain`
+
+# Datasets 
+`Neuron` contains some training datasets to use on a convolutional network. 
+
+## Supplied datasets 
+### MNIST 
+You can build the `MNIST` dataset using the `MNIST` class provided. 
+```
+let mnist = MNIST()
+let dataset = await mnist.build()
+```
+- `mnist.build()` is an asynchronous function that will build the `MNIST` dataset and return a `DatasetData` object that you can then use to train the network. 
+- `MNIST` will also using `Combine` to publish the dataset to the `data` subject of the `MNIST` object.
+- This will build the the `training` dataset as well as the `validation` data set. 
+- `training` dataset contains `60000` items with labels
+- `validation` dataset contains `10000` items with labels
+
 # TODOs 
 - GPU Acceleration is still in the works. 
-- Convolutional layer support
+- Improve convolutional layer support
 - Much more... 
 
 # Resources 
 
-- [Make Your Own Neural Network - Tariq Rashid](https://www.amazon.com/Make-Your-Own-Neural-Network-ebook/dp/B01EER4Z4G)
-- http://www.faqs.org/faqs/ai-faq/neural-nets/part1/preamble.html
-- https://stats.stackexchange.com/questions/181/how-to-choose-the-number-of-hidden-layers-and-nodes-in-a-feedforward-neural-netw
-- https://www.heatonresearch.com/book/
-- http://home.agh.edu.pl/~vlsi/AI/backp_t_en/backprop.html
-- https://medium.com/@yashgarg1232/derivative-of-neural-activation-function-64e9e825b67
-- https://www.datasciencecentral.com/profiles/blogs/matrix-multiplication-in-neural-networks
-- https://sefiks.com/2018/08/21/swish-as-neural-networks-activation-function/
-- https://www.wandb.com/articles/fundamentals-of-neural-networks
-- https://www.dlology.com/blog/quick-notes-on-how-to-choose-optimizer-in-keras/
 - https://towardsdatascience.com/multi-layer-neural-networks-with-sigmoid-function-deep-learning-for-rookies-2-bf464f09eb7f?gi=5b433900266a
 - https://towardsdatascience.com/how-does-back-propagation-in-artificial-neural-networks-work-c7cad873ea74
+- https://missinglink.ai/guides/neural-network-concepts/7-types-neural-network-activation-functions-right/
 - https://github.com/nature-of-code/noc-examples-processing/blob/master/chp10_nn/NOC_10_01_SimplePerceptron/Perceptron.pde
 - http://www.faqs.org/faqs/ai-faq/neural-nets/part1/preamble.html
 - https://stats.stackexchange.com/questions/181/how-to-choose-the-number-of-hidden-layers-and-nodes-in-a-feedforward-neural-netw
 - https://www.heatonresearch.com/book/
 - https://medium.com/@yashgarg1232/derivative-of-neural-activation-function-64e9e825b67
 - https://www.datasciencecentral.com/profiles/blogs/matrix-multiplication-in-neural-networks
-- https://deepai.org/machine-learning-glossary-and-terms/softmax-layer 
+- https://deepai.org/machine-learning-glossary-and-terms/softmax-layer //for calculating percentages from sigmoid output
 - https://deepai.org/machine-learning-glossary-and-terms/sigmoid-function
 - https://missinglink.ai/guides/neural-network-concepts/7-types-neural-network-activation-functions-right/
-- https://arxiv.org/abs/1710.05941v1
+- https://arxiv.org/abs/1710.05941v1 //Swish activation function paper
 - https://sefiks.com/2018/08/21/swish-as-neural-networks-activation-function/
 - https://www.wandb.com/articles/fundamentals-of-neural-networks
 - https://www.dlology.com/blog/quick-notes-on-how-to-choose-optimizer-in-keras/
@@ -509,11 +664,14 @@ Gradient Clipping:
 
 Activation Functions: 
 - https://towardsdatascience.com/activation-functions-neural-networks-1cbd9f8d91d6
+- https://xzz201920.medium.com/activation-functions-linear-non-linear-in-deep-learning-relu-sigmoid-softmax-swish-leaky-relu-a6333be712ea - shows activation functions in a chart
 
 Backpropagation: 
 - http://home.agh.edu.pl/~vlsi/AI/backp_t_en/backprop.html
 - https://ml-cheatsheet.readthedocs.io/en/latest/backpropagation.html
 - https://stats.stackexchange.com/questions/268561/example-of-backpropagation-for-neural-network-with-softmax-and-sigmoid-activatio
+- https://ai.stackexchange.com/questions/11667/is-back-propagation-applied-for-each-data-point-or-for-a-batch-of-data-points
+- 
 
 Validation: 
 - https://elitedatascience.com/overfitting-in-machine-learning
@@ -526,5 +684,71 @@ Weight Initialization
 - https://prateekvishnu.medium.com/xavier-and-he-normal-he-et-al-initialization-8e3d7a087528
 
 Optimizers
-- https://medium.com/datadriveninvestor/overview-of-different-optimizers-for-neural-networks-e0ed119440c3
-- https://ruder.io/optimizing-gradient-descent/index.html#adam
+
+- https://machinelearningmastery.com/adam-optimization-from-scratch/
+- https://towardsdatascience.com/adam-latest-trends-in-deep-learning-optimization-6be9a291375c?gi=5d9e6d09d077
+
+
+Convolutional Layers: 
+- https://towardsdatascience.com/a-comprehensive-guide-to-convolutional-neural-networks-the-eli5-way-3bd2b1164a53
+- https://adeshpande3.github.io/A-Beginner%27s-Guide-To-Understanding-Convolutional-Neural-Networks/
+- https://stanford.edu/~shervine/teaching/cs-230/cheatsheet-convolutional-neural-networks
+- https://agustinus.kristia.de/techblog/2016/07/16/convnet-conv-layer/
+- https://datascience.stackexchange.com/questions/27506/back-propagation-in-cnn/27751#27751
+- https://stats.stackexchange.com/questions/175132/backpropagation-between-pooling-and-convolutional-layers
+- https://pavisj.medium.com/convolutions-and-backpropagations-46026a8f5d2c
+- https://stats.stackexchange.com/questions/361817/back-propagation-in-convolution-layer
+- https://www.analyticssteps.com/blogs/common-architectures-convolution-neural-networks
+- https://github.com/vzhou842/cnn-from-scratch/blob/master/conv.py
+- 
+
+
+Matrix Multiplication
+- https://medium.com/data-science-bootcamp/understand-dot-products-matrix-multiplications-usage-in-deep-learning-in-minutes-beginner-95edf2e66155
+- https://developer.apple.com/documentation/accelerate/1450313-vdsp_dotpr
+- http://mirror.informatimago.com/next/developer.apple.com/documentation/Performance/Conceptual/vDSP/vDSP_Library.pdf
+- 
+
+https://commentpicker.com/random-name-generator.php
+
+GAN 
+- https://developers.google.com/machine-learning/gan/
+- https://machinelearningmastery.com/how-to-implement-wasserstein-loss-for-generative-adversarial-networks/
+- https://datascience.stackexchange.com/questions/32066/could-someone-explain-to-me-how-back-prop-is-done-for-the-generator-in-a-gan
+- https://medium.com/intel-student-ambassadors/tips-on-training-your-gans-faster-and-achieve-better-results-9200354acaa5#:~:text=Batch%20Size%3A&text=While%20training%20your%20GAN%20use,a%20negative%20effect%20on%20training.
+- https://machinelearningmastery.com/practical-guide-to-gan-failure-modes/
+- https://towardsdatascience.com/generative-adversarial-network-gan-for-dummies-a-step-by-step-tutorial-fdefff170391
+- https://www.cs.toronto.edu/~duvenaud/courses/csc2541/slides/gan-foundations.pdf
+- https://web.njit.edu/~usman/courses/cs698_fall19/Brain2Image_%20Converting%20Brain%20Signals%20into%20Images.pdf
+
+https://stackoverflow.com/questions/61390166/wasserstein-gan-implemtation-in-pytorch-how-to-implement-the-loss
+https://github.com/keras-team/keras-contrib/issues/280
+https://github.com/aadhithya/gan-zoo-pytorch/blob/master/models/wgan.py
+
+WGAN 
+- https://paper.dropbox.com/doc/Wasserstein-GAN-GvU0p2V9ThzdwY3BbhoP7
+- https://www.oreilly.com/library/view/generative-deep-learning/9781492041931/ch04.html
+- https://github.com/aadhithya/gan-zoo-pytorch/blob/4ca6d88107288ab23e1d65e255befe200dc0ea62/models/wgan_gp.py
+- 
+
+Batch normalization: 
+- https://towardsdatascience.com/batch-normalization-in-3-levels-of-understanding-14c2da90a338
+- https://towardsdatascience.com/batch-normalization-explained-algorithm-breakdown-23d2794511c
+- http://kratzert.github.io/2016/02/12/understanding-the-gradient-flow-through-the-batch-normalization-layer.html
+- https://deepnotes.io/batchnorm
+- https://kevinzakka.github.io/2016/09/14/batch_normalization/
+- https://stats.stackexchange.com/questions/312046/batch-normalization-how-to-update-gamma-and-beta-during-backpropagation-trainin HUGE HELP 
+- http://www.fundza.com/vectors/normalize/
+- http://mathonline.wikidot.com/the-norm-of-a-vector
+- https://www.youtube.com/watch?v=tNIpEZLv_eg
+Preventing Gradient Exploding / Vanishing
+- https://machinelearningmastery.com/how-to-avoid-exploding-gradients-in-neural-networks-with-gradient-clipping/
+- 
+
+Natural Language Processing
+- https://medium.com/@paritosh_30025/natural-language-processing-text-data-vectorization-af2520529cf7
+
+
+Weight initializations: 
+- https://stackoverflow.com/questions/42670274/how-to-calculate-fan-in-and-fan-out-in-xavier-initialization-for-neural-networks
+- https://adityassrana.github.io/blog/theory/2020/08/26/Weight-Init.html

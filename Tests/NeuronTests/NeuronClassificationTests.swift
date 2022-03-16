@@ -1,40 +1,31 @@
 import XCTest
 @testable import Neuron
-
+import Combine
 
 final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder {
-    
-  static var allTests = [
-    ("testTraining", testTraining),
-    ("testXport", testXport)
-  ]
-  
+
   public lazy var brain: Brain? = {
-    let bias: Float = 0.00001
+    let bias: Float = 0.0001
     
     let brain = Brain(learningRate: 0.01,
-                      epochs: 200,
+                      epochs: 1000,
                       lossFunction: .crossEntropy,
                       lossThreshold: TestConstants.lossThreshold,
                       initializer: .xavierNormal,
-                      descent: .mbgd(size: 16))
+                      descent: .mbgd(size: 16),
+                      metrics: [.accuracy, .loss, .valLoss])
     
-    brain.add(.init(nodes: TestConstants.inputs, normalize: false)) //input layer no activation. It'll be ignored anyway
+    brain.addInputs(TestConstants.inputs)
     
     for _ in 0..<TestConstants.numOfHiddenLayers {
-      brain.add(.init(nodes: TestConstants.hidden,
-                      activation: .leakyRelu,
-                      bias: bias,
-                      normalize: false,
-                      bnMomentum: 0.99,
-                      bnLearningRate: 0.01)) //hidden layer
+      brain.add(NormalizedLobeModel(nodes: TestConstants.hidden,
+                                    activation: .reLu,
+                                    momentum: 0.9,
+                                    normalizerLearningRate: 0.01))
     }
     
-    brain.add(.init(nodes: TestConstants.outputs, activation: .none, bias: bias, normalize: false)) //output layer
-    
-    brain.add(modifier: .softmax) //when using softmax activation the output node should use a reLu or leakyRelu activation
-    
-    //brain.add(optimizer: .adam())
+    brain.add(LobeModel(nodes: TestConstants.outputs, activation: .softmax, bias: bias)) //output layer
+        
     brain.logLevel = .none
     
     return brain
@@ -62,7 +53,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
   }
   
   func buildTrainingData() {
-    let num = 200
+    let num = 600
 
     for _ in 0..<num {
       trainingData.append(TrainingData(data: ColorType.red.color(), correct: ColorType.red.correctValues()))
@@ -74,40 +65,49 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     }
     
   }
- 
-  func testTraining() {
-    XCTAssertTrue(brain != nil, "Brain is empty")
-    
-    guard let brain = brain else {
-      return
-    }
-    
-    print("Training....")
-    let expectation = XCTestExpectation()
-    
-    brain.train(data: self.trainingData.randomize(), validation: self.validationData, complete:  { (complete) in
-      expectation.fulfill()
-    })
-    
-    wait(for: [expectation], timeout: 40)
-    
-    for i in 0..<ColorType.allCases.count {
-      let color = ColorType.allCases[i]
-      
-      let out = brain.feed(input: color.color())
-      print("Guess \(color.string): \(out)")
-      
-      XCTAssert(out.max() != nil, "No max value. Training failed")
-
-      if let max = out.max(), let first = out.firstIndex(of: max) {
-        XCTAssert(max.isNaN == false, "Result was NaN")
-        XCTAssertTrue(first == i, "Color \(color.string) could not be identified")
-      } else {
-        XCTFail("No color to be found...")
-      }
-    }
-  }
   
+  //MARK: I really dont think we need to test training this is more of a test when building new architecture into the framework
+  /// Uncomment out if you want to run a test training with out integrating into an app
+//  func testTraining() {
+//    XCTAssertTrue(brain != nil, "Brain is empty")
+//
+//    guard let brain = brain else {
+//      return
+//    }
+//
+//    print("Training....")
+//    let expectation = XCTestExpectation()
+//    
+//    let data = (self.trainingData.randomize(), self.validationData.randomize())
+//
+//    brain.train(dataset: data,
+//                complete:  { (metrics) in
+//      print(metrics.map { "\($0.key.rawValue): \($0.value)"})
+//      expectation.fulfill()
+//    })
+//    
+//    wait(for: [expectation], timeout: 40)
+//
+//    for i in 0..<ColorType.allCases.count {
+//      let color = ColorType.allCases[i]
+//
+//      let out = brain.feed(input: color.color())
+//      print("Guess \(color.string): \(out)")
+//
+//      XCTAssert(out.max() != nil, "No max value. Training failed")
+//
+//      let max = out.max
+//      if let first = out.firstIndex(of: max) {
+//        XCTAssert(max.isNaN == false, "Result was NaN")
+//        XCTAssertTrue(first == i, "Color \(color.string) could not be identified")
+//      } else {
+//        XCTFail("No color to be found...")
+//      }
+//    }
+//    
+//    print(brain.exportModelURL())
+//  }
+//
   //executes in alphabetical order
   func testXport() {
     XCTAssertTrue(brain != nil, "Brain is empty")

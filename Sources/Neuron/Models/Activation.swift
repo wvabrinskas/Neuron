@@ -14,6 +14,7 @@ public enum Activation: String, CaseIterable, Codable {
   case leakyRelu
   case swish
   case tanh
+  case softmax
   case none
   
   /// Runs the activation function calculation based on the case of self.
@@ -38,7 +39,7 @@ public enum Activation: String, CaseIterable, Codable {
       let denom = pow(e, x) + pow(e, -x)
 
       return num / (denom + 1e-9)
-    case .none:
+    case .none, .softmax:
       return input
     }
   }
@@ -62,7 +63,7 @@ public enum Activation: String, CaseIterable, Codable {
     case .tanh:
       let tan = self.activate(input: input)
       return 1 - (pow(tan, 2))
-    case .none:
+    case .none, .softmax:
       return 1
     }
   }
@@ -82,6 +83,8 @@ public enum Activation: String, CaseIterable, Codable {
       return "Swish"
     case .tanh:
       return "Tanh"
+    case .softmax:
+      return "Softmax"
     case .none:
       return "None"
     }

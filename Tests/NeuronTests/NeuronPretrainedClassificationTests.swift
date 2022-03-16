@@ -1,25 +1,6 @@
 import XCTest
 @testable import Neuron
 
-extension Array where Element: Comparable {
-  func compare(_ compare: [Element]) -> Bool {
-    guard self.count == compare.count else {
-      return false
-    }
-    
-    var returnValue = false
-    
-    for i in 0..<self.count {
-      let selfVal = self[i]
-      let compVal = compare[i]
-      returnValue = selfVal == compVal
-    }
-    
-    return returnValue
-  }
-}
-
-
 final class NeuronPretrainedClassificationTests: XCTestCase, BaseTestConfig {
 
   static var allTests = [
@@ -58,7 +39,6 @@ final class NeuronPretrainedClassificationTests: XCTestCase, BaseTestConfig {
                         lossThreshold: TestConstants.lossThreshold,
                         initializer: .xavierNormal)
       
-      brain?.add(modifier: .softmax)
       self.brain = brain
       self.model = brain?.model
       
@@ -75,22 +55,6 @@ final class NeuronPretrainedClassificationTests: XCTestCase, BaseTestConfig {
     guard let brain = brain else {
       return
     }
-    
-    print("Training for import tests....")
-    
-    brain.train(data: self.trainingData, validation: self.validationData, complete:  { (complete) in
-      guard brain.loss.count > 5 else {
-        return
-      }
-      
-      let lastFive = brain.loss[brain.loss.count - 5..<brain.loss.count]
-      var sum: Float = 0
-      lastFive.forEach { (last) in
-        sum += last
-      }
-      let average = sum / 5
-      XCTAssertTrue(average <= TestConstants.testingLossThreshold, "Network did not learn, average loss was \(average)")
-    })
     
     for i in 0..<ColorType.allCases.count {
       let color = ColorType.allCases[i]
@@ -115,8 +79,6 @@ final class NeuronPretrainedClassificationTests: XCTestCase, BaseTestConfig {
                          initializer: .xavierNormal,
                          descent: .sgd)
     
-    newBrain.add(modifier: .softmax)
-
     newBrain.compile()
     
     for i in 0..<ColorType.allCases.count {
@@ -153,7 +115,7 @@ final class NeuronPretrainedClassificationTests: XCTestCase, BaseTestConfig {
         let weight = weightsAtLayer[i]
         let weightP = weightsAtPretrained[i]
         
-        XCTAssertTrue(weight.compare(weightP), "Layer weights don't match")
+        XCTAssertTrue(weight == weightP, "Layer weights don't match")
       }
     }
 

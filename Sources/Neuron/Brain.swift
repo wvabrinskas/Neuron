@@ -10,23 +10,27 @@ import Foundation
 import Logger
 import GameplayKit
 import NumSwift
+import Combine
 
-public class Brain: Logger {
+public class Brain: Logger, Trainable, MetricCalculator {
+  public typealias TrainableDatasetType = TrainingData
+  
+  public var metricsToGather: Set<Metric> = []
+
   /// The verbosity of the printed logs
   public var logLevel: LogLevel = .none
   
-  /// Number of times to run the training data set
   public var epochs: Int
   
   public var learningRate: Float
   
-  /// The loss function data from training to be exported
   public var loss: [Float] = []
   
-  /// Neuron matrix in the existing brain object
   public var lobes: [Lobe] = []
   
   public var trainable: Bool = true
+  
+  public var metrics: [Metric: Float] = [:]
   
   /// If the brain object has been compiled and linked properly
   private(set) var compiled: Bool = false
@@ -38,30 +42,24 @@ public class Brain: Logger {
   /// Default: 0.001. A number between 0 and 0.1 is usually accepted
   private var lossThreshold: Float
   
-  /// Output modifier for the output layer. ex. softmax
-  private var outputModifier: OutputModifier? = nil
-  
-  /// The previous set of validation errors
-  private var previousValidationErrors: [Float] = []
-  
   /// The initializer to generate the layer weights
-  private var initializer: Initializers
+  private var initializer: InitializerType
   
   internal var model: ExportModel?
   
   /// Initialized layer weights for unit test purposes only
   internal var layerWeights: [[[Float]]] = []
   
-  /// Distribution for initialization
-  internal static let dist = NormalDistribution()
-  
   private var descent: GradientDescent
   
   private var optimizer: OptimizerFunction?
   private var optimizerType: Optimizer?
   
-  private var outputLayer: [Neuron] { self.lobes.last?.neurons ?? [] }
-        
+  internal var outputLayer: [Neuron] { self.lobes.last?.neurons ?? [] }
+  
+  internal var totalCorrectGuesses: Int = 0
+  internal var totalGuesses: Int = 0
+
   internal var weightConstraints: ClosedRange<Float>? = nil
   
   /// Creates a Brain object that manages a network of Neuron objects
@@ -74,13 +72,14 @@ public class Brain: Logger {
   ///   - initializer: The weight initializer algoriUthm
   ///   - descent: The gradient descent type
   public init(model: ExportModel? = nil,
-              learningRate: Float,
-              epochs: Int,
+              learningRate: Float = 0.001,
+              epochs: Int = 10,
               lossFunction: LossFunction = .meanSquareError,
               lossThreshold: Float = 0.001,
-              initializer: Initializers = .xavierNormal,
+              initializer: InitializerType = .xavierNormal,
               descent: GradientDescent = .sgd,
-              weightConstraints: ClosedRange<Float>? = nil) {
+              weightConstraints: ClosedRange<Float>? = nil,
+              metrics: Set<Metric> = []) {
     
     self.learningRate = learningRate
     self.lossFunction = lossFunction
@@ -90,13 +89,14 @@ public class Brain: Logger {
     self.descent = descent
     self.model = model
     self.weightConstraints = weightConstraints
+    self.metricsToGather = metrics
   }
   
   public init?(model: PretrainedModel,
                epochs: Int,
                lossFunction: LossFunction = .crossEntropy,
                lossThreshold: Float = 0.001,
-               initializer: Initializers = .xavierNormal,
+               initializer: InitializerType = .xavierNormal,
                descent: GradientDescent = .sgd) {
     
     do {
@@ -205,36 +205,36 @@ public class Brain: Logger {
   public func exportModelURL() -> URL? {
     return ExportManager.getModel(filename: "model", model: self.exportModel())
   }
+  
+  //TODO: Refactor to support easy layer adding like the ConvBrain
   /// Adds a layer to the neural network
   /// - Parameter model: The lobe model describing the layer to be added
-  public func add(_ model: LobeModel) {
-    var lobe = Lobe(model: model,
-                    learningRate: self.learningRate)
+  public func add(_ model: LobeDefinition) {
+    guard lobes.count >= 1 else {
+      fatalError("ERROR: Please call addInputs(_ count: Int) before adding a hidden layer")
+    }
     
-    if model.normalize {
-      guard let momentum = model.bnMomentum, let bnLearningRate = model.bnLearningRate else {
-        fatalError("please provide a momentum and learning rate for the Batch Normalizer")
-      }
-      
-      lobe = NormalizedLobe(model: model,
-                            learningRate: self.learningRate,
-                            momentum: momentum,
-                            batchNormLearningRate: bnLearningRate)
+    var lobe = Lobe(model: model,
+                    learningRate: learningRate)
+    
+    if let bnModel = model as? NormalizedLobeModel  {
+      lobe = NormalizedLobe(model: bnModel,
+                            learningRate: learningRate)
     }
     
     self.lobes.append(lobe)
   }
   
-  /// Adds an output modifier to the output layer
-  /// - Parameter mod: The modifier to apply to the outputs
-  public func add(modifier mod: OutputModifier) {
-    self.outputModifier = mod
+  public func replaceOptimizer(_ optimizer: OptimizerFunction?) {
+    self.optimizer = optimizer
   }
   
   private func compileWithModel() {
     guard let model = self.model else {
       return
     }
+    
+    self.optimizer = model.optimizer?.get(learningRate: model.learningRate)
     //go through each layer
     model.layers.forEach { (layer) in
       
@@ -256,7 +256,7 @@ public class Brain: Logger {
         let neuron = Neuron(inputs: dendrites,
                             nucleus: nucleus,
                             activation: layer.activation,
-                            optimizer: model.optimizer)
+                            optimizer: optimizer)
         
         neuron.layer = layer.type
         neuron.biasWeight = biasWeight
@@ -287,6 +287,7 @@ public class Brain: Logger {
     self.layerWeights = self.lobes.map { $0.weights() }
     
     self.compiled = true
+    self.model = nil
   }
   
   /// Connects all the lobes together in the network builing the complete network 
@@ -303,43 +304,61 @@ public class Brain: Logger {
     guard lobes.count > 0 else {
       fatalError("no lobes to connect bailing out.")
     }
-    self.layerWeights.removeAll()
+    
+    //keep the first layer since there's nothing we need to do with it
+    self.layerWeights = [self.layerWeights[safe: 0]  ?? []]
     
     //link all the layers generating the matrix
-    for i in 0..<lobes.count {
-      if i > 0 {
-        let lobe = self.lobes[i]
-        let layerType: LobeModel.LayerType = i + 1 == lobes.count ? .output : .hidden
-        
-        let inputNeuronGroup = self.lobes[i-1].neurons
-        
-        let compileModel = LobeCompileModel.init(inputNeuronCount: inputNeuronGroup.count,
-                                                 layerType: layerType,
-                                                 fullyConnected: true,
-                                                 weightConstraint: self.weightConstraints,
-                                                 initializer: self.initializer,
-                                                 optimizer: self.optimizer)
-        
-        let weights = lobe.compile(model: compileModel)
-        self.layerWeights.append(weights)
-
-      } else {
-        
-        let compileModel = LobeCompileModel.init(inputNeuronCount: 0,
-                                                 layerType: .input,
-                                                 fullyConnected: false,
-                                                 weightConstraint: self.weightConstraints,
-                                                 initializer: self.initializer,
-                                                 optimizer: self.optimizer)
-        
-        //first layer weight initialization with 0 since it's just the input layer
-        let inputLayer = self.lobes[i]
-        let weights = inputLayer.compile(model: compileModel)
-        self.layerWeights.append(weights)
-      }
+    for i in 1..<lobes.count {
+      let lobe = self.lobes[i]
+      let layerType: LayerType = i + 1 == lobes.count ? .output : .hidden
+      
+      let inputNeuronGroup = self.lobes[i-1].outputCount
+      
+      let compileModel = LobeCompileModel.init(inputNeuronCount: inputNeuronGroup,
+                                               layerType: layerType,
+                                               fullyConnected: true,
+                                               weightConstraint: self.weightConstraints,
+                                               initializer: self.initializer,
+                                               optimizer: self.optimizer)
+      
+      let weights = lobe.compile(model: compileModel)
+      self.layerWeights.append(weights)
     }
     
     compiled = true
+  }
+  
+  public func addInputs(_ count: Int) {
+    let compileModel = LobeCompileModel.init(inputNeuronCount: 0,
+                                             layerType: .input,
+                                             fullyConnected: false,
+                                             weightConstraint: self.weightConstraints,
+                                             initializer: self.initializer,
+                                             optimizer: self.optimizer)
+    
+    //first layer weight initialization with 0 since it's just the input layer
+    let inputLayer = Lobe(model: LobeModel(nodes: count),
+                          learningRate: self.learningRate)
+    
+    let weights = inputLayer.compile(model: compileModel)
+    self.layerWeights.append(weights)
+    
+    if self.lobes.first != nil {
+      self.lobes[0] = inputLayer
+    } else {
+      self.lobes.append(inputLayer)
+    }
+  }
+  
+  public func replaceInputs(_ count: Int) {
+    addInputs(count)
+    recompile()
+  }
+  
+  private func recompile() {
+    compiled = false
+    compile()
   }
   
   /// Supervised training function
@@ -348,51 +367,62 @@ public class Brain: Logger {
   ///   - validation: The validation data object containing the expected values and the validation data
   ///   - epochCompleted: Called when an epoch is completed with the current epoch
   ///   - complete: Called when training is completed
-  public func train(data: [TrainingData],
-                    validation: [TrainingData] = [],
-                    epochCompleted: ((_ epoch: Int) -> ())? = nil,
-                    complete: ((_ passedValidation: Bool) -> ())? = nil) {
+  public func train(dataset: InputData,
+                    epochCompleted: ((Int, [Metric : Float]) -> ())? = nil,
+                    complete: (([Metric : Float]) -> ())? = nil) {
     
-    previousValidationErrors.removeAll()
-    
+    let data = dataset.training
+    let validation = dataset.validation
+        
     let trainingStartDate = Date()
     
     guard data.count > 0 else {
       print("data must contain some data")
-      complete?(false)
+      complete?(metrics)
       return
     }
     
     guard compiled == true else {
-      complete?(false)
+      complete?(metrics)
       print("please run compile() on the Brain object before training")
       return
     }
     
-    let mixedData = data//.randomize()
+    let mixedData = data
     var setBatches: Bool = false
     var batches: [[TrainingData]] = []
+    
+    let valBatches = validation.batched(into: 10)
 
     for i in 0..<epochs {
       self.trainable = true
 
       let epochStartDate = Date()
       
-      self.log(type: .message, priority: .low, message: "epoch: \(i)")
-            
+      self.log(type: .message, priority: .medium, message: "epoch: \(i)")
+      
+      var epochLoss: Float = 0
+      
       switch self.descent {
       case .bgd:
-        let loss = self.trainOnBatch(batch: data)
-        self.loss.append(loss)
+        let loss = self.trainOn(data)
+        epochLoss = loss
+
       case .sgd:
-        guard let obj = mixedData.randomElement() else {
-          return
+        if setBatches == false {
+          setBatches = true
+          batches = mixedData.batched(into: 1)
         }
         
-        let loss = self.trainOnBatch(batch: [obj])
-        self.loss.append(loss)
-
-      case.mbgd(let size):
+        var lossOnBatches: Float = 0
+        
+        batches.forEach { (batch) in
+          lossOnBatches += self.trainOn(batch) / Float(batches.count)
+        }
+        
+        epochLoss = lossOnBatches
+        
+      case .mbgd(let size):
         if setBatches == false {
           setBatches = true
           batches = mixedData.batched(into: size)
@@ -400,86 +430,101 @@ public class Brain: Logger {
         
         var lossOnBatches: Float = 0
         
-        batches.randomize().forEach { (batch) in
-          lossOnBatches += self.trainOnBatch(batch: batch)
+        batches.forEach { (batch) in
+          lossOnBatches += self.trainOn(batch) / Float(batches.count)
         }
         
-        self.loss.append(lossOnBatches / Float(batches.count))
+        epochLoss = lossOnBatches
       }
       
-      if let lastLoss = self.loss.last {
-        self.log(type: .message,
-                 priority: .low,
-                 message: "loss: \(lastLoss)")
-      }
+      loss.append(epochLoss)
+      addMetric(value: epochLoss, key: .loss)
+      
+      self.log(type: .message,
+               priority: .low,
+               message: "    loss: \(metrics[.loss] ?? 0)")
+      self.log(type: .message,
+               priority: .low,
+               message: "    accuracy: \(metrics[.accuracy] ?? 0)")
+    
 
       self.log(type: .message,
                priority: .high,
                message: "epoch completed time: \(Date().timeIntervalSince(epochStartDate))")
       
       //feed validation data through the network
-      if let validationData = validation.randomElement(), validation.count > 0 {
+      if let validationData = valBatches.randomElement(), validation.count > 0 {
         self.trainable = false
         
-        let output = self.feed(input: validationData.data)
-        let errorForValidation = self.loss(output,
-                                           correct: validationData.correct)
-                
+        let errorForValidation = self.validateOn(validationData)
+        
+        addMetric(value: errorForValidation, key: .valLoss)
+        
+        self.log(type: .message,
+                 priority: .low,
+                 message: "val loss: \(errorForValidation)")
+        
         //if validation error is greater than previous then we are complete with training
         //bail out to prevent overfitting
         let threshold: Float = self.lossThreshold
-        //only append if % 10 != 0
-        let checkBatchCount = 5
-        
-        if i % checkBatchCount == 0 {
+        if errorForValidation <= threshold {
           
-          self.log(type: .message, priority: .medium, message: "validating....")
+          self.log(type: .success, priority: .alwaysShow, message: "SUCCESS: training is complete...")
+          self.log(type: .message, priority: .alwaysShow, message: "Metrics: \(self.metrics)")
           
-          if self.averageError() <= threshold {
-            
-            self.log(type: .success, priority: .alwaysShow, message: "SUCCESS: training is complete...")
-            self.log(type: .message, priority: .alwaysShow, message: "Loss: \(self.loss.last ?? 0)")
-            
-            self.log(type: .success,
-                     priority: .high,
-                     message: "training completed time: \(Date().timeIntervalSince(trainingStartDate))")
-            
-            
-            complete?(true)
-            return
-          }
+          self.log(type: .success,
+                   priority: .high,
+                   message: "training completed time: \(Date().timeIntervalSince(trainingStartDate))")
+          
+          
+          complete?(metrics)
+          return
         }
-        
-        if previousValidationErrors.count == checkBatchCount {
-          previousValidationErrors.removeFirst()
-        }
-        
-        previousValidationErrors.append(errorForValidation)
       }
       
-      epochCompleted?(i)
+      epochCompleted?(i, metrics)
     }
     
     self.log(type: .success,
              priority: .low,
              message: "training completed time: \(Date().timeIntervalSince(trainingStartDate))")
     
-    self.log(type: .message, priority: .low, message: "Loss: \(self.loss.last ?? 0)")
+    self.log(type: .message, priority: .low, message: "Loss: \(self.metrics[.loss] ?? 0)")
     
     //false because the training wasnt completed with validation
-    complete?(false)
+    complete?(metrics)
   }
   
-  private func trainOnBatch(batch: [TrainingData]) -> Float {
+  public func validateOn(_ batch: [TrainingData]) -> Float {
+    self.trainable = false
+    
+    var batchLoss: Float = 0
+
+    batch.forEach { vData in
+      //feed the data through the network
+      let output = self.feed(input: vData.data)
+      
+      calculateAccuracy(output, label: vData.correct, binary: outputLayer.count == 1)
+      
+      batchLoss += self.loss(output, correct: vData.correct) / Float(batch.count)
+    }
+    
+    return batchLoss
+  }
+  
+  public func trainOn(_ batch: [TrainingData]) -> Float {
     self.trainable = true
     self.zeroGradients()
     
     var batchLoss: Float = 0
+
     batch.forEach { tData in
       //feed the data through the network
       let output = self.feed(input: tData.data)
       
-      batchLoss += self.loss(output, correct: tData.correct)
+      calculateAccuracy(output, label: tData.correct, binary: outputLayer.count == 1)
+          
+      batchLoss += self.loss(output, correct: tData.correct) / Float(batch.count)
       
       //set the output errors for set
       let deltas = self.getOutputDeltas(outputs: output,
@@ -487,16 +532,17 @@ public class Brain: Logger {
   
       self.backpropagate(with: deltas)
     }
-        
+         
     self.adjustWeights(batchSize: batch.count)
     
-    return batchLoss / Float(batch.count)
+    self.optimizer?.step()
+
+    return batchLoss
   }
 
   /// Clears the whole network and resets all the weights to a random value
   public func clear() {
-    self.previousValidationErrors = []
-    self.loss.removeAll()
+    metrics.removeAll()
     //clears the whole matrix
     self.lobes.forEach { (lobe) in
       lobe.clear()
@@ -513,8 +559,7 @@ public class Brain: Logger {
   /// - Returns: The result of the feed forward through the network as an array of Floats
   public func feed(input: [Float]) -> [Float] {
     let output = self.feedInternal(input: input)
-    let modified = self.applyModifier(outputs: output)
-    return modified
+    return output
   }
   
   /// Update the settings for each lobe and each neuron
@@ -530,12 +575,7 @@ public class Brain: Logger {
   /// - Returns: The url of the exported file if successful.
   public func exportLoss(_ filename: String? = nil) -> URL? {
     let name = filename ?? "loss-\(Int(Date().timeIntervalSince1970))"
-    return ExportManager.getCSV(filename: name, self.loss)
-  }
-  
-  
-  internal func averageError() -> Float {
-    previousValidationErrors.sum / Float(previousValidationErrors.count)
+    return ExportManager.getCSV(filename: name, loss)
   }
   
   /// Feeds the network internally preparing for output or training
@@ -551,25 +591,6 @@ public class Brain: Logger {
     }
     
     return x
-  }
-  
-  /// Applies the output modifier
-  /// - Parameter outputs: outputs to apply modifier to
-  /// - Returns: the modified output given by the set modifier
-  private func applyModifier(outputs: [Float]) -> [Float] {
-    
-    guard let mod = self.outputModifier else {
-      return outputs
-    }
-    
-    var modOut: [Float] = []
-    
-    for i in 0..<outputs.count {
-      let modVal = mod.calculate(index: i, outputs: outputs)
-      modOut.append(modVal)
-    }
-    
-    return modOut
   }
 
   internal func loss(_ predicted: [Float], correct: [Float]) -> Float {
@@ -607,7 +628,6 @@ public class Brain: Logger {
 
   internal func adjustWeights(batchSize: Int) {
     self.lobes.forEach { $0.adjustWeights(batchSize: batchSize) }
-    self.optimizer?.step()
   }
   
   @discardableResult
@@ -632,8 +652,8 @@ public class Brain: Logger {
       let newGradients = currentLobe.calculateGradients(with: updatingDeltas)
 
       //current lobe is calculating the deltas for the previous lobe
-      updatingDeltas = currentLobe.calculateDeltasForPreviousLayer(inputs: updatingDeltas,
-                                                                   previousLayerCount: previousLobe.neurons.count)
+      updatingDeltas = currentLobe.calculateDeltasForPreviousLayer(incomingDeltas: updatingDeltas,
+                                                                   previousLayerCount: previousLobe.outputCount)
       
       gradients.append(newGradients)
     }

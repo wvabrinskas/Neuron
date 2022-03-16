@@ -22,13 +22,13 @@ class ComponentTests: XCTestCase {
                       initializer: .xavierNormal,
                       descent: .bgd)
     
-    brain.add(.init(nodes: 1, normalize: false)) //input layer no activation. It'll be ignored anyway
+    brain.addInputs(1) //input layer no activation. It'll be ignored anyway
     
     for _ in 0..<1 {
-      brain.add(.init(nodes: 1, activation: .reLu,  bias: bias)) //hidden layer
+      brain.add(LobeModel(nodes: 1, activation: .reLu,  bias: bias)) //hidden layer
     }
     
-    brain.add(.init(nodes: 1, activation: .reLu, bias: bias)) //output layer
+    brain.add(LobeModel(nodes: 1, activation: .reLu, bias: bias)) //output layer
     brain.logLevel = .low
     
     return brain
@@ -44,13 +44,13 @@ class ComponentTests: XCTestCase {
                       initializer: .xavierNormal,
                       descent: .bgd)
     
-    brain.add(.init(nodes: 1, normalize: false)) //input layer no activation. It'll be ignored anyway
+    brain.addInputs(1) //input layer no activation. It'll be ignored anyway
     
     for _ in 0..<2 {
-      brain.add(.init(nodes: 2, activation: .reLu,  bias: bias)) //hidden layer
+      brain.add(LobeModel(nodes: 2, activation: .reLu,  bias: bias)) //hidden layer
     }
     
-    brain.add(.init(nodes: 1, activation: .reLu, bias: bias)) //output layer
+    brain.add(LobeModel(nodes: 1, activation: .reLu, bias: bias)) //output layer
     brain.logLevel = .low
     
     return brain
@@ -104,16 +104,4 @@ class ComponentTests: XCTestCase {
     
     XCTAssert(brain.weights() == [[[0.0]], [[0.875]], [[0.875]]])
   }
-//
-//  func testBatchNormalizer() {
-//    let batchNormalizer = BatchNormalizer(momentum: 0.99, learningRate: 0.01)
-//    let input: [Float] = [0.5, 0.1, 0.5]
-//    let output = batchNormalizer.normalize(activations: input, training: true)
-//
-//    XCTAssert(output == [0.7066101, -1.4132203, 0.7066101])
-//
-//    let backprop = batchNormalizer.backward(gradient: output)
-//
-//    XCTAssert(backprop == [0.005258338, -0.010517518, 0.005258338])
-//  }
 }

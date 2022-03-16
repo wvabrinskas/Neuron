@@ -20,13 +20,13 @@ public class Neuron {
   public var delta: Float? = nil
   public var bias: Float
   public var biasWeight: Float = 0.0
-  public var gradients: [Float] = []
+  public var weightGradients: [Float] = []
 
-  internal var activationType: Activation
-  internal var layer: LobeModel.LayerType = .output
+  internal var activationType: Activation = .none
+  internal var layer: LayerType = .output
+  internal var activationDerivative: Float = 1
 
   private var learningRate: Float = 0.01
-  private var activationDerivative: Float = 0
   private var optimizer: OptimizerFunction?
   
   /// Default initializer. Creates a Neuron object
@@ -36,12 +36,12 @@ public class Neuron {
   public init(inputs: [NeuroTransmitter] = [],
               nucleus: Nucleus,
               activation: Activation,
-              optimizer: Optimizer? = nil) {
+              optimizer: OptimizerFunction? = nil) {
     
     self.learningRate = nucleus.learningRate
     self.bias = nucleus.bias
     self.activationType = activation
-    self.optimizer = optimizer?.get(learningRate: learningRate)
+    self.optimizer = optimizer
     
     for input in inputs {
       self.add(input: input.inputValue, weight: input.weight)
@@ -52,9 +52,7 @@ public class Neuron {
     self.optimizer = optimizer
   }
 
-  /// Initializes the weights at this neuron using the given initializer
-  /// - Parameter count: Number of weights to generate
-  /// - Parameter initializer: The initialier to generate the weights
+  /// Initializes the weights at this neuron
   public func initialize(weights: [Float], inputs: [Float]) {
     guard weights.count == inputs.count else {
       print("Error: Can not replace inputs of different size")
@@ -63,7 +61,7 @@ public class Neuron {
     
     self.weights = weights
     self.inputValues = inputs
-    self.gradients = [Float].init(repeating: 0, count: self.weights.count)
+    self.weightGradients = [Float].init(repeating: 0, count: self.weights.count)
   }
   
   public func add(input: Float, weight: Float) {
@@ -94,14 +92,19 @@ public class Neuron {
     self.inputValues = inputs
   }
   
-  public func calculateGradients(delta: Float) {
-    self.delta = delta
-    self.gradients = self.gradients + (self.inputValues * (delta * self.activationDerivative))
+  public func calculateGradients(delta: Float) -> [Float] {
+    self.delta = (self.delta ?? 0) + delta
+    
+    var newGradient = (self.inputValues * delta * activationDerivative)
+    newGradient.l2Normalize(limit: 1.0)
+    self.weightGradients = self.weightGradients + newGradient
+    
+    return newGradient
   }
   
   public func zeroGradients() {
     self.delta = nil
-    self.gradients = [Float].init(repeating: 0, count: self.weights.count)
+    self.weightGradients = [Float].init(repeating: 0, count: self.weights.count)
   }
   
   /// Applies the activation of a given sum.
@@ -134,7 +137,7 @@ public class Neuron {
   
   /// Adjusts the weights of all inputs
   public func adjustWeights(_ constrain: ClosedRange<Float>? = nil, batchSize: Int) {
-    let delta = self.delta ?? 0
+    let delta = self.delta ?? 0 / Float(batchSize)
     
     //update bias weight as well using optimizer
     if let optimizer = optimizer {
@@ -143,7 +146,7 @@ public class Neuron {
       biasWeight -= self.learningRate * delta
     }
     
-    let gradients = self.gradients
+    let gradients = self.weightGradients
     
     for i in 0..<gradients.count {
       let gradient = gradients[i] / Float(batchSize) //account for batch size since we append gradients as we back prop

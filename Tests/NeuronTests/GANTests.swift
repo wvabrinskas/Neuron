@@ -25,10 +25,10 @@ final class GANTests: XCTestCase {
     let brain = Brain(learningRate: 0.00001,
                       epochs: 1)
     
-    brain.add(.init(nodes: generatorInputs))
-    brain.add(.init(nodes: 5, activation: .leakyRelu, bias: bias))
+    brain.addInputs(generatorInputs)
+    brain.add(LobeModel(nodes: 5, activation: .leakyRelu, bias: bias))
     // brain.add(.init(nodes: 5, activation: .leakyRelu, bias: bias))
-    brain.add(.init(nodes: wordLength, activation: .tanh, bias: bias))
+    brain.add(LobeModel(nodes: wordLength, activation: .tanh, bias: bias))
     
     brain.logLevel = .none
     brain.add(optimizer: .adam())
@@ -41,10 +41,10 @@ final class GANTests: XCTestCase {
     let brain = Brain(learningRate: 0.00001,
                       epochs: 1)
     
-    brain.add(.init(nodes: wordLength))
-    brain.add(.init(nodes: 5, activation: .leakyRelu, bias: bias))
+    brain.addInputs(wordLength)
+    brain.add(LobeModel(nodes: 5, activation: .leakyRelu, bias: bias))
     // brain.add(.init(nodes: 10, activation: .leakyRelu, bias: bias))
-    brain.add(.init(nodes: 1, activation: .sigmoid, bias: bias))
+    brain.add(LobeModel(nodes: 1, activation: .sigmoid, bias: bias))
     
     brain.logLevel = .none
     brain.add(optimizer: .adam())
@@ -110,9 +110,11 @@ final class GANTests: XCTestCase {
   
   func testTrainGan() {
     let trainingData = self.trainingDataFromGaussian()
+    let val: [TrainingData] = []
+    let data = (trainingData, val)
     
     let expectation = XCTestExpectation(description: "wait for training to succeed at least")
-    self.ganBrain.train(data: trainingData, complete:  { success in
+    self.ganBrain.train(dataset: data, complete:  { success in
       expectation.fulfill()
     })
     
