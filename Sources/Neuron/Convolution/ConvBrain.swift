@@ -30,7 +30,7 @@ public class ConvBrain: Logger, Trainable, MetricCalculator {
 
     b.addInputs(0) //can be some arbitrary number will update later
     b.replaceOptimizer(optimizer)
-    b.logLevel = logLevel
+    b.logLevel = .none
     return b
   }()
   
@@ -50,7 +50,8 @@ public class ConvBrain: Logger, Trainable, MetricCalculator {
               inputSize: TensorSize,
               batchSize: Int,
               optimizer: Optimizer? = nil,
-              initializer: InitializerType = .heNormal) {
+              initializer: InitializerType = .heNormal,
+              metrics: Set<Metric> = []) {
     self.epochs = epochs
     self.learningRate = learningRate
     self.inputSize = inputSize
@@ -58,6 +59,7 @@ public class ConvBrain: Logger, Trainable, MetricCalculator {
     self.optimizer = optimizer?.get(learningRate: learningRate)
     self.initializer = initializer.build()
     self.bias = bias
+    self.metricsToGather = metrics
   }
   
   public func addConvolution(filterSize: TensorSize = (3,3,3),
@@ -140,7 +142,7 @@ public class ConvBrain: Logger, Trainable, MetricCalculator {
           if let val = validationData.randomElement() {
             let valLoss = self.validateOn(val)
             addMetric(value: valLoss, key: .valLoss)
-            self.log(type: .message, priority: .low, message: "validation loss: \(valLoss)")
+            self.log(type: .message, priority: .low, message: "validation loss: \(metrics[.valLoss] ?? 0)")
           }
         }
         
@@ -149,7 +151,7 @@ public class ConvBrain: Logger, Trainable, MetricCalculator {
                  message: "    loss: \(metrics[.loss] ?? 0)")
         self.log(type: .message,
                  priority: .low,
-                 message: "    accuracy: \(accuracy)")
+                 message: "    accuracy: \(metrics[.accuracy] ?? 0)")
       }
     
       self.log(type: .message, priority: .alwaysShow, message: "epoch: \(e)")
@@ -170,10 +172,10 @@ public class ConvBrain: Logger, Trainable, MetricCalculator {
     for b in 0..<batch.count {
       let trainable = batch[b]
       let out = self.feedInternal(input: trainable, training: false)
-      let loss = self.fullyConnected.loss(out, correct: trainable.label)
-      
       calculateAccuracy(out, label: trainable.label, binary: fullyConnected.outputLayer.count == 1)
 
+      let loss = self.fullyConnected.loss(out, correct: trainable.label)
+    
       lossOnBatch += loss / Float(batch.count)
     }
     
@@ -195,10 +197,10 @@ public class ConvBrain: Logger, Trainable, MetricCalculator {
       
       fullyConnected.calculateAccuracy(out, label: trainable.label)
       
-      let loss = self.fullyConnected.loss(out, correct: trainable.label)
-      
       calculateAccuracy(out, label: trainable.label, binary: fullyConnected.outputLayer.count == 1)
 
+      let loss = self.fullyConnected.loss(out, correct: trainable.label)
+      
       let outputDeltas = self.fullyConnected.getOutputDeltas(outputs: out,
                                                              correctValues: trainable.label)
       

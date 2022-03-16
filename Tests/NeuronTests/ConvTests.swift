@@ -27,7 +27,8 @@ final class ConvTests: XCTestCase {
                           bias: 1.0,
                           inputSize: (28,28,1),
                           batchSize: 8,
-                          initializer: .heNormal)
+                          initializer: .heNormal,
+                          metrics: [.accuracy, .loss, .valLoss])
     
     brain.addConvolution(filterCount: 16)
     brain.addMaxPool()
@@ -46,7 +47,8 @@ final class ConvTests: XCTestCase {
 
 //  func testConvLobe() async {
 //    let dataset = await mnist.build()
-//    convBrain.train(data: dataset)
+//    let data = (dataset.training, dataset.val)
+//    convBrain.train(dataset: data)
 //  }
   
   func testPooling() {

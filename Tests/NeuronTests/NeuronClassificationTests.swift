@@ -26,7 +26,7 @@ final class NeuronClassificationTests:  XCTestCase, BaseTestConfig, ModelBuilder
     
     brain.add(LobeModel(nodes: TestConstants.outputs, activation: .softmax, bias: bias)) //output layer
         
-    brain.logLevel = .low
+    brain.logLevel = .none
     
     return brain
   }()

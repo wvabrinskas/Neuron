@@ -34,35 +34,27 @@ public extension MetricLogger {
 internal protocol MetricCalculator: MetricLogger {
   var totalCorrectGuesses: Int { get set }
   var totalGuesses: Int { get set }
-  var accuracy: Float { get }
   
   func calculateAccuracy(_ guess: [Float], label: [Float], binary: Bool)
 }
 
 internal extension MetricCalculator {
-  var accuracy: Float {
-    guard totalGuesses > 0 else {
-      return 0
-    }
-    return Float(totalCorrectGuesses) / Float(totalGuesses) * 100.0
-  }
-  
   func calculateAccuracy(_ guess: [Float], label: [Float], binary: Bool = false) {
     //only useful for classification problems
-
     let max = label.indexOfMax
     let guessMax = guess.indexOfMax
     if binary {
-      if max.0 == guessMax.0 {
+      if max.1 - guessMax.1 < 0.5 {
         totalCorrectGuesses += 1
       }
     } else {
-      if max.1 - guessMax.1 < 0.5 {
+      if max.0 == guessMax.0 {
         totalCorrectGuesses += 1
       }
     }
     totalGuesses += 1
     
+    let accuracy = Float(totalCorrectGuesses) / Float(totalGuesses) * 100.0
     addMetric(value: accuracy, key: .accuracy)
   }
 

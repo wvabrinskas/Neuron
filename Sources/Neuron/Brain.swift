@@ -445,7 +445,7 @@ public class Brain: Logger, Trainable, MetricCalculator {
                message: "    loss: \(metrics[.loss] ?? 0)")
       self.log(type: .message,
                priority: .low,
-               message: "    accuracy: \(accuracy)")
+               message: "    accuracy: \(metrics[.accuracy] ?? 0)")
     
 
       self.log(type: .message,
