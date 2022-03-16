@@ -10,12 +10,10 @@ import Logger
 import NumSwift
 
 
-typealias Output = (loss: Float, output: [Float])
-
-
 public class GAN: Logger, GANTrainingDataBuilder, GANDefinition, Trainable {
   public typealias TrainableDatasetType = TrainingData
-  
+  internal typealias Output = (loss: Float, output: [Float])
+
   internal var generator: Brain?
   internal var discriminator: Brain?
   internal var batchSize: Int
@@ -85,16 +83,6 @@ public class GAN: Logger, GANTrainingDataBuilder, GANDefinition, Trainable {
     self.validateGenerator = { output in
       return false
     }
-  }
-  
-  public func trainOn(_ batch: [TrainingData]) -> Float {
-    //no op
-    return 0
-  }
-  
-  public func validateOn(_ batch: [TrainingData]) -> Float {
-    //no op
-    return 0
   }
   
   private func checkGeneratorValidation(for epoch: Int) -> Bool {

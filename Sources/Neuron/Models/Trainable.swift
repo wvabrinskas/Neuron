@@ -18,3 +18,17 @@ public protocol Trainable {
   func trainOn(_ batch: [TrainableDatasetType]) -> Float
   func validateOn(_ batch: [TrainableDatasetType]) -> Float
 }
+
+public extension Trainable {
+  func validateOn(_ batch: [TrainingData]) -> Float {
+    print("Using default implementation of: ", #function)
+    //no op
+    return 0
+  }
+  
+  func trainOn(_ batch: [TrainingData]) -> Float {
+    print("Using default implementation of: ", #function)
+    //no op
+    return 0
+  }
+}
