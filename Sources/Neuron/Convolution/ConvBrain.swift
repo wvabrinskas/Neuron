@@ -44,6 +44,16 @@ public class ConvBrain: Logger, Trainable, MetricCalculator {
   private var previousFlattenedCount: Int = 0
   private var initializer: Initializer
   
+  /// Initializes a ConvBrain object
+  /// - Parameters:
+  ///   - epochs: The number of iterations over the input data
+  ///   - learningRate: The rate at which all parameters in the network are adjusted
+  ///   - bias: The bias for the network
+  ///   - inputSize: The input size of the data as a `TensorSize`
+  ///   - batchSize: The batch size to divide the data into
+  ///   - optimizer: The gradient descent optimizer to apply.
+  ///   - initializer: The weight initializer
+  ///   - metrics: The set of metrics to keep track of.
   public init(epochs: Int,
               learningRate: Float,
               bias: Float = 1.0,
@@ -62,6 +72,10 @@ public class ConvBrain: Logger, Trainable, MetricCalculator {
     self.metricsToGather = metrics
   }
   
+  /// Adds a convolution layer to the network
+  /// - Parameters:
+  ///   - filterSize: Size of the filter
+  ///   - filterCount: Number of filters
   public func addConvolution(filterSize: TensorSize = (3,3,3),
                              filterCount: Int) {
     
@@ -84,6 +98,7 @@ public class ConvBrain: Logger, Trainable, MetricCalculator {
     lobes.append(lobe)
   }
   
+  /// Adds a max pool layer
   public func addMaxPool() {
     let inputSize = lobes.last?.outputSize ?? inputSize
 
@@ -92,12 +107,21 @@ public class ConvBrain: Logger, Trainable, MetricCalculator {
     lobes.append(lobe)
   }
   
+  /// Adds a fully connected layer to the network
+  /// - Parameters:
+  ///   - count: Number of inputs. This number can be any arbitrary number since the input layer is calculated on the fly.
+  ///   - activation: The activation at this layer
   public func addDense(_ count: Int, activation: Activation = .reLu) {
     fullyConnected.add(LobeModel(nodes: count,
                                  activation: activation,
                                  bias: bias))
   }
   
+  /// Adds a fully connected layer that supports batch normalization.
+  /// - Parameters:
+  ///   - count: Number of inputs. This number can be any arbitrary number since the input layer is calculated on the fly.
+  ///   - rate: The learning rate for the batch normalizer
+  ///   - momentum: The momentum for the batch normalizers
   public func addDenseNormal(_ count: Int,
                              rate: Float = 0.1,
                              momentum: Float = 0.99) {
@@ -107,11 +131,19 @@ public class ConvBrain: Logger, Trainable, MetricCalculator {
                                       normalizerLearningRate: rate)
     fullyConnected.add(bnModel)
   }
-
+  
+  /// Feed the inputs through the network
+  /// - Parameter data: The inputs
+  /// - Returns: The result at the output layer
   public func feed(data: ConvTrainingData) -> [Float] {
     return feedInternal(input: data, training: false)
   }
   
+  /// Trains the network on the input dataset
+  /// - Parameters:
+  ///   - dataset: The dataset with training and validation data
+  ///   - epochCompleted: A block called when an epoch is completed
+  ///   - complete: A block called when the training is complete.
   public func train(dataset: InputData,
                     epochCompleted: ((Int, [Metric : Float]) -> ())? = nil,
                     complete: (([Metric : Float]) -> ())? = nil)  {
@@ -161,11 +193,15 @@ public class ConvBrain: Logger, Trainable, MetricCalculator {
     complete?(metrics)
   }
   
+  /// Compiles the network
   public func compile() {
     fullyConnected.compile()
     self.compiled = true && fullyConnected.compiled
   }
   
+  /// Performs a single step through a validation batch. Does not adjust weights
+  /// - Parameter batch: The batch to validate on
+  /// - Returns: The loss on that batch
   public func validateOn(_ batch: [ConvTrainingData]) -> Float {
     var lossOnBatch: Float = 0
 
@@ -182,6 +218,9 @@ public class ConvBrain: Logger, Trainable, MetricCalculator {
     return lossOnBatch
   }
   
+  /// Performs a single step of training on the batch
+  /// - Parameter batch: The batch to train on
+  /// - Returns: The loss on that batch
   public func trainOn(_ batch: [ConvTrainingData]) -> Float {
     //zero gradients at the start of training on a batch
     zeroGradients()
@@ -214,6 +253,19 @@ public class ConvBrain: Logger, Trainable, MetricCalculator {
     optimizer?.step()
     
     return lossOnBatch
+  }
+  
+  /// Zeros all the gradients
+  public func zeroGradients() {
+    lobes.forEach { $0.zeroGradients() }
+    fullyConnected.zeroGradients()
+  }
+  
+  /// Clears the network
+  public func clear() {
+    loss.removeAll()
+    lobes.forEach { $0.clear() }
+    fullyConnected.clear()
   }
   
   internal func adjustWeights(batchSize: Int) {
@@ -261,15 +313,5 @@ public class ConvBrain: Logger, Trainable, MetricCalculator {
     let result = fullyConnected.feed(input: flat)
     return result
   }
-  
-  public func zeroGradients() {
-    lobes.forEach { $0.zeroGradients() }
-    fullyConnected.zeroGradients()
-  }
-  
-  public func clear() {
-    loss.removeAll()
-    lobes.forEach { $0.clear() }
-    fullyConnected.clear()
-  }
+
 }
