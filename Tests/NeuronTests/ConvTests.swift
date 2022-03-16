@@ -19,7 +19,6 @@ final class ConvTests: XCTestCase {
   
   override func setUp() {
     super.setUp()
-
   }
   
   private lazy var convBrain: ConvBrain = {
@@ -51,8 +50,8 @@ final class ConvTests: XCTestCase {
 //  }
   
   func testPooling() {
-    let inputTensor = (10,10,3)
-    let outputShape = [5,5,3]
+    let inputTensor = (28,28,3)
+    let outputShape = [14,14,3]
     
     let inputData = NumSwift.zerosLike(inputTensor)
     let lobe = PoolingLobe(model: .init(inputSize: inputTensor))
@@ -67,10 +66,10 @@ final class ConvTests: XCTestCase {
   }
   
   func testConvolution() {
-    let inputTensor = (10,10,3)
+    let inputTensor = (28,28,3)
     
-    let filterCount = 6
-    let outputShape = [10,10,filterCount]
+    let filterCount = 32
+    let outputShape = [28,28,filterCount]
     
     let input: [[[Float]]] = NumSwift.zerosLike(inputTensor)
     
@@ -90,7 +89,7 @@ final class ConvTests: XCTestCase {
   }
   
   func testFlatten() {
-    let inputTensor = (10,10,3)
+    let inputTensor = (28,28,3)
     let input: [[[Float]]] = NumSwift.zerosLike(inputTensor)
     
     let expected = inputTensor.0 * inputTensor.1 * inputTensor.2

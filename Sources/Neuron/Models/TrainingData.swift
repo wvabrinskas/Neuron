@@ -16,3 +16,13 @@ public struct TrainingData: Equatable {
     self.correct = cor
   }
 }
+
+public struct ConvTrainingData: Equatable {
+  public var data: [[[Float]]]
+  public var label: [Float]
+  
+  public init(data: [[[Float]]], label: [Float]) {
+    self.data = data
+    self.label = label
+  }
+}

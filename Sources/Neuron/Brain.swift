@@ -12,14 +12,11 @@ import GameplayKit
 import NumSwift
 import Combine
 
-public class Brain: Logger {
+public class Brain: Logger, Trainable, MetricCalculator {
+  public typealias TrainableDatasetType = TrainingData
   
-  public enum Metric: String {
-    case loss = "Training Loss"
-    case accuracy = "Accuracy"
-    case valLoss = "Validation Loss"
-  }
-  
+  public var metricsToGather: Set<Metric> = []
+
   /// The verbosity of the printed logs
   public var logLevel: LogLevel = .none
   
@@ -34,13 +31,6 @@ public class Brain: Logger {
   public var trainable: Bool = true
   
   public var metrics: [Metric: Float] = [:]
-
-  public var accuracy: Float {
-    guard totalGuesses > 0 else {
-      return 0
-    }
-    return Float(totalCorrectGuesses) / Float(totalGuesses) * 100.0
-  }
   
   /// If the brain object has been compiled and linked properly
   private(set) var compiled: Bool = false
@@ -65,11 +55,11 @@ public class Brain: Logger {
   private var optimizer: OptimizerFunction?
   private var optimizerType: Optimizer?
   
-  private var outputLayer: [Neuron] { self.lobes.last?.neurons ?? [] }
-  private var totalCorrectGuesses: Int = 0
-  private var totalGuesses: Int = 0
-  private var metricsToGather: Set<Metric> = []
-        
+  internal var outputLayer: [Neuron] { self.lobes.last?.neurons ?? [] }
+  
+  internal var totalCorrectGuesses: Int = 0
+  internal var totalGuesses: Int = 0
+
   internal var weightConstraints: ClosedRange<Float>? = nil
   
   /// Creates a Brain object that manages a network of Neuron objects
@@ -377,10 +367,12 @@ public class Brain: Logger {
   ///   - validation: The validation data object containing the expected values and the validation data
   ///   - epochCompleted: Called when an epoch is completed with the current epoch
   ///   - complete: Called when training is completed
-  public func train(data: [TrainingData],
-                    validation: [TrainingData] = [],
-                    epochCompleted: ((_ epoch: Int) -> ())? = nil,
-                    complete: ((_ metrics: [Metric: Float]) -> ())? = nil) {
+  public func train(dataset: InputData,
+                    epochCompleted: ((Int, [Metric : Float]) -> ())? = nil,
+                    complete: (([Metric : Float]) -> ())? = nil) {
+    
+    let data = dataset.training
+    let validation = dataset.validation
         
     let trainingStartDate = Date()
     
@@ -413,7 +405,7 @@ public class Brain: Logger {
       
       switch self.descent {
       case .bgd:
-        let loss = self.trainOnBatch(batch: data)
+        let loss = self.trainOn(data)
         epochLoss = loss
 
       case .sgd:
@@ -425,7 +417,7 @@ public class Brain: Logger {
         var lossOnBatches: Float = 0
         
         batches.forEach { (batch) in
-          lossOnBatches += self.trainOnBatch(batch: batch) / Float(batches.count)
+          lossOnBatches += self.trainOn(batch) / Float(batches.count)
         }
         
         epochLoss = lossOnBatches
@@ -439,7 +431,7 @@ public class Brain: Logger {
         var lossOnBatches: Float = 0
         
         batches.forEach { (batch) in
-          lossOnBatches += self.trainOnBatch(batch: batch) / Float(batches.count)
+          lossOnBatches += self.trainOn(batch) / Float(batches.count)
         }
         
         epochLoss = lossOnBatches
@@ -464,7 +456,7 @@ public class Brain: Logger {
       if let validationData = valBatches.randomElement(), validation.count > 0 {
         self.trainable = false
         
-        let errorForValidation = self.validateOnBatch(batch: validationData)
+        let errorForValidation = self.validateOn(validationData)
         
         addMetric(value: errorForValidation, key: .valLoss)
         
@@ -490,7 +482,7 @@ public class Brain: Logger {
         }
       }
       
-      epochCompleted?(i)
+      epochCompleted?(i, metrics)
     }
     
     self.log(type: .success,
@@ -503,7 +495,7 @@ public class Brain: Logger {
     complete?(metrics)
   }
   
-  private func validateOnBatch(batch: [TrainingData]) -> Float {
+  public func validateOn(_ batch: [TrainingData]) -> Float {
     self.trainable = false
     
     var batchLoss: Float = 0
@@ -512,7 +504,7 @@ public class Brain: Logger {
       //feed the data through the network
       let output = self.feed(input: vData.data)
       
-      calculateAccuracy(output, label: vData.correct)
+      calculateAccuracy(output, label: vData.correct, binary: outputLayer.count == 1)
       
       batchLoss += self.loss(output, correct: vData.correct) / Float(batch.count)
     }
@@ -520,7 +512,7 @@ public class Brain: Logger {
     return batchLoss
   }
   
-  private func trainOnBatch(batch: [TrainingData]) -> Float {
+  public func trainOn(_ batch: [TrainingData]) -> Float {
     self.trainable = true
     self.zeroGradients()
     
@@ -530,7 +522,7 @@ public class Brain: Logger {
       //feed the data through the network
       let output = self.feed(input: tData.data)
       
-      calculateAccuracy(output, label: tData.correct)
+      calculateAccuracy(output, label: tData.correct, binary: outputLayer.count == 1)
           
       batchLoss += self.loss(output, correct: tData.correct) / Float(batch.count)
       
@@ -546,25 +538,6 @@ public class Brain: Logger {
     self.optimizer?.step()
 
     return batchLoss
-  }
-  
-  internal func calculateAccuracy(_ guess: [Float], label: [Float]) {
-    //only useful for classification problems
-
-    let max = label.indexOfMax
-    let guessMax = guess.indexOfMax
-    if outputLayer.count > 1 {
-      if max.0 == guessMax.0 {
-        totalCorrectGuesses += 1
-      }
-    } else {
-      if max.1 - guessMax.1 < 0.5 {
-        totalCorrectGuesses += 1
-      }
-    }
-    totalGuesses += 1
-    
-    addMetric(value: accuracy, key: .accuracy)
   }
 
   /// Clears the whole network and resets all the weights to a random value
@@ -618,12 +591,6 @@ public class Brain: Logger {
     }
     
     return x
-  }
-
-  private func addMetric(value: Float, key: Metric) {
-    if metricsToGather.contains(key) {
-      metrics[key] = value
-    }
   }
 
   internal func loss(_ predicted: [Float], correct: [Float]) -> Float {

@@ -9,7 +9,15 @@ import Foundation
 import NumSwift
 import Logger
 
-public class ConvBrain: Logger {
+public class ConvBrain: Logger, Trainable, MetricCalculator {
+  internal var totalCorrectGuesses: Int = 0
+  internal var totalGuesses: Int = 0
+  
+  public typealias TrainableDatasetType = ConvTrainingData
+  
+  public var metricsToGather: Set<Metric> = []
+  public var metrics: [Metric : Float] = [:]
+  
   public var logLevel: LogLevel = .low
   public var loss: [Float] = []
   
@@ -102,9 +110,9 @@ public class ConvBrain: Logger {
     return feedInternal(input: data, training: false)
   }
   
-  public func train(data: DatasetData,
-                    epochCompleted: ((_ epoch: Int) -> ())? = nil,
-                    completed: ((_ loss: [Float]) -> ())? = nil) {
+  public func train(dataset: InputData,
+                    epochCompleted: ((Int, [Metric : Float]) -> ())? = nil,
+                    complete: (([Metric : Float]) -> ())? = nil)  {
     
     guard compiled else {
       self.log(type: .error, priority: .alwaysShow, message: "Please call compile() before training")
@@ -113,37 +121,42 @@ public class ConvBrain: Logger {
     
     self.log(type: .success, priority: .alwaysShow, message: "Training started.....")
     
-    let training = Array(data.training[0...2000])
+    let training = Array(dataset.training)
     let trainingData = training.batched(into: batchSize)
     
-    let val = Array(data.val[0...2000])
+    let val = Array(dataset.validation)
     let validationData = val.batched(into: batchSize)
 
     for e in 0..<epochs {
       
       var b = 0
       for batch in trainingData {
-        let batchLoss = trainOn(batch: batch)
+        let batchLoss = trainOn(batch)
         loss.append(batchLoss)
+        addMetric(value: batchLoss, key: .loss)
         b += 1
         
         if b % 5 == 0 {
           if let val = validationData.randomElement() {
-            let valLoss = self.validateOn(batch: val)
+            let valLoss = self.validateOn(val)
+            addMetric(value: valLoss, key: .valLoss)
             self.log(type: .message, priority: .low, message: "validation loss: \(valLoss)")
           }
         }
         
-        self.log(type: .message, priority: .low, message: "training loss: \(batchLoss)")
-        self.log(type: .message, priority: .low, message: "accuracy: \(fullyConnected.accuracy)")
-
+        self.log(type: .message,
+                 priority: .low,
+                 message: "    loss: \(metrics[.loss] ?? 0)")
+        self.log(type: .message,
+                 priority: .low,
+                 message: "    accuracy: \(accuracy)")
       }
     
       self.log(type: .message, priority: .alwaysShow, message: "epoch: \(e)")
-      epochCompleted?(e)
+      epochCompleted?(e, metrics)
     }
     
-    completed?(loss)
+    complete?(metrics)
   }
   
   public func compile() {
@@ -151,7 +164,7 @@ public class ConvBrain: Logger {
     self.compiled = true && fullyConnected.compiled
   }
   
-  private func validateOn(batch: [ConvTrainingData]) -> Float {
+  public func validateOn(_ batch: [ConvTrainingData]) -> Float {
     var lossOnBatch: Float = 0
 
     for b in 0..<batch.count {
@@ -159,13 +172,15 @@ public class ConvBrain: Logger {
       let out = self.feedInternal(input: trainable, training: false)
       let loss = self.fullyConnected.loss(out, correct: trainable.label)
       
+      calculateAccuracy(out, label: trainable.label, binary: fullyConnected.outputLayer.count == 1)
+
       lossOnBatch += loss / Float(batch.count)
     }
     
     return lossOnBatch
   }
   
-  private func trainOn(batch: [ConvTrainingData]) -> Float {
+  public func trainOn(_ batch: [ConvTrainingData]) -> Float {
     //zero gradients at the start of training on a batch
     zeroGradients()
     
@@ -182,6 +197,8 @@ public class ConvBrain: Logger {
       
       let loss = self.fullyConnected.loss(out, correct: trainable.label)
       
+      calculateAccuracy(out, label: trainable.label, binary: fullyConnected.outputLayer.count == 1)
+
       let outputDeltas = self.fullyConnected.getOutputDeltas(outputs: out,
                                                              correctValues: trainable.label)
       

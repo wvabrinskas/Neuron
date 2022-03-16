@@ -12,11 +12,6 @@ import NumSwift
 
 typealias Output = (loss: Float, output: [Float])
 
-public enum Metric: String {
-  case generatorLoss,
-       criticLoss,
-       gradientPenalty
-}
 
 public class GAN: Logger, GANTrainingDataBuilder, GANDefinition {
   internal var generator: Brain?

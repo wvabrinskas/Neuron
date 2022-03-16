@@ -499,7 +499,67 @@ func addMaxPool()
 ### Flatten Layer
 - Takes in a `3 dimensional array` and flattens it to `1 dimension`. eg. `[[[Float]]] -> [Float]`
 - There is no way to add this to the `ConvBrain` as it is added automatically when `compile()` is called. 
-                    
+
+### Dense Layer
+- Adds a fully connected layer to the `ConvBrain`. 
+```
+func addDense(_ count: Int, activation: Activation = .reLu)
+```
+`count` - number of inputs for this layer. Input layer will be automatically calculated for the fully connected portion so this can be any arbitrary number that makes sense.
+
+`activation` - the activation function for this layer. Defualt is `relu`
+
+### Dense Normalized Layer
+- Adds a fully connected layer tp the `ConvBrain` that utilizes `BatchNormalization` prior to activation. 
+
+```
+func addDenseNormal(_ count: Int,
+                    rate: Float = 0.1,
+                    momentum: Float = 0.99)
+```
+`count` - same applies as `Dense` layer
+`rate` - learning rate for the `BatchNormalizer` 
+`momentum` - momentum for the `BatchNormalizer`
+
+## Compiling 
+Just run `compile()` on `ConvBrain` before attempting to train. 
+
+## Training
+- Training the Convolutional network is just as easy as training the regular fully connected network. Just call `train`. 
+- One major difference is that `ConvBrain` takes in a `ConvTrainingData` object as its training data. 
+
+ConvTrainingData
+```
+public struct ConvTrainingData: Equatable {
+  public var data: [[[Float]]]
+  public var label: [Float]
+  
+  public init(data: [[[Float]]], label: [Float]) {
+    self.data = data
+    self.label = label
+  }
+}
+```
+`data` - the data as a 3D array of `Float`. The dimensions of this array should match the `inputSize` in the `ConvBrain` 
+
+`label` - the label of the data as a 1-hot encoded vector. The size of this array must match the number of output nodes in the fully connected portion. 
+
+### Initializing Training 
+Call `.train(data: DatasetData)` on `ConvBrain`. A neat tip is to set the `logLevel` of the `ConvBrain` to `.low` to see the `valLoss, loss, and accuracy` of the network printed out. 
+```
+typealias DatasetData = (training: [ConvTrainingData], val: [ConvTrainingData])
+
+func train(data: DatasetData,
+                    epochCompleted: ((_ epoch: Int) -> ())? = nil,
+                    completed: ((_ loss: [Float]) -> ())? = nil)
+```
+
+`data` - `DatasetData` is a typealias for supplying an array or training and validation datasets to the network. 
+
+`epochCompleted` - an optional block that is called with the completion of every epoch. An epoch is when the network has gone through every item in the training dataset.
+
+`completed` - an optional block that is called when every epoch has been completed and the training is done. This will return the `loss` of the network at the end.
+
 
 # TODOs 
 - GPU Acceleration is still in the works. 
