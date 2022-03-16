@@ -162,9 +162,9 @@ public class Lobe {
     
     layerWeights = layerWeights.transpose(columns: columns, rows: rows)
     
-    let dotProducts = inputs.multiDotProduct(B: layerWeights,
-                                             columns: Int32(columns),
-                                             rows: Int32(rows))
+    let dotProducts = inputs.multiply(B: layerWeights,
+                                      columns: Int32(columns),
+                                      rows: Int32(rows))
     
     var activatedResults: [Float] = []
 
@@ -226,9 +226,9 @@ public class Lobe {
     
     let layerWeights = neurons.flatMap { $0.weights * $0.activationDerivative }
     
-    let deltas = incomingDeltas.multiDotProduct(B: layerWeights,
-                                                columns: Int32(previousLayerCount),
-                                                rows: Int32(incomingDeltas.count))
+    let deltas = incomingDeltas.multiply(B: layerWeights,
+                                         columns: Int32(previousLayerCount),
+                                         rows: Int32(incomingDeltas.count))
     return deltas
   }
   
