@@ -462,13 +462,14 @@ Call `compile()` after adding all of your layers
 
 ## Initialization
 ```
-  let brain = ConvBrain(epochs: 30,
-                        learningRate: 0.001,
-                        bias: 1.0,
-                        inputSize: (28,28,1),
-                        batchSize: 8,
-                        initializer: .heNormal, 
-                        metrics: [.accuracy, .loss, .valLoss])
+init(epochs: Int,
+    learningRate: Float,
+    bias: Float = 1.0,
+    inputSize: TensorSize,
+    batchSize: Int,
+    optimizer: Optimizer? = nil,
+    initializer: InitializerType = .heNormal,
+    metrics: Set<Metric> = [])
 ```
 `epochs` - the number of iterations over the whole dataset 
 
@@ -554,7 +555,7 @@ public struct ConvTrainingData: Equatable {
 `label` - the label of the data as a 1-hot encoded vector. The size of this array must match the number of output nodes in the fully connected portion. 
 
 ### Initializing Training 
-Call `.train(data: DatasetData)` on `ConvBrain`. A neat tip is to set the `logLevel` of the `ConvBrain` to `.low` to see the `valLoss, loss, and accuracy` of the network printed out. 
+Call `.train(data: DatasetData)` on `ConvBrain`. 
 ```
 typealias DatasetData = (training: [ConvTrainingData], val: [ConvTrainingData])
 
@@ -576,6 +577,30 @@ public protocol Trainable {
 
 `completed` - an optional block that is called when every epoch has been completed and the training is done. This will return the `metrics` of the network at the end.
 
+### Feeding the Network
+You can pass in a `ConvTrainingData` object into the `feed` function to get the output. 
+
+```
+func feed(data: ConvTrainingData) -> [Float]
+```
+
+`data` - The input data object. Should be the same as the `inputSize` of the `ConvBrain`
+
+# Datasets 
+`Neuron` contains some training datasets to use on a convolutional network. 
+
+## Supplied datasets 
+### MNIST 
+You can build the `MNIST` dataset using the `MNIST` class provided. 
+```
+let mnist = MNIST()
+let dataset = await mnist.build()
+```
+- `mnist.build()` is an asynchronous function that will build the `MNIST` dataset and return a `DatasetData` object that you can then use to train the network. 
+- `MNIST` will also using `Combine` to publish the dataset to the `data` subject of the `MNIST` object.
+- This will build the the `training` dataset as well as the `validation` data set. 
+- `training` dataset contains `60000` items with labels
+- `validation` dataset contains `10000` items with labels
 
 # TODOs 
 - GPU Acceleration is still in the works. 
