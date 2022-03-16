@@ -124,9 +124,10 @@ public class ConvBrain: Logger, Trainable, MetricCalculator {
   ///   - momentum: The momentum for the batch normalizers
   public func addDenseNormal(_ count: Int,
                              rate: Float = 0.1,
-                             momentum: Float = 0.99) {
+                             momentum: Float = 0.99,
+                             activation: Activation = .reLu) {
     let bnModel = NormalizedLobeModel(nodes: count,
-                                      activation: .reLu,
+                                      activation: activation,
                                       momentum: momentum,
                                       normalizerLearningRate: rate)
     fullyConnected.add(bnModel)
