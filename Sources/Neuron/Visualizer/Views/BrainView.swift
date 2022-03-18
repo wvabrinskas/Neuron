@@ -15,7 +15,7 @@ public struct BrainView: View {
   public init(viewModel: BrainViewModel) {
     self.viewModel = viewModel
   }
-   
+  
   public var body: some View {
     VStack {
       HStack(spacing: viewModel.spacing) {
@@ -23,7 +23,6 @@ public struct BrainView: View {
           LobeView(viewModel: lobe)
         }
       }
-      .padding()
     }
   }
 }
@@ -54,7 +53,7 @@ struct BrainView_Previews: PreviewProvider {
       
       previousNum = num
       
-      lobes.append(LobeViewModel(neurons: models, spacing: 15))
+      lobes.append(LobeViewModel(neurons: models, spacing: 80))
     }
     
     return lobes
@@ -63,7 +62,7 @@ struct BrainView_Previews: PreviewProvider {
   
   static var previews: some View {
     if #available(iOS 15.0, *) {
-      BrainView(viewModel: BrainViewModel(lobes: lobes, spacing: 100))
+      BrainView(viewModel: BrainViewModel(lobes: lobes, spacing: 200))
         .previewInterfaceOrientation(.landscapeLeft)
     } else {
       BrainView(viewModel: BrainViewModel(lobes: lobes))

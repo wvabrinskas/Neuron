@@ -28,10 +28,11 @@ public struct LobeView: View {
 struct LobeView_Previews: PreviewProvider {
   
   static private var neurons: [NeuronViewModel] {
-    let num = Int.random(in: 1...10)
+    let num = Int.random(in: 4...10)
+    let randomW = Int.random(in: 3...10)
+
     var models: [NeuronViewModel] = []
     for _ in 0..<num {
-      let randomW = Int.random(in: 3...10)
       var weights: [Float] = []
       for _ in 0..<randomW {
         weights.append(Float.random(in: 0...1))
@@ -44,6 +45,6 @@ struct LobeView_Previews: PreviewProvider {
   }
   
   static var previews: some View {
-    LobeView(viewModel: LobeViewModel(neurons: neurons, spacing: 30))
+    LobeView(viewModel: LobeViewModel(neurons: neurons, spacing: 80))
   }
 }

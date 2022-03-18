@@ -26,13 +26,13 @@ public class NetworkVisualizer {
 
   private let scale: ClosedRange<Float> = 0...1
   private var layerColors: [Color] = []
-  private var neuronSpacing: CGFloat = 10
-  private var layerSpacing: CGFloat = 40
+  private var neuronSpacing: CGFloat
+  private var layerSpacing: CGFloat
   
   public init(layerColor: Color = .red,
               randomizeLayerColors: Bool = false,
-              neuronSpacing: CGFloat = 10,
-              layerSpacing: CGFloat = 40) {
+              neuronSpacing: CGFloat = 80,
+              layerSpacing: CGFloat = 200) {
     self.layerColor = layerColor
     self.randomizeLayerColors = randomizeLayerColors
     self.neuronSpacing = neuronSpacing

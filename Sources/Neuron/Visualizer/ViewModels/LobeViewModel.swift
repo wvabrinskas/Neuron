@@ -13,7 +13,7 @@ public struct LobeViewModel: Identifiable {
   var neurons: [NeuronViewModel]
   var spacing: CGFloat
   
-  public init(neurons: [NeuronViewModel], spacing: CGFloat = 10) {
+  public init(neurons: [NeuronViewModel], spacing: CGFloat = 80) {
     self.neurons = neurons
     self.spacing = spacing
   }
