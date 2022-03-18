@@ -325,7 +325,7 @@ public enum Metric: String {
 
 <img width="600" src="images/graph-sample.png"> 
 
-# Network Visualiztion
+# Network Visualization
 You can now visualize your basic fully connected `Brain` network using SwiftUI and the `NetworkVisualizer` class. It will show you in some what real time what your network status is like weight values and activation values in a visual way. 
 
 ## Usage 
@@ -393,12 +393,7 @@ struct ContentView: View {
 - In this case the `provider` is a demo class that contains the `Brain` object. 
 - Calling `.train()` on the `Brain` object will update the `viewModel` through the `NetworkVisualizer` object.
 
-
-<video controls width="600">
-    <source src="images/Untitled.webm"
-            type="video/webm">
-    Sorry, your browser doesn't support embedded videos.
-</video>
+[![Watch the video](images/network_video.png)](images/Untitled.webm)
 
 # Experimental
 These features were losely tested but I have come to the conclusion that they work enough to be released. Feel free to open an issue if they do not. 
