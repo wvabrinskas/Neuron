@@ -4,9 +4,9 @@
 
 ![](https://img.shields.io/github/v/tag/wvabrinskas/Neuron?style=flat-square)
 ![](https://img.shields.io/github/license/wvabrinskas/Neuron?style=flat-square)
-![](https://img.shields.io/badge/swift-5.2-orange?style=flat-square)
+![](https://img.shields.io/badge/swift-5.5-orange?style=flat-square)
 ![](https://img.shields.io/badge/iOS-13+-darkcyan?style=flat-square)
-![](https://img.shields.io/badge/macOS-10.15+-darkcyan?style=flat-square)
+![](https://img.shields.io/badge/macOS-11+-darkcyan?style=flat-square)
 ![](https://img.shields.io/badge/watchOS-6+-darkcyan?style=flat-square)
 ![](https://img.shields.io/badge/tvOS-13+-darkcyan?style=flat-square)
 
@@ -27,6 +27,7 @@
 1. [Exporting](#Exporting-Pretrained-Models)
 1. [Retrieving Data](#Retrieving-Data)
 1. [Data Studying](#Data-Studying)
+1. [Network Visualization](#Network-Visualization)
 1. [Experimental Features](#Experimental)
     1. [GAN and WGAN](#GAN-and-WGAN-support)
     1. [Convolution / Image Recognition](#CNN)
@@ -323,6 +324,80 @@ public enum Metric: String {
 ```
 
 <img width="600" src="images/graph-sample.png"> 
+
+# Network Visualization
+You can now visualize your basic fully connected `Brain` network using SwiftUI and the `NetworkVisualizer` class. It will show you in some what real time what your network status is like weight values and activation values in a visual way. 
+
+## Usage 
+Create a new `NetworkVisualizer` object. 
+
+```
+public init(layerColor: Color = .red,
+              randomizeLayerColors: Bool = false,
+              neuronSpacing: CGFloat = 80,
+              layerSpacing: CGFloat = 200)
+```
+
+`layerColor` - the color of each node in the layer 
+
+`randomizeLayerColors` - will pick at random a color for each layer. 
+
+`neuronSpacing` - the vertical space between each node. 
+
+`layerSpacing` - the horizontal space between each layer.
+
+```
+let visualizer = NetworkVisualizer(randomizeLayerColors: false,
+                                             neuronSpacing: 80,
+                                             layerSpacing: 200)
+```
+
+- The `NetworkVisualizer` object will publish a `NetworkViewModel` object using combine anytime it's asked to update using the property: 
+  -  `@Published public var viewModel: NetworkViewModel?`
+- Subscribe to this property if you would like to receive updates from the `NetworkVisualizer`. 
+- This viewModel is used to update the `NetworkView` 
+```
+visualizer.$viewModel.sink { model in
+  self.visualizerViewModel = model
+}.store(in: &cancellables)
+```
+
+Add the `NetworkVisualizer` to your `Brain` object. 
+```
+brain.visualize(visualizer)
+```
+- This is only thing you'll have to do. The `Brain` object will automatically update the visualizer for you. 
+
+### Adding the view
+`NetworkVisualizer` uses SwiftUI to render the views. The main view is `NetworkView`. Out of the box `NetworkView` supports panning and zooming of the network. 
+
+```
+struct ContentView: View {
+  @Environment(\.networkProvider) var provider: NetworkProvider
+  @State var viewModel: NetworkViewModel = NetworkViewModel()
+  
+  var body: some View {
+    NetworkView(viewModel: viewModel)
+      .onReceive(provider.$visualizerViewModel, perform: { model in
+        if let model = model {
+          viewModel = model
+        }
+      })
+      .onAppear {
+        provider.train()
+      }
+  }
+}
+```
+- The `ContentView` contains the `@State` param that holds the `NetworkViewModel`. 
+- In this case the `provider` is a demo class that contains the `Brain` object. 
+- Calling `.train()` on the `Brain` object will update the `viewModel` through the `NetworkVisualizer` object.
+
+<img width="600" src="images/images_Untitled.gif"> 
+
+**Note: It is much faster than the gif is implying**
+
+- The darker the color the closer to `1` that value is. All values are scaled between `0...1`. 
 
 # Experimental
 These features were losely tested but I have come to the conclusion that they work enough to be released. Feel free to open an issue if they do not. 

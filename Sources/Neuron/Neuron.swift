@@ -25,6 +25,7 @@ public class Neuron {
   internal var activationType: Activation = .none
   internal var layer: LayerType = .output
   internal var activationDerivative: Float = 1
+  internal var previousActivation: Float = 0
 
   private var learningRate: Float = 0.01
   private var optimizer: OptimizerFunction?
@@ -88,7 +89,11 @@ public class Neuron {
       print("Error: Can not replace inputs of different size")
       return
     }
-
+    
+    if layer == .input {
+      self.previousActivation = inputs.first ?? 0
+    }
+    
     self.inputValues = inputs
   }
   
@@ -105,6 +110,8 @@ public class Neuron {
   public func zeroGradients() {
     self.delta = nil
     self.weightGradients = [Float].init(repeating: 0, count: self.weights.count)
+    self.activationDerivative = 1
+    self.previousActivation = 0
   }
   
   /// Applies the activation of a given sum.
@@ -116,6 +123,7 @@ public class Neuron {
   
     let out = self.activationType.activate(input: sum)
     self.activationDerivative = self.activationType.derivative(input: sum)
+    self.previousActivation = out
     return out
   }
   
@@ -133,6 +141,8 @@ public class Neuron {
     let clearedWeights = [Float](repeating: Float.random(in: 0...1), count: self.weights.count)
     let clearedInputs = [Float](repeating: 0, count: self.inputValues.count)
     self.initialize(weights: clearedWeights, inputs: clearedInputs)
+    self.activationDerivative = 1
+    self.previousActivation = 0
   }
   
   /// Adjusts the weights of all inputs
