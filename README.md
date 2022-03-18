@@ -397,6 +397,8 @@ struct ContentView: View {
 
 **Note: It is much faster than the gif is implying**
 
+- The darker the color the closer to `1` that value is. All values are scaled between `0...1`. 
+
 # Experimental
 These features were losely tested but I have come to the conclusion that they work enough to be released. Feel free to open an issue if they do not. 
 
