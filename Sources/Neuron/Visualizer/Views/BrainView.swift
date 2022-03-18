@@ -61,7 +61,7 @@ struct BrainView_Previews: PreviewProvider {
   
   
   static var previews: some View {
-    if #available(iOS 15.0, *) {
+    if #available(iOS 15.0, macOS 12.0, *) {
       BrainView(viewModel: BrainViewModel(lobes: lobes, spacing: 200))
         .previewInterfaceOrientation(.landscapeLeft)
     } else {
