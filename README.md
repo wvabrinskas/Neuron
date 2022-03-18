@@ -27,6 +27,7 @@
 1. [Exporting](#Exporting-Pretrained-Models)
 1. [Retrieving Data](#Retrieving-Data)
 1. [Data Studying](#Data-Studying)
+1. [Network Visualization](#Network-Visualization)
 1. [Experimental Features](#Experimental)
     1. [GAN and WGAN](#GAN-and-WGAN-support)
     1. [Convolution / Image Recognition](#CNN)
@@ -323,6 +324,9 @@ public enum Metric: String {
 ```
 
 <img width="600" src="images/graph-sample.png"> 
+
+# Network Visualiztion
+
 
 # Experimental
 These features were losely tested but I have come to the conclusion that they work enough to be released. Feel free to open an issue if they do not. 
