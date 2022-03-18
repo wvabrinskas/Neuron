@@ -326,7 +326,79 @@ public enum Metric: String {
 <img width="600" src="images/graph-sample.png"> 
 
 # Network Visualiztion
+You can now visualize your basic fully connected `Brain` network using SwiftUI and the `NetworkVisualizer` class. It will show you in some what real time what your network status is like weight values and activation values in a visual way. 
 
+## Usage 
+Create a new `NetworkVisualizer` object. 
+
+```
+public init(layerColor: Color = .red,
+              randomizeLayerColors: Bool = false,
+              neuronSpacing: CGFloat = 80,
+              layerSpacing: CGFloat = 200)
+```
+
+`layerColor` - the color of each node in the layer 
+
+`randomizeLayerColors` - will pick at random a color for each layer. 
+
+`neuronSpacing` - the vertical space between each node. 
+
+`layerSpacing` - the horizontal space between each layer.
+
+```
+let visualizer = NetworkVisualizer(randomizeLayerColors: false,
+                                             neuronSpacing: 80,
+                                             layerSpacing: 200)
+```
+
+- The `NetworkVisualizer` object will publish a `NetworkViewModel` object using combine anytime it's asked to update using the property: 
+  -  `@Published public var viewModel: NetworkViewModel?`
+- Subscribe to this property if you would like to receive updates from the `NetworkVisualizer`. 
+- This viewModel is used to update the `NetworkView` 
+```
+visualizer.$viewModel.sink { model in
+  self.visualizerViewModel = model
+}.store(in: &cancellables)
+```
+
+Add the `NetworkVisualizer` to your `Brain` object. 
+```
+brain.visualize(visualizer)
+```
+- This is only thing you'll have to do. The `Brain` object will automatically update the visualizer for you. 
+
+### Adding the view
+`NetworkVisualizer` uses SwiftUI to render the views. The main view is `NetworkView`. Out of the box `NetworkView` supports panning and zooming of the network. 
+
+```
+struct ContentView: View {
+  @Environment(\.networkProvider) var provider: NetworkProvider
+  @State var viewModel: NetworkViewModel = NetworkViewModel()
+  
+  var body: some View {
+    NetworkView(viewModel: viewModel)
+      .onReceive(provider.$visualizerViewModel, perform: { model in
+        if let model = model {
+          viewModel = model
+        }
+      })
+      .onAppear {
+        provider.train()
+      }
+  }
+}
+```
+- The `ContentView` contains the `@State` param that holds the `NetworkViewModel`. 
+- In this case the `provider` is a demo class that contains the `Brain` object. 
+- Calling `.train()` on the `Brain` object will update the `viewModel` through the `NetworkVisualizer` object.
+
+
+<video controls width="600">
+    <source src="images/Untitled.webm"
+            type="video/webm">
+    Sorry, your browser doesn't support embedded videos.
+</video>
 
 # Experimental
 These features were losely tested but I have come to the conclusion that they work enough to be released. Feel free to open an issue if they do not. 
