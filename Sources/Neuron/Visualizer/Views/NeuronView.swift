@@ -29,6 +29,11 @@ public struct NeuronView: View {
 
 struct NeuronView_Previews: PreviewProvider {
     static var previews: some View {
-      NeuronView(viewModel: NeuronViewModel(activation: 0.5))
+      let randomW = Int.random(in: 3...10)
+      var weights: [Float] = []
+      for _ in 0..<randomW {
+        weights.append(Float.random(in: 0...1))
+      }
+      return NeuronView(viewModel: NeuronViewModel(activation: 0.5, weights: weights))
     }
 }

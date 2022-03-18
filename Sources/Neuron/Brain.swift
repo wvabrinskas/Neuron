@@ -15,6 +15,8 @@ import Combine
 public class Brain: Logger, Trainable, MetricCalculator {
   public typealias TrainableDatasetType = TrainingData
   
+  public private(set) var visualizer: NetworkVisualizer?
+
   public var metricsToGather: Set<Metric> = []
 
   /// The verbosity of the printed logs
@@ -33,7 +35,7 @@ public class Brain: Logger, Trainable, MetricCalculator {
   public var metrics: [Metric: Float] = [:]
   
   /// If the brain object has been compiled and linked properly
-  private(set) var compiled: Bool = false
+  public private(set) var compiled: Bool = false
   
   /// The function to use to calculate the loss of the network
   private var lossFunction: LossFunction
@@ -144,6 +146,10 @@ public class Brain: Logger, Trainable, MetricCalculator {
   public func add(optimizer: Optimizer) {
     self.optimizer = optimizer.get(learningRate: self.learningRate)
     self.optimizerType = optimizer
+  }
+  
+  public func visualize(_ vis: NetworkVisualizer) {
+    visualizer = vis
   }
   
   /// Returns a model that can be imported later
@@ -588,6 +594,10 @@ public class Brain: Logger, Trainable, MetricCalculator {
       let newInputs: [Float] = currentLayer.feed(inputs: x, training: self.trainable)
 
       x = newInputs
+    }
+    
+    DispatchQueue.main.async {
+      self.visualizer?.visualize(brain: self)
     }
     
     return x

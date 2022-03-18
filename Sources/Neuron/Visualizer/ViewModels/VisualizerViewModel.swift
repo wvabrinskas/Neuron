@@ -9,9 +9,9 @@ import Foundation
 import SwiftUI
 
 public struct VisualizerViewModel {
-  var brain: BrainViewModel
+  public var brain: BrainViewModel
   
-  public init(brain: BrainViewModel) {
+  public init(brain: BrainViewModel = .init()) {
     self.brain = brain
   }
 }

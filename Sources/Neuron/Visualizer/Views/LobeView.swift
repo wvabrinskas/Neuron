@@ -31,7 +31,13 @@ struct LobeView_Previews: PreviewProvider {
     let num = Int.random(in: 1...10)
     var models: [NeuronViewModel] = []
     for _ in 0..<num {
-      let model = NeuronViewModel(activation: Float.random(in: 0...1))
+      let randomW = Int.random(in: 3...10)
+      var weights: [Float] = []
+      for _ in 0..<randomW {
+        weights.append(Float.random(in: 0...1))
+      }
+      let model = NeuronViewModel(activation: Float.random(in: 0...1),
+                                  weights: weights)
       models.append(model)
     }
     return models

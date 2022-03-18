@@ -170,7 +170,9 @@ public class Lobe {
 
     if activation == .softmax {
       for i in 0..<neurons.count {
-        activatedResults.append(OutputModifier.softmax.calculate(index: i, outputs: dotProducts))
+        let result = OutputModifier.softmax.calculate(index: i, outputs: dotProducts)
+        neurons[i].previousActivation = result
+        activatedResults.append(result)
       }
       return activatedResults
     }
