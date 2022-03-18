@@ -17,17 +17,13 @@ public struct BrainView: View {
   }
    
   public var body: some View {
-    ScrollView(.vertical, showsIndicators: true) {
-      VStack {
-        ScrollView(.horizontal, showsIndicators: true) {
-          HStack(spacing: viewModel.spacing) {
-            ForEach(viewModel.lobes) { lobe in
-              LobeView(viewModel: lobe)
-            }
-          }
-          .padding()
+    VStack {
+      HStack(spacing: viewModel.spacing) {
+        ForEach(viewModel.lobes) { lobe in
+          LobeView(viewModel: lobe)
         }
       }
+      .padding()
     }
   }
 }

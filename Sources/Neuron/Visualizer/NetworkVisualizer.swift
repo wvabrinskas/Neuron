@@ -20,7 +20,7 @@ extension Color {
 }
 
 public class NetworkVisualizer {
-  @Published public var viewModel: VisualizerViewModel?
+  @Published public var viewModel: NetworkViewModel?
   public var randomizeLayerColors: Bool = false
   public var layerColor: Color = .red
 
@@ -71,6 +71,6 @@ public class NetworkVisualizer {
     }
     
     let brainViewModel = BrainViewModel(lobes: lobes, spacing: layerSpacing)
-    viewModel = VisualizerViewModel(brain: brainViewModel)
+    viewModel = NetworkViewModel(brain: brainViewModel)
   }
 }
