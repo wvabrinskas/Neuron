@@ -42,14 +42,14 @@ public struct NeuronView: View {
       path.move(to: CGPoint(x: origin.x + 5, y: origin.y + 5))
       path.addLine(to: CGPoint(x: self.viewModel.radius, y: self.viewModel.radius))
     }
-    .stroke(viewModel.weightsColor, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
+    .stroke(viewModel.weightsColor, style: StrokeStyle(lineWidth: 10, lineCap: .round, lineJoin: .round))
     .saturation(Double(weight))
   }
 }
 
 struct NeuronView_Previews: PreviewProvider {
     static var previews: some View {
-      let randomW = 3//Int.random(in: 3...10)
+      let randomW = Int.random(in: 3...10)
       var weights: [Float] = []
       for _ in 0..<randomW {
         weights.append(Float.random(in: 0...1))
