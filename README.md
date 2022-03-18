@@ -393,7 +393,9 @@ struct ContentView: View {
 - In this case the `provider` is a demo class that contains the `Brain` object. 
 - Calling `.train()` on the `Brain` object will update the `viewModel` through the `NetworkVisualizer` object.
 
-[![Watch the video](images/network_video.png)](images/Untitled.webm)
+<img width="600" src="images/images_Untitled.gif"> 
+
+**Note: It is much faster than the gif is implying**
 
 # Experimental
 These features were losely tested but I have come to the conclusion that they work enough to be released. Feel free to open an issue if they do not. 
