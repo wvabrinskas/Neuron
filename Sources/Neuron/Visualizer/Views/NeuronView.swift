@@ -17,13 +17,28 @@ public struct NeuronView: View {
   }
   
   public var body: some View {
-    Circle()
-      .strokeBorder(Color.black, lineWidth: 5)
-      .background(Circle().fill(viewModel.color)
-        .transition(.opacity)
-        .saturation(Double(viewModel.activation))) //expecting 0...1
-      .frame(width: viewModel.radius * 2.0,
-             height: viewModel.radius * 2.0)
+    HStack {
+      VStack {
+        ForEach(0..<viewModel.weights.count) { i in
+          let w = viewModel.weights[i]
+          Circle()
+            .strokeBorder(Color.black, lineWidth: 1)
+            .background(Circle().fill(viewModel.color)
+              .transition(.opacity)
+              .saturation(Double(w)))
+            .frame(width: 10,
+                   height: 10)
+        }
+      }
+      Circle()
+        .strokeBorder(Color.black, lineWidth: 5)
+        .background(Circle().fill(viewModel.color)
+          .transition(.opacity)
+          .saturation(Double(viewModel.activation))) //expecting 0...1
+        .frame(width: viewModel.radius * 2.0,
+               height: viewModel.radius * 2.0)
+    }
+
   }
 }
 
