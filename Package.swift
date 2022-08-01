@@ -4,7 +4,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "NeuronV2",
+    name: "Neuron",
     platforms: [ .iOS(.v13),
                  .tvOS(.v13),
                  .watchOS(.v6),
@@ -12,8 +12,8 @@ let package = Package(
     products: [
         // Products define the executables and libraries a package produces, and make them visible to other packages.
         .library(
-            name: "NeuronV2",
-            targets: ["NeuronV2"]),
+            name: "Neuron",
+            targets: ["Neuron"]),
     ],
     dependencies: [
       //.package(url: "https://github.com/wvabrinskas/NumSwift.git", from: "1.1.0"),
@@ -24,14 +24,14 @@ let package = Package(
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
         // Targets can depend on other targets in this package, and on products in packages this package depends on.
         .target(
-            name: "NeuronV2",
+            name: "Neuron",
             dependencies: [
               "NumSwift",
               "Logger"
             ],
             resources: [ .process("Resources") ]),
         .testTarget(
-            name: "NeuronV2Tests",
-            dependencies: ["NeuronV2"]),
+            name: "NeuronTests",
+            dependencies: ["Neuron"]),
     ]
 )

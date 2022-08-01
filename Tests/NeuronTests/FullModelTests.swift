@@ -8,7 +8,7 @@
 import Foundation
 import XCTest
 import NumSwift
-@testable import NeuronV2
+@testable import Neuron
 
 final class FullModelTests: XCTestCase {
   public var trainingData: [DatasetModel] = []

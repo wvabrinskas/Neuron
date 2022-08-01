@@ -1,6 +1,6 @@
 import XCTest
 import NumSwift
-@testable import NeuronV2
+@testable import Neuron
 
 extension XCTestCase {
   var isGithubCI: Bool {
@@ -11,7 +11,7 @@ extension XCTestCase {
   }
 }
 
-final class NeuronV2Tests: XCTestCase {
+final class NeuronTests: XCTestCase {
   func testTransConv2dLayer() {
     let inputShape = TensorSize(array: [10,10,1])
     
