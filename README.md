@@ -13,9 +13,9 @@
 [![Tests](https://github.com/wvabrinskas/Neuron/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/wvabrinskas/Neuron/actions/workflows/tests.yml)
 
 # Support 
-[<img width="100" src="images/twitter.png"> ](https://twitter.com/wvabrinskas)
-[<img width="75" style="padding-bottom:10px" src="images/discord.png">](https://discord.gg/p84DYph4PW)
-[<img width="75" style="padding-bottom:10px; padding-left:15px" src="images/www.png">](https://williamvabrinskas.com)
+[<img width="75" src="images/twitter.png"> ](https://twitter.com/wvabrinskas)
+[<img width="75" src="images/discord.png">](https://discord.gg/p84DYph4PW)
+[<img width="75" src="images/www.png">](https://williamvabrinskas.com)
 
 Feel free to send me suggestions on how to improve this. I would be delighted to learn more!! You can also feel free to assign issues here. Run the unit tests as well to learn how the project works!
 
