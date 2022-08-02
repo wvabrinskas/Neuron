@@ -19,4 +19,7 @@
 
 Feel free to send me suggestions on how to improve this. I would be delighted to learn more!! You can also feel free to assign issues here. Run the unit tests as well to learn how the project works!
 
+# Grand Re-Opening! 
+Version 2.0 of Neuron is here! This new version of Neuron is a complete rewrite from the ground up of the architecture. It is much more streamlined, with faster execution. Its usage also aligns more with commonly used ML frameworks like [Keras](https://keras.io/) and [PyTorch](https://pytorch.org/). 
+
 # Background
