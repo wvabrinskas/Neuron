@@ -160,4 +160,4 @@ public struct Gradient {
 }
 ```
 
-A `Tensor.Gradient` object 
+A `Tensor.Gradient` object will contain all the gradients you'll need to perform a backpropagation step in the `Optimizer`. This object contains gradients w.r.t the `input`, w.r.t the `weights`, and w.r.t the `biases` of the graph. 
