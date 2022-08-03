@@ -35,8 +35,8 @@ final class NeuronTests: XCTestCase {
     
     let inputTensor = Tensor(input)
     
-    var out = conv.forward(tensor: inputTensor)
-    out = inputTensor.setGraph(out)
+    let out = conv.forward(tensor: inputTensor)
+    out.setGraph(inputTensor)
     
     XCTAssert(outputShape == out.shape)
     
@@ -74,8 +74,8 @@ final class NeuronTests: XCTestCase {
     let layer = Flatten()
     layer.inputSize = TensorSize(array: r.shape)
     
-    var out = layer.forward(tensor: testData)
-    out = testData.setGraph(out)
+    let out = layer.forward(tensor: testData)
+    out.setGraph(testData)
     
     let rFlat: [Float] = r.flatten()
     let backward = out.gradients(delta: Tensor(rFlat))
@@ -101,8 +101,8 @@ final class NeuronTests: XCTestCase {
     let layer = Reshape(to: size)
     layer.inputSize = r.shape.tensorSize
     
-    var out = layer.forward(tensor: testData)
-    out = testData.setGraph(out)
+    let out = layer.forward(tensor: testData)
+    out.setGraph(testData)
     
     XCTAssert(out.value.shape.tensorSize == size)
     
@@ -129,8 +129,8 @@ final class NeuronTests: XCTestCase {
     
     let data = testData
     
-    var out = maxPool.forward(tensor: data)
-    out = data.setGraph(out)
+    let out = maxPool.forward(tensor: data)
+    out.setGraph(data)
     
     let gradients: [[[Float]]] = [[[1.0, 0.0],
                                    [0.0, 0.0]],
@@ -177,8 +177,8 @@ final class NeuronTests: XCTestCase {
     let inputTensor = Tensor(input)
     
     var out = conv.forward(tensor: inputTensor)
-    out = inputTensor.setGraph(out)
-    
+    out.setGraph(inputTensor)
+
     XCTAssert(outputShape == out.value.shape)
     
     let gradients = NumSwift.onesLike((out.shape[safe: 1, 0], out.shape[safe: 0, 0], filterCount))
@@ -282,9 +282,9 @@ final class NeuronTests: XCTestCase {
     let input = Tensor([1,0,1,0,1])
     let norm = LayerNormalize(inputSize: [5,1,1].tensorSize)
     
-    var out = norm.forward(tensor: input)
-    out = input.setGraph(out)
-    
+    let out = norm.forward(tensor: input)
+    out.setGraph(input)
+
     XCTAssert(out.isValueEqual(to: Tensor([0.8164965, -1.2247449, 0.8164965, -1.2247449, 0.8164965])))
     
     let delta = Tensor([0.5, 0, 0.5, 0, 0.5])
@@ -299,9 +299,9 @@ final class NeuronTests: XCTestCase {
     let input = Tensor([1,0,1,0,1])
     let norm = BatchNormalize(inputSize: input.shape.tensorSize)
     
-    var out = norm.forward(tensor: input)
-    out = input.setGraph(out)
-    
+    let out = norm.forward(tensor: input)
+    out.setGraph(input)
+
     XCTAssert(out.isValueEqual(to: Tensor([0.81647956, -1.2247194, 0.81647956, -1.2247194, 0.81647956])))
     
     let delta = Tensor([0.5, 0, 0.5, 0, 0.5])
@@ -316,9 +316,9 @@ final class NeuronTests: XCTestCase {
     let input = Tensor([1,0,1,0,1].as2D())
     let norm = BatchNormalize(inputSize: input.shape.tensorSize)
     
-    var out = norm.forward(tensor: input)
-    out = input.setGraph(out)
-    
+    let out = norm.forward(tensor: input)
+    out.setGraph(input)
+
     XCTAssert(out.isValueEqual(to: Tensor([0.81647956, -1.2247194, 0.81647956, -1.2247194, 0.81647956].as2D())))
     
     let delta = Tensor([0.5, 0, 0.5, 0, 0.5].as2D())
@@ -338,9 +338,9 @@ final class NeuronTests: XCTestCase {
     let mask = Tensor([d,0,d,0,d].as3D())
     dropout.mask = mask
     
-    var out = dropout.forward(tensor: input)
-    out = input.setGraph(out)
-    
+    let out = dropout.forward(tensor: input)
+    out.setGraph(input)
+
     XCTAssert(out.isValueEqual(to: Tensor([2,0,2,0,2].as3D())))
     
     let delta = Tensor([0.5, 0.5, 0.5, 0.5, 0.5].as3D())

@@ -76,7 +76,8 @@ public final class Sequential: Trainable {
     
     layers.forEach { layer in
       let newTensor = layer.forward(tensor: outputTensor)
-      outputTensor = outputTensor.setGraph(newTensor)
+      newTensor.setGraph(outputTensor)
+      outputTensor = newTensor
     }
     
     return outputTensor

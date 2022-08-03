@@ -92,9 +92,8 @@ public class Tensor: Equatable, Codable {
     self.value == to.value
   }
   
-  public func setGraph(_ tensor: Tensor) -> Tensor {
-    tensor.graph = self
-    return tensor
+  public func setGraph(_ tensor: Tensor) {
+    self.graph = tensor
   }
   
   /// Calculates the gradients in the Tensor graph

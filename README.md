@@ -40,6 +40,124 @@ There are automated tests that run when a PR is created to the `develop` or `mas
 ## Branching
 All features must be branched off the `develop` branch. 
 
-# Usage
+# Usage Background
 ## Tensor
-The main backbone of Neuron is the `Tensor` object. This object is basically a glorified 3D array of numbers. All `Tensor` objects are 3D arrays however they can contain any type of array in-between.
+The main backbone of Neuron is the `Tensor` object. This object is basically a glorified 3D array of numbers. All `Tensor` objects are 3D arrays however they can contain any type of array in-between. Its size is defined by a `TensorSize` object defining `columns`, `rows`, `depth`.
+
+```
+public class Tensor: Equatable, Codable {
+  ...
+    
+  public init() {
+    self.value = []
+    self.context = TensorContext()
+  }
+  
+  public init(_ data: Scalar? = nil, context: TensorContext = TensorContext()) {
+    if let data = data {
+      self.value = [[[data]]]
+    } else {
+      self.value = []
+    }
+    
+    self.context = context
+  }
+  
+  public init(_ data: [Scalar], context: TensorContext = TensorContext()) {
+    self.value = [[data]]
+    self.context = context
+  }
+  
+  public init(_ data: [[Scalar]], context: TensorContext = TensorContext()) {
+    self.value = [data]
+    self.context = context
+  }
+  
+  public init(_ data: Data, context: TensorContext = TensorContext()) {
+    self.value = data
+    self.context = context
+  }
+}
+```
+
+Above are the initializers that `Tensor` supports. More in-depth documentation on `Tensor` can be found [here](https://williamvabrinskas.com/Neuron/documentation/neuron/tensor). 
+
+### Arithmetic
+You can perform basic arithmetic opterations directly to a `Tensor` object as well. 
+```
+static func * (Tensor, Tensor.Scalar) -> Tensor
+static func * (Tensor, Tensor) -> Tensor
+static func + (Tensor, Tensor) -> Tensor
+static func + (Tensor, Tensor.Scalar) -> Tensor
+static func - (Tensor, Tensor.Scalar) -> Tensor
+static func - (Tensor, Tensor) -> Tensor
+static func / (Tensor, Tensor.Scalar) -> Tensor
+static func / (Tensor, Tensor) -> Tensor
+static func == (Tensor, Tensor) -> Bool
+```
+
+### Building a backpropagation graph
+You can attach a `Tensor` to another `Tensor`'s graph by calling `setGraph(_ tensor: Tensor)` on the `Tensor` whose `graph` you'd like to set. 
+
+```
+let inputTensor = Tensor([1,2,3,4])
+var outputTensor = Tensor([2])
+
+outputTensor.setGraph(inputTensor)
+```
+
+Doing so will set the `inputTensor` as the `graph` to the `outputTensor`. This means that when calling `.gradients` on the `outputTensor` the operation will look as such: 
+
+```
+delta -> outputTensor.context(inputTensor) -> gradients w.r.t to inputTensor
+```
+
+Unless you're building a graph yourself or doing something custom, you'll never have to set a graph yourself. This will be handled by the `Sequential` object.
+
+### Gradients
+More in-depth `TensorContext` documentation can be found [here](https://williamvabrinskas.com/Neuron/documentation/neuron/tensorcontext).
+
+Neuron performs gradient descent operations using `Tensor` objects and their accompanying `TensorContext`.
+`Tensor` objects contain an internal property called `context` which is of type `TensorContext`. `TensorContext` is an object that contains the backpropagtion information for that given `Tensor`. As of right now Neuron doesn't have a full auto-grad setup yet however `Tensor` objects with their `TensorContext` provides some type of auto-grad. 
+
+```
+public struct TensorContext: Codable {
+  public typealias TensorBackpropResult = (input: Tensor, weight: Tensor)
+  public typealias TensorContextFunction = (_ inputs: Tensor, _ gradient: Tensor) -> TensorBackpropResult
+  var backpropagate: TensorContextFunction
+  
+  public init(backpropagate: TensorContextFunction? = nil) {
+    let defaultFunction = { (input: Tensor, gradient: Tensor) in
+      return (Tensor(gradient.value), Tensor())
+    }
+    
+    self.backpropagate = backpropagate ?? defaultFunction
+  }
+  
+  public func encode(to encoder: Encoder) throws {}
+  
+  public init(from decoder: Decoder) throws {
+    self = TensorContext()
+  }
+}
+```
+
+When calling `.gradients(delta: SomeTensor)` on a `Tensor` that has an attached `graph` it wil automatically backpropagate all the way through the `graph` and return a `Tensor.Gradient` object. 
+
+```
+public struct Gradient {
+  let input: [Tensor]
+  let weights: [Tensor]
+  let biases: [Tensor]
+  
+  public init(input: [Tensor] = [],
+              weights: [Tensor] = [],
+              biases: [Tensor] = []) {
+    self.input = input
+    self.weights = weights
+    self.biases = biases
+  }
+}
+```
+
+A `Tensor.Gradient` object 
