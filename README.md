@@ -39,3 +39,7 @@ Feel free to file issues about the framework here or contact me through the [Dis
 There are automated tests that run when a PR is created to the `develop` or `master` branches. These tests must pass before a PR can be merged. All PRs must merge into the `develop` branch. 
 ## Branching
 All features must be branched off the `develop` branch. 
+
+# Usage
+## Tensor
+The main backbone of Neuron is the `Tensor` object. This object is basically a glorified 3D array of numbers. All `Tensor` objects are 3D arrays however they can contain any type of array in-between.
