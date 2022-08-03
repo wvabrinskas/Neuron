@@ -37,9 +37,11 @@ There is still a lot missing in this framework but with this rewrite I brought a
 Generated 7's from a WGAN. Trained on MNIST 7's for 10 epochs. 16 - 32 kernels on the generator. 
 
 <table>
+<tr>
 <img width="100" src="images/700.png">
 <img width="90" src="images/701.png">
 <img width="85" src="images/702.png">
+</tr>
 </table>
 # Contribution Policies
 ## Filing Issues
