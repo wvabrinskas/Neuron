@@ -17,6 +17,7 @@ public class Tensor: Equatable, Codable {
   public typealias Scalar = Float
   public typealias Data = [[[Scalar]]]
   
+  /// Gradient object returned from `gradient` calculation on the Tensor. Contains gradients w.r.t to the `input`, w.r.t to the `weights`, and w.r.t to the `biases`
   public struct Gradient {
     let input: [Tensor]
     let weights: [Tensor]
@@ -30,10 +31,17 @@ public class Tensor: Equatable, Codable {
       self.biases = biases
     }
   }
-
+  
+  /// Description label
   public var label: String = ""
+  
+  /// Generic id
   public var id: UUID = UUID()
+  
+  /// Actual numerical value of the Tensor
   public var value: Data
+  
+  /// Flattens the `value` and returns if there is any content in the array.
   public var isEmpty: Bool {
     value.flatten().isEmpty
   }
@@ -41,19 +49,26 @@ public class Tensor: Equatable, Codable {
   internal var graph: Tensor?
   internal let context: TensorContext
   
+  /// Shape of the Tensor as a 1D array. `[columns, rows, depth]`
   public var shape: [Int] {
     value.shape
   }
   
+  /// Input from the graph
   public var input: Tensor {
     graph ?? Tensor()
   }
   
+  /// Default initializer with no context or value
   public init() {
     self.value = []
     self.context = TensorContext()
   }
   
+  /// Initializer for Tensor with a scalar value
+  /// - Parameters:
+  ///   - data: `[[Scalar]]` object to set
+  ///   - context: Backpropagation context
   public init(_ data: Scalar? = nil, context: TensorContext = TensorContext()) {
     if let data = data {
       self.value = [[[data]]]
@@ -64,21 +79,34 @@ public class Tensor: Equatable, Codable {
     self.context = context
   }
   
+  /// Initializer for Tensor with a fully 1D array
+  /// - Parameters:
+  ///   - data: `[Scalar]` object to set
+  ///   - context: Backpropagation context
   public init(_ data: [Scalar], context: TensorContext = TensorContext()) {
     self.value = [[data]]
     self.context = context
   }
   
+  /// Initializer for Tensor with a fully 2D array
+  /// - Parameters:
+  ///   - data: `[[Scalar]]` object to set
+  ///   - context: Backpropagation context
   public init(_ data: [[Scalar]], context: TensorContext = TensorContext()) {
     self.value = [data]
     self.context = context
   }
   
+  /// Initializer for Tensor with a fully 3D array
+  /// - Parameters:
+  ///   - data: `Tensor.Data` object to set
+  ///   - context: Backpropagation context
   public init(_ data: Data, context: TensorContext = TensorContext()) {
     self.value = data
     self.context = context
   }
   
+  /// Prints the current graph all the way to the input.
   public func printGraph() {
     var t: Tensor? = self
     
@@ -88,10 +116,15 @@ public class Tensor: Equatable, Codable {
     }
   }
   
+  /// Checks if the value of the Tensor is the same as another Tensor. `==` checks id property.
+  /// - Parameter to: Tensor to compare to
+  /// - Returns: Bool indicating if the values are equal
   public func isValueEqual(to: Tensor) -> Bool {
     self.value == to.value
   }
   
+  /// Sets the input graph to this Tensor
+  /// - Parameter tensor: The tensor to insert into the graph
   public func setGraph(_ tensor: Tensor) {
     self.graph = tensor
   }
@@ -139,10 +172,14 @@ public class Tensor: Equatable, Codable {
     return .init(input: inputGradients, weights: weightGradients, biases: biasGradients)
   }
   
+  /// Remove this Tensor from the graph.
+  /// - Returns: Detached Tensor
   public func detached() -> Tensor {
     Tensor(value, context: TensorContext())
   }
   
+  /// Gets the `Tensor.Scalar` value of this Tensors value. This is reserved for Tensor's that have a value of size `[1, 1, 1]` aka a `Scalar` as `[[[Scalar]]]`
+  /// - Returns: The scalar value.
   public func asScalar() -> Scalar {
     value[safe: 0, [[]]][safe: 0, []][safe: 0, 0]
   }
