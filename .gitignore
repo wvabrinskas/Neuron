@@ -1,5 +1,6 @@
 .DS_Store
 docs
+bin
 /.build
 /Packages
 /*.xcodeproj
