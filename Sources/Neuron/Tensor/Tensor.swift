@@ -9,6 +9,8 @@ import Foundation
 import NumSwift
 import NumSwiftC
 
+/// The fundamental base for all arithmetic in the network. It holds a reference to the backpropgation graph as well as the values of the forward pass.
+/// Its `value` property is a 3D array for all instances.
 public class Tensor: Equatable, Codable {
   public static func == (lhs: Tensor, rhs: Tensor) -> Bool {
     lhs.id == rhs.id
