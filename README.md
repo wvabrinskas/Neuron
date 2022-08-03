@@ -2,6 +2,20 @@
 <img width="500" src="images/neuron.png"> 
 </p>
 
+<style>
+.row::after {
+  content: "";
+  clear: both;
+  display: table;
+}
+.column {
+  float: left;
+  width: 33.33%;
+  padding: 5px;
+}
+
+</style>
+
 ![](https://img.shields.io/github/v/tag/wvabrinskas/Neuron?style=flat-square)
 ![](https://img.shields.io/github/license/wvabrinskas/Neuron?style=flat-square)
 ![](https://img.shields.io/badge/swift-5.6-orange?style=flat-square)
@@ -36,13 +50,18 @@ There is still a lot missing in this framework but with this rewrite I brought a
 
 Generated 7's from a WGAN. Trained on MNIST 7's for 10 epochs. 16 - 32 kernels on the generator. 
 
-<table>
-<tr>
+<div class="row">
+  <div class="column">
 <img width="100" src="images/700.png">
+  </div>
+  <div class="column">
 <img width="90" src="images/701.png">
+  </div>
+  <div class="column">
 <img width="85" src="images/702.png">
-</tr>
-</table>
+  </div>
+</div>
+
 # Contribution Policies
 ## Filing Issues
 Feel free to file issues about the framework here or contact me through the [Discord](https://discord.gg/p84DYph4PW). I am open to all suggestions on how to improve the framework. 
