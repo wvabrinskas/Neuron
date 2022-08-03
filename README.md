@@ -31,6 +31,15 @@ Neuron has been a pet project of mine for years now. I set off to learn the basi
 
 There is still a lot missing in this framework but with this rewrite I brought a lot more flexibity to the framework to allow for playing around with different architectures and models. There are some example models provided with the framework, like Classifier, GAN, WGAN, and WGANGP. I am always working on this project and will continue to provide updates. 
 
+# Examples
+## GAN, WGAN, WGANGP
+
+Generated 7's from a WGAN. Trained on MNIST 7's for 10 epochs. 16 - 32 kernels on the generator. 
+
+<img width="100" src="images/700.png">
+<img width="90" src="images/701.png">
+<img width="85" src="images/702.png">
+
 # Contribution Policies
 ## Filing Issues
 Feel free to file issues about the framework here or contact me through the [Discord](https://discord.gg/p84DYph4PW). I am open to all suggestions on how to improve the framework. 
