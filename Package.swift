@@ -1,4 +1,4 @@
-// swift-tools-version: 5.5
+// swift-tools-version: 5.6
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -18,7 +18,8 @@ let package = Package(
     dependencies: [
       //.package(url: "https://github.com/wvabrinskas/NumSwift.git", from: "1.1.0"),
       .package(url: "https://github.com/wvabrinskas/NumSwift.git", branch: "main"),
-      .package(url: "https://github.com/wvabrinskas/Logger.git", from: "1.0.6")
+      .package(url: "https://github.com/wvabrinskas/Logger.git", from: "1.0.6"),
+      .package(url: "https://github.com/apple/swift-docc-plugin", branch: "main")
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
