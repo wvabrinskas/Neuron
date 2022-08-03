@@ -24,16 +24,19 @@ public typealias DatasetData = (training: [DatasetModel], val: [DatasetModel])
 
 /// The protocol that defines how to build a Neuron compatible dataset for training.
 /// Example Datasets are:
-/// - MNIST(only num: Int? = nil,
-///         label: [Float] = [],
-///         zeroCentered: Bool = false)
-///
-/// - QuickDrawDataset(objectToGet: QuickDrawObject,
+/// ```
+/// MNIST(only num: Int? = nil,
+///       label: [Float] = [],
+///       zeroCentered: Bool = false)
+/// ```
+/// ```
+/// QuickDrawDataset(objectToGet: QuickDrawObject,
 ///                    label: [Float],
 ///                    trainingCount: Int = 1000,
 ///                    validationCount: Int = 1000,
 ///                    zeroCentered: Bool = false,
 ///                    logLevel: LogLevel = .none)
+/// ```
 public protocol Dataset {
   /// The resulting dataset
   var data: DatasetData { get set }
