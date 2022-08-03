@@ -42,8 +42,8 @@ All features must be branched off the `develop` branch.
 
 # Important Note: GPU Support (WIP)
 Currently there is no GPU execution, at least not as how I would like it. Everything runs on the CPU, with some C optimizations for certain mathematical functions. Neuron will run multithreaded on the CPU with somewhat decent speed depending on the model. However a very large model with serveral kernels and convolutions will take a while. This is something I want to get working ASAP however Metal is very difficult to work with, especially with my limited knowledge and my desire to write everything from scratch. 
-# Usage Background
-
+# Basics Background
+## How does Neuron work? 
 ## Tensor
 The main backbone of Neuron is the `Tensor` object. This object is basically a glorified 3D array of numbers. All `Tensor` objects are 3D arrays however they can contain any type of array in-between. Its size is defined by a `TensorSize` object defining `columns`, `rows`, `depth`.
 
