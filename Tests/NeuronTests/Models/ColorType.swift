@@ -2,11 +2,10 @@
 //  File.swift
 //  
 //
-//  Created by William Vabrinskas on 1/19/21.
+//  Created by William Vabrinskas on 4/30/22.
 //
 
 import Foundation
-
 public enum ColorType: Int, CaseIterable {
   case red, green, blue
   
