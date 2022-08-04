@@ -36,17 +36,9 @@ There is still a lot missing in this framework but with this rewrite I brought a
 
 Generated 7's from a WGAN. Trained on MNIST 7's for 10 epochs. 16 - 32 kernels on the generator. 
 
-<div class="row">
-  <div class="column">
 <img width="100" src="images/700.png">
-  </div>
-  <div class="column">
 <img width="90" src="images/701.png">
-  </div>
-  <div class="column">
 <img width="85" src="images/702.png">
-  </div>
-</div>
 
 # Contribution Policies
 ## Filing Issues
@@ -62,6 +54,141 @@ Currently there is no GPU execution, at least not as how I would like it. Everyt
 
 # Quick Start Guide
 To get started with Neuron it all begins with setting up a `Sequential` object. This object is responsible for organizing the forward and backward passes through the network. 
+
+## Build a Network
+Let's build an `MNIST` classifier network. We need to build a `Sequential` object to handle our layers.
+
+```
+let network = Sequential {
+  [
+    Conv2d(filterCount: 16,
+            inputSize: TensorSize(array: [28,28,1]),
+            padding: .same,
+            initializer: initializer),
+    BatchNormalize(),
+    LeakyReLu(limit: 0.2),
+    MaxPool(),
+    Conv2d(filterCount: 32,
+            padding: .same,
+            initializer: initializer),
+    BatchNormalize(),
+    LeakyReLu(limit: 0.2),
+    Dropout(0.5),
+    MaxPool(),
+    Flatten(),
+    Dense(64, initializer: initializer),
+    LeakyReLu(limit: 0.2),
+    Dense(10, initializer: initializer),
+    Softmax()
+  ]
+}
+```
+
+`Sequential` takes in one property which is block that returns an array of `Layer` types. `init(_ layers: () -> [Layer])`. The order here matters. The first layer is a `Conv2d` layer with 16 filters, padding `.same`, and an initializer. The default initializer is `.heNormal`. 
+
+### *First layer note*:
+You can see here the first layer is the only layer where the `inputSize` is specified. This is because all the other layer's `inputSize` are automatically calculated when added to an `Optimizer`. 
+
+## Picking an Optimizer
+Neuron uses a `protocol` that defines what's needed for an `Opitmizer`. There are currently three provided optimizers bundled with Neuron. 
+- `Adam`
+- `SGD`
+- `RMSProp`
+
+All optimizers are interchangeable. Optimizers are the "brain" of the network. All function calls to train the network should be called through your specific `Optimizer`. Let's build an `Adam` optimizer for this classifier. 
+
+```
+let optim = Adam(network,
+                 learningRate: 0.0001,
+                 l2Normalize: false)
+```
+
+The first parameter here is the network we defined above. `learningRate` is the the size of the steps the optimizer will take when `.step()` is called. `l2Normalize` defines if the optimizer will normalize the gradients before they are applied to the weights. Default value for this is `false`. `Adam` also takes in properties for its `beta1`, `beta2`, and `epsilon` properties. 
+
+## Set up training model
+By this point you are ready to train the `Optimizer` and the network. You could create your own training cycle to create the classifier or you can use the built in provided `Classifier` model. 
+
+The `Classifier` model is a completely optional class that does a lot of the heavy lifting for you when training the network. Let's use that for now.
+
+```
+let classifier = Classifier(optimizer: optim,
+                            epochs: 10,
+                            batchSize: 32,
+                            threadWorkers: 8,
+                            log: false)
+```
+
+Here we create a `Classifier` object. We pass in the `Adam Optimizer` we defined earlier, the number of `epochs` to train for, the batch size, and the number of `multi-threaded` workers to use. `8` or `16` is usually a good enough number for this. This will split the batch up over multiple threads allowing for faster exectution. 
+
+### Building the MNIST dataset
+
+Next step to get the `MNIST` dataset. Neuron provides this locally to you through the `MNIST()` object.
+
+```
+let data = await MNIST().build()
+```
+
+We can use the `Async/Await` build function for simplicity. `Datasets` also support `Combine` publishers.
+
+## Time to train!
+To train the network using the `Classifier` object just call `    classifier.fit(data.training, data.val)`. That's it! The `Classifier` will now train for the specified number of `epochs` and report to the `MetricProvider` if set. 
+## Retrieving Metrics
+All `Optimizers` support the addition of a `MetricsReporter` object. This object will track all metrics you ask it to during the initialization. If the metric isn't supported by your netowrk setup it will report a `0`. 
+
+```
+let reporter = MetricsReporter(frequency: 1,
+                                metricsToGather: [.loss,
+                                                  .accuracy,
+                                                  .valAccuracy,
+                                                  .valLoss])
+
+optim.metricsReporter = reporter
+
+optim.metricsReporter?.receive = { metrics in
+  let accuracy = metrics[.accuracy] ?? 0
+  let loss = metrics[.loss] ?? 0
+  //let valLoss = metrics[.valLoss] ?? 0
+  
+  print("training -> ", "loss: ", loss, "accuracy: ", accuracy)
+}
+```
+
+The `metricsToGather` array is a `Set` of `Metric` definitions. 
+
+```
+public enum Metric: String {
+  case loss = "Training Loss"
+  case accuracy = "Accuracy"
+  case valLoss = "Validation Loss"
+  case generatorLoss = "Generator Loss"
+  case criticLoss = "Critic Loss"
+  case gradientPenalty = "Gradient Penalty"
+  case realImageLoss = "Real Image Loss"
+  case fakeImageLoss = "Fake Image Loss"
+  case valAccuracy = "Validation Accuracy"
+}
+```
+
+`MetricReporter` will call `receive` when it is updated. 
+
+## Exporting your model
+
+Once the model has trained to your liking you can export the model to a `.smodel` file. This model cvan be then imported later using the `Sequential` intializer. The export will not export your `Optimizer` settings, only the `Trainable` specified in the `Optimizer`. 
+
+Neuron provides a helper object for exporting called `ExportHelper`. The usage is simple: 
+
+```
+// defined: 
+public static func getModel<T: Codable>(filename: String = "model", model: T) -> URL?
+
+// usage:
+ExportHelper.export(filename: "my_model", model: network)
+```
+
+This will return a `URL` for you to access your `.smodel` file. 
+
+## Finishing up
+Keep playing around with your new model and enjoy the network! Share your model on the Discord or ask for some other models that others have made! 
 # Basics Background
 ## How does Neuron work? 
 ## Tensor

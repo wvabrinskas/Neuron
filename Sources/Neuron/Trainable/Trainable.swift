@@ -9,26 +9,6 @@ import NumSwiftC
 ///
 /// Get debug data from the `Trainable` by calling `print(sequential)`, or using `lldb`: `po trainable`, where `sequential` is your `Trainable` object.
 ///
-/// example:
-///
-///```
-/// Model: "Sequential"
-
-/// --------------------------------------------------
-/// Layer               Output Shape      Param #
-/// --------------------------------------------------
-/// dense               TensorSize(rows: 1, columns: 32, depth: 1)      1024
-/// --------------------------------------------------
-/// leakyRelu           TensorSize(rows: 1, columns: 32, depth: 1)         0
-/// --------------------------------------------------
-/// dense               TensorSize(rows: 1, columns: 7, depth: 1)       224
-/// --------------------------------------------------
-/// tanh                TensorSize(rows: 1, columns: 7, depth: 1)         0
-/// --------------------------------------------------
-///
-/// Total Parameters: 1248
-///```
-///
 public protocol Trainable: Codable, CustomDebugStringConvertible {
   
   /// Generic name of the trainable. Used when printing the network
