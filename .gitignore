@@ -6,3 +6,4 @@ bin
 /*.xcodeproj
 xcuserdata/
 .swiftpm
+Package.resolved
