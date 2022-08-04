@@ -1,41 +1,25 @@
 {
-  "pins" : [
-    {
-      "identity" : "logger",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/wvabrinskas/Logger.git",
-      "state" : {
-        "revision" : "0eec8aa2278ee03954226bc1a3173038888e79b3",
-        "version" : "1.0.6"
+  "object": {
+    "pins": [
+      {
+        "package": "Logger",
+        "repositoryURL": "https://github.com/wvabrinskas/Logger.git",
+        "state": {
+          "branch": null,
+          "revision": "0eec8aa2278ee03954226bc1a3173038888e79b3",
+          "version": "1.0.6"
+        }
+      },
+      {
+        "package": "NumSwift",
+        "repositoryURL": "https://github.com/wvabrinskas/NumSwift.git",
+        "state": {
+          "branch": "main",
+          "revision": "a1e21715b5f455c4ca1012755c543be56894f417",
+          "version": null
+        }
       }
-    },
-    {
-      "identity" : "numswift",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/wvabrinskas/NumSwift.git",
-      "state" : {
-        "branch" : "main",
-        "revision" : "a1e21715b5f455c4ca1012755c543be56894f417"
-      }
-    },
-    {
-      "identity" : "swift-docc-plugin",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/apple/swift-docc-plugin",
-      "state" : {
-        "branch" : "main",
-        "revision" : "00555b6efa14095243fbce031dba8a03cfc6333e"
-      }
-    },
-    {
-      "identity" : "swift-docc-symbolkit",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/apple/swift-docc-symbolkit",
-      "state" : {
-        "branch" : "main",
-        "revision" : "da6cedd103e0e08a2bc7b14869ec37fba4db72d9"
-      }
-    }
-  ],
-  "version" : 2
+    ]
+  },
+  "version": 1
 }
