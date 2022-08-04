@@ -59,6 +59,9 @@ All features must be branched off the `develop` branch.
 
 # Important Note: GPU Support (WIP)
 Currently there is no GPU execution, at least not as how I would like it. Everything runs on the CPU, with some C optimizations for certain mathematical functions. Neuron will run multithreaded on the CPU with somewhat decent speed depending on the model. However a very large model with serveral kernels and convolutions will take a while. This is something I want to get working ASAP however Metal is very difficult to work with, especially with my limited knowledge and my desire to write everything from scratch. 
+
+# Quick Start Guide
+To get started with Neuron it all begins with setting up a `Sequential` object. This object is responsible for organizing the forward and backward passes through the network. 
 # Basics Background
 ## How does Neuron work? 
 ## Tensor

@@ -3,15 +3,59 @@ import Foundation
 import NumSwift
 import NumSwiftC
 
+/// The base object that organizes a network.
+///
+/// Currently `Sequential` is the only conformer to this, so it is highly recommended to use that object.
+///
+/// Get debug data from the `Trainable` by calling `print(sequential)`, or using `lldb`: `po trainable`, where `sequential` is your `Trainable` object.
+///
+/// example:
+///
+/// Model: "Sequential"
+///
+/// --------------------------------------------------
+/// Layer               Output Shape      Param #
+/// --------------------------------------------------
+/// dense               TensorSize(rows: 1, columns: 32, depth: 1)      1024
+/// --------------------------------------------------
+/// leakyRelu           TensorSize(rows: 1, columns: 32, depth: 1)         0
+/// --------------------------------------------------
+/// dense               TensorSize(rows: 1, columns: 7, depth: 1)       224
+/// --------------------------------------------------
+/// tanh                TensorSize(rows: 1, columns: 7, depth: 1)         0
+/// --------------------------------------------------
+
+/// Total Parameters: 1248
+///
+///
 public protocol Trainable: Codable, CustomDebugStringConvertible {
+  
+  /// Generic name of the trainable. Used when printing the network
   var name: String { get set }
+  
+  /// The layers of the network
   var layers: [Layer] { get }
+  
+  /// Indicates if the network has been setup correctly and is ready for training.
   var isCompiled: Bool { get }
+  
+  /// Indicates if this particular network has its weights updated. Mainly used for Batch and Layer normalize. As they have different paths for training and not training.
   var trainable: Bool { get set }
+  
+  /// The device to execute the ML ops and math ops on. Default: CPU()
   var device: Device { get set }
   
+  /// Creates a Trainable object from a `.smodel` file.
+  /// - Parameter url: The URL to the `.smodel` file.
+  /// - Returns: The network built from the file.
   static func `import`(_ url: URL) -> Self
+  
+  /// Performs a forward pass on the network
+  /// - Parameter data: The inputs
+  /// - Returns: The output of the network
   func predict(_ data: Tensor) -> Tensor
+  
+  /// Compiles the network, getting it ready to be trained.
   func compile()
 }
 
