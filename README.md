@@ -2,20 +2,6 @@
 <img width="500" src="images/neuron.png"> 
 </p>
 
-<style>
-.row::after {
-  content: "";
-  clear: both;
-  display: table;
-}
-.column {
-  float: left;
-  width: 33.33%;
-  padding: 5px;
-}
-
-</style>
-
 ![](https://img.shields.io/github/v/tag/wvabrinskas/Neuron?style=flat-square)
 ![](https://img.shields.io/github/license/wvabrinskas/Neuron?style=flat-square)
 ![](https://img.shields.io/badge/swift-5.6-orange?style=flat-square)

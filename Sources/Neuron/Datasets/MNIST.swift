@@ -9,6 +9,8 @@ import Foundation
 import NumSwift
 import Combine
  
+
+/// Creates an MNIST Dataset object to be used by a netowrk. The MNIST dataset is a set of 60000 grayscale hand-drawn numbers from 0-9.
 public class MNIST: Dataset {
   public var data: DatasetData = ([], []) {
     didSet {
@@ -61,6 +63,11 @@ public class MNIST: Dataset {
     }
   }
   
+  /// Default initializer for MNIST
+  /// - Parameters:
+  ///   - num: Optional parameter to only get a specific number from the Dataset.
+  ///   - label: The label override for each image. Optional as the MNIST dataset provides labels.
+  ///   - zeroCentered: Determines if the dataset is scaled to be between -1 and 1 or between 0 and 1.
   public init(only num: Int? = nil,
               label: [Float] = [],
               zeroCentered: Bool = false) {
@@ -71,6 +78,9 @@ public class MNIST: Dataset {
     self.zeroCentered = zeroCentered
   }
   
+  /// Build the actual dataset using the async/await system
+  /// - Parameter num: Optional parameter to only get a specific number from the Dataset.
+  /// - Returns: The MNIST dataset object
   public func build(only num: Int) async -> DatasetData {
     self.numToGet = num
     return await build()
