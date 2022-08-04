@@ -11,8 +11,9 @@ import NumSwiftC
 ///
 /// example:
 ///
+///```
 /// Model: "Sequential"
-///
+
 /// --------------------------------------------------
 /// Layer               Output Shape      Param #
 /// --------------------------------------------------
@@ -26,7 +27,7 @@ import NumSwiftC
 /// --------------------------------------------------
 ///
 /// Total Parameters: 1248
-///
+///```
 ///
 public protocol Trainable: Codable, CustomDebugStringConvertible {
   
