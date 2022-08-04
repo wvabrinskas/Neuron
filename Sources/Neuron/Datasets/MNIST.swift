@@ -9,6 +9,8 @@ import Foundation
 import NumSwift
 import Combine
  
+
+/// Creates an MNIST Dataset object to be used by a netowrk. The MNIST dataset is a set of 60000 grayscale hand-drawn numbers from 0-9.
 public class MNIST: Dataset {
   public var data: DatasetData = ([], []) {
     didSet {
@@ -18,8 +20,11 @@ public class MNIST: Dataset {
   public var complete: Bool = false
   public let dataPassthroughSubject = PassthroughSubject<DatasetData, Never>()
   
-  private let mnistSize: TensorSize = (28,28,1)
-  
+  private let mnistSize: [Int] = [28,28,1]
+  private var numToGet: Int?
+  private var zeroCentered: Bool
+  private var correctLabel: [Float] = []
+
   public enum MNISTType: String, CaseIterable {
     case trainingSet = "train-images"
     case trainingLabels = "train-labels"
@@ -29,22 +34,22 @@ public class MNIST: Dataset {
     var startingByte: UInt8 {
       switch self {
       case .trainingSet:
-        return 0x0016
+        return 0x0013
       case .trainingLabels:
         return 0x0008
       case .valSet:
-        return 0x0016
+        return 0x0013
       case .valLabels:
         return 0x0008
       }
     }
     
-    var shape: TensorSize {
+    var shape: [Int] {
       switch self {
       case .trainingSet, .valSet:
-        return (28,28,1)
+        return [28,28,1]
       case .trainingLabels, .valLabels:
-        return (1,1,1)
+        return [1,1,1]
       }
     }
     
@@ -56,6 +61,29 @@ public class MNIST: Dataset {
         return 1.0
       }
     }
+  }
+  
+  /// Default initializer for MNIST
+  /// - Parameters:
+  ///   - num: Optional parameter to only get a specific number from the Dataset.
+  ///   - label: The label override for each image. Optional as the MNIST dataset provides labels.
+  ///   - zeroCentered: Determines if the dataset is scaled to be between -1 and 1 or between 0 and 1.
+  public init(only num: Int? = nil,
+              label: [Float] = [],
+              zeroCentered: Bool = false) {
+    if let num = num {
+      self.numToGet = num
+    }
+    self.correctLabel = label
+    self.zeroCentered = zeroCentered
+  }
+  
+  /// Build the actual dataset using the async/await system
+  /// - Parameter num: Optional parameter to only get a specific number from the Dataset.
+  /// - Returns: The MNIST dataset object
+  public func build(only num: Int) async -> DatasetData {
+    self.numToGet = num
+    return await build()
   }
   
   /// Build with support for Combine
@@ -112,8 +140,8 @@ public class MNIST: Dataset {
         }
       }
       
-      var trainingDataWithLabels: [ConvTrainingData] = []
-      var validationDataWithLabels: [ConvTrainingData] = []
+      var trainingDataWithLabels: [DatasetModel] = []
+      var validationDataWithLabels: [DatasetModel] = []
       
       let validationData = valDataSets.first { $0.type == .valSet }?.data ?? []
       let validationLabels = valDataSets.first { $0.type == .valLabels }?.data ?? []
@@ -124,15 +152,19 @@ public class MNIST: Dataset {
       for i in 0..<trainingData.count {
         let tD = trainingData[i]
         let tL = trainingLabels[i].first?.first ?? -1
-        let conv = ConvTrainingData(data: [tD], label: self.buildLabel(value: Int(tL))) //only one channel for MNIST
-        trainingDataWithLabels.append(conv)
+        if numToGet == nil || Int(tL) == numToGet {
+          let conv = DatasetModel(data: Tensor(tD), label: Tensor(self.buildLabel(value: Int(tL)))) //only one channel for MNIST
+          trainingDataWithLabels.append(conv)
+        }
       }
       
       for i in 0..<validationData.count {
         let tD = validationData[i]
         let tL = validationLabels[i].first?.first ?? -1
-        let conv = ConvTrainingData(data: [tD], label: self.buildLabel(value: Int(tL))) //only one channel for MNIST
-        validationDataWithLabels.append(conv)
+        if numToGet == nil || Int(tL) == numToGet {
+          let conv = DatasetModel(data: Tensor(tD), label: Tensor(self.buildLabel(value: Int(tL)))) //only one channel for MNIST
+          validationDataWithLabels.append(conv)
+        }
       }
       
       return (trainingDataWithLabels, validationDataWithLabels)
@@ -142,6 +174,10 @@ public class MNIST: Dataset {
   }
   
   private func buildLabel(value: Int) -> [Float] {
+    if !self.correctLabel.isEmpty {
+      return correctLabel
+    }
+    
     guard value >= 0 else {
       return []
     }
@@ -157,9 +193,24 @@ public class MNIST: Dataset {
       return []
     }
     
-    let t = read(path: path, offset: Int(type.startingByte), scaleBy: type.modifier)
-
-    let shaped = t.reshape(columns: type.shape.columns).batched(into: type.shape.rows)
+    let shouldZeroCenter: Bool = zeroCentered && (type == .valSet || type == .trainingSet)
+    
+    var scale: Float = shouldZeroCenter ? 1 : 255
+    
+    if type == .trainingLabels || type == .valLabels {
+      scale = type.modifier
+    }
+    
+    var result = read(path: path, offset: Int(type.startingByte), scaleBy: scale)
+    
+    if shouldZeroCenter {
+      result = result.map { ($0 - 127.5) / 127.5 }
+    }
+    
+    let columns = type.shape[safe: 0] ?? 0
+    let rows = type.shape[safe: 1] ?? 0
+    
+    let shaped = result.reshape(columns: columns).batched(into: rows)
     
     return shaped
   }
