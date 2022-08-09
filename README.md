@@ -187,6 +187,12 @@ ExportHelper.export(filename: "my_model", model: network)
 
 This will return a `URL` for you to access your `.smodel` file. 
 
+### Pretty-print your network
+You can also print your network to the console by calling `print` on the `Sequential` object. It will pretty print your network as below:
+
+<img width="400" src="images/print-example.png"> 
+
+
 ## Finishing up
 Keep playing around with your new model and enjoy the network! Share your model on the Discord or ask for some other models that others have made! 
 # Basics Background
