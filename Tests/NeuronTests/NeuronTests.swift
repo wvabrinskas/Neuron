@@ -176,7 +176,7 @@ final class NeuronTests: XCTestCase {
     
     let inputTensor = Tensor(input)
     
-    var out = conv.forward(tensor: inputTensor)
+    let out = conv.forward(tensor: inputTensor)
     out.setGraph(inputTensor)
 
     XCTAssert(outputShape == out.value.shape)
