@@ -122,6 +122,8 @@ Here we create a `Classifier` object. We pass in the `Adam Optimizer` we defined
 
 ### Building the MNIST dataset
 
+*NOTE: Be sure to import [NeuronDatasets](https://github.com/wvabrinskas/NeuronDatasets) to get the `MNIST` and other datasets.*
+
 Next step to get the `MNIST` dataset. Neuron provides this locally to you through the `MNIST()` object.
 
 ```
