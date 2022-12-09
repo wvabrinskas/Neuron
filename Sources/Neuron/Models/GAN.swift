@@ -83,7 +83,6 @@ public class GAN {
       }
     }
     
-    let fixedNoise = noise()
     for e in 0..<epochs {
       var i = 0
       var dataIterations = 0
@@ -91,8 +90,6 @@ public class GAN {
         
         if i % validationFrequency == 0 {
           DispatchQueue.main.async {
-            //self.generator.isTraining = false
-            //let fixedNoiseOutput = self.generator.predict([Tensor(fixedNoise)])[safe: 0, Tensor()]
             self.validateGenerator?(self.generate())
           }
           
