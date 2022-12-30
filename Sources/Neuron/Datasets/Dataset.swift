@@ -18,4 +18,3 @@ public struct DatasetModel: Equatable {
   }
 }
 
-public typealias DatasetData = (training: [DatasetModel], val: [DatasetModel])

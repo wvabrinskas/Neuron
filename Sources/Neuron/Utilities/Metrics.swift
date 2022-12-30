@@ -9,15 +9,15 @@ import Foundation
 import NumSwift
 
 public enum Metric: String {
-  case loss = "Training Loss"
-  case accuracy = "Accuracy"
-  case valLoss = "Validation Loss"
-  case generatorLoss = "Generator Loss"
-  case criticLoss = "Critic Loss"
-  case gradientPenalty = "Gradient Penalty"
-  case realImageLoss = "Real Image Loss"
-  case fakeImageLoss = "Fake Image Loss"
-  case valAccuracy = "Validation Accuracy"
+  case loss
+  case accuracy
+  case valLoss
+  case generatorLoss
+  case criticLoss
+  case gradientPenalty
+  case realImageLoss
+  case fakeImageLoss
+  case valAccuracy
 }
 
 public protocol MetricLogger: AnyObject {
@@ -89,6 +89,7 @@ internal extension MetricCalculator {
 
 }
 
+@dynamicMemberLookup
 public class MetricsReporter: MetricCalculator {
   public var lock: NSLock = NSLock()
   internal var totalValCorrectGuesses: Int = 0
@@ -103,6 +104,11 @@ public class MetricsReporter: MetricCalculator {
   public var metricsToGather: Set<Metric>
   public var metrics: [Metric : Float] = [:]
   public var receive: ((_ metrics: [Metric: Float]) -> ())? = nil
+  
+  public subscript(dynamicMember member: String) -> Float? {
+    guard let metric = Metric(rawValue: member) else { return nil }
+    return metrics[metric]
+  }
   
   public init(frequency: Int = 5, metricsToGather: Set<Metric>) {
     self.frequency = frequency
