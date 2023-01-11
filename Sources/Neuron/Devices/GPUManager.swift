@@ -3,16 +3,17 @@ import Metal
 import MetalPerformanceShaders
 import Accelerate
 
+
 extension MTLTexture {
-  func getPixels<T> (_ region: MTLRegion? = nil, mipmapLevel: Int = 0) -> UnsafeMutablePointer<T> {
-    let fromRegion  = region ?? MTLRegionMake2D(0, 0, self.width, self.height)
-    let width       = fromRegion.size.width
-    let height      = fromRegion.size.height
-    let bytesPerRow = MemoryLayout<T>.stride * width
-    let data        = UnsafeMutablePointer<T>.allocate(capacity: bytesPerRow * height)
-    
-    self.getBytes(data, bytesPerRow: bytesPerRow, from: fromRegion, mipmapLevel: mipmapLevel)
-    return data
+  func getValues(device: MTLDevice, region: MTLRegion? = nil) -> [Float] {
+    let region = region ?? MTLRegionMake2D(0, 0, self.width, self.height)
+    let rowBytes = region.size.width * MemoryLayout<Float>.stride
+    let byteCount = region.size.height * rowBytes
+    let totalSize = region.size.width * region.size.height
+    guard let buffer = device.makeBuffer(length: byteCount, options: []) else { return [] }
+    getBytes(buffer.contents(), bytesPerRow: rowBytes, from: region, mipmapLevel: 0)
+    let values = Array(UnsafeBufferPointer(start: buffer.contents().bindMemory(to: Float.self, capacity: byteCount), count: totalSize))
+    return values
   }
 }
 
@@ -23,11 +24,14 @@ public class GPUManager {
   public static let shared = GPUManager()
   
   public enum MetalFunction: String {
-    case activation, derivate
+    case activation, derivate, conv2d
   }
   
   private var currentRunningPipelines: [MTLComputePipelineState] = []
   private var device: MTLDevice? = MTLCreateSystemDefaultDevice()
+  
+  lazy var queue = self.device?.makeCommandQueue()
+  lazy var cmds = queue?.makeCommandBuffer()
   
   private func getFunction(_ function: MetalFunction) -> MTLFunction? {
     return try? device?.makeDefaultLibrary(bundle: Bundle.module).makeFunction(name: function.rawValue)
@@ -61,6 +65,10 @@ public class GPUManager {
     }
   }
   
+  public func commit() {
+    
+  }
+  
   public func conv2d(_ input: Tensor,
                      filters: [Tensor],
                      biases: Tensor,
@@ -70,85 +78,90 @@ public class GPUManager {
                      inputSize: (rows: Int, columns: Int, depth: Int),
                      outputSize: (rows: Int, columns: Int, depth: Int)) {
     
-    let descriptor = MPSCNNConvolutionDescriptor(kernelWidth: filterSize.columns,
-                                                 kernelHeight: filterSize.rows,
-                                                 inputFeatureChannels: inputSize.depth,
-                                                 outputFeatureChannels: filterCount)
-    
-    
-    descriptor.strideInPixelsX = strides.columns
-    descriptor.strideInPixelsY = strides.rows
-    
     guard let device = device else {
       return
     }
     
-    let filtersFlat = filters.map { $0.value }.flatten().flatten()
-    let biasesFlat = biases.value.flatten()
+    let function: MetalFunction = .conv2d
+    let pipeline: MTLComputePipelineState? = self.pipelineIfExists(type: function) ?? self.addPipeline(for: function)
     
-    let conv = MPSCNNConvolution(device: device,
-                                 convolutionDescriptor: descriptor,
-                                 kernelWeights: filtersFlat,
-                                 biasTerms: biasesFlat,
-                                 flags: .none)
-
-    let inputImageDescriptor  = MPSImageDescriptor(channelFormat: MPSImageFeatureChannelFormat.float16,
-                                                   width: inputSize.columns,
-                                                   height: inputSize.rows,
-                                                   featureChannels: inputSize.depth)
+    // input texture
+    let inputTextureDesc = MTLTextureDescriptor()
+    inputTextureDesc.textureType = .type2D
+    inputTextureDesc.width = inputSize.columns
+    inputTextureDesc.height = inputSize.rows
+    inputTextureDesc.pixelFormat = .r32Float
+    inputTextureDesc.usage = .shaderRead
     
-    let image = MPSImage(device: device, imageDescriptor: inputImageDescriptor)
-    let inputImageData = input.value.flatten()
+    guard let inputTexture = device.makeTexture(descriptor: inputTextureDesc) else { return }
     
-    image.texture.replace(region: MTLRegion(origin: MTLOrigin(x: 0, y: 0, z: 0),
-                                            size: MTLSize(width: inputSize.columns,
-                                                          height: inputSize.rows,
-                                                          depth: inputSize.depth)),
-                          mipmapLevel: 0,
-                          withBytes: inputImageData,
-                          bytesPerRow: inputSize.columns * MemoryLayout<Float>.stride)
+    let flatInput: [Float] = input.value.flatten()
+    let pointer = UnsafeMutableRawPointer(mutating: flatInput)
+    let bytesPerRow = inputTexture.width * MemoryLayout<Float>.stride
+    let region = MTLRegionMake2D(0, 0, inputTexture.width, inputTexture.height)
+    inputTexture.replace(region: region, mipmapLevel: 0, withBytes: pointer, bytesPerRow: bytesPerRow)
     
-    guard let queue = device.makeCommandQueue(),
-          let commandBuffer = queue.makeCommandBuffer() else {
+    let input = inputTexture.getValues(device: device, region: region)
+    print(input)
+    print(input.count)
+    
+    // output texture
+    let outputTextureDesc = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .r32Float,
+                                                                    width: outputSize.columns,
+                                                                    height: outputSize.rows,
+                                                                    mipmapped: false)
+    
+    let outputTexture = device.makeTexture(descriptor: outputTextureDesc)
+    
+    var filtersFlat: [Float] = filters.map { $0.value}.fullFlatten()
+   
+    let newEncoder = cmds?.makeComputeCommandEncoder()
+    
+    guard let encoder = newEncoder, let pipelineStrong = pipeline else {
       return
     }
     
-    let outputImageDescriptor  = MPSImageDescriptor(channelFormat: MPSImageFeatureChannelFormat.float16,
-                                                    width: outputSize.columns,
-                                                    height: outputSize.rows,
-                                                    featureChannels: outputSize.depth)
-    
-    let outImage = MPSImage(device: commandBuffer.device, imageDescriptor: outputImageDescriptor)
-    
-    conv.encode(commandBuffer: commandBuffer, sourceImage: image, destinationImage: outImage)
-    
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
-    
-    //let r = Array(arrayLiteral: outImage.texture.buffer?.contents())
-    
-    let pixels: UnsafeMutablePointer<Float> = image.texture.getPixels()
-    
-    defer {
-      pixels.deallocate()
+    guard let filterBuffer = device.makeBuffer(bytes: &filtersFlat,
+                                               length: MemoryLayout<Float>.stride * filtersFlat.count,
+                                               options: []) else {
+      return
     }
+        
+    encoder.setComputePipelineState(pipelineStrong)
+    encoder.setTexture(inputTexture, index: 0)
+    encoder.setTexture(outputTexture, index: 1)
     
-    var result: [Float] = []
+    encoder.setBuffer(filterBuffer, offset: 0, index: 0)
     
-    let capacity = outputSize.columns * outputSize.rows * MemoryLayout<Float>.stride
+    var inSize = SIMD2(CUnsignedInt(inputSize.rows), CUnsignedInt(inputSize.columns))
+    var outSize = SIMD2(CUnsignedInt(outputSize.rows), CUnsignedInt(outputSize.columns))
+    var kSize = SIMD2(CUnsignedInt(filterSize.rows), CUnsignedInt(filterSize.columns))
+    var strides = SIMD2(CUnsignedInt(strides.rows), CUnsignedInt(strides.columns))
+    var padding = SIMD2(CUnsignedInt(0), CUnsignedInt(0))
+    
+    encoder.setBytes(&inSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 1)
+    encoder.setBytes(&outSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 2)
+    encoder.setBytes(&kSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 3)
+    encoder.setBytes(&strides, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 4)
+    encoder.setBytes(&padding, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 5)
 
-    for i in stride(from: 0, to: capacity, by: 4) {
-      let l     = pixels[i + 0]
-      let a     = pixels[i + 1]
-      let b     = pixels[i + 2]
-      let alpha = pixels[i + 3]
-      
-      print(l, a, b, alpha)
-      
-      result.append(a)
-    }
+    let w = pipelineStrong.threadExecutionWidth
+    let h = pipelineStrong.maxTotalThreadsPerThreadgroup / w
+    let threadsPerThreadgroup = MTLSizeMake(w, h, 1)
     
-    print(result)
+    let threadgroupsPerGrid = MTLSize(width: inputSize.columns,
+                                      height: inputSize.rows,
+                                      depth: inputSize.depth)
+    
+    encoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
+    encoder.endEncoding()
+
+    //execution step
+    cmds?.commit()
+    cmds?.waitUntilCompleted()
+    
+    let out = outputTexture?.getValues(device: device)
+    print(out?.reshape(columns: outputSize.columns))
   }
   
   public func activate(_ num: [Float],
@@ -173,8 +186,6 @@ public class GPUManager {
       return num
     }
     
-    let queue = self.device?.makeCommandQueue()
-    let cmds = queue?.makeCommandBuffer()
     let newEncoder = cmds?.makeComputeCommandEncoder()
     
     guard let encoder = newEncoder, let pipelineStrong = pipeline else {
