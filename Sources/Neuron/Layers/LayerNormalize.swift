@@ -34,7 +34,7 @@ public final class LayerNormalize: Layer {
   public var beta: [Tensor.Scalar] = []
   private var dGamma: [Tensor.Scalar] = []
   private var dBeta: [Tensor.Scalar] = []
-  @Atomic private var iterations: Int = 0
+  @AtomicCodable private var iterations: Int = 0
 
   public enum CodingKeys: String, CodingKey {
     case gamma, beta, epsilon, inputSize

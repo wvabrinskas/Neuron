@@ -31,7 +31,30 @@ public extension NSLock {
 }
 
 @propertyWrapper
-public struct Atomic<Value: Codable>: Codable {
+public struct Atomic<Value> {
+  private let lock = NSLock()
+  private var value: Value
+  
+  public init(wrappedValue: Value) {
+    self.value = wrappedValue
+  }
+  
+  public var wrappedValue: Value {
+    get {
+      lock.lock()
+      defer { lock.unlock() }
+      return value
+    }
+    set {
+      lock.lock()
+      value = newValue
+      lock.unlock()
+    }
+  }
+}
+
+@propertyWrapper
+public struct AtomicCodable<Value: Codable>: Codable {
   private let lock = NSLock()
   private var value: Value
   
