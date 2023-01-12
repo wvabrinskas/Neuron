@@ -129,16 +129,38 @@ public class GPUManager {
     }
     
     encoder.setComputePipelineState(pipelineStrong)
+  
+    let w = pipelineStrong.threadExecutionWidth
+    let h = pipelineStrong.maxTotalThreadsPerThreadgroup / w
+    let threadsPerThreadgroup = MTLSizeMake(w, h, 1)
+    
+    let threadgroupsPerGrid = MTLSize(width: outputSize.columns,
+                                      height: outputSize.rows,
+                                      depth: outputSize.depth)
+    
+    let outputTextureDesc = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .r32Float,
+                                                                     width: outputSize.columns,
+                                                                     height: outputSize.rows,
+                                                                     mipmapped: false)
+    
+    encoder.setTexture(inputTexture, index: 0)
+    
+    var inSize = SIMD2(CUnsignedInt(inputSize.rows), CUnsignedInt(inputSize.columns))
+    var outSize = SIMD2(CUnsignedInt(outputSize.rows), CUnsignedInt(outputSize.columns))
+    var kSize = SIMD2(CUnsignedInt(filterSize.rows), CUnsignedInt(filterSize.columns))
+    var strides = SIMD2(CUnsignedInt(strides.rows), CUnsignedInt(strides.columns))
+    var padding = padding == .same ? 1 : 0
+    
+    encoder.setBytes(&inSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 1)
+    encoder.setBytes(&outSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 2)
+    encoder.setBytes(&kSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 3)
+    encoder.setBytes(&strides, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 4)
+    encoder.setBytes(&padding, length: MemoryLayout<Int>.size, index: 5)
     
     var outputTextures: [MTLTexture] = []
     
     filters.forEach { filter in
       // output texture
-      let outputTextureDesc = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .r32Float,
-                                                                       width: outputSize.columns,
-                                                                       height: outputSize.rows,
-                                                                       mipmapped: false)
-      
       guard let outputTexture = device.makeTexture(descriptor: outputTextureDesc) else { return }
       
       var filtersFlat: [Float] = filter.value.flatten()
@@ -149,42 +171,20 @@ public class GPUManager {
         return 
       }
       
-      encoder.setTexture(inputTexture, index: 0)
       encoder.setTexture(outputTexture, index: 1)
-      
       encoder.setBuffer(filterBuffer, offset: 0, index: 0)
       
-      var inSize = SIMD2(CUnsignedInt(inputSize.rows), CUnsignedInt(inputSize.columns))
-      var outSize = SIMD2(CUnsignedInt(outputSize.rows), CUnsignedInt(outputSize.columns))
-      var kSize = SIMD2(CUnsignedInt(filterSize.rows), CUnsignedInt(filterSize.columns))
-      var strides = SIMD2(CUnsignedInt(strides.rows), CUnsignedInt(strides.columns))
-      var padding = padding == .same ? 1 : 0
-      
-      encoder.setBytes(&inSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 1)
-      encoder.setBytes(&outSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 2)
-      encoder.setBytes(&kSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 3)
-      encoder.setBytes(&strides, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 4)
-      encoder.setBytes(&padding, length: MemoryLayout<Int>.size, index: 5)
-      
-      let w = pipelineStrong.threadExecutionWidth
-      let h = pipelineStrong.maxTotalThreadsPerThreadgroup / w
-      let threadsPerThreadgroup = MTLSizeMake(w, h, 1)
-      
-      let threadgroupsPerGrid = MTLSize(width: outputSize.columns,
-                                        height: outputSize.rows,
-                                        depth: outputSize.depth)
-      
-      encoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
       outputTextures.append(outputTexture)
     }
     
+    encoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
+    
     cmds?.commit()
     cmds?.waitUntilCompleted()
     
     // this is slow
     return outputTextures.map { $0.getValues(device: device) }
-    
   }
   
   public func activate(_ num: [Float],
