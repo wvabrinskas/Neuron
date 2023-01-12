@@ -13,7 +13,8 @@ public class GPU: Device {
   public var type: DeviceType = .gpu
 
   private let manager = GPUManager()
-  
+  public init() {}
+
   public func transConv2d(signal: [[Tensor.Scalar]],
                           filter: [[Tensor.Scalar]],
                           strides: (Int, Int) = (1,1),
@@ -66,7 +67,7 @@ public class GPU: Device {
     let shape = input.shape
       
     let flat = input.value.flatten()
-    let activated = self.manager.activate(flat, type)
+    let activated = GPUManager().activate(flat, type)
 
     let reshaped = activated.reshape(columns: shape[safe: 0, 0]).batched(into: shape[safe: 2, 0])
 
@@ -77,7 +78,7 @@ public class GPU: Device {
     let shape = input.shape
       
     let flat = input.value.flatten()
-    let activated = self.manager.activate(flat, type, derivate: true)
+    let activated = GPUManager().activate(flat, type, derivate: true)
 
     let reshaped = activated.reshape(columns: shape[safe: 0, 0]).batched(into: shape[safe: 2, 0])
 
