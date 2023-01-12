@@ -9,15 +9,15 @@ class GPUTests: XCTestCase {
     
     let inputShape = (6,6,1)
     
-    let filterCount = 2
+    let filterCount = 1
     
     let input: [[Float]] = [1,1,1,1,1,1].as2D()
     
     let inputTensor = Tensor(input)
     
-    let filters = [Tensor([[[0,1,0],
-                            [0,1,0],
-                            [0,1,0]]])]
+    let filters = [Tensor].init(repeating: Tensor([[[0,1,0],
+                                                    [0,1,0],
+                                                    [0,1,0]]]), count: filterCount)
     
     let outputShape = (3, 3, filters.count)
     
@@ -49,13 +49,15 @@ class GPUTests: XCTestCase {
                       initializer: .heNormal,
                       biasEnabled: false)
     
-    conv.filters = [Tensor([[[0,1,0],
-                             [0,1,0],
-                             [0,1,0]]])]
+    conv.filters = [Tensor].init(repeating: Tensor([[[0,1,0],
+                                                     [0,1,0],
+                                                     [0,1,0]]]), count: filterCount)
     
     let inputTensor = Tensor(input)
     
     let out = conv.forward(tensor: inputTensor)
     print(out)
+  
+   
   }
 }

@@ -111,6 +111,9 @@ kernel void conv2d(texture2d<float, access::read> inTexture [[ texture(0) ]],
   if (gid.x >= outSize.x || gid.y >= outSize.y)
     return;
   
+  uint padded_row_total = inputRows + paddingLeft + paddingRight;
+  uint padded_col_total = inputColumns + paddingTop + paddingBottom;
+  
   float sum = 0;
   for (uint i = 0; i < filterColumns; i++) {
     for (uint j = 0; j < filterRows; j++) {
@@ -118,10 +121,10 @@ kernel void conv2d(texture2d<float, access::read> inTexture [[ texture(0) ]],
       uint x = gid.x * stride.x + i;
       uint y = gid.y * stride.y + j;
       
-      if (x >= 0 - paddingLeft && x < inputColumns + paddingRight && y >= 0 - paddingTop && y < inputRows + paddingBottom) {
-        sum += inTexture.read(uint2(x, y)).r * filter[j * kernelSize.y + i];
+      if (x >= 0 && x < padded_col_total && y >= 0 && y < padded_row_total) {
+        sum += inTexture.read(uint2(x - paddingRight, y - paddingTop)).r * filter[j * kernelSize.y + i];
       } else {
-        sum = 0;
+        sum += 0;
       }
     }
   }
