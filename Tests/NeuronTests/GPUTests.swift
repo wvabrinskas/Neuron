@@ -3,15 +3,15 @@ import NumSwift
 @testable import Neuron
 
 class GPUTests: XCTestCase {
-  private let gpuManager = GPUManager.shared
   
   func testConv2d() {
+    let gpuManager = GPUManager()
+    
     let inputShape = (6,6,1)
     
-    let filterCount = 1
+    let filterCount = 2
     
     let input: [[Float]] = [1,1,1,1,1,1].as2D()
-    let outputShape = (3, 3, filterCount)
     
     let inputTensor = Tensor(input)
     
@@ -19,15 +19,18 @@ class GPUTests: XCTestCase {
                             [0,1,0],
                             [0,1,0]]])]
     
-    gpuManager.conv2d(inputTensor,
-                      filters: filters,
-                      biases: Tensor(1),
-                      filterCount: filterCount,
-                      filterSize: (3,3),
-                      strides: (2,2),
-                      inputSize: inputShape,
-                      outputSize: outputShape)
+    let outputShape = (3, 3, filters.count)
     
+    let out = gpuManager.conv2d(inputTensor,
+                                filters: filters,
+                                biases: Tensor(1),
+                                padding: .same,
+                                filterSize: (3,3),
+                                strides: (1,1),
+                                inputSize: inputShape)
+    
+    //  let out = gpuManager.commit()
+    print(out)
   }
   
   func testCPUConv2d() {
@@ -40,7 +43,7 @@ class GPUTests: XCTestCase {
     
     let conv = Conv2d(filterCount: filterCount,
                       inputSize: [inputSize.0, inputSize.1, inputSize.2].tensorSize,
-                      strides: (2,2),
+                      strides: (1,1),
                       padding: .same,
                       filterSize: (3,3),
                       initializer: .heNormal,

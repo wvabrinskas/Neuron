@@ -40,7 +40,7 @@ public final class BatchNormalize: Layer {
   private let e: Float = 1e-5 //this is a standard smoothing term
   private var dGamma: [Tensor.Scalar] = []
   private var dBeta: [Tensor.Scalar] = []
-  @Atomic private var iterations: Int = 0
+  @AtomicCodable private var iterations: Int = 0
   
   /// Default initializer for Batch Normalize layer
   /// - Parameters:

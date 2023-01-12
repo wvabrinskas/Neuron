@@ -2,18 +2,18 @@ import Foundation
 import Metal
 import MetalPerformanceShaders
 import Accelerate
-
+import NumSwift
 
 extension MTLTexture {
-  func getValues(device: MTLDevice, region: MTLRegion? = nil) -> [Float] {
+  func getValues(device: MTLDevice, region: MTLRegion? = nil) -> Tensor {
     let region = region ?? MTLRegionMake2D(0, 0, self.width, self.height)
     let rowBytes = region.size.width * MemoryLayout<Float>.stride
     let byteCount = region.size.height * rowBytes
     let totalSize = region.size.width * region.size.height
-    guard let buffer = device.makeBuffer(length: byteCount, options: []) else { return [] }
+    guard let buffer = device.makeBuffer(length: byteCount, options: []) else { return Tensor() }
     getBytes(buffer.contents(), bytesPerRow: rowBytes, from: region, mipmapLevel: 0)
     let values = Array(UnsafeBufferPointer(start: buffer.contents().bindMemory(to: Float.self, capacity: byteCount), count: totalSize))
-    return values
+    return Tensor(values.reshape(columns: region.size.width))
   }
 }
 
@@ -21,14 +21,15 @@ public typealias DataType = [[CFloat]]
 public typealias ResultType = CFloat
 
 public class GPUManager {
-  public static let shared = GPUManager()
-  
   public enum MetalFunction: String {
     case activation, derivate, conv2d
   }
   
   private var currentRunningPipelines: [MTLComputePipelineState] = []
   private var device: MTLDevice? = MTLCreateSystemDefaultDevice()
+  
+  @Atomic
+  private var textures: [Int: MTLTexture] = [:]
   
   lazy var queue = self.device?.makeCommandQueue()
   lazy var cmds = queue?.makeCommandBuffer()
@@ -65,21 +66,41 @@ public class GPUManager {
     }
   }
   
-  public func commit() {
+  public func commit() -> [Tensor] {
+    cmds?.commit()
+    cmds?.waitUntilCompleted()
+    return []
+  }
+  
+  private func conv2dOutputSize(padding: NumSwift.ConvPadding,
+                                strides: (rows: Int, columns: Int),
+                                filterCount: Int,
+                                filterSize: (rows: Int, columns: Int),
+                                inputSize: (rows: Int, columns: Int, depth: Int)) -> TensorSize {
+    let paddingValue = padding.extra(inputSize: (inputSize.rows, inputSize.columns), filterSize: filterSize)
     
+    let rows = (((inputSize.rows + (paddingValue.top + paddingValue.bottom)) - (filterSize.rows - 1) - 1) / strides.rows) + 1
+    let columns = (((inputSize.columns + (paddingValue.left + paddingValue.right)) - (filterSize.columns - 1) - 1) / strides.columns) + 1
+    
+    return TensorSize(array: [columns, rows, filterCount])
   }
   
   public func conv2d(_ input: Tensor,
                      filters: [Tensor],
                      biases: Tensor,
-                     filterCount: Int,
+                     padding: NumSwift.ConvPadding,
                      filterSize: (rows: Int, columns: Int),
                      strides: (rows: Int, columns: Int),
-                     inputSize: (rows: Int, columns: Int, depth: Int),
-                     outputSize: (rows: Int, columns: Int, depth: Int)) {
+                     inputSize: (rows: Int, columns: Int, depth: Int)) -> [Tensor] {
+    
+    let outputSize = conv2dOutputSize(padding: padding,
+                                      strides: strides,
+                                      filterCount: filters.count,
+                                      filterSize: filterSize,
+                                      inputSize: inputSize)
     
     guard let device = device else {
-      return
+      return []
     }
     
     let function: MetalFunction = .conv2d
@@ -93,7 +114,7 @@ public class GPUManager {
     inputTextureDesc.pixelFormat = .r32Float
     inputTextureDesc.usage = .shaderRead
     
-    guard let inputTexture = device.makeTexture(descriptor: inputTextureDesc) else { return }
+    guard let inputTexture = device.makeTexture(descriptor: inputTextureDesc) else { return [] }
     
     let flatInput: [Float] = input.value.flatten()
     let pointer = UnsafeMutableRawPointer(mutating: flatInput)
@@ -101,67 +122,68 @@ public class GPUManager {
     let region = MTLRegionMake2D(0, 0, inputTexture.width, inputTexture.height)
     inputTexture.replace(region: region, mipmapLevel: 0, withBytes: pointer, bytesPerRow: bytesPerRow)
     
-    let input = inputTexture.getValues(device: device, region: region)
-    print(input)
-    print(input.count)
-    
-    // output texture
-    let outputTextureDesc = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .r32Float,
-                                                                    width: outputSize.columns,
-                                                                    height: outputSize.rows,
-                                                                    mipmapped: false)
-    
-    let outputTexture = device.makeTexture(descriptor: outputTextureDesc)
-    
-    var filtersFlat: [Float] = filters.map { $0.value}.fullFlatten()
-   
     let newEncoder = cmds?.makeComputeCommandEncoder()
     
     guard let encoder = newEncoder, let pipelineStrong = pipeline else {
-      return
+      return []
     }
     
-    guard let filterBuffer = device.makeBuffer(bytes: &filtersFlat,
-                                               length: MemoryLayout<Float>.stride * filtersFlat.count,
-                                               options: []) else {
-      return
-    }
-        
     encoder.setComputePipelineState(pipelineStrong)
-    encoder.setTexture(inputTexture, index: 0)
-    encoder.setTexture(outputTexture, index: 1)
     
-    encoder.setBuffer(filterBuffer, offset: 0, index: 0)
+    var outputTextures: [MTLTexture] = []
     
-    var inSize = SIMD2(CUnsignedInt(inputSize.rows), CUnsignedInt(inputSize.columns))
-    var outSize = SIMD2(CUnsignedInt(outputSize.rows), CUnsignedInt(outputSize.columns))
-    var kSize = SIMD2(CUnsignedInt(filterSize.rows), CUnsignedInt(filterSize.columns))
-    var strides = SIMD2(CUnsignedInt(strides.rows), CUnsignedInt(strides.columns))
-    var padding = SIMD2(CUnsignedInt(0), CUnsignedInt(0))
+    filters.forEach { filter in
+      // output texture
+      let outputTextureDesc = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .r32Float,
+                                                                       width: outputSize.columns,
+                                                                       height: outputSize.rows,
+                                                                       mipmapped: false)
+      
+      guard let outputTexture = device.makeTexture(descriptor: outputTextureDesc) else { return }
+      
+      var filtersFlat: [Float] = filter.value.flatten()
+      
+      guard let filterBuffer = device.makeBuffer(bytes: &filtersFlat,
+                                                 length: MemoryLayout<Float>.stride * filtersFlat.count,
+                                                 options: []) else {
+        return 
+      }
+      
+      encoder.setTexture(inputTexture, index: 0)
+      encoder.setTexture(outputTexture, index: 1)
+      
+      encoder.setBuffer(filterBuffer, offset: 0, index: 0)
+      
+      var inSize = SIMD2(CUnsignedInt(inputSize.rows), CUnsignedInt(inputSize.columns))
+      var outSize = SIMD2(CUnsignedInt(outputSize.rows), CUnsignedInt(outputSize.columns))
+      var kSize = SIMD2(CUnsignedInt(filterSize.rows), CUnsignedInt(filterSize.columns))
+      var strides = SIMD2(CUnsignedInt(strides.rows), CUnsignedInt(strides.columns))
+      var padding = padding == .same ? 1 : 0
+      
+      encoder.setBytes(&inSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 1)
+      encoder.setBytes(&outSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 2)
+      encoder.setBytes(&kSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 3)
+      encoder.setBytes(&strides, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 4)
+      encoder.setBytes(&padding, length: MemoryLayout<Int>.size, index: 5)
+      
+      let w = pipelineStrong.threadExecutionWidth
+      let h = pipelineStrong.maxTotalThreadsPerThreadgroup / w
+      let threadsPerThreadgroup = MTLSizeMake(w, h, 1)
+      
+      let threadgroupsPerGrid = MTLSize(width: inputSize.columns,
+                                        height: inputSize.rows,
+                                        depth: inputSize.depth)
+      
+      encoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
+      outputTextures.append(outputTexture)
+    }
     
-    encoder.setBytes(&inSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 1)
-    encoder.setBytes(&outSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 2)
-    encoder.setBytes(&kSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 3)
-    encoder.setBytes(&strides, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 4)
-    encoder.setBytes(&padding, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 5)
-
-    let w = pipelineStrong.threadExecutionWidth
-    let h = pipelineStrong.maxTotalThreadsPerThreadgroup / w
-    let threadsPerThreadgroup = MTLSizeMake(w, h, 1)
-    
-    let threadgroupsPerGrid = MTLSize(width: inputSize.columns,
-                                      height: inputSize.rows,
-                                      depth: inputSize.depth)
-    
-    encoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
-
-    //execution step
     cmds?.commit()
     cmds?.waitUntilCompleted()
     
-    let out = outputTexture?.getValues(device: device)
-    print(out?.reshape(columns: outputSize.columns))
+    return outputTextures.map { $0.getValues(device: device) }
+    
   }
   
   public func activate(_ num: [Float],
