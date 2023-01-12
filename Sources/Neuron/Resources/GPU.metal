@@ -39,52 +39,6 @@ uint4 padding_calc(uint2 stride,
   }
 }
 
-device float* zero_pad(device float* input,
-                       uint2 filter_size,
-                       uint2 input_size,
-                       uint2 stride) {
-  
-  uint4 paddingCalc = padding_calc(stride,
-                                   1,
-                                   filter_size,
-                                   input_size);
-  
-  uint paddingLeft = paddingCalc.z;
-  uint paddingRight = paddingCalc.w;
-  uint paddingTop = paddingCalc.x;
-  uint paddingBottom = paddingCalc.y;
-  
-  int inputRows = input_size.y;
-  int inputColumns = input_size.x;
-  
-  int padded_row_total = inputRows + paddingLeft + paddingRight;
-  int padded_col_total = inputColumns + paddingTop + paddingBottom;
-  
-  int length = padded_row_total * padded_col_total;
-  //float padded[length];
-  
-  for (int i = 0; i < padded_row_total * padded_col_total; i++) {
-   // padded[i] = 0;
-  }
-  
-//  if (padded == NULL || input == NULL)
-//    return;
-//
-  for (int r = 0; r < inputRows; r++) {
-    for (int c = 0; c < inputColumns; c++) {
-      int padded_c = c + paddingLeft;
-      int padded_r = r + paddingTop;
-      
-      int index = (padded_r  * padded_row_total) + padded_c;
-      //padded[index] = input[(r * inputRows) + c];
-    }
-  }
-    
- // memcpy(result, padded, length * sizeof(float));
-  
-  //free(padded);
-}
-
 kernel void conv2d(texture2d<float, access::read> inTexture [[ texture(0) ]],
                    texture2d<float, access::write> outTexture [[ texture(1) ]],
                    constant float* filter [[ buffer(0) ]],
