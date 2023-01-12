@@ -9,7 +9,7 @@ class GPUTests: XCTestCase {
     
     let inputShape = (6,6,1)
     
-    let filterCount = 1
+    let filterCount = 16
     
     let input: [[Float]] = [1,1,1,1,1,1].as2D()
     

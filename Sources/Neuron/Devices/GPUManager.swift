@@ -134,10 +134,11 @@ public class GPUManager {
     
     guard let inputTexture = device.makeTexture(descriptor: inputTextureDesc) else { return [] }
     
-    var flatInput: [Float] = input.value.flatten()
+    let flatInput: [Float] = input.value.flatten()
+    let pointer = UnsafeMutableRawPointer(mutating: flatInput)
     let bytesPerRow = inputTexture.width * MemoryLayout<Float>.stride
     let region = MTLRegionMake2D(0, 0, inputTexture.width, inputTexture.height)
-    inputTexture.replace(region: region, mipmapLevel: 0, withBytes: &flatInput, bytesPerRow: bytesPerRow)
+    inputTexture.replace(region: region, mipmapLevel: 0, withBytes: pointer, bytesPerRow: bytesPerRow)
     
     let newEncoder = cmds?.makeComputeCommandEncoder()
     
@@ -180,9 +181,10 @@ public class GPUManager {
       // output texture
       guard let outputTexture = device.makeTexture(descriptor: outputTextureDesc) else { return }
       
-      var filtersFlat: [Float] = filter.value.flatten()
-      
-      guard let filterBuffer = device.makeBuffer(bytes: &filtersFlat,
+      let filtersFlat: [Float] = filter.value.flatten()
+      let filterPointer = UnsafeMutableRawPointer(mutating: filtersFlat)
+
+      guard let filterBuffer = device.makeBuffer(bytes: filterPointer,
                                                  length: MemoryLayout<Float>.stride * filtersFlat.count,
                                                  options: []) else {
         return 

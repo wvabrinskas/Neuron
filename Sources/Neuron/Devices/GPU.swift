@@ -53,7 +53,7 @@ public class GPU: Device {
                      inputSize: (rows: Int, columns: Int),
                      outputSize: (rows: Int, columns: Int)? = nil) -> [[Tensor.Scalar]] {
     
-    let result = self.manager.conv2d(signal,
+    let result = GPUManager().conv2d(signal,
                                      filter: filter,
                                      padding: padding,
                                      filterSize: filterSize,
