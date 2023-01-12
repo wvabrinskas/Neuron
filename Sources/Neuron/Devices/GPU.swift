@@ -52,23 +52,14 @@ public class GPU: Device {
                      inputSize: (rows: Int, columns: Int),
                      outputSize: (rows: Int, columns: Int)? = nil) -> [[Tensor.Scalar]] {
     
-    var calculatedOutputSize: (row: Int, columns: Int) {
-      let paddingValue = padding.extra(inputSize: (inputSize.rows, inputSize.columns), filterSize: filterSize)
-
-      let rows = (((inputSize.rows + (paddingValue.top + paddingValue.bottom)) - (filterSize.rows - 1) - 1) / strides.0) + 1
-      let columns = (((inputSize.columns + (paddingValue.left + paddingValue.right)) - (filterSize.columns - 1) - 1) / strides.1) + 1
-
-      return (rows, columns)
-    }
+    let result = GPUManager().conv2d(signal,
+                                     filter: filter,
+                                     padding: padding,
+                                     filterSize: filterSize,
+                                     strides: strides,
+                                     inputSize: (inputSize.rows, inputSize.columns, 1))
     
-    let result = NumSwiftC.conv2d(signal: signal.flatten(),
-                                  filter: filter.flatten(),
-                                  strides: strides,
-                                  padding: padding,
-                                  filterSize: filterSize,
-                                  inputSize: inputSize)
-    
-    return result.reshape(columns: outputSize?.columns ?? calculatedOutputSize.columns)
+    return result
   }
   
   public func activate(_ input: Tensor, _ type: Activation) -> Tensor {
