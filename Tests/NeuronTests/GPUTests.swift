@@ -21,9 +21,10 @@ class GPUTests: XCTestCase {
     
     let outputShape = (3, 3, filters.count)
     
-    let out = gpuManager.conv2d(inputTensor,
-                                filters: filters,
-                                biases: Tensor(1),
+    let out = gpuManager.conv2d(input,
+                                filter: [[0,1,0],
+                                         [0,1,0],
+                                         [0,1,0]],
                                 padding: .same,
                                 filterSize: (3,3),
                                 strides: (1,1),

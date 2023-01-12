@@ -85,9 +85,27 @@ public class GPUManager {
     return TensorSize(array: [columns, rows, filterCount])
   }
   
+  public func conv2d(_ input: [[Tensor.Scalar]],
+                     filter: [[Tensor.Scalar]],
+                     padding: NumSwift.ConvPadding,
+                     filterSize: (rows: Int, columns: Int),
+                     strides: (rows: Int, columns: Int),
+                     inputSize: (rows: Int, columns: Int, depth: Int)) -> [[Tensor.Scalar]] {
+    
+    let out = conv2d(Tensor(input),
+                     filters: [Tensor(filter)],
+                     padding: padding,
+                     filterSize: filterSize,
+                     strides: strides,
+                     inputSize: inputSize)
+    
+    guard let first = out.first else { return [] }
+    
+    return first.value.first ?? []
+  }
+  
   public func conv2d(_ input: Tensor,
                      filters: [Tensor],
-                     biases: Tensor,
                      padding: NumSwift.ConvPadding,
                      filterSize: (rows: Int, columns: Int),
                      strides: (rows: Int, columns: Int),
@@ -116,11 +134,10 @@ public class GPUManager {
     
     guard let inputTexture = device.makeTexture(descriptor: inputTextureDesc) else { return [] }
     
-    let flatInput: [Float] = input.value.flatten()
-    let pointer = UnsafeMutableRawPointer(mutating: flatInput)
+    var flatInput: [Float] = input.value.flatten()
     let bytesPerRow = inputTexture.width * MemoryLayout<Float>.stride
     let region = MTLRegionMake2D(0, 0, inputTexture.width, inputTexture.height)
-    inputTexture.replace(region: region, mipmapLevel: 0, withBytes: pointer, bytesPerRow: bytesPerRow)
+    inputTexture.replace(region: region, mipmapLevel: 0, withBytes: &flatInput, bytesPerRow: bytesPerRow)
     
     let newEncoder = cmds?.makeComputeCommandEncoder()
     
@@ -134,8 +151,8 @@ public class GPUManager {
     let h = pipelineStrong.maxTotalThreadsPerThreadgroup / w
     let threadsPerThreadgroup = MTLSizeMake(w, h, 1)
     
-    let threadgroupsPerGrid = MTLSize(width: outputSize.columns,
-                                      height: outputSize.rows,
+    let threadgroupsPerGrid = MTLSize(width: outputSize.columns / 2,
+                                      height: outputSize.rows / 2,
                                       depth: outputSize.depth)
     
     let outputTextureDesc = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .r32Float,
