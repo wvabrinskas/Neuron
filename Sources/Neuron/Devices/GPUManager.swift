@@ -170,9 +170,9 @@ public class GPUManager {
       let h = pipelineStrong.maxTotalThreadsPerThreadgroup / w
       let threadsPerThreadgroup = MTLSizeMake(w, h, 1)
       
-      let threadgroupsPerGrid = MTLSize(width: inputSize.columns,
-                                        height: inputSize.rows,
-                                        depth: inputSize.depth)
+      let threadgroupsPerGrid = MTLSize(width: outputSize.columns,
+                                        height: outputSize.rows,
+                                        depth: outputSize.depth)
       
       encoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
       outputTextures.append(outputTexture)
@@ -182,6 +182,7 @@ public class GPUManager {
     cmds?.commit()
     cmds?.waitUntilCompleted()
     
+    // this is slow
     return outputTextures.map { $0.getValues(device: device) }
     
   }
