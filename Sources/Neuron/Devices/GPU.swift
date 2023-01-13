@@ -46,6 +46,24 @@ public class GPU: Device {
   }
   
   public func conv2d(signal: [[Tensor.Scalar]],
+                     filters: [[[Tensor.Scalar]]],
+                     strides: (Int, Int) = (1,1),
+                     padding: NumSwift.ConvPadding = .valid,
+                     filterSize: (rows: Int, columns: Int),
+                     inputSize: (rows: Int, columns: Int),
+                     outputSize: (rows: Int, columns: Int)? = nil) -> [[[Tensor.Scalar]]] {
+    
+//    let result = manager.conv2d(signal,
+//                                filters: filters,
+//                                padding: padding,
+//                                filterSize: filterSize,
+//                                strides: strides,
+//                                inputSize: (inputSize.rows, inputSize.columns, 1))
+//
+    return []
+  }
+  
+  public func conv2d(signal: [[Tensor.Scalar]],
                      filter: [[Tensor.Scalar]],
                      strides: (Int, Int) = (1,1),
                      padding: NumSwift.ConvPadding = .valid,
