@@ -4,34 +4,89 @@ import NumSwift
 
 class GPUTests: XCTestCase {
   
-  func testConv2d() {
-    let gpuManager = GPUManager()
+  func testConv2dMetal() {
+    let inputShape = (6,6,6)
     
-    let inputShape = (6,6,1)
+    let filterCount = 1
     
-    let filterCount = 16
+    let inputTensor = Tensor([Float].init(repeating: 1, count: inputShape.0).as3D())
     
-    let input: [[Float]] = [1,1,1,1,1,1].as2D()
+    let singleFilter = [[[Float]]].init(repeating: [[Float]].init(repeating: [0,1,0],
+                                                                  count: 3),
+                                        count: inputShape.2)
+        
+    let filters = [Tensor].init(repeating: Tensor(singleFilter), count: filterCount)
     
-    let inputTensor = Tensor(input)
+    let inputs = [Tensor].init(repeating: inputTensor, count: 32)
     
-    let filters = [Tensor].init(repeating: Tensor([[[0,1,0],
-                                                    [0,1,0],
-                                                    [0,1,0]]]), count: filterCount)
+    let device = GPU()
     
-    let outputShape = (3, 3, filters.count)
+    let manager = GPUManager()
     
-    let out = gpuManager.conv2d(input,
-                                filter: [[0,1,0],
-                                         [0,1,0],
-                                         [0,1,0]],
-                                padding: .same,
-                                filterSize: (3,3),
-                                strides: (1,1),
-                                inputSize: inputShape)
+    let out = manager.conv2d(inputTensor,
+                             filters: filters,
+                             padding: .valid,
+                             filterSize: (3,3),
+                             strides: (1,1),
+                             inputSize: inputShape)
     
-    //  let out = gpuManager.commit()
     print(out)
+//
+//    for f in 0..<filterCount {
+//      for i in 0..<inputTensor.value.count {
+//
+//        let currentFilter = filters[f].value[i]
+//        let currentInput = inputTensor.value[i]
+//
+//        let out = device.conv2d(signal: currentInput,
+//                                filter: currentFilter,
+//                                strides: (1,1),
+//                                padding: .same,
+//                                filterSize: (3,3),
+//                                inputSize: (inputShape.0, inputShape.1))
+//        //print(out)
+//      }
+//
+//    }
+
+  }
+  
+  func testConv2d() {
+    
+    let inputShape = (6,6,6)
+    
+    let filterCount = 256
+    
+    let inputTensor = Tensor([Float].init(repeating: 1, count: inputShape.0).as3D())
+    
+    let singleFilter = [[[Float]]].init(repeating: [[Float]].init(repeating: [0,1,0],
+                                                                  count: 3),
+                                        count: inputShape.2)
+        
+    let filters = [Tensor].init(repeating: Tensor(singleFilter), count: filterCount)
+    
+    let inputs = [Tensor].init(repeating: inputTensor, count: 32)
+    
+    let device = GPU()
+    inputs.concurrentForEach(workers: 16, { input, index in
+
+      for f in 0..<filterCount {
+        for i in 0..<inputTensor.value.count {
+          
+          let currentFilter = filters[f].value[i]
+          let currentInput = inputTensor.value[i]
+          
+          let out = device.conv2d(signal: currentInput,
+                                  filter: currentFilter,
+                                  strides: (1,1),
+                                  padding: .same,
+                                  filterSize: (3,3),
+                                  inputSize: (inputShape.0, inputShape.1))
+          //print(out)
+        }
+        
+      }
+    })
   }
   
   func testCPUConv2d() {
