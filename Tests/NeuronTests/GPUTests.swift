@@ -6,9 +6,7 @@ class GPUTests: XCTestCase {
   
   func testConv2dMetal() {
     let inputShape = (6,6,1)
-    
-    let filterCount = 16
-    
+        
     let inputTensor = Tensor([[[Float]]].init(repeating: [[Float]].init(repeating: [Float].init(repeating: 1,
                                                                                                 count: inputShape.0),
                                                                         count: inputShape.1),
@@ -76,7 +74,11 @@ class GPUTests: XCTestCase {
                                   padding: .same,
                                   filterSize: (3,3),
                                   inputSize: (inputShape.0, inputShape.1))
+<<<<<<< HEAD
           print(out)
+=======
+          //print(out)
+>>>>>>> 597064b (working on using MPSCNN)
         }
         
       }

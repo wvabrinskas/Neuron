@@ -175,6 +175,106 @@ public class GPUManager {
     return Tensor(values)
   }
   
+//  // returns a 3D tensor where each element is conv on the input with a filter
+//  public func conv2d(_ input: [[Tensor.Scalar]],
+//                     filters: [[[Tensor.Scalar]]],
+//                     padding: NumSwift.ConvPadding,
+//                     filterSize: (rows: Int, columns: Int),
+//                     strides: (rows: Int, columns: Int),
+//                     inputSize: (rows: Int, columns: Int, depth: Int)) -> Tensor {
+//
+//    let outputSize = conv2dOutputSize(padding: padding,
+//                                      strides: strides,
+//                                      filterCount: filters.count,
+//                                      filterSize: filterSize,
+//                                      inputSize: inputSize)
+//
+//    guard let device = device else {
+//      return Tensor()
+//    }
+//
+//    let function: MetalFunction = .conv2d
+//    let pipeline: MTLComputePipelineState? = self.pipelineIfExists(type: function) ?? self.addPipeline(for: function)
+//
+//    // input texture
+//    let inputTextureDesc = MTLTextureDescriptor()
+//    inputTextureDesc.textureType = .type2D
+//    inputTextureDesc.width = inputSize.columns
+//    inputTextureDesc.height = inputSize.rows
+//    inputTextureDesc.pixelFormat = .r32Float
+//    inputTextureDesc.usage = .shaderRead
+//
+//    guard let inputTexture = device.makeTexture(descriptor: inputTextureDesc) else { return Tensor() }
+//
+//    var flatInput: [Float] = input.flatten()
+//    let bytesPerRow = inputTexture.width * MemoryLayout<Float>.stride
+//    let region = MTLRegionMake2D(0, 0, inputTexture.width, inputTexture.height)
+//    inputTexture.replace(region: region, mipmapLevel: 0, withBytes: &flatInput, bytesPerRow: bytesPerRow)
+//
+//    let newEncoder = cmds?.makeComputeCommandEncoder()
+//
+//    guard let encoder = newEncoder, let pipelineStrong = pipeline else {
+//      return Tensor()
+//    }
+//
+//    encoder.setComputePipelineState(pipelineStrong)
+//
+//    let w = pipelineStrong.threadExecutionWidth
+//    let h = pipelineStrong.maxTotalThreadsPerThreadgroup / w
+//    let threadsPerThreadgroup = MTLSizeMake(w, h, 1)
+//
+//    let threadgroupsPerGrid = MTLSize(width: outputSize.columns / 2,
+//                                      height: outputSize.rows / 2,
+//                                      depth: outputSize.depth)
+//
+//    let outputTextureDesc = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .r32Float,
+//                                                                     width: outputSize.columns,
+//                                                                     height: outputSize.rows,
+//                                                                     mipmapped: false)
+//
+//    encoder.setTexture(inputTexture, index: 0)
+//
+//    var inSize = SIMD2(CUnsignedInt(inputSize.rows), CUnsignedInt(inputSize.columns))
+//    var outSize = SIMD2(CUnsignedInt(outputSize.rows), CUnsignedInt(outputSize.columns))
+//    var kSize = SIMD2(CUnsignedInt(filterSize.rows), CUnsignedInt(filterSize.columns))
+//    var strides = SIMD2(CUnsignedInt(strides.rows), CUnsignedInt(strides.columns))
+//    var padding = padding == .same ? 1 : 0
+//
+//    encoder.setBytes(&inSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 1)
+//    encoder.setBytes(&outSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 2)
+//    encoder.setBytes(&kSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 3)
+//    encoder.setBytes(&strides, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 4)
+//    encoder.setBytes(&padding, length: MemoryLayout<Int>.size, index: 5)
+//
+//    var outputTextures: [MTLTexture] = []
+//
+//    filters.forEach { filter in
+//      // output texture
+//      guard let outputTexture = device.makeTexture(descriptor: outputTextureDesc) else { return }
+//
+//      var filtersFlat: [Float] = filter.flatten()
+//      guard let filterBuffer = device.makeBuffer(bytes: &filtersFlat,
+//                                                 length: MemoryLayout<Float>.stride * filtersFlat.count,
+//                                                 options: []) else {
+//        return
+//      }
+//
+//      encoder.setTexture(outputTexture, index: 1)
+//      encoder.setBuffer(filterBuffer, offset: 0, index: 0)
+//
+//      outputTextures.append(outputTexture)
+//    }
+//
+//    encoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
+//    encoder.endEncoding()
+//
+////    cmds?.commit()
+////    cmds?.waitUntilCompleted()
+//
+//    // this is slow
+//    return Tensor(outputTextures.map { $0.getValues(device: device) })
+//  }
+  
   public func activate(_ num: [Float],
                        _ activationType: Activation,
                        derivate: Bool = false) -> [Float] {
