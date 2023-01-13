@@ -291,6 +291,19 @@ public class Conv2d: ConvolutionalLayer {
     }
   }
   
+  internal func convGPU(_ input: Tensor) -> [[[Tensor.Scalar]]] {
+    var results: Tensor = Tensor()
+    
+    for i in 0..<input.value.count {
+      let inputs = input.value[i]
+      
+      //let conv = GPU().conv2d(signal: inputs, filters: fi, filterSize: filterSize, inputSize: (inputSize.rows, inputSize.columns))
+    
+    }
+    
+    return results.value
+  }
+  
   internal func conv(_ input: Tensor) -> [[[Tensor.Scalar]]] {
     var results: [[[Tensor.Scalar]]] = []
     
