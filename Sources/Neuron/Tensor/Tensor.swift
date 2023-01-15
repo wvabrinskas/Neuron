@@ -108,6 +108,34 @@ public class Tensor: Equatable, Codable {
     self.context = context
   }
   
+  
+  /// Creates a Tensor of the given size filled with random values between the given range.
+  /// - Parameters:
+  ///   - size: The size of the desired tensor
+  ///   - range: The range of the values
+  /// - Returns: A Tensor filled with random values
+  public static func withRandom(size: TensorSize, in range: ClosedRange<Scalar>) -> Tensor {
+    var depth: Tensor.Data = []
+    
+    for _ in 0..<size.depth {
+      var row: [[Scalar]] = []
+      for _ in 0..<size.rows {
+        var column: [Scalar] = []
+        
+        for _ in 0..<size.columns {
+          let randomVal = Scalar.random(in: range)
+          column.append(randomVal)
+        }
+        
+        row.append(column)
+      }
+      
+      depth.append(row)
+    }
+    
+    return Tensor(depth)
+  }
+  
   /// Prints the current graph all the way to the input.
   public func printGraph() {
     var t: Tensor? = self
