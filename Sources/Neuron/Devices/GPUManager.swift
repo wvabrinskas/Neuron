@@ -136,7 +136,6 @@ public class GPUManager {
     encoder.setBytes(&padding, length: MemoryLayout<Int>.size, index: 7)
 
     // output texture
-    var outputArray = NumSwift.zerosLike((outputSize.rows, outputSize.columns)).flatten()
     var filtersFlat: [Float] = filter.flatten()
     var flatInput: [Float] = input.flatten()
     
@@ -144,8 +143,7 @@ public class GPUManager {
                                                length: MemoryLayout<Float>.stride * filtersFlat.count,
                                                options: []),
           
-            let outputBuffer = device.makeBuffer(bytes: &outputArray,
-                                                 length: MemoryLayout<Float>.stride * outputArray.count,
+            let outputBuffer = device.makeBuffer(length: MemoryLayout<Float>.stride * outputSize.columns * outputSize.rows,
                                                  options: []),
           
           let inputBuffer = device.makeBuffer(bytes: &flatInput,
@@ -187,7 +185,7 @@ public class GPUManager {
     let function: MetalFunction = derivate ? .derivate : .activation
     
     let pipeline: MTLComputePipelineState? = self.pipelineIfExists(type: function) ?? self.addPipeline(for: function)
-    
+        
     guard let dataBuffer = device.makeBuffer(bytes: &data,
                                              length: MemoryLayout<Float>.stride * data.count,
                                              options: []),
@@ -224,7 +222,7 @@ public class GPUManager {
     let threadsPerThreadgroup = MTLSizeMake(w, h, 1)
     
     let threadgroupsPerGrid = MTLSize(width: data.count / 2,
-                                      height: data.count / 2,
+                                      height: 1,
                                       depth: 1)
     
     encoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
@@ -233,11 +231,12 @@ public class GPUManager {
     //execution step
     cmds?.commit()
     cmds?.waitUntilCompleted()
+  
+    let values = Array(UnsafeBufferPointer(start: resultsBuffer.contents().bindMemory(to: Float.self,
+                                                                                     capacity: MemoryLayout<Float>.size * num.count),
+                                           count: num.count))
     
-    let dataArray = UnsafeMutableBufferPointer<Float>(start: resultsBuffer.contents().assumingMemoryBound(to: Float.self),
-                                                      count: data.count)
-    
-    return Array(dataArray)
+    return values
   }
   
 }

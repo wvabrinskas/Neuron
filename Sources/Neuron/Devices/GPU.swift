@@ -46,24 +46,6 @@ public class GPU: Device {
   }
   
   public func conv2d(signal: [[Tensor.Scalar]],
-                     filters: [[[Tensor.Scalar]]],
-                     strides: (Int, Int) = (1,1),
-                     padding: NumSwift.ConvPadding = .valid,
-                     filterSize: (rows: Int, columns: Int),
-                     inputSize: (rows: Int, columns: Int),
-                     outputSize: (rows: Int, columns: Int)? = nil) -> [[[Tensor.Scalar]]] {
-    
-//    let result = manager.conv2d(signal,
-//                                filters: filters,
-//                                padding: padding,
-//                                filterSize: filterSize,
-//                                strides: strides,
-//                                inputSize: (inputSize.rows, inputSize.columns, 1))
-//
-    return []
-  }
-  
-  public func conv2d(signal: [[Tensor.Scalar]],
                      filter: [[Tensor.Scalar]],
                      strides: (Int, Int) = (1,1),
                      padding: NumSwift.ConvPadding = .valid,
@@ -83,11 +65,11 @@ public class GPU: Device {
   
   public func activate(_ input: Tensor, _ type: Activation) -> Tensor {
     let shape = input.shape
-      
+    
     let flat = input.value.flatten()
     let activated = GPUManager().activate(flat, type)
-
-    let reshaped = activated.reshape(columns: shape[safe: 0, 0]).batched(into: shape[safe: 2, 0])
+    
+    let reshaped = activated.reshape(columns: shape[safe: 0, 0]).reshape(columns: shape[safe: 1, 0])
 
     return Tensor(reshaped)
   }
@@ -98,7 +80,7 @@ public class GPU: Device {
     let flat = input.value.flatten()
     let activated = GPUManager().activate(flat, type, derivate: true)
 
-    let reshaped = activated.reshape(columns: shape[safe: 0, 0]).batched(into: shape[safe: 2, 0])
+    let reshaped = activated.reshape(columns: shape[safe: 0, 0]).reshape(columns: shape[safe: 1, 0])
 
     return Tensor(reshaped)
   }

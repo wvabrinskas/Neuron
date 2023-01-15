@@ -142,7 +142,7 @@ kernel void conv2d(texture2d<float, access::read> inTexture [[ texture(0) ]],
       uint x = gid.x * stride.x + i;
       uint y = gid.y * stride.y + j;
       
-      if (x >= 0 && x < padded_col_total && y >= 0 && y < padded_col_total) {
+      if (x >= 0 && x < padded_row_total && y >= 0 && y < padded_col_total) {
         sum += inTexture.read(uint2(x - paddingRight, y - paddingTop)).r * filter[j * kernelSize.y + i];
       } else {
         sum += 0;
