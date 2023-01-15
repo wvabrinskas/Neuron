@@ -22,7 +22,7 @@ public typealias ResultType = CFloat
 
 public class GPUManager {
   public enum MetalFunction: String {
-    case activation, derivate, conv2d
+    case activation, derivate, conv2d, conv2d_array
   }
   
   private var currentRunningPipelines: [MTLComputePipelineState] = []
@@ -85,192 +85,95 @@ public class GPUManager {
     return TensorSize(array: [columns, rows, filterCount])
   }
   
+  // returns a 3D tensor where each element is conv on the input with a filter
   public func conv2d(_ input: [[Tensor.Scalar]],
                      filter: [[Tensor.Scalar]],
                      padding: NumSwift.ConvPadding,
                      filterSize: (rows: Int, columns: Int),
                      strides: (rows: Int, columns: Int),
-                     inputSize: (rows: Int, columns: Int, depth: Int)) -> [[Tensor.Scalar]] {
-    
-    let out = conv2d(Tensor(input),
-                     filter: Tensor(filter),
-                     padding: padding,
-                     filterSize: filterSize,
-                     strides: strides,
-                     inputSize: inputSize)
-
-    guard let first = out.value.first else { return [] }
-
-    return first
-  }
-  
-  public func conv2d(_ input: Tensor,
-                     filter: Tensor,
-                     padding: NumSwift.ConvPadding,
-                     filterSize: (rows: Int, columns: Int),
-                     strides: (rows: Int, columns: Int),
                      inputSize: (rows: Int, columns: Int, depth: Int)) -> Tensor {
-    guard let device = device else {
-      return Tensor()
-    }
-
+    
     let outputSize = conv2dOutputSize(padding: padding,
                                       strides: strides,
                                       filterCount: 1,
                                       filterSize: filterSize,
                                       inputSize: inputSize)
-  
-    let inputImage = MPSImage(device: device,
-                              imageDescriptor: MPSImageDescriptor(channelFormat: .float32,
-                                                                  width: inputSize.columns,
-                                                                  height: inputSize.rows,
-                                                                  featureChannels: inputSize.depth))
-    
-    var flatInput: [Float] = input.value.fullFlatten()
-    inputImage.writeBytes(&flatInput, dataLayout: .HeightxWidthxFeatureChannels, imageIndex: 0)
 
-    // Create a MPSCNNConvolution object
-    let descriptor = MPSCNNConvolutionDescriptor(kernelWidth: filterSize.columns,
-                                                 kernelHeight: filterSize.rows,
-                                                 inputFeatureChannels: inputSize.depth,
-                                                 outputFeatureChannels: outputSize.depth)
-    
-    
-    descriptor.strideInPixelsX = strides.columns
-    descriptor.strideInPixelsY = strides.rows
-    
-    var allFiltersFlat: [Float] = filter.value.flatten()
-    
-    let convolution = MPSCNNConvolution(device: device,
-                                        convolutionDescriptor: descriptor,
-                                        kernelWeights: &allFiltersFlat,
-                                        biasTerms: nil,
-                                        flags: .none)
+    guard let device = device else {
+      return Tensor()
+    }
 
-    convolution.padding = MPSNNDefaultPadding(method: padding == .same ? .sizeSame : .validOnly)
+    let function: MetalFunction = .conv2d_array
+    let pipeline: MTLComputePipelineState? = self.pipelineIfExists(type: function) ?? self.addPipeline(for: function)
 
-    // Create a MPSImage to hold the output of the convolution
-    let outputImage = MPSImage(device: device,
-                               imageDescriptor: MPSImageDescriptor(channelFormat: .float32,
-                                                                   width: outputSize.columns,
-                                                                   height: outputSize.rows,
-                                                                   featureChannels: outputSize.depth))
 
-    // Encode the convolution operation
-    guard let commandBuffer = cmds else { return Tensor() }
-    
-    convolution.encode(commandBuffer: commandBuffer,
-                       sourceImage: inputImage,
-                       destinationImage: outputImage)
+    let newEncoder = cmds?.makeComputeCommandEncoder()
 
-    // Wait for the convolution to complete
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
+    guard let encoder = newEncoder, let pipelineStrong = pipeline else {
+      return Tensor()
+    }
+
+    encoder.setComputePipelineState(pipelineStrong)
+
+    let w = pipelineStrong.threadExecutionWidth
+    let h = pipelineStrong.maxTotalThreadsPerThreadgroup / w
+    let threadsPerThreadgroup = MTLSizeMake(w, h, 1)
+
+    let threadgroupsPerGrid = MTLSize(width: outputSize.columns / 2,
+                                      height: outputSize.rows / 2,
+                                      depth: outputSize.depth)
+
+    var inSize = SIMD2(CUnsignedInt(inputSize.rows), CUnsignedInt(inputSize.columns))
+    var outSize = SIMD2(CUnsignedInt(outputSize.rows), CUnsignedInt(outputSize.columns))
+    var kSize = SIMD2(CUnsignedInt(filterSize.rows), CUnsignedInt(filterSize.columns))
+    var strides = SIMD2(CUnsignedInt(strides.rows), CUnsignedInt(strides.columns))
+    var padding = padding == .same ? 1 : 0
+
+    encoder.setBytes(&inSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 3)
+    encoder.setBytes(&outSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 4)
+    encoder.setBytes(&kSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 5)
+    encoder.setBytes(&strides, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 6)
+    encoder.setBytes(&padding, length: MemoryLayout<Int>.size, index: 7)
+
+    // output texture
+    var outputArray = NumSwift.zerosLike((outputSize.rows, outputSize.columns)).flatten()
+    var filtersFlat: [Float] = filter.flatten()
+    var flatInput: [Float] = input.flatten()
     
-    let out = outputImage.texture.getValues(device: device)
+    guard let filterBuffer = device.makeBuffer(bytes: &filtersFlat,
+                                               length: MemoryLayout<Float>.stride * filtersFlat.count,
+                                               options: []),
+          
+            let outputBuffer = device.makeBuffer(bytes: &outputArray,
+                                                 length: MemoryLayout<Float>.stride * outputArray.count,
+                                                 options: []),
+          
+          let inputBuffer = device.makeBuffer(bytes: &flatInput,
+                                              length: MemoryLayout<Float>.stride * flatInput.count,
+                                               options: []) else {
+      return Tensor()
+    }
+
+    encoder.setBuffer(inputBuffer, offset: 0, index: 0)
+    encoder.setBuffer(outputBuffer, offset: 0, index: 1)
+    encoder.setBuffer(filterBuffer, offset: 0, index: 2)
+
+    encoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
+    encoder.endEncoding()
+
+    cmds?.commit()
+    cmds?.waitUntilCompleted()
+
+    // this is slow
+    let rowBytes =  outputSize.columns * MemoryLayout<Float>.stride
+    let byteCount = outputSize.rows * rowBytes
+    let totalSize = outputSize.rows * outputSize.columns
     
-    return Tensor(out)
+    let values = Array(UnsafeBufferPointer(start: outputBuffer.contents().bindMemory(to: Float.self,
+                                                                                     capacity: byteCount),
+                                           count: totalSize)).reshape(columns: outputSize.columns)
+    return Tensor(values)
   }
-  
-//  // returns a 3D tensor where each element is conv on the input with a filter
-//  public func conv2d(_ input: [[Tensor.Scalar]],
-//                     filters: [[[Tensor.Scalar]]],
-//                     padding: NumSwift.ConvPadding,
-//                     filterSize: (rows: Int, columns: Int),
-//                     strides: (rows: Int, columns: Int),
-//                     inputSize: (rows: Int, columns: Int, depth: Int)) -> Tensor {
-//
-//    let outputSize = conv2dOutputSize(padding: padding,
-//                                      strides: strides,
-//                                      filterCount: filters.count,
-//                                      filterSize: filterSize,
-//                                      inputSize: inputSize)
-//
-//    guard let device = device else {
-//      return Tensor()
-//    }
-//
-//    let function: MetalFunction = .conv2d
-//    let pipeline: MTLComputePipelineState? = self.pipelineIfExists(type: function) ?? self.addPipeline(for: function)
-//
-//    // input texture
-//    let inputTextureDesc = MTLTextureDescriptor()
-//    inputTextureDesc.textureType = .type2D
-//    inputTextureDesc.width = inputSize.columns
-//    inputTextureDesc.height = inputSize.rows
-//    inputTextureDesc.pixelFormat = .r32Float
-//    inputTextureDesc.usage = .shaderRead
-//
-//    guard let inputTexture = device.makeTexture(descriptor: inputTextureDesc) else { return Tensor() }
-//
-//    var flatInput: [Float] = input.flatten()
-//    let bytesPerRow = inputTexture.width * MemoryLayout<Float>.stride
-//    let region = MTLRegionMake2D(0, 0, inputTexture.width, inputTexture.height)
-//    inputTexture.replace(region: region, mipmapLevel: 0, withBytes: &flatInput, bytesPerRow: bytesPerRow)
-//
-//    let newEncoder = cmds?.makeComputeCommandEncoder()
-//
-//    guard let encoder = newEncoder, let pipelineStrong = pipeline else {
-//      return Tensor()
-//    }
-//
-//    encoder.setComputePipelineState(pipelineStrong)
-//
-//    let w = pipelineStrong.threadExecutionWidth
-//    let h = pipelineStrong.maxTotalThreadsPerThreadgroup / w
-//    let threadsPerThreadgroup = MTLSizeMake(w, h, 1)
-//
-//    let threadgroupsPerGrid = MTLSize(width: outputSize.columns / 2,
-//                                      height: outputSize.rows / 2,
-//                                      depth: outputSize.depth)
-//
-//    let outputTextureDesc = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .r32Float,
-//                                                                     width: outputSize.columns,
-//                                                                     height: outputSize.rows,
-//                                                                     mipmapped: false)
-//
-//    encoder.setTexture(inputTexture, index: 0)
-//
-//    var inSize = SIMD2(CUnsignedInt(inputSize.rows), CUnsignedInt(inputSize.columns))
-//    var outSize = SIMD2(CUnsignedInt(outputSize.rows), CUnsignedInt(outputSize.columns))
-//    var kSize = SIMD2(CUnsignedInt(filterSize.rows), CUnsignedInt(filterSize.columns))
-//    var strides = SIMD2(CUnsignedInt(strides.rows), CUnsignedInt(strides.columns))
-//    var padding = padding == .same ? 1 : 0
-//
-//    encoder.setBytes(&inSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 1)
-//    encoder.setBytes(&outSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 2)
-//    encoder.setBytes(&kSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 3)
-//    encoder.setBytes(&strides, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 4)
-//    encoder.setBytes(&padding, length: MemoryLayout<Int>.size, index: 5)
-//
-//    var outputTextures: [MTLTexture] = []
-//
-//    filters.forEach { filter in
-//      // output texture
-//      guard let outputTexture = device.makeTexture(descriptor: outputTextureDesc) else { return }
-//
-//      var filtersFlat: [Float] = filter.flatten()
-//      guard let filterBuffer = device.makeBuffer(bytes: &filtersFlat,
-//                                                 length: MemoryLayout<Float>.stride * filtersFlat.count,
-//                                                 options: []) else {
-//        return
-//      }
-//
-//      encoder.setTexture(outputTexture, index: 1)
-//      encoder.setBuffer(filterBuffer, offset: 0, index: 0)
-//
-//      outputTextures.append(outputTexture)
-//    }
-//
-//    encoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
-//    encoder.endEncoding()
-//
-////    cmds?.commit()
-////    cmds?.waitUntilCompleted()
-//
-//    // this is slow
-//    return Tensor(outputTextures.map { $0.getValues(device: device) })
-//  }
   
   public func activate(_ num: [Float],
                        _ activationType: Activation,

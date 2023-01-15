@@ -78,7 +78,7 @@ public class GPU: Device {
                                      strides: strides,
                                      inputSize: (inputSize.rows, inputSize.columns, 1))
     
-    return result
+    return result.value.first ?? []
   }
   
   public func activate(_ input: Tensor, _ type: Activation) -> Tensor {
