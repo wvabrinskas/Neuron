@@ -7,8 +7,8 @@ class GPUTests: XCTestCase {
   func testConv2dMetal() {
     let inputShape = (6,6,1)
     
-    let inputTensor = Tensor([Float].init(repeating: 1, count: inputShape.0).as3D())
-    
+    let filterCount = 16
+        
     let inputTensor = Tensor([[[Float]]].init(repeating: [[Float]].init(repeating: [Float].init(repeating: 1,
                                                                                                 count: inputShape.0),
                                                                         count: inputShape.1),
