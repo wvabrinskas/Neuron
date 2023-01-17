@@ -2,6 +2,7 @@ import XCTest
 import NumSwift
 @testable import Neuron
 
+
 class GPUTests: XCTestCase {
   
   func testConv2dMetal() {
