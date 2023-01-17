@@ -2,6 +2,7 @@ import XCTest
 import NumSwift
 @testable import Neuron
 
+
 class GPUTests: XCTestCase {
   
   func testGPUActivationFunctionSzie() {
@@ -16,11 +17,6 @@ class GPUTests: XCTestCase {
     let out = activation.forward(tensor: inputTensor)
     
     XCTAssertEqual(out.shape, [inputSize.rows, inputSize.columns, inputSize.depth])
-  }
-  
-  func testAsyncTensor() {
-    let tensor = AsyncTensor()
-    
   }
   
   func testConv2dGPUInNetwork() {

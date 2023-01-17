@@ -12,6 +12,38 @@ extension XCTestCase {
 }
 
 final class NeuronTests: XCTestCase {
+  func testAsyncTensor() async {
+    
+    let asyncTensors: [AsyncTensor] = {
+      var t: [AsyncTensor] = []
+      for _ in 0..<10 {
+        let tensor = AsyncTensor()
+        t.append(tensor)
+      }
+      return t
+    }()
+    
+    DispatchQueue.main.async {
+      asyncTensors.concurrentForEach(workers: 1) { tensor, index in
+        DispatchQueue.main.asyncAfter(deadline: .now() + TimeInterval.random(in: 0...1.5)) {
+          tensor.value = [[[Float(index)]]]
+        }
+      }
+    }
+    
+    do {
+      let asyncTensorsMapped = try await asyncTensors.asyncMap({ try await $0.getDataAsync() })
+      
+      for i in 0..<asyncTensorsMapped.count {
+        let tensor = asyncTensorsMapped[i]
+        XCTAssertEqual([[[Tensor.Scalar(i)]]], tensor)
+      }
+    } catch {
+      XCTFail(error.localizedDescription)
+    }
+
+  }
+  
   func testTransConv2dLayer() {
     let inputShape = TensorSize(array: [10,10,1])
     
