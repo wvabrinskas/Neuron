@@ -28,6 +28,7 @@ public final class AsyncTensor: Tensor {
   
   @Published
   public var asyncValue: Data?
+  public var timeout: DispatchQueue.SchedulerTimeType.Stride = .seconds(30)
   private var internalValue: Data = []
   private var cancellables: Set<AnyCancellable> = []
   
@@ -49,7 +50,7 @@ public final class AsyncTensor: Tensor {
                                              autoreleaseFrequency: .inherit,
                                              target: nil)
   
-  /// Waits for the value of this Tensor to be set before returning. It has a timeout of 30 seconds.
+  /// Waits for the value of this Tensor to be set before returning. Timeout is default to 30 seconds
   public func getDataAsync() async throws -> Data {
     try await withCheckedThrowingContinuation { continuation in
       dataQueue.async(flags: .barrier) { [weak self] in
@@ -62,7 +63,7 @@ public final class AsyncTensor: Tensor {
           .removeDuplicates()
           .compactMap({ $0 })
           .setFailureType(to: AsyncTensorError.self)
-          .timeout(30, scheduler: self.dataQueue, customError: { .timeoutReached })
+          .timeout(self.timeout, scheduler: self.dataQueue, customError: { .timeoutReached })
           .sink(receiveCompletion: { completion in
             switch completion {
             case .failure(let error):
