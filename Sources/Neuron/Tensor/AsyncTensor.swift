@@ -51,6 +51,7 @@ public final class AsyncTensor: Tensor {
                                              target: nil)
   
   /// Waits for the value of this Tensor to be set before returning. Timeout is default to 30 seconds
+  /// - Returns: The data attached to the Tensor or an error
   public func getDataAsync() async throws -> Data {
     try await withCheckedThrowingContinuation { continuation in
       dataQueue.async(flags: .barrier) { [weak self] in
@@ -60,7 +61,6 @@ public final class AsyncTensor: Tensor {
         }
         
         self.$asyncValue
-          .removeDuplicates()
           .compactMap({ $0 })
           .setFailureType(to: AsyncTensorError.self)
           .timeout(self.timeout, scheduler: self.dataQueue, customError: { .timeoutReached })
