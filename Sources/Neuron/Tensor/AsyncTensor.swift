@@ -15,11 +15,14 @@ import Combine
 public final class AsyncTensor: Tensor {
   public enum AsyncTensorError: Error, LocalizedError {
     case timeoutReached
+    case selfLost
     
     public var errorDescription: String? {
       switch self {
       case .timeoutReached:
         return NSLocalizedString("Timeout was reached when waiting for Tensor to be set.", comment: "")
+      case .selfLost:
+        return NSLocalizedString("This tensor object has been deallocated before its value has been set.", comment: "")
       }
     }
   }
@@ -29,6 +32,7 @@ public final class AsyncTensor: Tensor {
   public var timeout: DispatchQueue.SchedulerTimeType.Stride = .seconds(30)
   private var internalValue: Data = []
   private var cancellables: Set<AnyCancellable> = []
+  private let semaphore: DispatchSemaphore = .init(value: 0)
   
   override public var value: Tensor.Data {
     get {
@@ -36,6 +40,7 @@ public final class AsyncTensor: Tensor {
     }
     set {
       dataQueue.async(flags: .barrier) { [weak self] in
+        self?.semaphore.signal()
         self?.asyncValue = newValue
         self?.internalValue = newValue
       }
@@ -54,7 +59,7 @@ public final class AsyncTensor: Tensor {
     try await withCheckedThrowingContinuation { continuation in
       dataQueue.async(flags: .barrier) { [weak self] in
         guard let self = self else {
-          continuation.resume(returning: [])
+          continuation.resume(throwing: AsyncTensorError.selfLost)
           return
         }
         
@@ -76,5 +81,17 @@ public final class AsyncTensor: Tensor {
           .store(in: &self.cancellables)
       }
     }
+  }
+  
+  /// This function will block the current thread until the Tensor's value is set.
+  /// - Parameter onError: will be called if there's an error while waiting for value being set. This could include the timeout being reached.
+  public func wait(onError: ((AsyncTensorError?) -> ())? = nil) {
+    
+    dataQueue.asyncAfter(deadline: .now() + self.timeout.timeInterval) { [weak self] in
+      self?.semaphore.signal()
+      onError?(.timeoutReached)
+    }
+    
+    semaphore.wait()
   }
 }

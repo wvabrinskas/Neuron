@@ -9,7 +9,7 @@ public typealias ResultType = CFloat
 
 public class GPUManager {
   public enum MetalFunction: String {
-    case activation, derivate, conv2d, conv2d_array
+    case activation, derivate, conv2d, conv2d_array, conv2d_texture
   }
   
   private var currentRunningPipelines: [MTLComputePipelineState] = []
@@ -63,7 +63,7 @@ public class GPUManager {
                                 strides: (rows: Int, columns: Int),
                                 filterCount: Int,
                                 filterSize: (rows: Int, columns: Int),
-                                inputSize: (rows: Int, columns: Int, depth: Int)) -> TensorSize {
+                                inputSize: TensorSize) -> TensorSize {
     let paddingValue = padding.extra(inputSize: (inputSize.rows, inputSize.columns), filterSize: filterSize)
     
     let rows = (((inputSize.rows + (paddingValue.top + paddingValue.bottom)) - (filterSize.rows - 1) - 1) / strides.rows) + 1
@@ -84,7 +84,7 @@ public class GPUManager {
                                       strides: strides,
                                       filterCount: 1,
                                       filterSize: filterSize,
-                                      inputSize: inputSize)
+                                      inputSize: TensorSize(rows: inputSize.rows, columns: inputSize.columns, depth: inputSize.depth))
     
     guard let device = device else {
       return Tensor()
@@ -169,12 +169,17 @@ public class GPUManager {
       return Tensor()
     }
     
-    let inputTexture = input.asTexture(device: device, commandQueue: queue, size: inputSize)
+    let inputTexture = input.asTexture(device: device,
+                                       commandQueue: queue,
+                                       size: inputSize,
+                                       usage: .shaderRead)
+    
     let outputTexture = Tensor(NumSwift.zerosLike((rows: inputSize.rows,
                                                    columns: inputSize.columns,
                                                    depth: inputSize.depth))).asTexture(device: device,
                                                                                        commandQueue: queue,
-                                                                                       size: inputSize)
+                                                                                       size: inputSize,
+                                                                                       usage: .shaderWrite)
     
     let function: MetalFunction = derivate ? .derivate : .activation
     let pipeline: MTLComputePipelineState? = self.pipelineIfExists(type: function) ?? self.addPipeline(for: function)
@@ -218,5 +223,91 @@ public class GPUManager {
     return Tensor(outputTexture?.get3d(commandQueue: queue, device: device) ?? [])
   }
   
+  // returns a 3D tensor where each element is conv on the input with a filter
+  public func conv2dTexture(_ input: Tensor,
+                            filter: Tensor,
+                            padding: NumSwift.ConvPadding,
+                            filterSize: (rows: Int, columns: Int),
+                            strides: (rows: Int, columns: Int),
+                            inputSize: TensorSize) -> Tensor {
+    
+    guard let device = self.device, let queue = queue else {
+      return Tensor()
+    }
+    
+    let function: MetalFunction = .conv2d_texture
+    let pipeline: MTLComputePipelineState? = self.pipelineIfExists(type: function) ?? self.addPipeline(for: function)
+    
+    let newEncoder = cmds?.makeComputeCommandEncoder()
+    
+    guard let encoder = newEncoder, let pipelineStrong = pipeline else {
+      return Tensor()
+    }
+    
+    let outputSize = conv2dOutputSize(padding: padding,
+                                      strides: strides,
+                                      filterCount: 1,
+                                      filterSize: filterSize,
+                                      inputSize: inputSize)
+    
+    let inputTexture = input.asTexture(device: device,
+                                       commandQueue: queue,
+                                       size: inputSize,
+                                       usage: .shaderRead)
+    
+    let outputTexture = Tensor(NumSwift.zerosLike((outputSize.rows,
+                                                   outputSize.columns,
+                                                   outputSize.depth))).asTexture(device: device,
+                                                                                 commandQueue: queue,
+                                                                                 size: TensorSize(rows: outputSize.rows,
+                                                                                                  columns: outputSize.columns,
+                                                                                                  depth: outputSize.depth),
+                                                                                 usage: [.shaderRead, .shaderWrite])
+    
+    //outputTexture?.usage = [.shaderRead, .shaderWrite]
+    
+    let filterTexture = filter.asTexture(device: device,
+                                         commandQueue: queue,
+                                         size: TensorSize(rows: filterSize.rows,
+                                                          columns: filterSize.columns,
+                                                          depth: inputSize.depth),
+                                         usage: .shaderRead)
+    
+    encoder.setComputePipelineState(pipelineStrong)
+    encoder.setTexture(inputTexture, index: 0)
+    encoder.setTexture(outputTexture, index: 1)
+    encoder.setTexture(filterTexture, index: 2)
+    
+    var inSize = SIMD2(CUnsignedInt(inputSize.rows), CUnsignedInt(inputSize.columns))
+    var outSize = SIMD2(CUnsignedInt(outputSize.rows), CUnsignedInt(outputSize.columns))
+    var kSize = SIMD2(CUnsignedInt(filterSize.rows), CUnsignedInt(filterSize.columns))
+    var strides = SIMD2(CUnsignedInt(strides.rows), CUnsignedInt(strides.columns))
+    var padding = padding == .same ? 1 : 0
+    
+    encoder.setBytes(&inSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 1)
+    encoder.setBytes(&outSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 2)
+    encoder.setBytes(&kSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 3)
+    encoder.setBytes(&strides, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 4)
+    encoder.setBytes(&padding, length: MemoryLayout<Int>.size, index: 5)
+    
+    let w = pipelineStrong.threadExecutionWidth
+    let h = pipelineStrong.maxTotalThreadsPerThreadgroup / w
+    let threadsPerThreadgroup = MTLSizeMake(w, h, 1)
+    
+    let threadgroupsPerGrid = MTLSize(width: max(1, inputSize.columns / 2),
+                                      height: max(1, inputSize.rows / 2),
+                                      depth: inputSize.depth)
+    
+    encoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
+    encoder.endEncoding()
+    
+    cmds?.commit()
+    cmds?.waitUntilCompleted()
+    
+    let out = Tensor(outputTexture?.get3d(commandQueue: queue, device: device) ?? [])
+    return out
+  }
+  
 }
+
 
