@@ -257,8 +257,8 @@ public class GPUManager {
                                            commandQueue: queue,
                                            size: TensorSize(rows: outputSize.rows,
                                                             columns: outputSize.columns,
-                                                            depth: outputSize.depth),
-                                           usage: [.shaderRead, .shaderWrite])
+                                                            depth: inputSize.depth), //use inputSize.depth here because we can parallelize the convolutions but not the summation
+                                           usage: .shaderWrite)
     
     let filterTexture = filter.asTexture(device: device,
                                          commandQueue: queue,
@@ -272,14 +272,14 @@ public class GPUManager {
     encoder.setTexture(outputTexture, index: 1)
     encoder.setTexture(filterTexture, index: 2)
     
-    var inSize = SIMD2(CUnsignedInt(inputSize.rows), CUnsignedInt(inputSize.columns))
-    var outSize = SIMD2(CUnsignedInt(outputSize.rows), CUnsignedInt(outputSize.columns))
+    var inSize = SIMD3(CUnsignedInt(inputSize.rows), CUnsignedInt(inputSize.columns), CUnsignedInt(inputSize.depth))
+    var outSize = SIMD3(CUnsignedInt(outputSize.rows), CUnsignedInt(outputSize.columns), CUnsignedInt(outputSize.depth))
     var kSize = SIMD2(CUnsignedInt(filterSize.rows), CUnsignedInt(filterSize.columns))
     var strides = SIMD2(CUnsignedInt(strides.rows), CUnsignedInt(strides.columns))
     var padding = padding == .same ? 1 : 0
     
-    encoder.setBytes(&inSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 1)
-    encoder.setBytes(&outSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 2)
+    encoder.setBytes(&inSize, length: MemoryLayout<SIMD3<CUnsignedInt>>.size, index: 1)
+    encoder.setBytes(&outSize, length: MemoryLayout<SIMD3<CUnsignedInt>>.size, index: 2)
     encoder.setBytes(&kSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 3)
     encoder.setBytes(&strides, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 4)
     encoder.setBytes(&padding, length: MemoryLayout<Int>.size, index: 5)
@@ -297,9 +297,14 @@ public class GPUManager {
     
     cmds?.commit()
     cmds?.waitUntilCompleted()
-        
-    let out = Tensor(outputTexture?.get3d(commandQueue: queue, device: device) ?? [])
-    return out
+      
+    let out = outputTexture?.get3d(commandQueue: queue, device: device) ?? []
+    let reducableStartingArray = [[Float]].init(repeating: [Float].init(repeating: 0,
+                                                                        count: outputSize.columns),
+                                                count: outputSize.rows)
+    let outSummed = out.reduce(reducableStartingArray, +)
+    
+    return Tensor(outSummed)
   }
   
 }

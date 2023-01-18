@@ -40,8 +40,8 @@ class GPUTests: XCTestCase {
   }
   
   func testConv2dGPU_Texture() {
-    let inputSize = TensorSize(rows: 6, columns: 6, depth: 6)
-        
+    let inputSize = TensorSize(rows: 16, columns: 16, depth: 8)
+    
     let inputTensor = Tensor([[[Float]]].init(repeating: [[Float]].init(repeating: [Float].init(repeating: 1,
                                                                                                 count: inputSize.columns),
                                                                         count: inputSize.rows),
@@ -53,19 +53,22 @@ class GPUTests: XCTestCase {
                                          count: filterSize.2))
     
     let manager = GPUManager()
+    let padding: NumSwift.ConvPadding = .same
+    let filterSizeMap = (filterSize.0, filterSize.1)
+    let strides = (1,1)
     
     let out = manager.conv2dTexture(inputTensor,
                                     filter: filter,
-                                    padding: .same,
-                                    filterSize: (filterSize.0, filterSize.1),
-                                    strides: (1,1),
+                                    padding: padding,
+                                    filterSize: filterSizeMap,
+                                    strides: strides,
                                     inputSize: inputSize)
     
     let cpuOut = Conv2d(filterCount: 1,
                         inputSize: inputSize,
-                        strides: (1,1),
-                        padding: .same,
-                        filterSize: (filterSize.0, filterSize.1),
+                        strides: strides,
+                        padding: padding,
+                        filterSize: filterSizeMap,
                         initializer: .heNormal,
                         biasEnabled: false)
     
@@ -73,11 +76,7 @@ class GPUTests: XCTestCase {
     
     let cpuOutVal = cpuOut.forward(tensor: inputTensor)
     
-    print(cpuOutVal)
-
-   // XCTAssert(out.isValueEqual(to: cpuOutVal))
-    
-    print(out)
+    XCTAssert(out.isValueEqual(to: cpuOutVal))
     
   }
 }
