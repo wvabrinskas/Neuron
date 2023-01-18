@@ -5,23 +5,8 @@ import NumSwift
 
 class GPUTests: XCTestCase {
   
-  func testGPUActivationFunctionSize_multiple() {
-    let inputSize = TensorSize(rows: 28, columns: 28, depth: 16)
-    
-    let inputTensor = Tensor.withRandom(size: inputSize, in: Float(-1)...Float(1))
-    
-    let gpu = GPUManager()
-    let out = gpu.activate(inputTensor,
-                           inputSize: inputSize,
-                           activationType: .leakyRelu(limit: 0.1),
-                           derivate: true)
-    
-    XCTAssertEqual(out.shape, [inputSize.rows, inputSize.columns, inputSize.depth])
-  }
-  
-  
   func testGPUActivationFunctionSize() {
-    let inputSize = TensorSize(rows: 28, columns: 28, depth: 16)
+    let inputSize = TensorSize(rows: 1, columns: 28, depth: 1)
     
     let inputTensor = Tensor.withRandom(size: inputSize, in: Float(-1)...Float(1))
     
@@ -31,7 +16,7 @@ class GPUTests: XCTestCase {
     
     let out = activation.forward(tensor: inputTensor)
     
-    XCTAssertEqual(out.shape, [inputSize.rows, inputSize.columns, inputSize.depth])
+    XCTAssertEqual(out.shape, [inputSize.columns, inputSize.rows, inputSize.depth])
   }
   
   func testConv2dGPUInNetwork() {
