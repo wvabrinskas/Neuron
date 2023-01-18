@@ -5,18 +5,19 @@ import NumSwift
 
 class GPUTests: XCTestCase {
   
-  func testGPUActivationFunctionSize() {
-    let inputSize = TensorSize(rows: 1, columns: 28, depth: 1)
+  func testGPUActivationFunction() {
+    let inputSize = TensorSize(rows: 1, columns: 10, depth: 1)
     
-    let inputTensor = Tensor.withRandom(size: inputSize, in: Float(-1)...Float(1))
+    let inputTensor = Tensor([-1, -1, -1, -1, 1, -1, -1, -1, -1, -1])
     
-    let activation = LeakyReLu(limit: 0.1)
+    let activation = ReLu()
     activation.inputSize = inputSize
     activation.device = GPU()
     
     let out = activation.forward(tensor: inputTensor)
     
     XCTAssertEqual(out.shape, [inputSize.columns, inputSize.rows, inputSize.depth])
+    XCTAssertTrue(Tensor([0, 0, 0, 0, 1, 0, 0, 0, 0, 0]).isValueEqual(to: out))
   }
   
   func testAsyncTensor() {
