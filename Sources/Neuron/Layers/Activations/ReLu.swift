@@ -52,7 +52,8 @@ public final class ReLu: ActivationLayer {
   public func forward(tensor: Tensor) -> Tensor {
     
     let context = TensorContext { inputs, gradient in
-      let out = self.device.derivate(inputs, self.type, inputSize: self.inputSize).value * gradient.value
+      let derivate = self.device.derivate(inputs, self.type, inputSize: self.inputSize)
+      let out = derivate.value * gradient.value
       return (Tensor(out), Tensor())
     }
     
