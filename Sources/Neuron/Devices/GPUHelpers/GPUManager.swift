@@ -72,94 +72,6 @@ public class GPUManager {
     return TensorSize(array: [columns, rows, filterCount])
   }
   
-  // returns a 3D tensor where each element is conv on the input with a filter
-  public func conv2d(_ input: [[Tensor.Scalar]],
-                     filter: [[Tensor.Scalar]],
-                     padding: NumSwift.ConvPadding,
-                     filterSize: (rows: Int, columns: Int),
-                     strides: (rows: Int, columns: Int),
-                     inputSize: (rows: Int, columns: Int, depth: Int)) -> Tensor {
-    
-    let outputSize = conv2dOutputSize(padding: padding,
-                                      strides: strides,
-                                      filterCount: 1,
-                                      filterSize: filterSize,
-                                      inputSize: TensorSize(rows: inputSize.rows, columns: inputSize.columns, depth: inputSize.depth))
-    
-    guard let device = device else {
-      return Tensor()
-    }
-    
-    let function: MetalFunction = .conv2d_array
-    let pipeline: MTLComputePipelineState? = self.pipelineIfExists(type: function) ?? self.addPipeline(for: function)
-    
-    
-    let newEncoder = cmds?.makeComputeCommandEncoder()
-    
-    guard let encoder = newEncoder, let pipelineStrong = pipeline else {
-      return Tensor()
-    }
-    
-    encoder.setComputePipelineState(pipelineStrong)
-    
-    let w = pipelineStrong.threadExecutionWidth
-    let h = pipelineStrong.maxTotalThreadsPerThreadgroup / w
-    let threadsPerThreadgroup = MTLSizeMake(w, h, 1)
-    
-    let threadgroupsPerGrid = MTLSize(width: max(1, outputSize.columns / 2),
-                                      height: max(1, outputSize.rows / 2),
-                                      depth: outputSize.depth)
-    
-    var inSize = SIMD2(CUnsignedInt(inputSize.rows), CUnsignedInt(inputSize.columns))
-    var outSize = SIMD2(CUnsignedInt(outputSize.rows), CUnsignedInt(outputSize.columns))
-    var kSize = SIMD2(CUnsignedInt(filterSize.rows), CUnsignedInt(filterSize.columns))
-    var strides = SIMD2(CUnsignedInt(strides.rows), CUnsignedInt(strides.columns))
-    var padding = padding == .same ? 1 : 0
-    
-    encoder.setBytes(&inSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 3)
-    encoder.setBytes(&outSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 4)
-    encoder.setBytes(&kSize, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 5)
-    encoder.setBytes(&strides, length: MemoryLayout<SIMD2<CUnsignedInt>>.size, index: 6)
-    encoder.setBytes(&padding, length: MemoryLayout<Int>.size, index: 7)
-    
-    // output texture
-    var filtersFlat: [Float] = filter.flatten()
-    var flatInput: [Float] = input.flatten()
-    
-    guard let filterBuffer = device.makeBuffer(bytes: &filtersFlat,
-                                               length: MemoryLayout<Float>.stride * filtersFlat.count,
-                                               options: []),
-          
-            let outputBuffer = device.makeBuffer(length: MemoryLayout<Float>.stride * outputSize.columns * outputSize.rows,
-                                                 options: []),
-          
-            let inputBuffer = device.makeBuffer(bytes: &flatInput,
-                                                length: MemoryLayout<Float>.stride * flatInput.count,
-                                                options: []) else {
-      return Tensor()
-    }
-    
-    encoder.setBuffer(inputBuffer, offset: 0, index: 0)
-    encoder.setBuffer(outputBuffer, offset: 0, index: 1)
-    encoder.setBuffer(filterBuffer, offset: 0, index: 2)
-    
-    encoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
-    encoder.endEncoding()
-    
-    cmds?.commit()
-    cmds?.waitUntilCompleted()
-    
-    // this is slow
-    let rowBytes =  outputSize.columns * MemoryLayout<Float>.stride
-    let byteCount = outputSize.rows * rowBytes
-    let totalSize = outputSize.rows * outputSize.columns
-    
-    let values = Array(UnsafeBufferPointer(start: outputBuffer.contents().bindMemory(to: Float.self,
-                                                                                     capacity: byteCount),
-                                           count: totalSize)).reshape(columns: outputSize.columns)
-    return Tensor(values)
-  }
-  
   func activate(_ input: Tensor,
                 inputSize: TensorSize,
                 activationType: Activation,
@@ -221,13 +133,13 @@ public class GPUManager {
     return Tensor(outputTexture?.get3d(commandQueue: queue, device: device) ?? [])
   }
   
-  // returns a 3D tensor where each element is conv on the input with a filter
-  public func conv2dTexture(_ input: Tensor,
-                            filter: Tensor,
-                            padding: NumSwift.ConvPadding,
-                            filterSize: (rows: Int, columns: Int),
-                            strides: (rows: Int, columns: Int),
-                            inputSize: TensorSize) -> Tensor {
+  /// returns a 3D tensor where each element is conv on the input with a filter with a depth of 1
+  public func conv2d(_ input: Tensor,
+                     filter: Tensor,
+                     padding: NumSwift.ConvPadding,
+                     filterSize: (rows: Int, columns: Int),
+                     strides: (rows: Int, columns: Int),
+                     inputSize: TensorSize) -> Tensor {
     
     guard let device = self.device, let queue = queue else {
       return Tensor()

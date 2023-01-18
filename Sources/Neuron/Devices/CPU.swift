@@ -56,6 +56,19 @@ public struct CPU: Device {
     return result.reshape(columns: outputSize?.columns ?? calculatedOutputSize.columns)
   }
   
+  public func conv2d(signal: Tensor,
+                     filter: Tensor,
+                     strides: (Int, Int),
+                     padding: NumSwift.ConvPadding,
+                     filterSize: (rows: Int, columns: Int),
+                     inputSize: TensorSize) -> Tensor {
+    let out = conv2d(signal: signal.value.first ?? [],
+                     filter: filter.value.first ?? [],
+                     filterSize: filterSize,
+                     inputSize: (inputSize.rows, inputSize.columns))
+    return Tensor(out)
+  }
+  
   /// Calculates the convolution of the given inputs
   /// - Parameters:
   ///   - signal: The signal as a 2D array to perform the convolution on

@@ -292,19 +292,37 @@ public class Conv2d: ConvolutionalLayer {
   }
   
   internal func convGPU(_ input: Tensor) -> [[[Tensor.Scalar]]] {
-    var results: Tensor = Tensor()
-    
-    for i in 0..<input.value.count {
-      let inputs = input.value[i]
+    let flatBias: [Tensor.Scalar] = biases.value.flatten()
+    var results: [[[Tensor.Scalar]]] = []
+
+    for f in 0..<filterCount {
+      let filter = filters[f]
+      let conv = device.conv2d(signal: input,
+                               filter: filter,
+                               strides: strides,
+                               padding: padding,
+                               filterSize: filterSize,
+                               inputSize: inputSize)
       
-      //let conv = GPU().conv2d(signal: inputs, filters: fi, filterSize: filterSize, inputSize: (inputSize.rows, inputSize.columns))
-    
+      var convFirst = conv.value.first ?? []
+      
+      if biasEnabled {
+        let bias = flatBias[f]
+        convFirst = convFirst + bias
+      }
+      
+      results.append(convFirst)
     }
     
-    return results.value
+    return results
   }
   
   internal func conv(_ input: Tensor) -> [[[Tensor.Scalar]]] {
+    
+    guard device.type == .cpu else {
+      return convGPU(input)
+    }
+    
     var results: [[[Tensor.Scalar]]] = []
     
     let flatBias: [Tensor.Scalar] = biases.value.flatten()
