@@ -159,73 +159,7 @@ public class GPUManager {
                                            count: totalSize)).reshape(columns: outputSize.columns)
     return Tensor(values)
   }
-  
-  public func activate(_ num: [Float],
-                       _ activationType: Activation,
-                       derivate: Bool = false) -> [Float] {
-    var data = num
-    
-    guard let device = self.device else {
-      return num
-    }
-    
-    let function: MetalFunction = derivate ? .derivate : .activation
-    
-    let pipeline: MTLComputePipelineState? = self.pipelineIfExists(type: function) ?? self.addPipeline(for: function)
-    
-    guard let dataBuffer = device.makeBuffer(bytes: &data,
-                                             length: MemoryLayout<Float>.stride * data.count,
-                                             options: []),
-          
-            let resultsBuffer = device.makeBuffer(length: MemoryLayout<Float>.stride * data.count,
-                                                  options: []) else {
-      return num
-    }
-    
-    let newEncoder = cmds?.makeComputeCommandEncoder()
-    
-    guard let encoder = newEncoder, let pipelineStrong = pipeline else {
-      return num
-    }
-    
-    var activation = CUnsignedInt(activationType.index())
-    
-    encoder.setComputePipelineState(pipelineStrong)
-    
-    encoder.setBuffer(dataBuffer, offset: 0, index: 0)
-    encoder.setBuffer(resultsBuffer, offset: 0, index: 1)
-    encoder.setBytes(&activation, length: MemoryLayout<CUnsignedInt>.size, index: 2)
-    
-    switch activationType {
-    case .leakyRelu(let limit):
-      var limit = Float(limit)
-      encoder.setBytes(&limit, length: MemoryLayout<Float>.size, index: 3)
-    default:
-      break
-    }
-    
-    let w = pipelineStrong.threadExecutionWidth
-    let h = pipelineStrong.maxTotalThreadsPerThreadgroup / w
-    let threadsPerThreadgroup = MTLSizeMake(w, h, 1)
-    
-    let threadgroupsPerGrid = MTLSize(width: data.count / 2,
-                                      height: 1,
-                                      depth: 1)
-    
-    encoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
-    encoder.endEncoding()
-    
-    //execution step
-    cmds?.commit()
-    cmds?.waitUntilCompleted()
-    
-    let values = Array(UnsafeBufferPointer(start: resultsBuffer.contents().bindMemory(to: Float.self,
-                                                                                      capacity: MemoryLayout<Float>.size * num.count),
-                                           count: num.count))
-    
-    return values
-  }
-  
+
   func activate(_ input: Tensor,
                 inputSize: TensorSize,
                 activationType: Activation,

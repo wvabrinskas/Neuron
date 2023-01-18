@@ -63,26 +63,19 @@ public class GPU: Device {
     return result.value.first ?? []
   }
   
-  public func activate(_ input: Tensor, _ type: Activation) -> Tensor {
-    let shape = input.shape
-    
-    let flat = input.value.flatten()
-    let activated = GPUManager().activate(flat, type)
-    
-    let reshaped = activated.reshape(columns: shape[safe: 0, 0]).reshape(columns: shape[safe: 1, 0])
-
-    return Tensor(reshaped)
+  public func activate(_ input: Tensor, _ type: Activation, inputSize: TensorSize) -> Tensor {
+    let activated = GPUManager().activate(input,
+                                          inputSize: inputSize,
+                                          activationType: type)
+    return activated
   }
   
-  public func derivate(_ input: Tensor, _ type: Activation) -> Tensor {
-    let shape = input.shape
-      
-    let flat = input.value.flatten()
-    let activated = GPUManager().activate(flat, type, derivate: true)
-
-    let reshaped = activated.reshape(columns: shape[safe: 0, 0]).reshape(columns: shape[safe: 1, 0])
-
-    return Tensor(reshaped)
+  public func derivate(_ input: Tensor, _ type: Activation, inputSize: TensorSize) -> Tensor {
+    let activated = GPUManager().activate(input,
+                                          inputSize: inputSize,
+                                          activationType: type,
+                                          derivate: true)
+    return activated
   }
   
   public func matrixMultiply(_ a: Tensor, _ b: Tensor, columns: Int, rows: Int) -> Tensor {

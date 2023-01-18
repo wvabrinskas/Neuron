@@ -52,11 +52,11 @@ public final class Swish: ActivationLayer {
   public func forward(tensor: Tensor) -> Tensor {
     
     let context = TensorContext { inputs, gradient in
-      let out = self.device.derivate(inputs, self.type).value * gradient.value
+      let out = self.device.derivate(inputs, self.type, inputSize: self.inputSize).value * gradient.value
       return (Tensor(out), Tensor())
     }
     
-    let result = device.activate(tensor, type)
+    let result = device.activate(tensor, type, inputSize: inputSize)
     let out = Tensor(result.value, context: context)
     out.label = type.asString()
 
