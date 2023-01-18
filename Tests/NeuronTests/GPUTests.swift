@@ -33,19 +33,21 @@ class GPUTests: XCTestCase {
                                                                    count: filterSize.0),
                                          count: filterSize.2))
     
+    let filters = [Tensor].init(repeating: filter, count: 64)
+    
     let manager = GPUManager()
     let padding: NumSwift.ConvPadding = .same
     let filterSizeMap = (filterSize.0, filterSize.1)
     let strides = (1,1)
     
     let out = manager.conv2d(inputTensor,
-                             filter: filter,
+                             filters: filters,
                              padding: padding,
                              filterSize: filterSizeMap,
                              strides: strides,
                              inputSize: inputSize)
     
-    let cpuOut = Conv2d(filterCount: 1,
+    let cpuOut = Conv2d(filterCount: filters.count,
                         inputSize: inputSize,
                         strides: strides,
                         padding: padding,
@@ -53,7 +55,7 @@ class GPUTests: XCTestCase {
                         initializer: .heNormal,
                         biasEnabled: false)
     
-    cpuOut.filters = [filter]
+    cpuOut.filters = filters
     
     let cpuOutVal = cpuOut.forward(tensor: inputTensor)
     

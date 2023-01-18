@@ -47,18 +47,34 @@ public class GPU: Device {
   }
   
   public func conv2d(signal: Tensor,
-                     filter: Tensor,
+                     filters: [Tensor],
+                     biases: [Tensor.Scalar] = [],
                      strides: (Int, Int),
                      padding: NumSwift.ConvPadding,
                      filterSize: (rows: Int, columns: Int),
                      inputSize: TensorSize) -> Tensor {
     
     GPUManager().conv2d(signal,
-                        filter: filter,
+                        filters: filters,
+                        biases: biases,
                         padding: padding,
                         filterSize: filterSize,
                         strides: strides,
                         inputSize: inputSize)
+  }
+  
+  public func conv2d(signal: Tensor,
+                     filter: Tensor,
+                     strides: (Int, Int),
+                     padding: NumSwift.ConvPadding,
+                     filterSize: (rows: Int, columns: Int),
+                     inputSize: TensorSize) -> Tensor {
+    conv2d(signal: signal,
+           filters: [filter],
+           strides: strides,
+           padding: padding,
+           filterSize: filterSize,
+           inputSize: inputSize)
   }
   
   // MARK: DEPRECATED
@@ -70,14 +86,14 @@ public class GPU: Device {
                      inputSize: (rows: Int, columns: Int),
                      outputSize: (rows: Int, columns: Int)? = nil) -> [[Tensor.Scalar]] {
     
-    let result = GPUManager().conv2d(Tensor(signal),
-                                     filter: Tensor(signal),
-                                     padding: padding,
-                                     filterSize: filterSize,
-                                     strides: strides,
-                                     inputSize: TensorSize(rows: inputSize.rows, columns: inputSize.columns, depth: 1))
+    let out = conv2d(signal: Tensor(signal),
+                     filters: [Tensor(filter)],
+                     strides: strides,
+                     padding: padding,
+                     filterSize: filterSize,
+                     inputSize: TensorSize(rows: inputSize.rows, columns: inputSize.columns, depth: 1))
     
-    return result.value.first ?? []
+    return out.value.first ?? []
   }
   
   public func activate(_ input: Tensor, _ type: Activation, inputSize: TensorSize) -> Tensor {
