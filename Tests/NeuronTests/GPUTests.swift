@@ -15,11 +15,6 @@ class GPUTests: XCTestCase {
     activation.device = GPU()
     
     let out = activation.forward(tensor: inputTensor)
-    out.setGraph(inputTensor)
-    
-    let gradientTensor =  Tensor([-0.5, -0.5, -0.5, -0.5, 0.5, -0.5, -0.5, -0.5, -0.5, -0.5])
-    
-    let gradient = out.gradients(delta: gradientTensor)
     
     XCTAssertEqual(out.shape, [inputSize.columns, inputSize.rows, inputSize.depth])
     XCTAssertTrue(Tensor([0, 0, 0, 0, 1, 0, 0, 0, 0, 0]).isValueEqual(to: out))
