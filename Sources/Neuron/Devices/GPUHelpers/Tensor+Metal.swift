@@ -12,16 +12,20 @@ import Accelerate
 import NumSwift
 
 extension Tensor {
-  func asTexture(device: MTLDevice, commandQueue: MTLCommandQueue, size: TensorSize) -> MTLTexture? {
+  func asTexture(device: MTLDevice, commandQueue: MTLCommandQueue, size: TensorSize, usage: MTLTextureUsage) -> MTLTexture? {
     guard  let commandBuffer = commandQueue.makeCommandBuffer(),
            let encoder = commandBuffer.makeBlitCommandEncoder() else { return nil }
     
     let width = size.columns
     let height = size.rows
     let depth = size.depth
-    let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .r32Float, width: width, height: height, mipmapped: false)
+    let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .r32Float,
+                                                              width: width,
+                                                              height: height,
+                                                              mipmapped: false)
     descriptor.arrayLength = depth
     descriptor.textureType = .type2DArray
+    descriptor.usage = usage
     
     guard let texture = device.makeTexture(descriptor: descriptor) else { return nil }
     let bytesPerRow = MemoryLayout<Float>.stride * width

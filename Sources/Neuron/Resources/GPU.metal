@@ -237,3 +237,59 @@ kernel void activation(texture2d_array<float, access::read> inTexture [[ texture
   outTexture.write(completeValue, coord, slice);
 }
 
+kernel void conv2d_texture(texture2d_array<float, access::read> inTexture [[ texture(0) ]],
+                           texture2d_array<float, access::read_write> outTexture [[ texture(1) ]],
+                           texture2d_array<float, access::read> filter [[ texture(2) ]],
+                           constant uint2& inSize [[ buffer(1) ]],
+                           constant uint2& outSize [[ buffer(2) ]],
+                           constant uint2& kernelSize [[ buffer(3) ]],
+                           constant uint2& stride [[buffer(4) ]],
+                           constant int& padding [[ buffer(5) ]],
+                           uint3 gid [[ thread_position_in_grid ]]) {
+  
+  uint2 coord = uint2(gid.x, gid.y);
+  uint slice = gid.z;
+
+  uint4 paddingCalc = padding_calc(stride, padding, kernelSize, inSize);
+  
+  uint paddingLeft = paddingCalc.z;
+  uint paddingRight = paddingCalc.w;
+  uint paddingTop = paddingCalc.x;
+  uint paddingBottom = paddingCalc.y;
+  
+  uint inputRows = inSize.y;
+  uint inputColumns = inSize.x;
+  
+  uint filterRows = kernelSize.y;
+  uint filterColumns = kernelSize.x;
+  
+  if (coord.x >= outSize.x || coord.y >= outSize.y)
+    return;
+  
+  uint padded_row_total = inputRows + paddingLeft + paddingRight;
+  uint padded_col_total = inputColumns + paddingTop + paddingBottom;
+  
+  float4 sum = 0;
+  for (uint i = 0; i < filterColumns; i++) {
+    for (uint j = 0; j < filterRows; j++) {
+      
+      uint2 filter_coord = uint2(i, j);
+      float4 current_filter = filter.read(filter_coord, slice);
+
+      uint x = coord.x * stride.x + i;
+      uint y = coord.y * stride.y + j;
+      
+      if (x >= 0 && x < padded_row_total && y >= 0 && y < padded_col_total) {
+        sum += inTexture.read(uint2(x - paddingRight, y - paddingTop), slice) * current_filter;
+      } else {
+        sum += 0;
+      }
+    }
+  }
+  
+  float4 previous_sum = outTexture.read(coord, 0);
+  sum += previous_sum;
+  
+  outTexture.write(sum, coord, 0);
+}
+
