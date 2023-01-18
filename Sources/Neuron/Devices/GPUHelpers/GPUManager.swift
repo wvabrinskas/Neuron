@@ -50,12 +50,6 @@ public class GPUManager {
     }
   }
   
-  public func commit() -> [Tensor] {
-    cmds?.commit()
-    cmds?.waitUntilCompleted()
-    return []
-  }
-  
   private func conv2dOutputSize(padding: NumSwift.ConvPadding,
                                 strides: (rows: Int, columns: Int),
                                 filterCount: Int,
@@ -104,12 +98,12 @@ public class GPUManager {
       encoder.setComputePipelineState(pipelineStrong)
       encoder.setTexture(inputTexture, index: 0)
       encoder.setTexture(outputTexture, index: 1)
-      encoder.setBytes(&activation, length: MemoryLayout<CUnsignedInt>.size, index: 2)
+      encoder.setBytes(&activation, length: MemoryLayout<CUnsignedInt>.size, index: 0)
       
       switch activationType {
       case .leakyRelu(let limit):
         var limit = Float(limit)
-        encoder.setBytes(&limit, length: MemoryLayout<Float>.size, index: 3)
+        encoder.setBytes(&limit, length: MemoryLayout<Float>.size, index: 1)
       default:
         break
       }
