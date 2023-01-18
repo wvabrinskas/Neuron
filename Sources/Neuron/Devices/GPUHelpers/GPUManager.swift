@@ -174,12 +174,10 @@ public class GPUManager {
                                        size: inputSize,
                                        usage: .shaderRead)
     
-    let outputTexture = Tensor(NumSwift.zerosLike((rows: inputSize.rows,
-                                                   columns: inputSize.columns,
-                                                   depth: inputSize.depth))).asTexture(device: device,
-                                                                                       commandQueue: queue,
-                                                                                       size: inputSize,
-                                                                                       usage: .shaderWrite)
+    let outputTexture = Tensor().asTexture(device: device,
+                                           commandQueue: queue,
+                                           size: inputSize,
+                                           usage: .shaderWrite)
     
     let function: MetalFunction = derivate ? .derivate : .activation
     let pipeline: MTLComputePipelineState? = self.pipelineIfExists(type: function) ?? self.addPipeline(for: function)
@@ -255,16 +253,12 @@ public class GPUManager {
                                        size: inputSize,
                                        usage: .shaderRead)
     
-    let outputTexture = Tensor(NumSwift.zerosLike((outputSize.rows,
-                                                   outputSize.columns,
-                                                   outputSize.depth))).asTexture(device: device,
-                                                                                 commandQueue: queue,
-                                                                                 size: TensorSize(rows: outputSize.rows,
-                                                                                                  columns: outputSize.columns,
-                                                                                                  depth: outputSize.depth),
-                                                                                 usage: [.shaderRead, .shaderWrite])
-    
-    //outputTexture?.usage = [.shaderRead, .shaderWrite]
+    let outputTexture = Tensor().asTexture(device: device,
+                                           commandQueue: queue,
+                                           size: TensorSize(rows: outputSize.rows,
+                                                            columns: outputSize.columns,
+                                                            depth: outputSize.depth),
+                                           usage: [.shaderRead, .shaderWrite])
     
     let filterTexture = filter.asTexture(device: device,
                                          commandQueue: queue,
@@ -303,7 +297,7 @@ public class GPUManager {
     
     cmds?.commit()
     cmds?.waitUntilCompleted()
-    
+        
     let out = Tensor(outputTexture?.get3d(commandQueue: queue, device: device) ?? [])
     return out
   }
