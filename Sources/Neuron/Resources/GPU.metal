@@ -41,8 +41,8 @@ uint4 padding_calc(uint2 stride,
 
 kernel void derivation(texture2d_array<float, access::read> inTexture [[ texture(0) ]],
                        texture2d_array<float, access::write> outTexture [[ texture(1) ]],
-                       const device uint& activationType [[ buffer(2) ]],
-                       const device float& limit,
+                       const device uint& activationType [[ buffer(0) ]],
+                       const device float& limit [[ buffer(1) ]],
                        uint3 gid [[ thread_position_in_grid ]]) {
   
   uint2 coord = uint2(gid.x, gid.y);
@@ -85,8 +85,8 @@ kernel void derivation(texture2d_array<float, access::read> inTexture [[ texture
 
 kernel void activation(texture2d_array<float, access::read> inTexture [[ texture(0) ]],
                        texture2d_array<float, access::write> outTexture [[ texture(1) ]],
-                       const device uint& activationType [[ buffer(2) ]],
-                       const device float& limit,
+                       const device uint& activationType [[ buffer(0) ]],
+                       const device float& limit [[ buffer(1) ]],
                        uint3 gid [[ thread_position_in_grid ]]) {
   
   uint2 coord = uint2(gid.x, gid.y);
