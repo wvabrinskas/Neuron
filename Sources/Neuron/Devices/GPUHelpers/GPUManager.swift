@@ -9,7 +9,7 @@ public typealias ResultType = CFloat
 
 public class GPUManager {
   public enum MetalFunction: String {
-    case activation, derivate, conv2d, conv2d_array, conv2d_texture
+    case activation, derivation, conv2d, conv2d_array, conv2d_texture
   }
   
   private var currentRunningPipelines: [MTLComputePipelineState] = []
@@ -91,7 +91,7 @@ public class GPUManager {
                                            size: inputSize,
                                            usage: .shaderWrite)
     
-    let function: MetalFunction = derivate ? .derivate : .activation
+    let function: MetalFunction = derivate ? .derivation : .activation
     let pipeline: MTLComputePipelineState? = self.pipelineIfExists(type: function) ?? self.addPipeline(for: function)
     
     let newEncoder = cmds?.makeComputeCommandEncoder()
@@ -130,7 +130,9 @@ public class GPUManager {
     cmds?.commit()
     cmds?.waitUntilCompleted()
     
-    return Tensor(outputTexture?.get3d(commandQueue: queue, device: device) ?? [])
+    let tensor = outputTexture?.get3d(commandQueue: queue, device: device)
+    let out = Tensor(tensor ?? [])
+    return out
   }
   
   /// returns a 3D tensor where each element is conv on the input with a filter with a depth of 1

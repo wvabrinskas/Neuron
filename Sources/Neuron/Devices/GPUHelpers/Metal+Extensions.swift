@@ -41,7 +41,8 @@ extension MTLTexture {
     encoder.endEncoding()
     commandBuffer.commit()
     commandBuffer.waitUntilCompleted()
-    let bufferPointer = buffer.contents().bindMemory(to: Float.self, capacity: bufferSize/MemoryLayout<Float>.stride)
+    let bufferPointer = buffer.contents().bindMemory(to: Float.self, capacity: bufferSize / MemoryLayout<Float>.stride)
+    
     for i in 0..<depth {
       for j in 0..<height {
         for k in 0..<width {
@@ -49,6 +50,7 @@ extension MTLTexture {
         }
       }
     }
+    
     return array3D
   }
 }
