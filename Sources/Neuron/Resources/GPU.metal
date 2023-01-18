@@ -41,42 +41,44 @@ uint4 padding_calc(uint2 stride,
 
 kernel void derivation(texture2d_array<float, access::read> inTexture [[ texture(0) ]],
                        texture2d_array<float, access::write> outTexture [[ texture(1) ]],
-                       const device uint& activationType [[ buffer(0) ]],
-                       const device float& limit [[ buffer(1) ]],
+                       constant uint &activationType [[ buffer(0) ]],
+                       constant float &limit [[ buffer(1) ]],
                        uint3 gid [[ thread_position_in_grid ]]) {
   
   uint2 coord = uint2(gid.x, gid.y);
   uint slice = gid.z;
   
   float4 completeValue = inTexture.read(coord, slice);
+  uint activation = activationType;
+  float leakyReluLimit = limit;
   
   if (activationType == 0) { //relu
-    if (completeValue.x >= 0.0 && completeValue.y >= 0.0 && completeValue.z >= 0.0 && completeValue.w >= 0.0) {
+    if (completeValue.x >= 0.0) {
       completeValue = 1;
     } else {
       completeValue = 0;
     }
     
-  } else if (activationType == 1) { //leaky relu
-    if (completeValue.x > 0.0 && completeValue.y > 0.0 && completeValue.z > 0.0 && completeValue.w > 0.0) {
+  } else if (activation == 1) { //leaky relu
+    if (completeValue.x > 0.0 || completeValue.y > 0.0) {
       completeValue = 1;
     } else {
-      completeValue = limit;
+      completeValue = leakyReluLimit;
     }
     
-  } else if (activationType == 2) { //sigmoid
+  } else if (activation == 2) { //sigmoid
     float4 sig = 1.0 / (1.0 + exp(-completeValue));
     completeValue = sig * (1 - sig);
     
-  } else if (activationType == 3) { //swish
+  } else if (activation == 3) { //swish
     completeValue = (exp(-completeValue) * (completeValue + 1) + 1) / pow((1 + exp(-completeValue)), 2);
     
-  } else if (activationType == 4) { //tanH
+  } else if (activation == 4) { //tanH
     float4 denom = 1.0 + exp(-2 * completeValue);
     float4 tanActivate = (2.0 / denom) - 1.0;
     completeValue = 1 - (pow(tanActivate, 2));
     
-  } else if (activationType == 5) { //none
+  } else if (activation == 5) { //none
     completeValue = 1;
   }
   
@@ -85,37 +87,39 @@ kernel void derivation(texture2d_array<float, access::read> inTexture [[ texture
 
 kernel void activation(texture2d_array<float, access::read> inTexture [[ texture(0) ]],
                        texture2d_array<float, access::write> outTexture [[ texture(1) ]],
-                       const device uint& activationType [[ buffer(0) ]],
-                       const device float& limit [[ buffer(1) ]],
+                       constant uint& activationType [[ buffer(0) ]],
+                       constant float& limit [[ buffer(1) ]],
                        uint3 gid [[ thread_position_in_grid ]]) {
   
   uint2 coord = uint2(gid.x, gid.y);
   uint slice = gid.z;
   
   float4 completeValue = inTexture.read(coord, slice);
+  uint activation = activationType;
+  float leakyReluLimit = limit;
   
   if (activationType == 0) { //relu
     completeValue = max((float)0, completeValue);
     
-  } else if (activationType == 1) { //leaky relu
-    if (completeValue.x < 0.0 && completeValue.y < 0.0 && completeValue.z < 0.0 && completeValue.w < 0.0) {
-      completeValue = limit * completeValue;
+  } else if (activation == 1) { //leaky relu
+    if (completeValue.x < 0.0) {
+      completeValue = leakyReluLimit * completeValue;
     } else {
       completeValue = completeValue;
     }
     
-  } else if (activationType == 2) { //sigmoid
+  } else if (activation == 2) { //sigmoid
     completeValue = 1.0 / (1.0 + exp(-completeValue));
     
-  } else if (activationType == 3) { //swish
+  } else if (activation == 3) { //swish
     float4 sigmoid = 1.0 / (1.0 + exp(-completeValue));
     completeValue = completeValue * sigmoid;
     
-  } else if (activationType == 4) { //tanH
+  } else if (activation == 4) { //tanH
     float4 denom = 1.0 + exp(-2 * completeValue);
     completeValue = (2.0 / denom) - 1.0;
     
-  } else if (activationType == 5) { //none
+  } else if (activation == 5) { //none
     //results[resultIndex] = completeValue;
   }
   

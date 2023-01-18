@@ -92,17 +92,17 @@ public class GPUManager {
       guard let encoder = newEncoder, let pipelineStrong = pipeline else {
         return Tensor()
       }
-      
-      var activation = CUnsignedInt(activationType.index())
-      
+            
       encoder.setComputePipelineState(pipelineStrong)
       encoder.setTexture(inputTexture, index: 0)
       encoder.setTexture(outputTexture, index: 1)
+      
+      
+      var activation = CUnsignedInt(activationType.index())
       encoder.setBytes(&activation, length: MemoryLayout<CUnsignedInt>.size, index: 0)
       
       switch activationType {
-      case .leakyRelu(let limit):
-        var limit = Float(limit)
+      case .leakyRelu(var limit):
         encoder.setBytes(&limit, length: MemoryLayout<Float>.size, index: 1)
       default:
         break
