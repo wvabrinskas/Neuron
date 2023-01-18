@@ -20,63 +20,22 @@ class GPUTests: XCTestCase {
     XCTAssertTrue(Tensor([0, 0, 0, 0, 1, 0, 0, 0, 0, 0]).isValueEqual(to: out))
   }
   
-  func testAsyncTensor() {
-    let tensor = AsyncTensor()
-    
-    let inputShape = (6,6,6)
-    
-    let filterCount = 256
-    
-    let inputTensor = Tensor([Float].init(repeating: 1, count: inputShape.0).as3D())
-    
-    let singleFilter = [[[Float]]].init(repeating: [[Float]].init(repeating: [0,1,0],
-                                                                  count: 3),
-                                        count: inputShape.2)
-        
-    let filters = [Tensor].init(repeating: Tensor(singleFilter), count: filterCount)
-    
-    let inputs = [Tensor].init(repeating: inputTensor, count: 32)
-    
-    let device = GPU()
-    inputs.concurrentForEach(workers: 16, { input, index in
-
-      for f in 0..<filterCount {
-        for i in 0..<inputTensor.value.count {
-          
-          let currentFilter = filters[f].value[i]
-          let currentInput = inputTensor.value[i]
-          
-          let out = device.conv2d(signal: currentInput,
-                                  filter: currentFilter,
-                                  strides: (1,1),
-                                  padding: .same,
-                                  filterSize: (3,3),
-                                  inputSize: (inputShape.0, inputShape.1))
-          print(out)
-        }
-        
-      }
-    })
-  }
-  
-  func testConv2dGPUInNetwork() {
+  func testConv2dGPU() {
     let inputSize = TensorSize(rows: 28, columns: 28, depth: 16)
 
-    let filterCount = 16
-    let batchSize = 32
-    let batchCount = 16
+    let filterCount = 32
         
     let inputTensor = Tensor.withRandom(size: inputSize, in: Float(-1)...Float(1))
-        
-    let inputs = [Tensor].init(repeating: inputTensor, count: batchSize * batchCount)
-    
+            
     let conv = Conv2d(filterCount: filterCount,
                       inputSize: inputSize,
                       padding: .same,
                       initializer: .heNormal)
     
+    conv.device = GPU()
     
+    let out = conv.forward(tensor: inputTensor)
     
-    
+    XCTAssertEqual(out.shape, [inputSize.columns, inputSize.rows, filterCount])
   }
 }
