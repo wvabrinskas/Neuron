@@ -193,8 +193,7 @@ public class Conv2d: ConvolutionalLayer {
                                                                        strides: (1,1),
                                                                        padding: .same,
                                                                        filterSize: filterSize,
-                                                                       inputSize: (newRows, newColumns),
-                                                                       outputSize: nil)
+                                                                       inputSize: (newRows, newColumns))
         
         let currentGradientsForFilter = inputGradients[safe: f] ?? NumSwift.zerosLike((inputSize.rows, inputSize.columns))
         let updatedGradientsForFilter = currentGradientsForFilter + gradientsForKernelIndex
@@ -260,8 +259,7 @@ public class Conv2d: ConvolutionalLayer {
                                  strides: (1,1),
                                  padding: .valid,
                                  filterSize: newFilterSize,
-                                 inputSize: inputSize,
-                                 outputSize: nil)
+                                 inputSize: inputSize)
       
       newGradientsForFilters.append(result)
     }
@@ -323,8 +321,7 @@ public class Conv2d: ConvolutionalLayer {
                                  strides: strides,
                                  padding: padding,
                                  filterSize: filterSize,
-                                 inputSize: (inputSize.rows, inputSize.columns),
-                                 outputSize: nil)
+                                 inputSize: (inputSize.rows, inputSize.columns))
         
         if convolved.isEmpty {
           convolved = conv

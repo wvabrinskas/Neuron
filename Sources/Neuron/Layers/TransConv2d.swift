@@ -44,8 +44,7 @@ public class TransConv2d: Conv2d {
                                                                              strides: strides,
                                                                              padding: padding,
                                                                              filterSize: filterSize,
-                                                                             inputSize: (outputSize.rows, outputSize.columns),
-                                                                             outputSize: nil)
+                                                                             inputSize: (outputSize.rows, outputSize.columns))
 
         let currentGradientsForFilter = inputGradients[safe: f, NumSwift.zerosLike((inputSize.rows, inputSize.columns))]
         let updatedGradientsForFilter = currentGradientsForFilter + gradientsForKernelIndex
@@ -103,8 +102,7 @@ public class TransConv2d: Conv2d {
                                  strides: (1,1),
                                  padding: .valid,
                                  filterSize: newFilterSize,
-                                 inputSize: inputSize,
-                                 outputSize: nil)
+                                 inputSize: inputSize)
       
       newGradientsForFilters.append(result.reversed())
     }
@@ -151,8 +149,7 @@ public class TransConv2d: Conv2d {
                                                                              strides: (1,1),
                                                                              padding: .same,
                                                                              filterSize: filterSize,
-                                                                             inputSize: (newRows, newColumns),
-                                                                             outputSize: nil)
+                                                                             inputSize: (newRows, newColumns))
 
         let currentGradientsForFilter = convolved[safe: f] ?? NumSwift.zerosLike((outputSize.rows, outputSize.columns))
         var updatedGradientsForFilter = currentGradientsForFilter + gradientsForKernelIndex

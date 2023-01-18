@@ -83,8 +83,7 @@ public class GPU: Device {
                      strides: (Int, Int) = (1,1),
                      padding: NumSwift.ConvPadding = .valid,
                      filterSize: (rows: Int, columns: Int),
-                     inputSize: (rows: Int, columns: Int),
-                     outputSize: (rows: Int, columns: Int)? = nil) -> [[Tensor.Scalar]] {
+                     inputSize: (rows: Int, columns: Int)) -> [[Tensor.Scalar]] {
     
     let out = conv2d(signal: Tensor(signal),
                      filters: [Tensor(filter)],

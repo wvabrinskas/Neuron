@@ -36,8 +36,7 @@ public protocol Device {
               strides: (Int, Int),
               padding: NumSwift.ConvPadding,
               filterSize: (rows: Int, columns: Int),
-              inputSize: (rows: Int, columns: Int),
-              outputSize: (rows: Int, columns: Int)?) -> [[Tensor.Scalar]]
+              inputSize: (rows: Int, columns: Int)) -> [[Tensor.Scalar]]
   
   func transConv2d(signal: [[Tensor.Scalar]],
                           filter: [[Tensor.Scalar]],
