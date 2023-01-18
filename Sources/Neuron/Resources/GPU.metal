@@ -153,6 +153,90 @@ kernel void conv2d(texture2d<float, access::read> inTexture [[ texture(0) ]],
   outTexture.write(float4(sum, sum, sum, 1.0), uint2(gid));
 }
 
+
+kernel void derivation_array(texture2d_array<float, access::read> inTexture [[ texture(0) ]],
+                             texture2d_array<float, access::write> outTexture [[ texture(1) ]],
+                             const device uint& activationType [[ buffer(2) ]],
+                             const device float& limit,
+                             uint3 gid [[ thread_position_in_grid ]]) {
+  
+  uint2 coord = uint2(gid.x, gid.y);
+  uint slice = gid.z;
+  
+  float4 completeValue = inTexture.read(coord, slice);
+  
+  if (activationType == 0) { //relu
+    if (completeValue.x >= 0.0 && completeValue.y >= 0.0 && completeValue.z >= 0.0 && completeValue.w >= 0.0) {
+      completeValue = 1;
+    } else {
+      completeValue = 0;
+    }
+    
+  } else if (activationType == 1) { //leaky relu
+    if (completeValue.x > 0.0 && completeValue.y > 0.0 && completeValue.z > 0.0 && completeValue.w > 0.0) {
+      completeValue = 1;
+    } else {
+      completeValue = limit;
+    }
+    
+  } else if (activationType == 2) { //sigmoid
+    float4 sig = 1.0 / (1.0 + exp(-completeValue));
+    completeValue = sig * (1 - sig);
+    
+  } else if (activationType == 3) { //swish
+    completeValue = (exp(-completeValue) * (completeValue + 1) + 1) / pow((1 + exp(-completeValue)), 2);
+    
+  } else if (activationType == 4) { //tanH
+    float4 denom = 1.0 + exp(-2 * completeValue);
+    float4 tanActivate = (2.0 / denom) - 1.0;
+    completeValue = 1 - (pow(tanActivate, 2));
+    
+  } else if (activationType == 5) { //none
+    completeValue = 1;
+  }
+  
+  outTexture.write(completeValue, coord, slice);
+}
+
+kernel void activation_array(texture2d_array<float, access::read> inTexture [[ texture(0) ]],
+                             texture2d_array<float, access::write> outTexture [[ texture(1) ]],
+                             const device uint& activationType [[ buffer(2) ]],
+                             const device float& limit,
+                             uint3 gid [[ thread_position_in_grid ]]) {
+  
+  uint2 coord = uint2(gid.x, gid.y);
+  uint slice = gid.z;
+  
+  float4 completeValue = inTexture.read(coord, slice);
+  
+  if (activationType == 0) { //relu
+    completeValue = max((float)0, completeValue);
+    
+  } else if (activationType == 1) { //leaky relu
+    if (completeValue.x < 0.0 && completeValue.y < 0.0 && completeValue.z < 0.0 && completeValue.w < 0.0) {
+      completeValue = limit * completeValue;
+    } else {
+      completeValue = completeValue;
+    }
+    
+  } else if (activationType == 2) { //sigmoid
+    completeValue = 1.0 / (1.0 + exp(-completeValue));
+    
+  } else if (activationType == 3) { //swish
+    float4 sigmoid = 1.0 / (1.0 + exp(-completeValue));
+    completeValue = completeValue * sigmoid;
+    
+  } else if (activationType == 4) { //tanH
+    float4 denom = 1.0 + exp(-2 * completeValue);
+    completeValue = (2.0 / denom) - 1.0;
+    
+  } else if (activationType == 5) { //none
+    //results[resultIndex] = completeValue;
+  }
+  
+  outTexture.write(completeValue, coord, slice);
+}
+
 kernel void activation(const device float* data [[ buffer(0) ]],
                        device float* results [[ buffer(1) ]],
                        const device uint& activationType [[ buffer(2) ]],
