@@ -159,7 +159,6 @@ public class Conv2d: ConvolutionalLayer {
     let flippedTransposed = filters.map { flip180($0) }.transposed() as [[[[Tensor.Scalar]]]]
     
     var weightGradients: [[[Tensor.Scalar]]] = []
-    //2D array because each item is the result of conv2d which returns a 1D array
     var inputGradients: [[[Tensor.Scalar]]] = []
     
     for i in 0..<deltas.count {
@@ -292,29 +291,14 @@ public class Conv2d: ConvolutionalLayer {
   }
   
   internal func convGPU(_ input: Tensor) -> [[[Tensor.Scalar]]] {
-    let flatBias: [Tensor.Scalar] = biases.value.flatten()
-    var results: [[[Tensor.Scalar]]] = []
-
-    for f in 0..<filterCount {
-      let filter = filters[f]
-      let conv = device.conv2d(signal: input,
-                               filter: filter,
+    let results = GPU().conv2d(signal: input,
+                               filters: filters,
+                               biases: biases.value.flatten(),
                                strides: strides,
                                padding: padding,
                                filterSize: filterSize,
                                inputSize: inputSize)
-      
-      var convFirst = conv.value.first ?? []
-      
-      if biasEnabled {
-        let bias = flatBias[f]
-        convFirst = convFirst + bias
-      }
-      
-      results.append(convFirst)
-    }
-    
-    return results
+    return results.value
   }
   
   internal func conv(_ input: Tensor) -> [[[Tensor.Scalar]]] {

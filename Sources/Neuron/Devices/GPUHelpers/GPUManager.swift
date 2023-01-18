@@ -9,7 +9,7 @@ public typealias ResultType = CFloat
 
 public class GPUManager {
   public enum MetalFunction: String {
-    case activation, derivation, conv2d, conv2d_array, conv2d_texture
+    case activation, derivation, conv2d
   }
   
   private var currentRunningPipelines: [String: MTLComputePipelineState] = [:]
@@ -73,6 +73,7 @@ public class GPUManager {
                 inputSize: TensorSize,
                 activationType: Activation,
                 derivate: Bool = false) -> Tensor {
+    
     autoreleasepool {
       
       guard let device = self.device, let queue = queue else {
@@ -134,27 +135,73 @@ public class GPUManager {
     }
   }
   
+  public func conv2d(_ input: Tensor,
+                     filters: [Tensor],
+                     biases: [Tensor.Scalar] = [],
+                     padding: NumSwift.ConvPadding,
+                     filterSize: (rows: Int, columns: Int),
+                     strides: (rows: Int, columns: Int),
+                     inputSize: TensorSize) -> Tensor {
+    
+    guard let queue = self.queue, let device = self.device else { return Tensor() }
+    
+    let outputSize = conv2dOutputSize(padding: padding,
+                                      strides: strides,
+                                      filterCount: filters.count,
+                                      filterSize: filterSize,
+                                      inputSize: inputSize)
+    
+    var textures: [MTLTexture] = []
+    filters.forEach { filter in
+      if let texture = conv2d(input,
+                           filter: filter,
+                           padding: padding,
+                           filterSize: filterSize,
+                           strides: strides,
+                              inputSize: inputSize) {
+        textures.append(texture)
+      }
+    }
+    
+    cmds?.commit()
+    cmds?.waitUntilCompleted()
+    
+    var i = 0
+    let tensor = Tensor(textures.map { texture in
+      let out = texture.get3d(commandQueue: queue, device: device)
+      let reducableStartingArray = [[Float]].init(repeating: [Float].init(repeating: 0,
+                                                                          count: outputSize.columns),
+                                                  count: outputSize.rows)
+      let outSummed = out.reduce(reducableStartingArray, +)
+      let bias = biases[safe: i, 0]
+      i += 1
+      return outSummed + bias
+    })
+    
+    return tensor
+  }
+  
   /// returns a 3D tensor where each element is conv on the input with a filter with a depth of 1
   public func conv2d(_ input: Tensor,
                      filter: Tensor,
                      padding: NumSwift.ConvPadding,
                      filterSize: (rows: Int, columns: Int),
                      strides: (rows: Int, columns: Int),
-                     inputSize: TensorSize) -> Tensor {
+                     inputSize: TensorSize) -> MTLTexture? {
     
     autoreleasepool {
       
       guard let device = self.device, let queue = queue else {
-        return Tensor()
+        return nil
       }
       
-      let function: MetalFunction = .conv2d_texture
+      let function: MetalFunction = .conv2d
       let pipeline: MTLComputePipelineState? = self.pipelineIfExists(type: function) ?? self.addPipeline(for: function)
       
       let newEncoder = cmds?.makeComputeCommandEncoder()
       
       guard let encoder = newEncoder, let pipelineStrong = pipeline else {
-        return Tensor()
+        return nil
       }
       
       let outputSize = conv2dOutputSize(padding: padding,
@@ -209,17 +256,8 @@ public class GPUManager {
       
       encoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
       encoder.endEncoding()
-      
-      cmds?.commit()
-      cmds?.waitUntilCompleted()
-      
-      let out = outputTexture?.get3d(commandQueue: queue, device: device) ?? []
-      let reducableStartingArray = [[Float]].init(repeating: [Float].init(repeating: 0,
-                                                                          count: outputSize.columns),
-                                                  count: outputSize.rows)
-      let outSummed = out.reduce(reducableStartingArray, +)
-      
-      return Tensor(outSummed)
+  
+      return outputTexture
     }
   }
   
