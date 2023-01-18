@@ -9,7 +9,7 @@ public typealias ResultType = CFloat
 
 public class GPUManager {
   public enum MetalFunction: String {
-    case activation, derivate, conv2d, conv2d_array
+    case activation, derivate, conv2d, conv2d_array, activation_array, derivation_array
   }
   
   private var currentRunningPipelines: [MTLComputePipelineState] = []
@@ -336,10 +336,52 @@ public class GPUManager {
     }
     
     let inputTexture = input.asTexture(device: device, commandQueue: queue, size: inputSize)
+    let outputTexture = Tensor(NumSwift.zerosLike((rows: inputSize.rows,
+                                                   columns: inputSize.columns,
+                                                   depth: inputSize.depth))).asTexture(device: device,
+                                                                                       commandQueue: queue,
+                                                                                       size: inputSize)
     
-    print(inputTexture?.get3d(commandQueue: queue, device: device))
-    // inputTexture?.get(device: device, commandQueue: queue, size: inputSize)
-    return Tensor()
+    let function: MetalFunction = derivate ? .derivation_array : .activation_array
+    let pipeline: MTLComputePipelineState? = self.pipelineIfExists(type: function) ?? self.addPipeline(for: function)
+    
+    let newEncoder = cmds?.makeComputeCommandEncoder()
+    
+    guard let encoder = newEncoder, let pipelineStrong = pipeline else {
+      return Tensor()
+    }
+    
+    var activation = CUnsignedInt(activationType.index())
+    
+    encoder.setComputePipelineState(pipelineStrong)
+    encoder.setTexture(inputTexture, index: 0)
+    encoder.setTexture(outputTexture, index: 1)
+    encoder.setBytes(&activation, length: MemoryLayout<CUnsignedInt>.size, index: 2)
+    
+    switch activationType {
+    case .leakyRelu(let limit):
+      var limit = Float(limit)
+      encoder.setBytes(&limit, length: MemoryLayout<Float>.size, index: 3)
+    default:
+      break
+    }
+    
+    let w = pipelineStrong.threadExecutionWidth
+    let h = pipelineStrong.maxTotalThreadsPerThreadgroup / w
+    let threadsPerThreadgroup = MTLSizeMake(w, h, 1)
+    
+    let threadgroupsPerGrid = MTLSize(width: inputSize.columns / 2,
+                                      height: inputSize.rows / 2,
+                                      depth: inputSize.depth)
+    
+    encoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
+    encoder.endEncoding()
+    
+    //execution step
+    cmds?.commit()
+    cmds?.waitUntilCompleted()
+    
+    return Tensor(outputTexture?.get3d(commandQueue: queue, device: device) ?? [])
   }
   
 }
