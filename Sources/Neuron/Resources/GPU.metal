@@ -238,10 +238,10 @@ kernel void activation(texture2d_array<float, access::read> inTexture [[ texture
 }
 
 kernel void conv2d_texture(texture2d_array<float, access::read> inTexture [[ texture(0) ]],
-                           texture2d_array<float, access::read_write> outTexture [[ texture(1) ]],
+                           texture2d_array<float, access::write> outTexture [[ texture(1) ]],
                            texture2d_array<float, access::read> filter [[ texture(2) ]],
-                           constant uint2& inSize [[ buffer(1) ]],
-                           constant uint2& outSize [[ buffer(2) ]],
+                           constant uint3& inSize [[ buffer(1) ]],
+                           constant uint3& outSize [[ buffer(2) ]],
                            constant uint2& kernelSize [[ buffer(3) ]],
                            constant uint2& stride [[buffer(4) ]],
                            constant int& padding [[ buffer(5) ]],
@@ -250,7 +250,7 @@ kernel void conv2d_texture(texture2d_array<float, access::read> inTexture [[ tex
   uint2 coord = uint2(gid.x, gid.y);
   uint slice = gid.z;
 
-  uint4 paddingCalc = padding_calc(stride, padding, kernelSize, inSize);
+  uint4 paddingCalc = padding_calc(stride, padding, kernelSize, uint2(inSize.x, inSize.y));
   
   uint paddingLeft = paddingCalc.z;
   uint paddingRight = paddingCalc.w;
@@ -287,9 +287,5 @@ kernel void conv2d_texture(texture2d_array<float, access::read> inTexture [[ tex
     }
   }
   
-  float4 previous_sum = outTexture.read(coord, 0);
-  sum += previous_sum;
-  
-  outTexture.write(sum, coord, 0);
+  outTexture.write(sum, coord, slice);
 }
-
