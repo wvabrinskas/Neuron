@@ -20,24 +20,22 @@ class GPUTests: XCTestCase {
     XCTAssertTrue(Tensor([0, 0, 0, 0, 1, 0, 0, 0, 0, 0]).isValueEqual(to: out))
   }
   
-  func testConv2dGPUInNetwork() {
+  func testConv2dGPU() {
     let inputSize = TensorSize(rows: 28, columns: 28, depth: 16)
 
-    let filterCount = 16
-    let batchSize = 32
-    let batchCount = 16
+    let filterCount = 32
         
     let inputTensor = Tensor.withRandom(size: inputSize, in: Float(-1)...Float(1))
-        
-    let inputs = [Tensor].init(repeating: inputTensor, count: batchSize * batchCount)
-    
+            
     let conv = Conv2d(filterCount: filterCount,
                       inputSize: inputSize,
                       padding: .same,
                       initializer: .heNormal)
     
+    conv.device = GPU()
     
+    let out = conv.forward(tensor: inputTensor)
     
-    
+    XCTAssertEqual(out.shape, [inputSize.columns, inputSize.rows, filterCount])
   }
 }

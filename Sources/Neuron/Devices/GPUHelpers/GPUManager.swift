@@ -9,7 +9,7 @@ public typealias ResultType = CFloat
 
 public class GPUManager {
   public enum MetalFunction: String {
-    case activation, derivate, conv2d, conv2d_array, activation_array, derivation_array
+    case activation, derivate, conv2d, conv2d_array
   }
   
   private var currentRunningPipelines: [MTLComputePipelineState] = []
@@ -176,7 +176,7 @@ public class GPUManager {
                                                                                        commandQueue: queue,
                                                                                        size: inputSize)
     
-    let function: MetalFunction = derivate ? .derivation_array : .activation_array
+    let function: MetalFunction = derivate ? .derivate : .activation
     let pipeline: MTLComputePipelineState? = self.pipelineIfExists(type: function) ?? self.addPipeline(for: function)
     
     let newEncoder = cmds?.makeComputeCommandEncoder()
