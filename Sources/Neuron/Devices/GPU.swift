@@ -9,6 +9,7 @@ import Foundation
 import NumSwift
 
 public class GPU: Device {
+  
   public var qosPriority: DispatchQoS.QoSClass = .default
   public var type: DeviceType = .gpu
 
@@ -45,6 +46,22 @@ public class GPU: Device {
     return result.reshape(columns: outputSize?.columns ?? calculatedOutputSize.columns)
   }
   
+  public func conv2d(signal: Tensor,
+                     filter: Tensor,
+                     strides: (Int, Int),
+                     padding: NumSwift.ConvPadding,
+                     filterSize: (rows: Int, columns: Int),
+                     inputSize: TensorSize) -> Tensor {
+    
+    GPUManager().conv2d(signal,
+                        filter: filter,
+                        padding: padding,
+                        filterSize: filterSize,
+                        strides: strides,
+                        inputSize: inputSize)
+  }
+  
+  // MARK: DEPRECATED
   public func conv2d(signal: [[Tensor.Scalar]],
                      filter: [[Tensor.Scalar]],
                      strides: (Int, Int) = (1,1),
@@ -53,12 +70,12 @@ public class GPU: Device {
                      inputSize: (rows: Int, columns: Int),
                      outputSize: (rows: Int, columns: Int)? = nil) -> [[Tensor.Scalar]] {
     
-    let result = GPUManager().conv2d(signal,
-                                     filter: filter,
+    let result = GPUManager().conv2d(Tensor(signal),
+                                     filter: Tensor(signal),
                                      padding: padding,
                                      filterSize: filterSize,
                                      strides: strides,
-                                     inputSize: (inputSize.rows, inputSize.columns, 1))
+                                     inputSize: TensorSize(rows: inputSize.rows, columns: inputSize.columns, depth: 1))
     
     return result.value.first ?? []
   }

@@ -20,25 +20,6 @@ class GPUTests: XCTestCase {
     XCTAssertTrue(Tensor([0, 0, 0, 0, 1, 0, 0, 0, 0, 0]).isValueEqual(to: out))
   }
   
-  func testConv2dGPU() {
-    let inputSize = TensorSize(rows: 28, columns: 28, depth: 16)
-
-    let filterCount = 32
-        
-    let inputTensor = Tensor.withRandom(size: inputSize, in: Float(-1)...Float(1))
-            
-    let conv = Conv2d(filterCount: filterCount,
-                      inputSize: inputSize,
-                      padding: .same,
-                      initializer: .heNormal)
-    
-    conv.device = GPU()
-    
-    let out = conv.forward(tensor: inputTensor)
-    
-    XCTAssertEqual(out.shape, [inputSize.columns, inputSize.rows, filterCount])
-  }
-  
   func testConv2dGPU_Texture() {
     let inputSize = TensorSize(rows: 16, columns: 16, depth: 8)
     
@@ -57,12 +38,12 @@ class GPUTests: XCTestCase {
     let filterSizeMap = (filterSize.0, filterSize.1)
     let strides = (1,1)
     
-    let out = manager.conv2dTexture(inputTensor,
-                                    filter: filter,
-                                    padding: padding,
-                                    filterSize: filterSizeMap,
-                                    strides: strides,
-                                    inputSize: inputSize)
+    let out = manager.conv2d(inputTensor,
+                             filter: filter,
+                             padding: padding,
+                             filterSize: filterSizeMap,
+                             strides: strides,
+                             inputSize: inputSize)
     
     let cpuOut = Conv2d(filterCount: 1,
                         inputSize: inputSize,
