@@ -36,7 +36,7 @@ extension Tensor {
     for i in 0..<depth {
       for j in 0..<height {
         for k in 0..<width {
-          bufferPointer[i*height*width + j*width + k] = value[i][j][k]
+          bufferPointer[i*height*width + j*width + k] = value[safe: i, [[0]]][safe: j, [0]][safe: k, 0]
         }
       }
     }
