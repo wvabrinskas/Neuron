@@ -21,7 +21,7 @@ extension MTLTexture {
     let depth = arrayLength
     let bytesPerRow = MemoryLayout<Float>.stride * width
     let region = MTLRegionMake2D(0, 0, width, height)
-    var array3D = [[[Float]]](repeating: [[Float]](repeating: [Float](repeating: 0.0, count: width), count: height), count: depth)
+    var array3D = NumSwift.zerosLike((width, height, depth))
     let bufferSize = bytesPerRow * height * depth
     guard let buffer = device.makeBuffer(length: bufferSize, options: []) else { return array3D }
     
