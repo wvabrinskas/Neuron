@@ -106,8 +106,8 @@ public class GPUManager {
     let h = pipelineStrong.maxTotalThreadsPerThreadgroup / w
     let threadsPerThreadgroup = MTLSizeMake(w, h, 1)
     
-    let threadgroupsPerGrid = MTLSize(width: outputSize.columns / 2,
-                                      height: outputSize.rows / 2,
+    let threadgroupsPerGrid = MTLSize(width: max(1, outputSize.columns / 2),
+                                      height: max(1, outputSize.rows / 2),
                                       depth: outputSize.depth)
     
     var inSize = SIMD2(CUnsignedInt(inputSize.rows), CUnsignedInt(inputSize.columns))
@@ -204,8 +204,8 @@ public class GPUManager {
     let h = pipelineStrong.maxTotalThreadsPerThreadgroup / w
     let threadsPerThreadgroup = MTLSizeMake(w, h, 1)
     
-    let threadgroupsPerGrid = MTLSize(width: inputSize.columns / 2,
-                                      height: inputSize.rows / 2,
+    let threadgroupsPerGrid = MTLSize(width: max(1, inputSize.columns / 2),
+                                      height: max(1, inputSize.rows / 2),
                                       depth: inputSize.depth)
     
     encoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
