@@ -84,8 +84,7 @@ public struct CPU: Device {
                      strides: (Int, Int) = (1,1),
                      padding: NumSwift.ConvPadding = .valid,
                      filterSize: (rows: Int, columns: Int),
-                     inputSize: (rows: Int, columns: Int),
-                     outputSize: (rows: Int, columns: Int)? = nil) -> [[Tensor.Scalar]] {
+                     inputSize: (rows: Int, columns: Int)) -> [[Tensor.Scalar]] {
     
     var calculatedOutputSize: (row: Int, columns: Int) {
       let paddingValue = padding.extra(inputSize: (inputSize.rows, inputSize.columns), filterSize: filterSize)
@@ -103,7 +102,7 @@ public struct CPU: Device {
                                   filterSize: filterSize,
                                   inputSize: inputSize)
     
-    return result.reshape(columns: outputSize?.columns ?? calculatedOutputSize.columns)
+    return result.reshape(columns: calculatedOutputSize.columns)
   }
   
   /// Performs an activation function
