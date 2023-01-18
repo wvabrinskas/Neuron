@@ -40,7 +40,7 @@ public protocol Device {
                           inputSize: (rows: Int, columns: Int),
                           outputSize: (rows: Int, columns: Int)?) -> [[Tensor.Scalar]]
 
-  func activate(_ input: Tensor, _ type: Activation) -> Tensor
-  func derivate(_ input: Tensor, _ type: Activation) -> Tensor
+  func activate(_ input: Tensor, _ type: Activation, inputSize: TensorSize) -> Tensor
+  func derivate(_ input: Tensor, _ type: Activation, inputSize: TensorSize) -> Tensor
   func matrixMultiply(_ a: Tensor, _ b: Tensor, columns: Int, rows: Int) -> Tensor
 }
