@@ -8,15 +8,44 @@ public typealias DataType = [[CFloat]]
 public typealias ResultType = CFloat
 
 public class GPUManager {
-  public enum MetalFunction: String {
+  
+  class Async {
+    private let commandQueue: MTLCommandQueue
+    private let device: MTLDevice
+    
+    var textures: [MTLTexture] = []
+    var tensors: [AsyncTensor] = []
+    
+    init(commandQueue: MTLCommandQueue, device: MTLDevice) {
+      self.commandQueue = commandQueue
+      self.device = device
+    }
+    
+    func build() -> [AsyncTensor] {
+      self.tensors = [AsyncTensor](repeating: AsyncTensor(), count: textures.count)
+      return self.tensors
+    }
+    
+    func complete() {
+      guard tensors.isEmpty == false,
+            textures.isEmpty == false,
+            tensors.count == textures.count else { return }
+      
+      textures.concurrentForEach { texture, i in
+        let tensor = tensors[i]
+        tensor.value = texture.get3d(commandQueue: commandQueue, device: device)
+      }
+    }
+  }
+  
+  private enum MetalFunction: String {
     case activation, derivation, conv2d
   }
   
   private var currentRunningPipelines: [String: MTLComputePipelineState] = [:]
   private var device: MTLDevice? = MTLCreateSystemDefaultDevice()
-
-  lazy var queue = self.device?.makeCommandQueue(maxCommandBufferCount: 64)
-  lazy var cmds = queue?.makeCommandBuffer()
+  private lazy var queue = self.device?.makeCommandQueue(maxCommandBufferCount: 64)
+  private lazy var cmds = queue?.makeCommandBuffer()
   
   private func getFunction(_ function: MetalFunction) -> MTLFunction? {
     return try? device?.makeDefaultLibrary(bundle: Bundle.module).makeFunction(name: function.rawValue)
@@ -63,10 +92,10 @@ public class GPUManager {
     return TensorSize(array: [columns, rows, filterCount])
   }
   
-  func activate(_ input: Tensor,
-                inputSize: TensorSize,
-                activationType: Activation,
-                derivate: Bool = false) -> Tensor {
+  public func activate(_ input: Tensor,
+                       inputSize: TensorSize,
+                       activationType: Activation,
+                       derivate: Bool = false) -> Tensor {
     
     autoreleasepool {
       
@@ -79,10 +108,10 @@ public class GPUManager {
                                          size: inputSize,
                                          usage: .shaderRead)
       
-      let outputTexture = Tensor().asTexture(device: device,
-                                             commandQueue: queue,
-                                             size: inputSize,
-                                             usage: .shaderWrite)
+      let outputTexture = Tensor.asTexture(device: device,
+                                           commandQueue: queue,
+                                           size: inputSize,
+                                           usage: .shaderWrite)
       
       let function: MetalFunction = derivate ? .derivation : .activation
       let pipeline: MTLComputePipelineState? = self.pipelineIfExists(type: function) ?? self.addPipeline(for: function)

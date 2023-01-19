@@ -24,6 +24,7 @@ public enum DeviceType: String, Codable {
 public protocol Device {
   var type: DeviceType { get }
   var qosPriority: DispatchQoS.QoSClass { get set }
+  
   func conv2d(signal: Tensor,
               filter: Tensor,
               strides: (Int, Int),
