@@ -9,16 +9,18 @@ public typealias ResultType = CFloat
 
 public class GPUManager {
   
-  class Async {
+  actor Async {
     private let commandQueue: MTLCommandQueue
     private let device: MTLDevice
+    private let textures: [MTLTexture]
+    private var tensors: [AsyncTensor] = []
     
-    var textures: [MTLTexture] = []
-    var tensors: [AsyncTensor] = []
-    
-    init(commandQueue: MTLCommandQueue, device: MTLDevice) {
+    init(commandQueue: MTLCommandQueue,
+         device: MTLDevice,
+         textures: [MTLTexture]) {
       self.commandQueue = commandQueue
       self.device = device
+      self.textures = textures
     }
     
     func build() -> [AsyncTensor] {
