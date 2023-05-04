@@ -173,6 +173,10 @@ public enum Metric: String {
 
 `MetricReporter` will call `receive` when it is updated. 
 
+### Remote metric logging
+
+You can use the [NeuronRemoteLogger](https://github.com/wvabrinskas/NeuronRemoteLogger) to log to remote services like [Weights and Biases](https://wandb.ai/). Follow the instructions in the `README` in that repo on how to get started! 
+
 ## Exporting your model
 
 Once the model has trained to your liking you can export the model to a `.smodel` file. This model cvan be then imported later using the `Sequential` intializer. The export will not export your `Optimizer` settings, only the `Trainable` specified in the `Optimizer`. 
