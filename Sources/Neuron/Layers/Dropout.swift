@@ -73,12 +73,14 @@ public final class Dropout: Layer {
       droppedOut = tensor * mask
     }
 
-    let result = Tensor(droppedOut.value, context: context)
+    let out = Tensor(droppedOut.value, context: context)
     
-    return result
+    out.setGraph(tensor)
+
+    return out
   }
   
-  public func apply(gradients: Optimizer.Gradient) {
+  public func apply(gradients: Optimizer.Gradient, learningRate: Float) {
     mask = Tensor()
     generateMask()
   }

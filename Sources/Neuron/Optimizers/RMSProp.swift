@@ -69,7 +69,7 @@ public class RMSProp: Optimizer {
       }
 
       let adamGradient = run(gradient: gradient, biasGradient: biasGradient, index: i)
-      layer.apply(gradients: adamGradient)
+      layer.apply(gradients: adamGradient, learningRate: learningRate)
       
       clip(layer: layer)
     }

@@ -67,7 +67,10 @@ public class Classifier {
       if let randomValBatch = validationBatches.randomElement() {
         
         optimNetwork.isTraining = false
-        let result = trainOn(randomValBatch.data, labels: randomValBatch.labels, validation: true)
+        let result = trainOn(randomValBatch.data,
+                             labels: randomValBatch.labels,
+                             validation: true,
+                             requiresGradients: false)
         let loss = result.loss
         optimNetwork.metricsReporter?.update(metric: .valLoss, value: loss)
         optimNetwork.metricsReporter?.update(metric: .valAccuracy, value: result.accuracy)
@@ -112,6 +115,19 @@ public class Classifier {
     }
   }
   
+  @discardableResult
+  public func export(overrite: Bool = false) -> URL? {
+    if let network = optimNetwork.trainable as? Sequential {
+      let additional = overrite == false ? "-\(Date().timeIntervalSince1970)" : ""
+      
+      let dUrl = ExportHelper.getModel(filename: "classifier\(additional)", model: network)
+      
+      return dUrl
+    }
+    
+    return nil
+  }
+  
   private func splitDataset(_ data: [DatasetModel]) -> (data: [Tensor], labels: [Tensor]) {
     var labels: [Tensor] = []
     var input: [Tensor] = []
@@ -126,11 +142,13 @@ public class Classifier {
   
   private func trainOn(_ batch: [Tensor],
                        labels: [Tensor],
-                       validation: Bool = false) -> Optimizer.Output {
+                       validation: Bool = false,
+                       requiresGradients: Bool = true) -> Optimizer.Output {
     optimNetwork.fit(batch,
                      labels: labels,
                      lossFunction: lossFunction,
-                     validation: validation)
+                     validation: validation,
+                     requiresGradients: requiresGradients)
   }
 
 }
