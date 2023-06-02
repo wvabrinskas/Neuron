@@ -11,30 +11,60 @@ import NumSwift
 
 public typealias VectorizableItem = Hashable & Equatable
 
+public enum VectorFormat {
+  case start, end, none
+}
+
 public protocol Vectorizing {
   associatedtype Item: VectorizableItem
   typealias Vector = [Item: Int]
+  typealias InverseVector = [Int: Item]
+  /// Value that indicate starting of a vactor
+  var start: Int { get }
+  /// Value that indicate ending of a vactor
+  var end: Int { get }
+  /// The current full vector storage of every value passed in keyed by the `Item`
   var vector: Vector { get }
-  func vectorize(_ items: [Item]) -> [Int]
+  /// The current full vector storage of every value passed in keyed by the `Index`
+  var inverseVector: InverseVector { get }
+  func vectorize(_ items: [Item], format: VectorFormat) -> [Int]
+  func unvectorize(_ vector: [Int]) -> [Item]
 }
 
 
+/// Takes an input and turns it in to a vector array of integers indicating its value.
+/// ex. Can take a string and apply a integer value to the word so that if it came up again
+/// it would return the same integer value for that word.
 public class Vectorizer<T: VectorizableItem>: Vectorizing {
   public typealias Item = T
   public private(set) var vector: Vector = [:]
+  public private(set) var inverseVector: InverseVector = [:]
   
-  private var maxIndex: Int = 0
+  /// Value that indicate starting of a vactor
+  public let start: Int = 0
+  /// Value that indicate ending of a vactor
+  public let end: Int = 1
+
+  /// max index is the first index we can use to identify words
+  /// this means we reserve the start and end indicies
+  private var maxIndex: Int = 2
   
-  public func vectorize(_ items: [T]) -> [Int] {
+  public func vectorize(_ items: [T], format: VectorFormat = .none) -> [Int] {
     var vectorized: [Int] = []
+    
+    if format == .start {
+      vectorized = [start]
+    }
+    
     var lastKey = maxIndex
 
     items.forEach { item in
       let key = formatItem(item: item)
       if vector[key] == nil {
-        vector[key] = lastKey + 1
-        lastKey += 1
+        vector[key] = lastKey
+        inverseVector[lastKey] = key
         vectorized.append(lastKey)
+        lastKey += 1
       } else if let itemVector = vector[key] {
         vectorized.append(itemVector)
       }
@@ -42,7 +72,23 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
     
     maxIndex = lastKey
     
+    if format == .end {
+      vectorized.append(end)
+    }
+
     return vectorized
+  }
+  
+  public func unvectorize(_ vector: [Int]) -> [T] {
+    var items: [T] = []
+    
+    vector.forEach { v in
+      if let i = inverseVector[v] {
+        items.append(i)
+      }
+    }
+    
+    return items
   }
   
   // MARK: Private

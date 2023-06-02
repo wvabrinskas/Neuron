@@ -13,6 +13,28 @@ import NumSwift
 
 final class VectorTests: XCTestCase {
   
+  func test_String_Vectorize_Start() {
+    let vectorizer = Vectorizer<String>()
+    
+    let sentence = "The wide road shimmered in the hot sun"
+    let words = sentence.components(separatedBy: " ")
+    
+    let vector = vectorizer.vectorize(words, format: .start)
+    
+    XCTAssertEqual([0, 2, 3, 4, 5, 6, 2, 7, 8], vector)
+  }
+  
+  func test_String_Vectorize_End() {
+    let vectorizer = Vectorizer<String>()
+    
+    let sentence = "The wide road shimmered in the hot sun"
+    let words = sentence.components(separatedBy: " ")
+    
+    let vector = vectorizer.vectorize(words, format: .end)
+    
+    XCTAssertEqual([2, 3, 4, 5, 6, 2, 7, 8, 1], vector)
+  }
+  
   func test_String_Vectorize() {
     let vectorizer = Vectorizer<String>()
     
@@ -21,7 +43,7 @@ final class VectorTests: XCTestCase {
     
     let vector = vectorizer.vectorize(words)
     
-    XCTAssertEqual([1, 2, 3, 4, 5, 1, 6, 7], vector)
+    XCTAssertEqual([2, 3, 4, 5, 6, 2, 7, 8], vector)
   }
   
   func test_String_Vectorize_More_words() {
@@ -32,13 +54,30 @@ final class VectorTests: XCTestCase {
     
     let vector = vectorizer.vectorize(words)
     
-    XCTAssertEqual([1, 2, 3, 4, 5, 1, 6, 7], vector)
+    XCTAssertEqual([2, 3, 4, 5, 6, 2, 7, 8], vector)
     
     let secondSentence = "The big cat is hot"
     let secondWords = secondSentence.components(separatedBy: " ")
 
     let secondVector = vectorizer.vectorize(secondWords)
 
-    XCTAssertEqual([1, 8, 9, 10, 6], secondVector)
+    XCTAssertEqual([2, 9, 10, 11, 7], secondVector)
+  }
+  
+  func test_unvectorize() {
+    let vectorizer = Vectorizer<String>()
+    
+    let sentence = "The wide road shimmered in the hot sun"
+    let words = sentence.components(separatedBy: " ")
+    
+    let vector = vectorizer.vectorize(words)
+    
+    XCTAssertEqual([2, 3, 4, 5, 6, 2, 7, 8], vector)
+    
+    let unvector = vectorizer.unvectorize(vector)
+    
+    let unvectoredSentence = unvector.joined(separator: " ")
+    
+    XCTAssertEqual(unvectoredSentence, sentence.lowercased())
   }
 }
