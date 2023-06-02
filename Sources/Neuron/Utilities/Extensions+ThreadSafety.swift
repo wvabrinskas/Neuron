@@ -31,7 +31,7 @@ public extension NSLock {
 }
 
 @propertyWrapper
-public struct Atomic<Value: Codable>: Codable {
+public struct Atomic<Value> {
   private let lock = NSLock()
   private var value: Value
   
@@ -46,21 +46,11 @@ public struct Atomic<Value: Codable>: Codable {
       return value
     }
     set {
+      defer { lock.unlock() }
+      
       lock.lock()
       value = newValue
-      lock.unlock()
     }
-  }
-  
-  public func encode(to encoder: Encoder) throws {
-    var container = encoder.singleValueContainer()
-    try container.encode(self.value)
-  }
-  
-  public init(from decoder: Decoder) throws {
-    let values = try decoder.singleValueContainer()
-    let val = try values.decode(Value.self)
-    self.value = val
   }
 }
 

@@ -82,6 +82,13 @@ public extension Tensor {
     }
   }
   
+  func matmul(_ with: Tensor) -> Tensor {
+    // TODO: maybe do auto grad here?
+    let A = value
+    let B = with.value
+    return Tensor(A.matmul(B))
+  }
+  
   func sumOfSquares(axis: Int = -1) -> Tensor {
     let block: MathBlock = { feature in
       feature.sumOfSquares
@@ -118,12 +125,67 @@ public extension Tensor {
     return apply(axis: axis, block)
   }
   
+  @discardableResult
+  func concat(_ tensor: Tensor, axis: Int = -1) -> Tensor {
+    let shape = shape
+    let rows = shape[safe: 1, 0]
+    let depth = shape[safe: 2, 0]
+    
+    var new = self.value
+    
+    if axis == 2 {
+      new.append(contentsOf: tensor.value)
+    } else {
+      for d in 0..<depth {
+        if axis == 1 {
+          new[d].append(contentsOf: tensor.value[safe: d] ?? [])
+        }
+        for r in 0..<rows {
+          if axis == -1 {
+            new[d][r].append(contentsOf: tensor.value[safe: d]?[safe: r] ?? [])
+          }
+        }
+      }
+    }
+
+    return Tensor(new, context: context)
+  }
+  
   func l2Normalize() {
     let flatValue: Float = value.sumOfSquares
     let normalized = value / sqrt(flatValue)
     self.value = normalized
   }
+  
+  func map(_ transform: (Tensor.Scalar) -> Tensor.Scalar) -> Tensor {
+    var result: Tensor.Data = []
+    
+    self.value.forEach { d in
+      var row: [[Tensor.Scalar]] = []
+      d.forEach { r in
+        row.append(r.map(transform))
+      }
+      result.append(row)
+    }
+    
+    return Tensor(result, context: context)
+  }
 
+  static func /(lhs: Scalar, rhs: Tensor) -> Tensor {
+    let newTensorValue = lhs / rhs.value
+    return Tensor(newTensorValue, context: rhs.context)
+  }
+  
+  static func *(lhs: Scalar, rhs: Tensor) -> Tensor {
+    let newTensorValue = lhs * rhs.value
+    return Tensor(newTensorValue, context: rhs.context)
+  }
+  
+  static func -(lhs: Scalar, rhs: Tensor) -> Tensor {
+    let newTensorValue = lhs - rhs.value
+    return Tensor(newTensorValue, context: rhs.context)
+  }
+  
   static func /(lhs: Tensor, rhs: Scalar) -> Tensor {
     let left = lhs.value
     

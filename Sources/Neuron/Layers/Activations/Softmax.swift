@@ -47,6 +47,7 @@ public final class Softmax: ActivationLayer {
   /// - Parameter inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
   public init(inputSize: TensorSize = TensorSize(array: [])) {
     self.inputSize = inputSize
+    self.outputSize = inputSize
   }
   
   public func forward(tensor: Tensor) -> Tensor {
@@ -54,15 +55,25 @@ public final class Softmax: ActivationLayer {
       return (Tensor(gradient.value), Tensor())
     }
     
-    let flatTensor = tensor.value[safe: 0]?[safe: 0] ?? [] //softmax requires 1D flat tensor
-    var activationResult: [Tensor.Scalar] = []
+    var activationResult: [[[Tensor.Scalar]]] = []
     
-    for i in 0..<flatTensor.count {
-      activationResult.append(calculate(index: i, outputs: flatTensor))
+    tensor.value.forEach { d in
+      var row: [[Tensor.Scalar]] = []
+      d.forEach { r in
+        var column: [Tensor.Scalar] = []
+        for i in 0..<r.count {
+          column.append(calculate(index: i, outputs: r))
+        }
+        row.append(column)
+      }
+      activationResult.append(row)
     }
     
     let out = Tensor(activationResult, context: context)
     out.label = type.asString()
+    
+    out.setGraph(tensor)
+
     return out
   }
   
@@ -76,7 +87,7 @@ public final class Softmax: ActivationLayer {
     return pow(Float(Darwin.M_E), outputs[index] - max) / sum
   }
   
-  public func apply(gradients: Optimizer.Gradient){
+  public func apply(gradients: Optimizer.Gradient, learningRate: Float) {
     //no op
   }
 }

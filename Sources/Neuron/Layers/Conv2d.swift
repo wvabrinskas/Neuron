@@ -151,7 +151,11 @@ public class Conv2d: ConvolutionalLayer {
       self.backward(inputs, gradient)
     }
     
-    return Tensor(conv(tensor), context: context)
+    let out = Tensor(conv(tensor), context: context)
+    
+    out.setGraph(tensor)
+
+    return out
   }
   
   internal func backward(_ input: Tensor, _ delta: Tensor) -> (input: Tensor, weight: Tensor) {
@@ -272,7 +276,7 @@ public class Conv2d: ConvolutionalLayer {
     return newGradientsForFilters
   }
   
-  public func apply(gradients: Optimizer.Gradient) {
+  public func apply(gradients: Optimizer.Gradient, learningRate: Float) {
       
     //batch out gradients by number of filters
     var weightGradientsBatched = [gradients.weights.value]

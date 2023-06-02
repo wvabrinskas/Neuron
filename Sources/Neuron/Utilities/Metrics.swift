@@ -45,6 +45,9 @@ internal protocol MetricCalculator: MetricLogger {
   
   func calculateValAccuracy(_ guess: [Float], label: [Float], binary: Bool) -> Float
   func calculateAccuracy(_ guess: [Float], label: [Float], binary: Bool) -> Float
+  func calculateAccuracy(_ guess: Tensor, label: Tensor, binary: Bool) -> Float
+  func calculateValAccuracy(_ guess: Tensor, label: Tensor, binary: Bool) -> Float
+
 }
 
 internal extension MetricCalculator {
@@ -65,6 +68,64 @@ internal extension MetricCalculator {
     totalValGuesses += 1
     
     let accuracy = Float(totalValCorrectGuesses) / Float(totalValGuesses) * 100.0
+    return accuracy
+  }
+  
+  func calculateValAccuracy(_ guess: Tensor, label: Tensor, binary: Bool) -> Float {
+    typealias Max = (UInt, Float)
+    
+    func perform(max: Max, guessMax: Max) -> Int {
+      if binary {
+        if max.1 - guessMax.1 < 0.5 {
+          return 1
+        }
+      } else {
+        if max.0 == guessMax.0 {
+          return 1
+        }
+      }
+      return 0
+    }
+        
+    for d in 0..<guess.value.count {
+      for r in 0..<guess.value[d].count {
+        let guessMax = guess.value[d][r].indexOfMax
+        let labelMax = label.value[d][r].indexOfMax
+        totalValCorrectGuesses += perform(max: labelMax, guessMax: guessMax)
+        totalValGuesses += 1
+      }
+    }
+    
+    let accuracy = Float(totalValCorrectGuesses) / Float(totalValGuesses) * 100.0
+    return accuracy
+  }
+  
+  func calculateAccuracy(_ guess: Tensor, label: Tensor, binary: Bool) -> Float {
+    typealias Max = (UInt, Float)
+    
+    func perform(max: Max, guessMax: Max) -> Int {
+      if binary {
+        if max.1 - guessMax.1 < 0.5 {
+          return 1
+        }
+      } else {
+        if max.0 == guessMax.0 {
+          return 1
+        }
+      }
+      return 0
+    }
+        
+    for d in 0..<guess.value.count {
+      for r in 0..<guess.value[d].count {
+        let guessMax = guess.value[d][r].indexOfMax
+        let labelMax = label.value[d][r].indexOfMax
+        totalCorrectGuesses += perform(max: labelMax, guessMax: guessMax)
+        totalGuesses += 1
+      }
+    }
+    
+    let accuracy = Float(totalCorrectGuesses) / Float(totalGuesses) * 100.0
     return accuracy
   }
   

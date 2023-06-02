@@ -44,31 +44,39 @@ public enum Activation: Codable, Equatable {
   /// - Parameter input: Input value to run through the activation function
   /// - Returns: The result of the calculation
   public func activate(input: Float) -> Float {
+    var returnValue: Float = 0
     switch self {
     case .reLu:
-      return max(0, input)
+      returnValue = max(0, input)
     case .sigmoid:
       let out =  1.0 / (1.0 + pow(Float(Darwin.M_E), -input))
-      return out
+      returnValue = out
     case .leakyRelu(let limit):
       if input < 0 {
-        return limit * input
+        returnValue = limit * input
       } else {
-        return input
+        returnValue = input
       }
     case .swish:
       let sigmoid =  1.0 / (1.0 + pow(Float(Darwin.M_E), -input))
-      return input * sigmoid
+      returnValue = input * sigmoid
     case .tanh:
       let e = Float(Darwin.M_E)
       let x = input
       let num = pow(e, x) - pow(e, -x)
       let denom = pow(e, x) + pow(e, -x)
 
-      return num / (denom + 1e-9)
+      returnValue = num / (denom + 1e-9)
     case .none, .softmax:
-      return input
+      returnValue = input
     }
+  
+    // filter out completely broken numbers
+    guard returnValue.isFinite,
+          returnValue.isNormal
+    else { return 0 }
+    
+    return returnValue
   }
   
   /// Runs the derivative of the activation function based on the case of self.

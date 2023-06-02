@@ -61,7 +61,7 @@ public class SGD: Optimizer {
       }
       
       let sgdGradient = run(gradient: gradient, biasGradient: biasGradient, index: i)
-      layer.apply(gradients: sgdGradient)
+      layer.apply(gradients: sgdGradient, learningRate: learningRate)
       
       clip(layer: layer)
     }

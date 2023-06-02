@@ -35,6 +35,7 @@ public protocol Optimizer: AnyObject {
   func predict(_ data: [Tensor]) -> [Tensor]
 }
 
+// TODO: allow for arbitrary weight shape in Optimizer, so we dont have to cram all weights into a 3D tensor
 public extension Optimizer {
   func clip(layer: Layer) {
     if let clip = clip {
@@ -85,6 +86,8 @@ public extension Optimizer {
     var losses: Tensor.Scalar = 0
     var accuracy: Tensor.Scalar = 0
     
+    // TODO: Batch consolidation: https://github.com/wvabrinskas/Neuron/issues/36
+  
     data.concurrentForEach(workers: workers, priority: device.qosPriority) { b, index in
       let label: [Tensor.Scalar] = labels[index].value.flatten()
       let input = data[index]
@@ -100,17 +103,15 @@ public extension Optimizer {
       
       if let reporter = self.metricsReporter {
         if validation {
-          accuracy += reporter.calculateValAccuracy(outFlat, label: label, binary: label.count == 1) / Tensor.Scalar(data.count)
+          accuracy += reporter.calculateValAccuracy(out, label: labels[index], binary: label.count == 1) / Tensor.Scalar(data.count)
         } else {
-          accuracy += reporter.calculateAccuracy(outFlat, label: label, binary: label.count == 1) / Tensor.Scalar(data.count)
+          accuracy += reporter.calculateAccuracy(out, label: labels[index], binary: label.count == 1) / Tensor.Scalar(data.count)
         }
       }
       
       if requiresGradients {
-        let lossGradient = lossFunction.derivative(outFlat, correct: label)
-        
-        let gradient = out.gradients(delta: Tensor(lossGradient))
-        
+        let lossGradient = lossFunction.derivative(out, correct: labels[index])
+        let gradient = out.gradients(delta: lossGradient)
         accumulator.insert(gradient)
       }
     }
@@ -133,6 +134,5 @@ public extension Optimizer {
       
       return (outputs, gradient, losses, accuracy)
     }
-
   }
 }

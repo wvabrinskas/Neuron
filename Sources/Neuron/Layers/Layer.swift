@@ -25,7 +25,8 @@ public enum EncodingType: String, Codable {
        maxPool,
        reshape,
        transConv2d,
-       layerNormalize
+       layerNormalize,
+       lstm
 }
 
 /// A layer that performs an activation function
@@ -55,7 +56,7 @@ public protocol Layer: AnyObject, Codable {
   var initializer: Initializer? { get }
   var device: Device { get set }
   func forward(tensor: Tensor) -> Tensor
-  func apply(gradients: Optimizer.Gradient)
+  func apply(gradients: Optimizer.Gradient, learningRate: Float)
 }
 
 extension Layer {
