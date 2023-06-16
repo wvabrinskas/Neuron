@@ -120,4 +120,15 @@ final class FullModelTests: XCTestCase {
       XCTFail(error.localizedDescription)
     }
   }
+  
+  func test_RNN() {
+    let network = Sequential {
+      [
+        Dense(6, inputs: 4, initializer: .xavierNormal),
+        LeakyReLu(limit: 0.2),
+        Dense(3, initializer: .xavierNormal),
+        Softmax()
+      ]
+    }
+  }
 }
