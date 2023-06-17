@@ -5,17 +5,10 @@
 //  Created by William Vabrinskas on 6/16/23.
 //
 
-// The Swift Programming Language
-// https://docs.swift.org/swift-book
-
-/// A macro that produces both a value and a string containing the
-/// source code that generated the value. For example,
-///
-///     #stringify(x + y)
-///
-/// produces a tuple `(x + y, "x + y")`.
-
 import Foundation
 
-@freestanding(expression)
-public macro stringify<T>(_ value: T) -> (T, String) = #externalMacro(module: "MacrosImpl", type: "StringifyMacro")
+//@attached(conformance)
+@attached(member)
+public macro Layerable<T: RawRepresentable>(type: T,
+                                            inputSize: [Float] = [0,0,0],
+                                            outputSize: [Float] = [0,0,0]) = #externalMacro(module: "MacrosImpl", type: "LayerMacro")

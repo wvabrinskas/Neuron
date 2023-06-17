@@ -7,6 +7,7 @@
 
 import Foundation
 import NumSwift
+import MacrosDef
 
 public final class LTSM: Layer {
   public var encodingType: EncodingType = .ltsm

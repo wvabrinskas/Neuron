@@ -36,7 +36,9 @@ let package = Package(
                 .product(name: "SwiftCompilerPlugin", package: "swift-syntax")
             ]
         ),
+        
         .target(name: "MacrosDef", dependencies: ["MacrosImpl"]),
+        
         .target(
             name: "Neuron",
             dependencies: [
@@ -45,8 +47,14 @@ let package = Package(
               "MacrosDef"
             ],
             resources: [ .process("Resources") ]),
+        
         .testTarget(
             name: "NeuronTests",
             dependencies: ["Neuron"]),
+        
+        .testTarget(
+            name: "MacrosTests",
+            dependencies: ["MacrosImpl",
+                           .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax")]),
     ]
 )
