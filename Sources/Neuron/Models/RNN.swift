@@ -168,7 +168,7 @@ public class RNN: Classifier {
     guard let first = dataset.training.first else { fatalError("Could not build network with dataset") }
     
     let vocabSize = first.data.shape[0]
-    let wordLength = first.data.shape[1]
+    let wordLength = first.data.shape[2]
     
     self.vocabSize = vocabSize
     self.wordLength = wordLength
