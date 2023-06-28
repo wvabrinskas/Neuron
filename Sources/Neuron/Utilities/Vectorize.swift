@@ -30,8 +30,8 @@ public protocol Vectorizing {
   @discardableResult
   func vectorize(_ items: [Item], format: VectorFormat) -> [Int]
   func unvectorize(_ vector: [Int]) -> [Item]
-  func unvectorizeOneHot(_ vector: [[Tensor.Scalar]]) -> [Item]
-  func oneHot(_ items: [Item]) -> [[Tensor.Scalar]]
+  func unvectorizeOneHot(_ vector: Tensor) -> [Item]
+  func oneHot(_ items: [Item]) -> Tensor
 }
 
 
@@ -56,24 +56,26 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
   
   public init() {}
   
-  public func oneHot(_ items: [T]) -> [[Tensor.Scalar]] {
-    var vectorized: [[Tensor.Scalar]] = [[Tensor.Scalar]](repeating: [Tensor.Scalar](repeating: 0,
-                                                                                     count: maxIndex - 2),
-                                                          count: items.count)
+  public func oneHot(_ items: [T]) -> Tensor {
+    var result: Tensor.Data = []
     
     for i in 0..<items.count {
+      var vectorized: [Tensor.Scalar] = [Float](repeating: 0, count: maxIndex - 2)
+      
       let item = formatItem(item: items[i])
       
       if let inVector = vector[item] {
         let adjustedIndex = max(0, inVector - 2) // offset by 2 since we saved the first two indexes for start and end labels
         
-        if adjustedIndex < vectorized[i].count {
-          vectorized[i][adjustedIndex] = 1.asTensorScalar
+        if adjustedIndex < vectorized.count {
+          vectorized[adjustedIndex] = 1.asTensorScalar
         }
       }
+      
+      result.append([vectorized])
     }
       
-    return vectorized
+    return Tensor(result)
   }
   
   @discardableResult
@@ -107,11 +109,11 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
     return vectorized
   }
   
-  public func unvectorizeOneHot(_ vector: [[Tensor.Scalar]]) -> [T] {
+  public func unvectorizeOneHot(_ vector: Tensor) -> [T] {
     var items: [T] = []
     
-    vector.forEach { v in
-      if let indexOfHot = v.firstIndex(of: 1) {
+    vector.value.forEach { v in
+      if let indexOfHot = v[0].firstIndex(of: 1) {
         if let s = inverseVector[Int(indexOfHot + 2)] {
           items.append(s)
         }

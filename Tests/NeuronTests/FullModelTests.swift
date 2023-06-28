@@ -160,9 +160,8 @@ final class FullModelTests: XCTestCase {
     let vocabSize = input.shape[0]
     let rows = input.shape[1]
 
-    let lstm = LSTM(inputSize: TensorSize(rows: rows,
-                                          columns: inputUnits,
-                                          depth: 1),
+    let lstm = LSTM(inputUnits: inputUnits,
+                    batchLength: rows,
                     initializer: .heNormal,
                     hiddenUnits: hiddenUnits,
                     vocabSize: vocabSize)

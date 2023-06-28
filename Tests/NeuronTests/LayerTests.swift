@@ -20,7 +20,8 @@ final class LayerTests: XCTestCase {
     let hiddenUnits = 256
     let vocabSize = 27
     
-    let lstm = LSTM(inputSize: TensorSize(rows: 1, columns: inputUnits, depth: 1),
+    let lstm = LSTM(inputUnits: inputUnits,
+                    batchLength: 1,
                     hiddenUnits: hiddenUnits,
                     vocabSize: vocabSize)
     
@@ -45,30 +46,31 @@ final class LayerTests: XCTestCase {
     
     let vectorizer = Vectorizer<String>()
 
+    let batchLength = 10
+    
     names.forEach { name in
-      vectorizer.vectorize(name.fill(with: ".", max: 10).characters)
+      vectorizer.vectorize(name.fill(with: ".", max: batchLength).characters)
     }
     
-    let testName = "anna".fill(with: ".", max: 10)
+    let testName = "anna".fill(with: ".", max: batchLength)
     let oneHot = vectorizer.oneHot(testName.characters)
     
     let inputUnits = 10
     let hiddenUnits = 256
     let vocabSize = vectorizer.vector.count // the size of the total map of vocab letters available. Likely comes from Vectorize
 
-    let lstm = LSTM(inputSize: TensorSize(rows: oneHot.count,
-                                          columns: inputUnits,
-                                          depth: 1),
+    let lstm = LSTM(inputUnits: inputUnits,
+                    batchLength: batchLength,
                     initializer: .heNormal,
                     hiddenUnits: hiddenUnits,
                     vocabSize: vocabSize)
 
     
-    let inputTensor = Tensor(oneHot)
+    let inputTensor = oneHot
     
     let out = lstm.forward(tensor: inputTensor)
     
-    XCTAssertEqual(out.shape, [vocabSize, 1, oneHot.count])
+    XCTAssertEqual(out.shape, [vocabSize, 1, batchLength])
   }
 
 }

@@ -33,10 +33,12 @@ final class VectorTests: XCTestCase {
     let testName = "anna"
     let oneHot = vectorizer.oneHot(testName.characters)
     
-    XCTAssertEqual(oneHot, [[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                            [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                            [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                            [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
+    let expected = Tensor([[[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
+                           [[0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
+                           [[0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
+                           [[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]])
+    
+    XCTAssertTrue(oneHot.isValueEqual(to: expected))
     
     let unvectorized = vectorizer.unvectorizeOneHot(oneHot).joined()
     
@@ -44,7 +46,7 @@ final class VectorTests: XCTestCase {
   }
   
   
-  func test_on_hot_letters() {
+  func test_one_hot_letters() {
     let names = ["anna",
                  "emma",
                  "elizabeth",
@@ -64,10 +66,12 @@ final class VectorTests: XCTestCase {
     let testName = "anna"
     let oneHot = vectorizer.oneHot(testName.characters)
     
-    XCTAssertEqual(oneHot, [[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                            [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                            [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                            [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
+    let expected = Tensor([[[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
+                           [[0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
+                           [[0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
+                           [[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]])
+    
+    XCTAssertTrue(oneHot.isValueEqual(to: expected))
   }
   
   func test_one_Hot_words_unvectorize() {
@@ -80,14 +84,16 @@ final class VectorTests: XCTestCase {
     
     let oneHot = vectorizer.oneHot(words)
     
-    XCTAssertEqual(oneHot, [[1, 0, 0, 0, 0, 0, 0],
-                            [0, 1, 0, 0, 0, 0, 0],
-                            [0, 0, 1, 0, 0, 0, 0],
-                            [0, 0, 0, 1, 0, 0, 0],
-                            [0, 0, 0, 0, 1, 0, 0],
-                            [1, 0, 0, 0, 0, 0, 0],
-                            [0, 0, 0, 0, 0, 1, 0],
-                            [0, 0, 0, 0, 0, 0, 1]])
+    let expected = Tensor([[[1, 0, 0, 0, 0, 0, 0]],
+                           [[0, 1, 0, 0, 0, 0, 0]],
+                           [[0, 0, 1, 0, 0, 0, 0]],
+                           [[0, 0, 0, 1, 0, 0, 0]],
+                           [[0, 0, 0, 0, 1, 0, 0]],
+                           [[1, 0, 0, 0, 0, 0, 0]],
+                           [[0, 0, 0, 0, 0, 1, 0]],
+                           [[0, 0, 0, 0, 0, 0, 1]]])
+    
+    XCTAssertTrue(oneHot.isValueEqual(to: expected))
     
     let unvectorized = vectorizer.unvectorizeOneHot(oneHot).joined(separator: " ")
     
@@ -102,14 +108,18 @@ final class VectorTests: XCTestCase {
     
     vectorizer.vectorize(words, format: .start)
     
-    XCTAssertEqual(vectorizer.oneHot(words), [[1, 0, 0, 0, 0, 0, 0],
-                                              [0, 1, 0, 0, 0, 0, 0],
-                                              [0, 0, 1, 0, 0, 0, 0],
-                                              [0, 0, 0, 1, 0, 0, 0],
-                                              [0, 0, 0, 0, 1, 0, 0],
-                                              [1, 0, 0, 0, 0, 0, 0],
-                                              [0, 0, 0, 0, 0, 1, 0],
-                                              [0, 0, 0, 0, 0, 0, 1]])
+    let oneHot = vectorizer.oneHot(words)
+    
+    let expected = Tensor([[[1, 0, 0, 0, 0, 0, 0]],
+                           [[0, 1, 0, 0, 0, 0, 0]],
+                           [[0, 0, 1, 0, 0, 0, 0]],
+                           [[0, 0, 0, 1, 0, 0, 0]],
+                           [[0, 0, 0, 0, 1, 0, 0]],
+                           [[1, 0, 0, 0, 0, 0, 0]],
+                           [[0, 0, 0, 0, 0, 1, 0]],
+                           [[0, 0, 0, 0, 0, 0, 1]]])
+    
+    XCTAssertTrue(oneHot.isValueEqual(to: expected))
   }
   
   func test_String_Vectorize_Start() {

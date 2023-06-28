@@ -98,20 +98,24 @@ public final class LSTM: Layer {
   
   /// Default initializer
   /// - Parameters:
-  ///   - inputSize: Input size expected. The batch size is determined by the `rows` and the inputUnits is determined by the `columns`
+  ///   - inputUnits: The number of inputs in the LSTM cell
+  ///   - batchLength: The number samples (eg. letters) at a given time
   ///   - initializer: Initializer funciton to use
   ///   - hiddenUnits: Number of hidden use
   ///   - vocabSize: size of the expected vocabulary
-  public init(inputSize: TensorSize,
+  public init(inputUnits: Int,
+              batchLength: Int,
               initializer: InitializerType = .heNormal,
               hiddenUnits: Int,
               vocabSize: Int) {
-    self.inputSize = inputSize
+    self.inputSize = TensorSize(rows: 1,
+                                columns: vocabSize,
+                                depth: batchLength)
     self.initializer = initializer.build()
     self.hiddenUnits = hiddenUnits
     self.vocabSize = vocabSize
-    self.inputUnits = inputSize.columns
-    self.batchLength = inputSize.rows
+    self.inputUnits = inputUnits
+    self.batchLength = batchLength
     self.outputSize = TensorSize(rows: 1,
                                  columns: vocabSize,
                                  depth: batchLength)
@@ -132,16 +136,20 @@ public final class LSTM: Layer {
          hiddenUnits,
          vocabSize,
          hiddenOutputWeights,
-         embeddings
+         embeddings,
+         batchLength,
+         inputUnits
   }
   
   convenience public init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let hiddenUnits = try container.decodeIfPresent(Int.self, forKey: .hiddenUnits) ?? 0
     let vocabSize = try container.decodeIfPresent(Int.self, forKey: .vocabSize) ?? 0
-    let inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
+    let inputUnits = try container.decodeIfPresent(Int.self, forKey: .inputUnits) ?? 0
+    let batchLength = try container.decodeIfPresent(Int.self, forKey: .batchLength) ?? 0
 
-    self.init(inputSize: inputSize,
+    self.init(inputUnits: inputUnits,
+              batchLength: batchLength,
               hiddenUnits: hiddenUnits,
               vocabSize: vocabSize)
 
@@ -171,7 +179,8 @@ public final class LSTM: Layer {
     try container.encode(hiddenUnits, forKey: .hiddenUnits)
     try container.encode(vocabSize, forKey: .vocabSize)
     try container.encode(embeddings, forKey: .embeddings)
-
+    try container.encode(batchLength, forKey: .batchLength)
+    try container.encode(inputUnits, forKey: .inputUnits)
   }
   
   // TODO: consider an Embedding layer that handles embeddings
