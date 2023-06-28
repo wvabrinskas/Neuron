@@ -184,7 +184,8 @@ public final class LSTM: Layer {
   }
   
   // TODO: consider an Embedding layer that handles embeddings
-  // expect a 3D input tensor to go through all batches, where each word is a 2D tensor [batchsize][vocabSize]
+  /// expect a 3D input tensor to go through all batches, where each word is a 3D tensor
+  /// size expected: `(rows: 1, columns: vocabSize, depth: batchSize)`
   public func forward(tensor: Tensor) -> Tensor {
     
     var cellCache: [Cache] = [setupInitialState()]
@@ -266,10 +267,10 @@ public final class LSTM: Layer {
         }
       }
       
+      // merge all weights into a giant 5 depth tensor, shape will be broken here
       let weightDerivatives = wrtLSTMCellInputWeightsDerivatives.concat().concat(wrtOutputWeightsDerivatives, axis: 2)
       
-      // technically wrtEmbeddingsDerivatives is not wrt to the input ...
-      return (Tensor(), weightDerivatives) // merge all weights into a giant 5 depth tensor, shape will be broken here
+      return (Tensor(), weightDerivatives)
     }
     
     var out = Tensor(context: context)

@@ -145,7 +145,7 @@ public class RNN: Classifier {
     while runningChar != ".", name.count < 50 {
       // use LSTM layer since that's really all we need
       let out = lstm.forward(tensor: Tensor(batch))
-      let outRounded = out.value.flatten()
+      let outRounded = out.value[safe: 0]?[safe: 0] ?? []
       let maxIndex = Int(outRounded.indexOfMax.0)
       
       var outHot = [Float](repeating: 0, count: vocabSize)
