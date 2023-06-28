@@ -188,10 +188,10 @@ class LSTMCell {
     let ogw = parameters.outputGateWeights
     let ggw = parameters.gateGateWeights
     
-    var embedActivationError = ef.matmul(Tensor(fgw.value[0].transposed()))
-    embedActivationError = embedActivationError + (ei.matmul(Tensor(igw.value[0].transposed())))
-    embedActivationError = embedActivationError + (eo.matmul(Tensor(ogw.value[0].transposed())))
-    embedActivationError = embedActivationError + (eg.matmul(Tensor(ggw.value[0].transposed())))
+    var embedActivationError = ef.matmul(Tensor(fgw.value.transpose()))
+    embedActivationError = embedActivationError + (ei.matmul(Tensor(igw.value.transpose())))
+    embedActivationError = embedActivationError + (eo.matmul(Tensor(ogw.value.transpose())))
+    embedActivationError = embedActivationError + (eg.matmul(Tensor(ggw.value.transpose())))
     
     let fgwShape = fgw.shape
     let inputHiddenUnits = fgwShape[safe: 1] ?? 0
@@ -224,9 +224,7 @@ class LSTMCell {
                                    activation: Tensor,
                                    batchSize: Int) -> ParameterDerivatives {
     
-    guard let transposed = activation.concat(embedding, axis: -1).value[safe: 0]?.transposed() else {
-      fatalError("\(String(describing: self)): activations does not have the right dimensions")
-    }
+    let transposed = activation.concat(embedding, axis: -1).value.transpose()
     
     let concat = Tensor(transposed)
     

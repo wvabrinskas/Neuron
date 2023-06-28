@@ -31,12 +31,10 @@ class OutputCell {
                 activations: [[Tensor.Scalar]],
                 batchSize: Int,
                 hiddenOutputWeights: Tensor) -> (outputs: Tensor, weights: Tensor) {
-    guard let w = hiddenOutputWeights.value[safe: 0]?.transposed() else {
-      fatalError("Could not transpose hidden output weights in LSTM layer")
-    }
+    let w = hiddenOutputWeights.value.transpose()
     
     let wrtOutputs = Tensor(gradient).matmul(Tensor(w))
-    let wrtWeights = Tensor(activations.transposed()).matmul(Tensor(gradient)) / Tensor.Scalar(batchSize)
+    let wrtWeights = Tensor(activations.transpose()).matmul(Tensor(gradient)) / Tensor.Scalar(batchSize)
     return (wrtOutputs, wrtWeights)
   }
 }

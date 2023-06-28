@@ -232,7 +232,7 @@ public final class LSTM: Layer {
         
         // calc embedding derivatives
         let embeddingError = backward.inputs.embeddingError
-        let inputsTransposed = Tensor(inputs.value[0].transposed()) // should only ever have a depth of 1
+        let inputsTransposed = Tensor(inputs.value.transpose()) // should only ever have a depth of 1
         let dEmbedding = inputsTransposed.matmul(embeddingError) / Tensor.Scalar(self.batchSize)
         
         if self.wrtEmbeddingsDerivatives.isEmpty {

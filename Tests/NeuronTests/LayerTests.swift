@@ -71,7 +71,13 @@ final class LayerTests: XCTestCase {
     XCTAssertEqual(out.shape, [vocabSize, oneHot.count, 1])
   }
 
+  /// LSTM test example
 //  func test_LSTM_Forward_Example() {
+//    guard isGithubCI == false else {
+//      XCTAssertTrue(true)
+//      return
+//    }
+//    
 //    let inputUnits = 100
 //    let hiddenUnits = 256
 //    
@@ -113,6 +119,20 @@ final class LayerTests: XCTestCase {
 //    let optimizer = Adam(sequential,
 //                         learningRate: 0.005,
 //                         l2Normalize: false)
+//    
+//    let reporter = MetricsReporter(frequency: 1,
+//                                   metricsToGather: [.loss,
+//                                                     .accuracy,
+//                                                     .valAccuracy,
+//                                                     .valLoss])
+//    
+//    optimizer.metricsReporter = reporter
+//    
+//    optimizer.metricsReporter?.receive = { metrics in
+//      let accuracy = metrics[.accuracy] ?? 0
+//      let loss = metrics[.loss] ?? 0
+//      print("training -> ", "loss: ", loss, "accuracy: ", accuracy)
+//    }
 //    
 //    let inputTensor = Tensor(input)
 //
