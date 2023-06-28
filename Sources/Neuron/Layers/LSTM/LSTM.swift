@@ -365,7 +365,9 @@ public final class LSTM: Layer {
   
   // MARK: Private
   private func reset() {
-
+    cells.removeAll()
+    cellCache.removeAll()
+    
     wrtEmbeddingsDerivatives = .init()
   }
 
