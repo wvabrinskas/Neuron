@@ -30,6 +30,8 @@ public protocol Vectorizing {
   @discardableResult
   func vectorize(_ items: [Item], format: VectorFormat) -> [Int]
   func unvectorize(_ vector: [Int]) -> [Item]
+  func unvectorizeOneHot(_ vector: [[Tensor.Scalar]]) -> [Item]
+  func oneHot(_ items: [Item]) -> [[Tensor.Scalar]]
 }
 
 
@@ -104,6 +106,21 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
 
     return vectorized
   }
+  
+  public func unvectorizeOneHot(_ vector: [[Tensor.Scalar]]) -> [T] {
+    var items: [T] = []
+    
+    vector.forEach { v in
+      if let indexOfHot = v.firstIndex(of: 1) {
+        if let s = inverseVector[Int(indexOfHot + 2)] {
+          items.append(s)
+        }
+      }
+    }
+    
+    return items
+  }
+  
   
   public func unvectorize(_ vector: [Int]) -> [T] {
     var items: [T] = []

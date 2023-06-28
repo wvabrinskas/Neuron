@@ -13,6 +13,37 @@ import NumSwift
 
 final class VectorTests: XCTestCase {
   
+  func test_on_hot_letters_unvectorize() {
+    let names = ["anna",
+                 "emma",
+                 "elizabeth",
+                 "minnie",
+                 "margaret",
+                 "ida",
+                 "alice",
+                 "bertha",
+                 "sarah"]
+    
+    let vectorizer = Vectorizer<String>()
+
+    names.forEach { name in
+      vectorizer.vectorize(name.fill(with: ".", max: 10).characters)
+    }
+    
+    let testName = "anna"
+    let oneHot = vectorizer.oneHot(testName.characters)
+    
+    XCTAssertEqual(oneHot, [[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                            [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                            [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                            [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
+    
+    let unvectorized = vectorizer.unvectorizeOneHot(oneHot).joined()
+    
+    XCTAssertEqual(testName, unvectorized)
+  }
+  
+  
   func test_on_hot_letters() {
     let names = ["anna",
                  "emma",
@@ -37,6 +68,30 @@ final class VectorTests: XCTestCase {
                             [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                             [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                             [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
+  }
+  
+  func test_one_Hot_words_unvectorize() {
+    let vectorizer = Vectorizer<String>()
+    
+    let sentence = "The wide road shimmered in the hot sun"
+    let words = sentence.components(separatedBy: " ")
+    
+    vectorizer.vectorize(words, format: .start)
+    
+    let oneHot = vectorizer.oneHot(words)
+    
+    XCTAssertEqual(oneHot, [[1, 0, 0, 0, 0, 0, 0],
+                            [0, 1, 0, 0, 0, 0, 0],
+                            [0, 0, 1, 0, 0, 0, 0],
+                            [0, 0, 0, 1, 0, 0, 0],
+                            [0, 0, 0, 0, 1, 0, 0],
+                            [1, 0, 0, 0, 0, 0, 0],
+                            [0, 0, 0, 0, 0, 1, 0],
+                            [0, 0, 0, 0, 0, 0, 1]])
+    
+    let unvectorized = vectorizer.unvectorizeOneHot(oneHot).joined(separator: " ")
+    
+    XCTAssertEqual(sentence.lowercased(), unvectorized)
   }
   
   func test_one_Hot_words() {
