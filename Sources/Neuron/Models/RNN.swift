@@ -10,7 +10,7 @@ import NumSwift
 
 public typealias RNNSupportedDatasetData = (training: [DatasetModel], val: [DatasetModel])
 public protocol RNNSupportedDataset {
-  func getWord<T: RandomAccessCollection>(for data: T) -> [String]
+  func getWord(for data: Tensor) -> [String]
   func build() async -> RNNSupportedDatasetData
 }
 
@@ -151,7 +151,7 @@ public class RNN: Classifier {
       var outHot = [Float](repeating: 0, count: vocabSize)
       outHot[maxIndex] = 1.0
       
-      let unvec = dataset.getWord(for: [outHot]).joined()
+      let unvec = dataset.getWord(for: Tensor(outHot)).joined()
       
       name += unvec
       runningChar = unvec
