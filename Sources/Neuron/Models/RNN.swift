@@ -159,6 +159,8 @@ public class RNN: Classifier {
       batch = outHot
     }
     
+    optimNetwork.isTraining = true
+    
     return name
   }
   
