@@ -68,7 +68,7 @@ final class LayerTests: XCTestCase {
     
     let out = lstm.forward(tensor: inputTensor)
     
-    XCTAssertEqual(out.shape, [vocabSize, oneHot.count, 1])
+    XCTAssertEqual(out.shape, [vocabSize, 1, oneHot.count])
   }
 
 }

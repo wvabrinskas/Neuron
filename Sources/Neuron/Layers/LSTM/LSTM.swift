@@ -30,7 +30,7 @@ public final class LSTM: Layer {
   private var hiddenUnits: Int
   private var vocabSize: Int
   private var inputUnits: Int
-  private var batchSize: Int
+  private var batchLength: Int
   
   private var cellCache: [Cache] = []
   private var cells: [(LSTMCell, OutputCell)] = []
@@ -111,10 +111,10 @@ public final class LSTM: Layer {
     self.hiddenUnits = hiddenUnits
     self.vocabSize = vocabSize
     self.inputUnits = inputSize.columns
-    self.batchSize = inputSize.rows
-    self.outputSize = TensorSize(rows: batchSize,
+    self.batchLength = inputSize.rows
+    self.outputSize = TensorSize(rows: 1,
                                  columns: vocabSize,
-                                 depth: inputSize.depth)
+                                 depth: batchLength)
         
     initializeWeights()
   }
@@ -187,7 +187,7 @@ public final class LSTM: Layer {
     }
     
     let context = TensorContext { inputs, gradient in
-      var eat: [[Tensor.Scalar]] = NumSwift.zerosLike((rows: self.batchSize,
+      var eat: [[Tensor.Scalar]] = NumSwift.zerosLike((rows: 1,
                                                        columns: self.hiddenUnits))
       var ect: [[Tensor.Scalar]] = eat
       
@@ -199,7 +199,7 @@ public final class LSTM: Layer {
         let outputCell = cells[i].1
         let activationErrors = outputCell.backward(gradient: gradient.value[i],
                                                    activations: cellCache[i].activation.value[0], // should be depth of 1 always
-                                                   batchSize: self.batchSize,
+                                                   batchSize: self.batchLength,
                                                    hiddenOutputWeights: self.hiddenOutputWeights)
         
         if wrtOutputWeightsDerivatives.isEmpty {
@@ -223,7 +223,7 @@ public final class LSTM: Layer {
                                        activationOutputError: activationOutputError,
                                        nextActivationError: nextActivationError,
                                        nextCellError: ect,
-                                       batchSize: self.batchSize,
+                                       batchSize: self.batchLength,
                                        parameters: .init(forgetGateWeights: self.forgetGateWeights,
                                                          inputGateWeights: self.inputGateWeights,
                                                          gateGateWeights: self.gateGateWeights,
@@ -240,13 +240,14 @@ public final class LSTM: Layer {
         
         // calc embedding derivatives
         let embeddingError = backward.inputs.embeddingError
-        let inputsTransposed = Tensor(inputs.value.transpose()) // should only ever have a depth of 1
-        let dEmbedding = inputsTransposed.matmul(embeddingError) / Tensor.Scalar(self.batchSize)
+        let inputsTransposed = Tensor(inputs.value[i].transpose()) // should only ever have a depth of 1
+        let dEmbedding = inputsTransposed.matmul(embeddingError) / Tensor.Scalar(self.batchLength)
         
         if self.wrtEmbeddingsDerivatives.isEmpty {
           self.wrtEmbeddingsDerivatives = dEmbedding
         } else {
-          self.wrtEmbeddingsDerivatives = self.wrtEmbeddingsDerivatives + dEmbedding
+          let dEmbed = self.wrtEmbeddingsDerivatives + dEmbedding
+          self.wrtEmbeddingsDerivatives = dEmbed
         }
         
         if let pae = previousActivationError.value[safe: 0],
@@ -264,15 +265,15 @@ public final class LSTM: Layer {
     
     var out = Tensor(context: context)
     
-    for d in 0..<cellCache.count {
+    for d in 0..<batchLength {
       guard let cache = cellCache[safe: d] else { break }
 
       let word = Tensor(tensor.value[safe: d] ?? tensor.value[0])
-        
-      let cell =  cells[safe: d]?.0 ?? LSTMCell(hidden: hiddenUnits,
-                                                input: inputUnits,
-                                                vocabSize: vocabSize,
-                                                batchSize: batchSize)
+      
+      let cell = cells[safe: d]?.0 ?? LSTMCell(hidden: hiddenUnits,
+                                               input: inputUnits,
+                                               vocabSize: vocabSize,
+                                               batchSize: batchLength)
       
       let getEmbeddings = device.matmul(word, embeddings.detached())
             
@@ -420,8 +421,8 @@ public final class LSTM: Layer {
   }
   
   private func setupInitialState() -> Cache {
-    let a = Tensor(NumSwift.zerosLike((rows: batchSize, columns: hiddenUnits, depth: 1)))
-    let c = Tensor(NumSwift.zerosLike((rows: batchSize, columns: hiddenUnits, depth: 1)))
+    let a = Tensor(NumSwift.zerosLike((rows: batchLength, columns: hiddenUnits, depth: 1)))
+    let c = Tensor(NumSwift.zerosLike((rows: batchLength, columns: hiddenUnits, depth: 1)))
     
     let initialCache = Cache()
     
