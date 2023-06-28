@@ -17,17 +17,11 @@ public protocol RNNSupportedDataset {
 public class RNN: Classifier {
   public struct RNNLSTMParameters {
     let hiddenUnits: Int
-    let vocabSize: Int
-    let wordLength: Int
     let inputUnits: Int
     
     public init(hiddenUnits: Int,
-                vocabSize: Int,
-                wordLength: Int,
                 inputUnits: Int) {
       self.hiddenUnits = hiddenUnits
-      self.vocabSize = vocabSize
-      self.wordLength = wordLength
       self.inputUnits = inputUnits
     }
   }
@@ -73,7 +67,12 @@ public class RNN: Classifier {
   }
   
   private let dataset: RNNSupportedDataset
-  private let lstm: LSTM
+  private var lstm: LSTM?
+  private var vocabSize: Int = 0
+  private var wordLength: Int = 0
+  private var extraLayers: [Layer]
+  private var ready: Bool = false
+  private var datasetData: RNNSupportedDatasetData?
   
   private let classifierParameters: ClassifierParameters
   private let optimizerParameters: OptimizerParameters
@@ -91,18 +90,9 @@ public class RNN: Classifier {
     self.lstmParameters = lstmParameters
     
     self.dataset = dataset
+    self.extraLayers = extraLayers()
     
-    self.lstm = LSTM(inputSize: TensorSize(rows: lstmParameters.wordLength,
-                                           columns: lstmParameters.inputUnits,
-                                           depth: 1),
-                     initializer: .heNormal,
-                     hiddenUnits: lstmParameters.hiddenUnits,
-                     vocabSize: lstmParameters.vocabSize)
-    
-    var layers: [Layer] = [lstm]
-    layers.append(contentsOf: extraLayers())
-    
-    let network = Sequential { layers }
+    let network = Sequential { [] }
     
     let optimizer = Adam(network,
                          device: device,
@@ -124,16 +114,25 @@ public class RNN: Classifier {
   }
   
   public func train() async {
-    let datasetOut = await dataset.build()
-    fit(datasetOut.training, datasetOut.val)
+    if ready == false || datasetData == nil {
+      datasetData = await dataset.build()
+      
+      if let datasetData {
+        compile(dataset: datasetData)
+      }
+    }
+
+    if let datasetData {
+      fit(datasetData.training, datasetData.val)
+    }
   }
   
-  public func predict(_ tensor: Tensor) -> String {
+  public func predict() -> String {
+    guard let lstm else { return "" }
+    
     var name: String = ""
     var runningChar: String = ""
-    
-    let vocabSize = lstmParameters.vocabSize
-    
+        
     var batch = [Float](repeating: 0, count: vocabSize)
     let index = Int.random(in: 0..<vocabSize)
     
@@ -157,6 +156,29 @@ public class RNN: Classifier {
     }
     
     return name
+  }
+  
+  private func compile(dataset: RNNSupportedDatasetData) {
+    guard let first = dataset.training.first else { fatalError("Could not build network with dataset") }
+    
+    let vocabSize = first.data.shape[0]
+    let wordLength = first.data.shape[1]
+    
+    self.vocabSize = vocabSize
+    self.wordLength = wordLength
+    
+    let lstm = LSTM(inputSize: TensorSize(array: [wordLength, lstmParameters.inputUnits]),
+                    hiddenUnits: lstmParameters.hiddenUnits,
+                    vocabSize: vocabSize)
+    
+    var layers: [Layer] = [lstm]
+    layers.append(contentsOf: extraLayers)
+    
+    let sequential = Sequential({ layers })
+    
+    optimNetwork.trainable = sequential
+    
+    ready = true
   }
 }
 

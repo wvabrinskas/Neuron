@@ -12,7 +12,7 @@ public protocol Optimizer: AnyObject {
   typealias Gradient = (weights: Tensor, biases: Tensor)
   typealias Output = (outputs: [Tensor], gradients: Tensor.Gradient, loss: Float, accuracy: Float)
   
-  var trainable: Trainable { get }
+  var trainable: Trainable { get set }
   var learningRate: Float { get }
   var isTraining: Bool { get set }
   var device: Device { get set }
