@@ -114,6 +114,8 @@ public class RNN: Classifier {
   }
   
   public func train() async {
+    optimNetwork.isTraining = true
+    
     if ready == false || datasetData == nil {
       datasetData = await dataset.build()
       
@@ -129,6 +131,8 @@ public class RNN: Classifier {
   
   public func predict() -> String {
     guard let lstm else { return "" }
+    
+    optimNetwork.isTraining = false
     
     var name: String = ""
     var runningChar: String = ""

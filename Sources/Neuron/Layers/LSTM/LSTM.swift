@@ -32,6 +32,9 @@ public final class LSTM: Layer {
   private var inputUnits: Int
   private var batchSize: Int
   
+  private var cellCache: [Cache] = []
+  private var cells: [(LSTMCell, OutputCell)] = []
+  
   // MARK: State variables....
   // maintaining state is difficult when multi threaded..
   private var wrtEmbeddingsDerivatives: Tensor = Tensor()
@@ -178,6 +181,11 @@ public final class LSTM: Layer {
     var cellCache: [Cache] = [setupInitialState()]
     var cells: [(LSTMCell, OutputCell)] = []
     
+    if trainable == false {
+      cellCache = self.cellCache.isEmpty ? [setupInitialState()] : self.cellCache
+      cells = self.cells
+    }
+    
     let context = TensorContext { inputs, gradient in
       var eat: [[Tensor.Scalar]] = NumSwift.zerosLike((rows: self.batchSize,
                                                        columns: self.hiddenUnits))
@@ -310,6 +318,11 @@ public final class LSTM: Layer {
     // drop first state since it's just default values
     cellCache = Array(cellCache.dropFirst())
 
+    if trainable == false {
+      self.cellCache = cellCache
+      self.cells = cells
+    }
+    
     return out
   }
   

@@ -182,6 +182,8 @@ final class FullModelTests: XCTestCase {
       let loss = metrics[.loss] ?? 0
       print("training -> ", "loss: ", loss, "accuracy: ", accuracy)
     }
+    
+    optimizer.metricsReporter = reporter
 
     let inputTensor = Tensor(input)
 
@@ -196,7 +198,7 @@ final class FullModelTests: XCTestCase {
       
     }
 
-    classifier.fit([DatasetModel](repeating: DatasetModel(data: inputTensor, label: inputTensor), count: 900), [])
+    classifier.fit([DatasetModel](repeating: DatasetModel(data: inputTensor, label: inputTensor), count: 900), [DatasetModel](repeating: DatasetModel(data: inputTensor, label: inputTensor), count: 5))
 
   }
 }
