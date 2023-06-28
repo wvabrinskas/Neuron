@@ -21,7 +21,7 @@ public class Adam: Optimizer {
   
   public var trainable: Trainable {
     didSet {
-      trainable.compile()
+      build()
     }
   }
   public var learningRate: Float
@@ -61,11 +61,8 @@ public class Adam: Optimizer {
     self.learningRate = learningRate
     self.device = device
     self.l2Normalize = l2Normalize
-    m = [Tensor.Data].init(repeating: [], count: trainable.layers.count) // we want to support multiple weight structures right now this only supports one Tensor for one m value, when layers could have multiple tensors representing weights
-    v = [Tensor.Data].init(repeating: [], count: trainable.layers.count)
-    vb = [[Tensor.Scalar]].init(repeating: [], count: trainable.layers.count)
-    mb = [[Tensor.Scalar]].init(repeating: [], count: trainable.layers.count)
-    trainable.compile()
+    
+    build()
   }
   
   public func step() {
@@ -87,6 +84,14 @@ public class Adam: Optimizer {
     }
     
     t += 1
+  }
+  
+  private func build() {
+    m = [Tensor.Data].init(repeating: [], count: trainable.layers.count) // we want to support multiple weight structures right now this only supports one Tensor for one m value, when layers could have multiple tensors representing weights
+    v = [Tensor.Data].init(repeating: [], count: trainable.layers.count)
+    vb = [[Tensor.Scalar]].init(repeating: [], count: trainable.layers.count)
+    mb = [[Tensor.Scalar]].init(repeating: [], count: trainable.layers.count)
+    trainable.compile()
   }
   
   private func run(gradient: Tensor, biasGradient: Tensor, index: Int) -> Optimizer.Gradient {
