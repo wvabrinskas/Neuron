@@ -70,7 +70,7 @@ final class LayerTests: XCTestCase {
     
     XCTAssertEqual(out.shape, [vocabSize, oneHot.count, 1])
   }
-//
+
 //  func test_LSTM_Forward_Example() {
 //    let inputUnits = 100
 //    let hiddenUnits = 256
