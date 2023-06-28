@@ -167,7 +167,7 @@ public class RNN: Classifier {
     self.vocabSize = vocabSize
     self.wordLength = wordLength
     
-    let lstm = LSTM(inputSize: TensorSize(array: [wordLength, lstmParameters.inputUnits]),
+    let lstm = LSTM(inputSize: TensorSize(array: [wordLength, lstmParameters.inputUnits, 1]),
                     hiddenUnits: lstmParameters.hiddenUnits,
                     vocabSize: vocabSize)
     
