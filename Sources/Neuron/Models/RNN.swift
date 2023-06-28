@@ -173,6 +173,8 @@ public class RNN: Classifier {
                     hiddenUnits: lstmParameters.hiddenUnits,
                     vocabSize: vocabSize)
     
+    self.lstm = lstm
+    
     var layers: [Layer] = [lstm]
     layers.append(contentsOf: extraLayers)
     
