@@ -123,80 +123,80 @@ final class FullModelTests: XCTestCase {
   
   
   /// LSTM test example
-//  func test_LSTM_Forward_Example() {
-//    guard isGithubCI == false else {
-//      XCTAssertTrue(true)
-//      return
-//    }
-//
-//    let inputUnits = 100
-//    let hiddenUnits = 256
-//
-//    // this is 20 samples, aka 20 letters for a single word, aka a 2D tensor that represents the word
-//    let input: [[[Float]]] = [[[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-//                            [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-//                            [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-//                            [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-//                            [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-//                            [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-//                            [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-//                            [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-//                            [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-//                            [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]]
-//
-//   // let vocabSize = 27// the size of the total map of vocab letters available. Likely comes from Vectorize
-//    let vocabSize = input.shape[0]
-//    let rows = input.shape[1]
-//
-//    let lstm = LSTM(inputSize: TensorSize(rows: rows,
-//                                          columns: inputUnits,
-//                                          depth: 1),
-//                    initializer: .heNormal,
-//                    hiddenUnits: hiddenUnits,
-//                    vocabSize: vocabSize)
-//
-//    // TODO: get other layers to work with multiple batches.
-//    let sequential = Sequential(
-//      lstm,
-//      Flatten(),
-//      Dense(64),
-//      ReLu(),
-//      Dropout(0.5),
-//      Dense(vocabSize * rows * 1),
-//      Reshape(to: TensorSize(array: [vocabSize, rows, 1])),
-//      Softmax()
-//    )
-//
-//    let optimizer = Adam(sequential,
-//                         learningRate: 0.005,
-//                         l2Normalize: false)
-//
-//    let reporter = MetricsReporter(frequency: 1,
-//                                   metricsToGather: [.loss,
-//                                                     .accuracy,
-//                                                     .valAccuracy,
-//                                                     .valLoss])
-//
-//    reporter.receive = { metrics in
-//      let accuracy = metrics[.accuracy] ?? 0
-//      let loss = metrics[.loss] ?? 0
-//      print("training -> ", "loss: ", loss, "accuracy: ", accuracy)
-//    }
-//
-//    let inputTensor = Tensor(input)
-//
-//    let classifier = Classifier(optimizer: optimizer,
-//                                epochs: 20,
-//                                batchSize: 16,
-//                                accuracyThreshold: 0.9,
-//                                threadWorkers: 8,
-//                                log: false)
-//    
-//    classifier.onAccuracyReached = {
-//      
-//    }
-//
-//    classifier.fit([DatasetModel](repeating: DatasetModel(data: inputTensor, label: inputTensor), count: 900), [])
-//
-//  }
+  func test_LSTM_Forward_Example() {
+    guard isGithubCI == false else {
+      XCTAssertTrue(true)
+      return
+    }
+
+    let inputUnits = 100
+    let hiddenUnits = 256
+
+    // this is 20 samples, aka 20 letters for a single word, aka a 2D tensor that represents the word
+    let input: [[[Float]]] = [[[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                            [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                            [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                            [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                            [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                            [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                            [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                            [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                            [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                            [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]]
+
+   // let vocabSize = 27// the size of the total map of vocab letters available. Likely comes from Vectorize
+    let vocabSize = input.shape[0]
+    let rows = input.shape[1]
+
+    let lstm = LSTM(inputSize: TensorSize(rows: rows,
+                                          columns: inputUnits,
+                                          depth: 1),
+                    initializer: .heNormal,
+                    hiddenUnits: hiddenUnits,
+                    vocabSize: vocabSize)
+
+    // TODO: get other layers to work with multiple batches.
+    let sequential = Sequential(
+      lstm,
+      Flatten(),
+      Dense(64),
+      ReLu(),
+      Dropout(0.5),
+      Dense(vocabSize * rows * 1),
+      Reshape(to: TensorSize(array: [vocabSize, rows, 1])),
+      Softmax()
+    )
+
+    let optimizer = Adam(sequential,
+                         learningRate: 0.005,
+                         l2Normalize: false)
+
+    let reporter = MetricsReporter(frequency: 1,
+                                   metricsToGather: [.loss,
+                                                     .accuracy,
+                                                     .valAccuracy,
+                                                     .valLoss])
+
+    reporter.receive = { metrics in
+      let accuracy = metrics[.accuracy] ?? 0
+      let loss = metrics[.loss] ?? 0
+      print("training -> ", "loss: ", loss, "accuracy: ", accuracy)
+    }
+
+    let inputTensor = Tensor(input)
+
+    let classifier = Classifier(optimizer: optimizer,
+                                epochs: 20,
+                                batchSize: 16,
+                                accuracyThreshold: 0.9,
+                                threadWorkers: 8,
+                                log: false)
+    
+    classifier.onAccuracyReached = {
+      
+    }
+
+    classifier.fit([DatasetModel](repeating: DatasetModel(data: inputTensor, label: inputTensor), count: 900), [])
+
+  }
 }
