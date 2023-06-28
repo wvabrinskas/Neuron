@@ -267,7 +267,7 @@ public final class LSTM: Layer {
     for d in 0..<cellCache.count {
       guard let cache = cellCache[safe: d] else { break }
 
-      let word = Tensor(tensor.value[d])
+      let word = Tensor(tensor.value[safe: d] ?? tensor.value[0])
         
       let cell =  cells[safe: d]?.0 ?? LSTMCell(hidden: hiddenUnits,
                                                 input: inputUnits,
