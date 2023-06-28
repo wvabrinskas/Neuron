@@ -20,7 +20,7 @@ public class Classifier {
   public var onAccuracyReached: (() -> ())? = nil
   public var onEpochCompleted: (() -> ())? = nil
   
-  private var optimNetwork: Optimizer
+  var optimNetwork: Optimizer
   
   public init(optimizer: Optimizer,
               epochs: Int = 100,

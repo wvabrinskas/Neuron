@@ -19,7 +19,11 @@ public class Adam: Optimizer {
     }
   }
   
-  public private(set) var trainable: Trainable
+  public var trainable: Trainable {
+    didSet {
+      trainable.compile()
+    }
+  }
   public var learningRate: Float
   public var device: Device = CPU() {
     didSet {
