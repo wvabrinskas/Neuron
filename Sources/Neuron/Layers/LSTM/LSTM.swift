@@ -128,7 +128,8 @@ public final class LSTM: Layer {
          outputGateWeights,
          hiddenUnits,
          vocabSize,
-         hiddenOutputWeights
+         hiddenOutputWeights,
+         embeddings
   }
   
   convenience public init(from decoder: Decoder) throws {
@@ -149,7 +150,7 @@ public final class LSTM: Layer {
     self.gateGateWeights = try container.decodeIfPresent(Tensor.self, forKey: .gateGateWeights) ?? Tensor()
     self.outputGateWeights = try container.decodeIfPresent(Tensor.self, forKey: .outputGateWeights) ?? Tensor()
     self.hiddenOutputWeights = try container.decodeIfPresent(Tensor.self, forKey: .hiddenOutputWeights) ?? Tensor()
-
+    self.embeddings = try container.decodeIfPresent(Tensor.self, forKey: .embeddings) ?? Tensor()
   }
   
   public func encode(to encoder: Encoder) throws {
@@ -166,6 +167,7 @@ public final class LSTM: Layer {
     try container.encode(hiddenOutputWeights, forKey: .hiddenOutputWeights)
     try container.encode(hiddenUnits, forKey: .hiddenUnits)
     try container.encode(vocabSize, forKey: .vocabSize)
+    try container.encode(embeddings, forKey: .embeddings)
 
   }
   
