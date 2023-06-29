@@ -75,10 +75,14 @@ public final class Reshape: Layer {
     
     let reshaped = flat.reshape(columns: sizeCols).reshape(columns: sizeRows)
     
-    return Tensor(reshaped, context: context)
+    let out = Tensor(reshaped, context: context)
+    
+    out.setGraph(tensor)
+
+    return out
   }
   
-  public func apply(gradients: Optimizer.Gradient) {
+  public func apply(gradients: Optimizer.Gradient, learningRate: Float) {
     //no opp
   }
   

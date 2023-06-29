@@ -26,7 +26,7 @@ public enum InitializerType: Codable {
 
 public struct Initializer {
   public let type: InitializerType
-  private var dist: NormalDistribution = NormalDistribution(mean: 0, deviation: 1)
+  private var dist: Gaussian = Gaussian(std: 1, mean: 0)
   
   public enum CodingKeys: String, CodingKey, CaseIterable {
     case xavierNormal
@@ -55,7 +55,7 @@ public struct Initializer {
     self.type = type
     switch type {
     case .normal(let std):
-      self.dist = NormalDistribution(mean: 0, deviation: std)
+      self.dist = Gaussian(std: Double(std), mean: 0)
     default:
       break
     }
@@ -71,7 +71,7 @@ public struct Initializer {
       return Float.random(in: min...max)
       
     case .xavierNormal:
-      return dist.nextFloat() * Float(sqrt(2 / (Double(input) + Double(out))))
+      return Float(dist.gaussRand) * Float(sqrt(2 / (Double(input) + Double(out))))
       
     case .heUniform:
       let min = -Float(sqrt(6) / sqrt((Double(input))))
@@ -80,12 +80,32 @@ public struct Initializer {
       return Float.random(in: min...max)
       
     case .heNormal:
-      return dist.nextFloat() * Float(sqrt(2 / (Double(input))))
+      return Float(dist.gaussRand) * Float(sqrt(2 / (Double(input))))
       
     case .normal:
-      return dist.nextFloat()
+      return Float(dist.gaussRand)
+    }
+  }
+  
+  public func calculate(size: TensorSize, input: Int, out: Int = 0) -> Tensor {
+    var tensor: [[[Tensor.Scalar]]] = []
+    
+    for _ in 0..<size.depth {
+      var rows: [[Tensor.Scalar]] = []
+      
+      for _ in 0..<size.rows {
+        var columns: [Tensor.Scalar] = []
+        
+        for _ in 0..<size.columns {
+          columns.append(calculate(input: input, out: out))
+        }
+        rows.append(columns)
+      }
+      
+      tensor.append(rows)
     }
     
+    return Tensor(tensor)
   }
 }
 

@@ -110,10 +110,12 @@ private struct TrainablePrinter {
     // TODO: maybe find a better way to do this so we can just reference a property like `parameters` or something
     if let conv = layer as? ConvolutionalLayer {
       parameters = conv.filters.map { $0.value.flatten().count }.sumSlow
+    } else if let lstm = layer as? LSTM {
+      parameters = lstm.forgetGateWeights.concat(lstm.gateGateWeights).concat(lstm.hiddenOutputWeights).concat(lstm.inputGateWeights).concat(lstm.outputGateWeights).value.flatten().count
     }
     
     let col1 = Column(value: layer.encodingType.rawValue, width: col1Width)
-    let col2 = Column(value: "\(layer.outputSize)", width: col2Width)
+    let col2 = Column(value: "\(layer.outputSize.asArray)", width: col2Width)
     let col3 = Column(value: "\(parameters)", width: col3Width, leftAlign: false)
 
     return Line(columns: [col1, col2, col3])

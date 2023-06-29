@@ -60,10 +60,12 @@ public final class Sigmoid: ActivationLayer {
     let out = Tensor(result.value, context: context)
     out.label = type.asString()
   
+    out.setGraph(tensor)
+
     return out
   }
   
-  public func apply(gradients: Optimizer.Gradient){
+  public func apply(gradients: Optimizer.Gradient, learningRate: Float) {
     //no op
   }
 }

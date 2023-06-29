@@ -61,7 +61,7 @@ public final class Flatten: Layer {
       let deltas: [Tensor.Scalar] = gradient.value.flatten()
       
       let batchedDeltas = deltas.batched(into: inputSize.columns * inputSize.rows)
-      let gradients = batchedDeltas.map { $0.reshape(columns: inputSize.rows) }
+      let gradients = batchedDeltas.map { $0.reshape(columns: inputSize.columns) }
       
       return (Tensor(gradients), Tensor())
     }
@@ -72,7 +72,7 @@ public final class Flatten: Layer {
     return flat
   }
   
-  public func apply(gradients: Optimizer.Gradient) {
+  public func apply(gradients: Optimizer.Gradient, learningRate: Float) {
    //no op
   }
 }

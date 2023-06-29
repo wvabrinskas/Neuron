@@ -9,6 +9,11 @@ import Foundation
 import NumSwift
 import NumSwiftC
 
+public protocol TensorRange {
+  associatedtype T: RangeExpression<Int>
+  var range: T { get }
+}
+
 /// The fundamental base for all arithmetic in the network. It holds a reference to the backpropgation graph as well as the values of the forward pass.
 /// Its `value` property is a 3D array for all instances.
 public class Tensor: Equatable, Codable {
@@ -60,7 +65,29 @@ public class Tensor: Equatable, Codable {
   public var input: Tensor {
     graph ?? Tensor()
   }
+ 
+  /// only works for 3D tensors, Input is [colRange, rowRange, depthRange]
+  public subscript(_ colRange: some RangeExpression<Int>,
+                   _ rowRange: some RangeExpression<Int>,
+                   _ depthRange: some RangeExpression<Int>) -> Tensor {
+    var data: Data = []
+
+    for d in depthRange.relative(to: self.value) {
+      var rows: [[Scalar]] = []
+      for r in rowRange.relative(to: self.value[d]) {
+        var row: [Scalar] = []
+        for c in colRange.relative(to: self.value[d][r]) {
+          row.append(self.value[d][r][c])
+        }
+        rows.append(row)
+      }
+      data.append(rows)
+    }
+        
+    return Tensor(data, context: context)
+  }
   
+
   /// Default initializer with no context or value
   public init() {
     self.value = []
@@ -149,7 +176,7 @@ public class Tensor: Equatable, Codable {
     var biasGradients: [Tensor] = [Tensor(currentBiasGrads)]
 
     while let tensorNode = tensor {
-      
+
       if let input = tensorNode.graph {
         let newGrads = tensorNode.context.backpropagate(input, incomingGradient)
         incomingGradient = newGrads.input

@@ -44,6 +44,10 @@ public final class Sequential: Trainable {
     }
   }
   
+  public init(_ layers: Layer...) {
+    self.layers = layers
+  }
+  
   public init(_ layers: () -> [Layer]) {
     self.layers = layers()
   }
@@ -76,7 +80,9 @@ public final class Sequential: Trainable {
     
     layers.forEach { layer in
       let newTensor = layer.forward(tensor: outputTensor)
-      newTensor.setGraph(outputTensor)
+      if newTensor.graph == nil {
+        newTensor.setGraph(outputTensor)
+      }
       outputTensor = newTensor
     }
     
