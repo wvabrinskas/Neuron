@@ -24,9 +24,7 @@ public final class LSTM: Layer {
   public var gateGateWeights: Tensor = Tensor()
   public var outputGateWeights: Tensor = Tensor()
   public var hiddenOutputWeights: Tensor = Tensor()
-  
-  public var embeddings: Tensor = Tensor()
-  
+    
   private var hiddenUnits: Int
   private var vocabSize: Int
   private var inputUnits: Int
@@ -38,7 +36,7 @@ public final class LSTM: Layer {
   
   // MARK: State variables....
   // maintaining state is difficult when multi threaded..
-  private var wrtEmbeddingsDerivatives: Tensor = Tensor()
+  @Atomic private var wrtEmbeddingsDerivatives: Tensor = Tensor()
 
   public class LSTMActivations {
     let forgetGate: Tensor
@@ -140,7 +138,6 @@ public final class LSTM: Layer {
          hiddenUnits,
          vocabSize,
          hiddenOutputWeights,
-         embeddings,
          batchLength,
          inputUnits
   }
@@ -165,7 +162,6 @@ public final class LSTM: Layer {
     self.gateGateWeights = try container.decodeIfPresent(Tensor.self, forKey: .gateGateWeights) ?? Tensor()
     self.outputGateWeights = try container.decodeIfPresent(Tensor.self, forKey: .outputGateWeights) ?? Tensor()
     self.hiddenOutputWeights = try container.decodeIfPresent(Tensor.self, forKey: .hiddenOutputWeights) ?? Tensor()
-    self.embeddings = try container.decodeIfPresent(Tensor.self, forKey: .embeddings) ?? Tensor()
   }
   
   public func encode(to encoder: Encoder) throws {
@@ -182,7 +178,6 @@ public final class LSTM: Layer {
     try container.encode(hiddenOutputWeights, forKey: .hiddenOutputWeights)
     try container.encode(hiddenUnits, forKey: .hiddenUnits)
     try container.encode(vocabSize, forKey: .vocabSize)
-    try container.encode(embeddings, forKey: .embeddings)
     try container.encode(batchLength, forKey: .batchLength)
     try container.encode(inputUnits, forKey: .inputUnits)
   }
@@ -254,15 +249,12 @@ public final class LSTM: Layer {
         let previousCellError = backward.inputs.previousCellError
         let previousActivationError = backward.inputs.previousActivationError
         
-        // calc embedding derivatives
         let embeddingError = backward.inputs.embeddingError
-        let inputsTransposed = Tensor(inputs.value[i].transpose()) // should only ever have a depth of 1
-        let dEmbedding = inputsTransposed.matmul(embeddingError) / Tensor.Scalar(self.batchLength)
         
         if wrtEmbeddings.isEmpty {
-          wrtEmbeddings = dEmbedding
+          wrtEmbeddings = embeddingError
         } else {
-          let dEmbed = wrtEmbeddings + dEmbedding
+          let dEmbed = wrtEmbeddings.concat(embeddingError, axis: 2)
           wrtEmbeddings = dEmbed
         }
         
@@ -273,11 +265,11 @@ public final class LSTM: Layer {
         }
       }
       
-      self.wrtEmbeddingsDerivatives = wrtEmbeddings
+    //  self.wrtEmbeddingsDerivatives = wrtEmbeddings
       // merge all weights into a giant 5 depth tensor, shape will be broken here
       let weightDerivatives = wrtLSTMCellInputWeightsDerivatives.concat().concat(wrtOutputWeightsDerivatives, axis: 2)
       
-      return (Tensor(), weightDerivatives)
+      return (wrtEmbeddings, weightDerivatives)
     }
     
     var out = Tensor(context: context)
@@ -287,15 +279,14 @@ public final class LSTM: Layer {
     for d in 0..<batchLength {
       guard let cache = cellCache[safe: d] else { break }
 
-      let word = Tensor(tensor.value[safe: d] ?? out.value[safe: d] ?? tensor.value[0])
+      // get embeddings from input
+      let getEmbeddings = Tensor(tensor.value[safe: d] ?? out.value[safe: d] ?? tensor.value[0])
       
       let cell = cells[safe: d]?.0 ?? LSTMCell(hidden: hiddenUnits,
                                                input: inputUnits,
                                                vocabSize: vocabSize,
                                                batchSize: batchLength)
-      
-      let getEmbeddings = device.matmul(word, embeddings.detached())
-            
+                  
       let cellParameters = LSTMCell.Parameters(forgetGateWeights: forgetGateWeights.detached(),
                                                inputGateWeights: inputGateWeights.detached(),
                                                gateGateWeights: gateGateWeights.detached(),
@@ -378,7 +369,7 @@ public final class LSTM: Layer {
     self.hiddenOutputWeights = self.hiddenOutputWeights - Tensor(hiddenOutputWeightGradients)
     
     // update wrtEmbeddingsDerivatives
-    self.embeddings = self.embeddings - (learningRate * wrtEmbeddingsDerivatives)
+    //self.embeddings = self.embeddings - (learningRate * wrtEmbeddingsDerivatives)
     reset()
   }
   
@@ -429,14 +420,9 @@ public final class LSTM: Layer {
     self.gateGateWeights = gateWeights
     self.inputGateWeights = inputWeights
     self.hiddenOutputWeights = outputWeights
-    
-    let embeddings = InitializerType.normal(std: 0.01).build().calculate(size: TensorSize(rows: vocabSize,
-                                                                                          columns: inputUnits,
-                                                                                          depth: 1),
-                                                                         input: inputWeightSize,
-                                                                         out: outputWeightSize)
-    
-    self.embeddings = embeddings
+
+//    
+//    self.embeddings = embeddings
   }
   
   private func setupInitialState() -> Cache {
@@ -447,7 +433,14 @@ public final class LSTM: Layer {
     
     initialCache.activation = a
     initialCache.cell = c
-    initialCache.embedding = embeddings
+    
+    
+//    let embeddings = initializer.calculate(size: TensorSize(rows: vocabSize,
+//                                                            columns: inputUnits,
+//                                                            depth: 1),
+//                                           input: inputWeightSize,
+//                                           out: outputWeightSize)
+//    initialCache.embedding = embeddings
     
     return initialCache
   }

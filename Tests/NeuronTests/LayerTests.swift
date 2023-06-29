@@ -58,6 +58,13 @@ final class LayerTests: XCTestCase {
     let inputUnits = 10
     let hiddenUnits = 256
     let vocabSize = vectorizer.vector.count // the size of the total map of vocab letters available. Likely comes from Vectorize
+    let inputTensor = oneHot
+
+    let embedding = Embedding(inputUnits: inputUnits,
+                              vocabSize: vocabSize,
+                              batchLength: batchLength)
+    
+    let embeddingCalc = embedding.forward(tensor: inputTensor)
 
     let lstm = LSTM(inputUnits: inputUnits,
                     batchLength: batchLength,
@@ -65,12 +72,45 @@ final class LayerTests: XCTestCase {
                     hiddenUnits: hiddenUnits,
                     vocabSize: vocabSize)
 
-    
-    let inputTensor = oneHot
-    
-    let out = lstm.forward(tensor: inputTensor)
+        
+    let out = lstm.forward(tensor: embeddingCalc)
     
     XCTAssertEqual(out.shape, [vocabSize, 1, batchLength])
   }
 
+  func test_Embedding_Forward() {
+    let names = ["anna",
+                 "emma",
+                 "elizabeth",
+                 "minnie",
+                 "margaret",
+                 "ida",
+                 "alice",
+                 "bertha",
+                 "sarah"]
+    
+    let vectorizer = Vectorizer<String>()
+
+    let batchLength = 10
+    
+    names.forEach { name in
+      vectorizer.vectorize(name.fill(with: ".", max: batchLength).characters)
+    }
+    
+    let testName = "anna".fill(with: ".", max: batchLength)
+    let oneHot = vectorizer.oneHot(testName.characters)
+    
+    let inputUnits = 10
+    let vocabSize = vectorizer.vector.count
+    
+    let embedding = Embedding(inputUnits: inputUnits,
+                              vocabSize: vocabSize,
+                              batchLength: batchLength)
+    
+    let inputTensor = oneHot
+    
+    let out = embedding.forward(tensor: inputTensor)
+    
+    XCTAssertEqual(out.shape, [batchLength, 1, batchLength])
+  }
 }

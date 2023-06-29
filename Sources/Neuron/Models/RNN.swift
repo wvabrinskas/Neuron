@@ -68,6 +68,7 @@ public class RNN: Classifier {
   
   private let dataset: RNNSupportedDataset
   private var lstm: LSTM?
+  private var embedding: Embedding?
   private var vocabSize: Int = 0
   private var wordLength: Int = 0
   private var extraLayers: [Layer]
@@ -134,6 +135,8 @@ public class RNN: Classifier {
     
     batch[index] = 1.0
     
+    // might need to feed Embedding -> LSTM if extra layers are present.
+    // TODO: Handle extra layers
     let out = optimNetwork.predict([Tensor(batch)])
     
     var iterator = out[safe: 0]?.value.makeIterator()
@@ -178,9 +181,14 @@ public class RNN: Classifier {
                     hiddenUnits: lstmParameters.hiddenUnits,
                     vocabSize: vocabSize)
     
+    let embedding = Embedding(inputUnits: lstmParameters.inputUnits,
+                              vocabSize: vocabSize,
+                              batchLength: wordLength)
+    
+    self.embedding = embedding
     self.lstm = lstm
     
-    var layers: [Layer] = [lstm]
+    var layers: [Layer] = [embedding, lstm]
     layers.append(contentsOf: extraLayers)
     
     let sequential = Sequential({ layers })

@@ -26,7 +26,8 @@ public enum EncodingType: String, Codable {
        reshape,
        transConv2d,
        layerNormalize,
-       lstm
+       lstm,
+       embedding
 }
 
 /// A layer that performs an activation function
