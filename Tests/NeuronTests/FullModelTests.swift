@@ -167,14 +167,23 @@ final class FullModelTests: XCTestCase {
                                                      .valLoss])
 
     
-    let rnn = RNN(dataset: MockRNNDataset(), classifierParameters: RNN.ClassifierParameters(batchSize: 16,
-                                                                                            epochs: 20,
-                                                                                            accuracyThreshold: 0.8,
-                                                                                            threadWorkers: 8),
+    let rnn = RNN(returnSequence: true,
+                  dataset: MockRNNDataset(),
+                  classifierParameters: RNN.ClassifierParameters(batchSize: 16,
+                                                                 epochs: 20,
+                                                                 accuracyThreshold: 0.8,
+                                                                 killOnAccuracy: false,
+                                                                 threadWorkers: 8),
                   optimizerParameters: RNN.OptimizerParameters(learningRate: 0.005,
                                                                metricsReporter: reporter),
                   lstmParameters: RNN.RNNLSTMParameters(hiddenUnits: hiddenUnits,
-                                                        inputUnits: inputUnits))
+                                                       inputUnits: inputUnits)) //{
+//      [Dense(16),
+//       ReLu(),
+//       Dropout(0.5),
+//       Dense(5),
+//       Softmax()]
+//    }
     
     
     reporter.receive = { metrics in
@@ -182,6 +191,8 @@ final class FullModelTests: XCTestCase {
       let loss = metrics[.loss] ?? 0
       print("training -> ", "loss: ", loss, "accuracy: ", accuracy)
     }
+    
+    await rnn.train()
     
 //    rnn.onEpochCompleted = {
 //      let r = rnn.predict()
@@ -192,9 +203,9 @@ final class FullModelTests: XCTestCase {
 //
 //    }
 //      
-    await rnn.readyUp()
-
-    let r = rnn.predict()
-    print(r)
+//    await rnn.readyUp()
+//
+//    let r = rnn.predict()
+//    print(r)
   }
 }

@@ -120,6 +120,8 @@ public final class Embedding: Layer {
       out = concatOut
     }
     
+    out.label = String(describing: self)
+
     out.setGraph(tensor)
     return out
   }

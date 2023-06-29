@@ -176,7 +176,7 @@ public class Tensor: Equatable, Codable {
     var biasGradients: [Tensor] = [Tensor(currentBiasGrads)]
 
     while let tensorNode = tensor {
-      
+
       if let input = tensorNode.graph {
         let newGrads = tensorNode.context.backpropagate(input, incomingGradient)
         incomingGradient = newGrads.input

@@ -76,7 +76,9 @@ public final class Dropout: Layer {
     let out = Tensor(droppedOut.value, context: context)
     
     out.setGraph(tensor)
-
+    
+    out.label = String(describing: self)
+    
     return out
   }
   

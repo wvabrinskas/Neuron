@@ -212,13 +212,13 @@ public final class LSTM: Layer {
       for i in 0..<cellCache.count {
         // so we dont have to reverse the array
         let index = (cellCache.count - 1) - i
-        
+
         let cache = cellCache[index]
         let previousCache = cellCache[safe: index - 1]
         
         let outputCell = cells[index].1
-        
-        let activationErrors = outputCell.backward(gradient: gradient.value[index],
+
+        let activationErrors = outputCell.backward(gradient: gradient.value[safe: index] ?? gradient.zerosLike().value[0], // if we dont emit the sequence then they dont effect the output so we zero them
                                                    activations: cellCache[index].activation.value[0], // should be depth of 1 always
                                                    batchSize: self.batchLength,
                                                    hiddenOutputWeights: self.hiddenOutputWeights)
@@ -327,8 +327,6 @@ public final class LSTM: Layer {
       out = new
     }
     
-    out.setGraph(tensor)
-    
     // drop first state since it's just default values
     cellCache = Array(cellCache.dropFirst())
 
@@ -338,8 +336,11 @@ public final class LSTM: Layer {
     }
     
     if returnSequence == false, let last = out.value.last {
-      out = Tensor(last)
+      out = Tensor(last, context: context)
     }
+    
+    out.label = String(describing: self)
+    out.setGraph(tensor)
     
     return out
   }
