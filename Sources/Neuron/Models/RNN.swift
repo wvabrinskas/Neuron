@@ -10,6 +10,7 @@ import NumSwift
 
 public typealias RNNSupportedDatasetData = (training: [DatasetModel], val: [DatasetModel])
 public protocol RNNSupportedDataset {
+  func oneHot(_ items: [String]) -> Tensor
   func getWord(for data: Tensor) -> [String]
   func build() async -> RNNSupportedDatasetData
 }
@@ -134,20 +135,28 @@ public class RNN: Classifier {
     }
   }
   
-  public func predict() -> String {
+  public func predict(starting with: String? = nil) -> String {
     optimNetwork.isTraining = false
     
     var name: String = ""
     var runningChar: String = ""
         
-    var batch = [Float](repeating: 0, count: vocabSize)
-    let index = Int.random(in: 0..<vocabSize)
+    var batch: [Float]
     
-    batch[index] = 1.0
-    
-    // append random letter
-    let unvec = dataset.getWord(for: Tensor(batch)).joined()
-    name += unvec
+    if let with {
+      let oneHotWith = dataset.oneHot([with])
+      batch = oneHotWith.value.flatten()
+      
+    } else {
+      batch = [Float](repeating: 0, count: vocabSize)
+      let index = Int.random(in: 0..<vocabSize)
+      
+      batch[index] = 1.0
+      
+      // append random letter
+      let unvec = dataset.getWord(for: Tensor(batch)).joined()
+      name += unvec
+    }
 
     // might need to feed Embedding -> LSTM if extra layers are present.
     // TODO: Handle extra layers
