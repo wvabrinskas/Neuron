@@ -71,6 +71,37 @@ public enum LossFunction {
 
   }
   
+  public func derivative(_ predicted: Tensor, correct: Tensor) -> Tensor {
+    switch self {
+    case .meanSquareError:
+      return (predicted - correct) * 2
+    case .crossEntropy:
+      return predicted.map { -1 * (1 / $0) }
+      
+    case .crossEntropySoftmax:
+      //only if Softmax is the modifier
+      return predicted - correct
+      
+    case .binaryCrossEntropy,
+         .minimaxBinaryCrossEntropy:
+      let y = correct
+      let p = predicted
+      
+      let firstDivide = y / p
+      let ySubtract = Float(1) - y
+      let pSubtract = Float(1) - p
+      
+      let result = -1 * ((firstDivide) - ((ySubtract) / (pSubtract)))
+      return result
+      
+    case .wasserstein:
+      return correct
+    }
+  }
+  
+  @available(*, deprecated,
+              renamed: "derivative",
+              message: "This will be removed soon. Please use the derivative function that accepts Tensor objects")
   public func derivative(_ predicted: [Tensor.Scalar], correct: [Tensor.Scalar]) -> [Tensor.Scalar] {
     precondition(predicted.count == correct.count)
     

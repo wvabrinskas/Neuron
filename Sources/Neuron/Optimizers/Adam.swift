@@ -19,7 +19,11 @@ public class Adam: Optimizer {
     }
   }
   
-  public private(set) var trainable: Trainable
+  public var trainable: Trainable {
+    didSet {
+      build()
+    }
+  }
   public var learningRate: Float
   public var device: Device = CPU() {
     didSet {
@@ -41,7 +45,7 @@ public class Adam: Optimizer {
   private var vb: [[Tensor.Scalar]] = []
   private var mb: [[Tensor.Scalar]] = []
   private var t: Float = 1
-  
+   
   public init(_ trainable: Trainable,
               device: Device = CPU(),
               learningRate: Float,
@@ -57,11 +61,8 @@ public class Adam: Optimizer {
     self.learningRate = learningRate
     self.device = device
     self.l2Normalize = l2Normalize
-    m = [[[[Tensor.Scalar]]]].init(repeating: [], count: trainable.layers.count)
-    v = [[[[Tensor.Scalar]]]].init(repeating: [], count: trainable.layers.count)
-    vb = [[Tensor.Scalar]].init(repeating: [], count: trainable.layers.count)
-    mb = [[Tensor.Scalar]].init(repeating: [], count: trainable.layers.count)
-    trainable.compile()
+    
+    build()
   }
   
   public func step() {
@@ -77,12 +78,20 @@ public class Adam: Optimizer {
       }
 
       let adamGradient = run(gradient: gradient, biasGradient: biasGradient, index: i)
-      layer.apply(gradients: adamGradient)
+      layer.apply(gradients: adamGradient, learningRate: learningRate)
       
       clip(layer: layer)
     }
     
     t += 1
+  }
+  
+  private func build() {
+    m = [Tensor.Data].init(repeating: [], count: trainable.layers.count) // we want to support multiple weight structures right now this only supports one Tensor for one m value, when layers could have multiple tensors representing weights
+    v = [Tensor.Data].init(repeating: [], count: trainable.layers.count)
+    vb = [[Tensor.Scalar]].init(repeating: [], count: trainable.layers.count)
+    mb = [[Tensor.Scalar]].init(repeating: [], count: trainable.layers.count)
+    trainable.compile()
   }
   
   private func run(gradient: Tensor, biasGradient: Tensor, index: Int) -> Optimizer.Gradient {
@@ -105,7 +114,7 @@ public class Adam: Optimizer {
     }
     
     let gradientValue = gradient.value
-    
+        
     for d in 0..<gradientValue.count {
       let depthGradient = gradientValue[d]
       for r in 0..<depthGradient.count {

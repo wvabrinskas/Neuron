@@ -21,6 +21,10 @@ Feel free to send me suggestions on how to improve this. I would be delighted to
 
 [Full Documentation](https://williamvabrinskas.com/Neuron/documentation/neuron/)
 
+# Before you begin developing
+Run `./scripts/onboard.sh` to install the Xcode templates that `Neuron` provides to quickly generate layer code templates.
+
+
 # Grand Re-Opening! 
 
 Version 2.0 of Neuron is here! This new version of Neuron is a complete rewrite from the ground up of the architecture. It is much more streamlined, with faster execution. Its usage also aligns more with commonly used ML frameworks like [Keras](https://keras.io/) and [PyTorch](https://pytorch.org/). 

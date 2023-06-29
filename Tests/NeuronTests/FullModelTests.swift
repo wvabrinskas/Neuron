@@ -10,6 +10,38 @@ import XCTest
 import NumSwift
 @testable import Neuron
 
+
+class MockRNNDataset: RNNSupportedDataset {
+  func oneHot(_ items: [String]) -> Neuron.Tensor {
+    vectorizer.oneHot(items)
+  }
+  
+  let vectorizer = Vectorizer<String>()
+  
+  func getWord(for data: Neuron.Tensor) -> [String] {
+    return vectorizer.unvectorizeOneHot(data)
+  }
+  
+  func build() async -> Neuron.RNNSupportedDatasetData {
+    vectorizer.vectorize("mary".fill(with: ".",
+                                     max: 10).characters)
+    
+    let oneHot = vectorizer.oneHot("mary".fill(with: ".",
+                                               max: 10).characters)
+    
+    var labels: [[[Float]]] = Array(oneHot.value.dropFirst())
+    labels.append([[0.0, 0.0, 0.0, 0.0, 1.0]])
+    
+    let labelTensor = Tensor(labels)
+    let inputTensor = oneHot
+    
+    return ([DatasetModel](repeating: DatasetModel(data: inputTensor,
+                                                  label: labelTensor), count: 900),
+           [DatasetModel](repeating: DatasetModel(data: inputTensor,
+                                                  label: labelTensor), count: 5))
+  }
+}
+
 final class FullModelTests: XCTestCase {
   public var trainingData: [DatasetModel] = []
   public var validationData: [DatasetModel] = []
@@ -119,5 +151,65 @@ final class FullModelTests: XCTestCase {
     } catch {
       XCTFail(error.localizedDescription)
     }
+  }
+  
+  
+  /// LSTM test example
+  func test_LSTM_Forward_Example() async {
+    guard isGithubCI == false else {
+      XCTAssertTrue(true)
+      return
+    }
+
+    let inputUnits = 25
+    let hiddenUnits = 50
+    
+    let reporter = MetricsReporter(frequency: 1,
+                                   metricsToGather: [.loss,
+                                                     .accuracy,
+                                                     .valAccuracy,
+                                                     .valLoss])
+
+    
+    let rnn = RNN(returnSequence: true,
+                  dataset: MockRNNDataset(),
+                  classifierParameters: RNN.ClassifierParameters(batchSize: 16,
+                                                                 epochs: 20,
+                                                                 accuracyThreshold: 0.8,
+                                                                 killOnAccuracy: false,
+                                                                 threadWorkers: 8),
+                  optimizerParameters: RNN.OptimizerParameters(learningRate: 0.005,
+                                                               metricsReporter: reporter),
+                  lstmParameters: RNN.RNNLSTMParameters(hiddenUnits: hiddenUnits,
+                                                       inputUnits: inputUnits)) //{
+//      [Dense(16),
+//       ReLu(),
+//       Dropout(0.5),
+//       Dense(5),
+//       Softmax()]
+//    }
+    
+    
+    reporter.receive = { metrics in
+      let accuracy = metrics[.accuracy] ?? 0
+      let loss = metrics[.loss] ?? 0
+      print("training -> ", "loss: ", loss, "accuracy: ", accuracy)
+    }
+    
+    await rnn.train()
+    
+//    rnn.onEpochCompleted = {
+//      let r = rnn.predict()
+//      print(r)
+//    }
+//    
+//    rnn.onAccuracyReached = {
+//
+//    }
+//      
+//    await rnn.readyUp()
+//
+//    let r = rnn.predict()
+//    print(r)
   }
 }
