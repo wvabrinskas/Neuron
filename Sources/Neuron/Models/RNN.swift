@@ -74,12 +74,14 @@ public class RNN: Classifier {
   private var extraLayers: [Layer]
   private var ready: Bool = false
   private var datasetData: RNNSupportedDatasetData?
+  private let returnSequence: Bool
   
   private let classifierParameters: ClassifierParameters
   private let optimizerParameters: OptimizerParameters
   private let lstmParameters: RNNLSTMParameters
   
   public init(device: Device = CPU(),
+              returnSequence: Bool = true,
               dataset: RNNSupportedDataset,
               classifierParameters: ClassifierParameters,
               optimizerParameters: OptimizerParameters,
@@ -90,6 +92,7 @@ public class RNN: Classifier {
     self.optimizerParameters = optimizerParameters
     self.lstmParameters = lstmParameters
     
+    self.returnSequence = returnSequence
     self.dataset = dataset
     self.extraLayers = extraLayers()
     
@@ -189,6 +192,7 @@ public class RNN: Classifier {
     
     let lstm = LSTM(inputUnits: lstmParameters.inputUnits,
                     batchLength: wordLength,
+                    returnSequence: returnSequence,
                     hiddenUnits: lstmParameters.hiddenUnits,
                     vocabSize: vocabSize)
     
