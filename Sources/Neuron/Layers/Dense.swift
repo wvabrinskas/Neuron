@@ -102,15 +102,9 @@ public final class Dense: Layer {
   public func forward(tensor: Tensor) -> Tensor {
     
     let tensorContext = TensorContext { inputs, gradients in
-      let previousLayerCount = inputs.value.shape[safe: 0] ?? 0
-      let outputSize = self.outputSize.columns
-      
       let gradientsFlat: [Tensor.Scalar] = gradients.value.flatten()
       
-      let deltas = self.device.matrixMultiply(gradients,
-                                              self.weights.detached(),
-                                              columns: previousLayerCount,
-                                              rows: outputSize)
+      let deltas = self.device.matmul(gradients, self.weights.detached())
       
       let inputsFlat = inputs.value[safe: 0]?[safe: 0] ?? []
       var weightGradients: [[Tensor.Scalar]] = []
@@ -124,16 +118,11 @@ public final class Dense: Layer {
     }
     
     //THIS WAS A MAJOR BUG POINT. DO NOT SWITCH ROWS AND COLUMNS HERE BY ACCIDENT - Billy 05-20-2022
-    let weightsTransposed: [Tensor.Scalar] = weights.value.flatten().transpose(columns: inputSize.columns,
-                                                                                     rows: outputSize.columns)
+    let weightsTransposed: [[Tensor.Scalar]] = weights.value.flatten().transpose(columns: inputSize.columns,
+                                                                               rows: outputSize.columns)
+                                                                       .reshape(columns: outputSize.columns)
     
-    let columns = outputSize.columns
-    let rows = inputSize.columns
-    
-    var dotProducts = device.matrixMultiply(tensor,
-                                            Tensor(weightsTransposed),
-                                            columns: columns,
-                                            rows: rows)
+    var dotProducts = device.matmul(tensor, Tensor(weightsTransposed))
     
     if biasEnabled {
       dotProducts = dotProducts + biases.asScalar()
@@ -141,10 +130,13 @@ public final class Dense: Layer {
     
     let out = Tensor(dotProducts.value, context: tensorContext)
     out.label = "Dense"
+    
+    out.setGraph(tensor)
+
     return out
   }
   
-  public func apply(gradients: Optimizer.Gradient) {
+  public func apply(gradients: Optimizer.Gradient, learningRate: Float) {
     weights.value = weights.value - gradients.weights.value
     
     if biasEnabled {

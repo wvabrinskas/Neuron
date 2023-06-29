@@ -92,7 +92,9 @@ public final class LayerNormalize: Layer {
     }
     
     let forward = normalize(inputs: tensor.value)
-    return Tensor(forward, context: context)
+    let out = Tensor(forward, context: context)
+    out.setGraph(tensor)
+    return out
   }
   
   private func resetDeltas() {
@@ -170,7 +172,7 @@ public final class LayerNormalize: Layer {
     return backward
   }
   
-  public func apply(gradients: Optimizer.Gradient) {
+  public func apply(gradients: Optimizer.Gradient, learningRate: Float) {
     gamma = gamma - (dGamma / iterations.asTensorScalar)
     beta = beta - (dBeta / iterations.asTensorScalar)
     

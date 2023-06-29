@@ -116,14 +116,18 @@ public final class MaxPool: Layer {
     }
           
     let context = TensorContext(backpropagate: backwards)
-    return Tensor(results, context: context)
+    let out = Tensor(results, context: context)
+    
+    out.setGraph(tensor)
+    
+    return out
   }
   
   private func setGradients(indicies: [[PoolingIndex]], id: UUID) {
     self.poolingGradients.append(PoolingGradient(tensorId: id, indicies: indicies))
   }
   
-  public func apply(gradients: Optimizer.Gradient) {
+  public func apply(gradients: Optimizer.Gradient, learningRate: Float) {
     poolingGradients.removeAll(keepingCapacity: true)
   }
   

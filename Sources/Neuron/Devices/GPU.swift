@@ -93,14 +93,20 @@ public class GPU: Device {
     return Tensor(reshaped)
   }
   
-  public func matrixMultiply(_ a: Tensor, _ b: Tensor, columns: Int, rows: Int) -> Tensor {
+  @available(*, deprecated, renamed: "matmul", message: "This function has been replaced with `matmul`. It will be removed soon")
+  public func matrixMultiply(_ a: Tensor, _ b: Tensor, columns: Int, rows: Int, dimensions: Int) -> Tensor {
     let aFlat: [Tensor.Scalar] = a.value.flatten()
     let bFlat: [Tensor.Scalar] = b.value.flatten()
     
     let multiply = aFlat.multiply(B: bFlat,
                                   columns: Int32(columns),
-                                  rows: Int32(rows))
+                                  rows: Int32(rows),
+                                  dimensions: Int32(dimensions))
     
     return Tensor(multiply)
+  }
+  
+  public func matmul(_ a: Tensor, _ b: Tensor) -> Tensor {
+    a.matmul(b)
   }
 }

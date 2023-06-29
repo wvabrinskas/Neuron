@@ -26,7 +26,7 @@ public class SGD: Optimizer {
     }
   }
   
-  public private(set) var trainable: Trainable
+  public var trainable: Trainable
   public let learningRate: Float
   private let momentum: Float
   private var v: [Tensor.Data] = []
@@ -61,7 +61,7 @@ public class SGD: Optimizer {
       }
       
       let sgdGradient = run(gradient: gradient, biasGradient: biasGradient, index: i)
-      layer.apply(gradients: sgdGradient)
+      layer.apply(gradients: sgdGradient, learningRate: learningRate)
       
       clip(layer: layer)
     }
