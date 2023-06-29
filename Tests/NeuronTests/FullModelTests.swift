@@ -12,6 +12,10 @@ import NumSwift
 
 
 class MockRNNDataset: RNNSupportedDataset {
+  func oneHot(_ items: [String]) -> Neuron.Tensor {
+    vectorizer.oneHot(items)
+  }
+  
   let vectorizer = Vectorizer<String>()
   
   func getWord(for data: Neuron.Tensor) -> [String] {
