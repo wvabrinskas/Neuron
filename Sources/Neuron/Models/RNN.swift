@@ -142,6 +142,10 @@ public class RNN: Classifier {
     
     batch[index] = 1.0
     
+    // append random letter
+    let unvec = dataset.getWord(for: Tensor(batch)).joined()
+    name += unvec
+
     // might need to feed Embedding -> LSTM if extra layers are present.
     // TODO: Handle extra layers
     let out = optimNetwork.predict([Tensor(batch)])

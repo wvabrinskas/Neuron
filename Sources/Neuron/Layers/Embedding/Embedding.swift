@@ -16,7 +16,8 @@ public final class Embedding: Layer {
   private let inputUnits: Int
   private let vocabSize: Int
   private let batchLength: Int
-
+  @Atomic private var dEmbeddings: Tensor = Tensor()
+  
   public init(inputUnits: Int,
               vocabSize: Int,
               batchLength: Int,
@@ -104,8 +105,9 @@ public final class Embedding: Layer {
         }
       }
 
+      self.dEmbeddings = wrtEmbeddings
       // sending the weights through will make them get modified by the optimizer. not sure if that's okay?
-      return (Tensor(), wrtEmbeddings)
+      return (Tensor(), Tensor())
     }
     
     var out = Tensor(context: context)
@@ -123,6 +125,7 @@ public final class Embedding: Layer {
   }
   
   public func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Float) {
-    self.weights = self.weights - gradients.weights
+    weights = weights - (dEmbeddings * learningRate)
+    dEmbeddings = Tensor()
   }
 }
