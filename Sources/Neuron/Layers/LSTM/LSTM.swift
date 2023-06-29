@@ -208,6 +208,8 @@ public final class LSTM: Layer {
       var wrtOutputWeightsDerivatives: Tensor = Tensor()
       var wrtLSTMCellInputWeightsDerivatives: LSTMCell.ParameterDerivatives = .init()
       
+      var wrtEmbeddings: Tensor = Tensor()
+      
       // maybe move this to the cell layers...
       for i in 0..<cellCache.count {
         let outputCell = cells[i].1
@@ -257,11 +259,11 @@ public final class LSTM: Layer {
         let inputsTransposed = Tensor(inputs.value[i].transpose()) // should only ever have a depth of 1
         let dEmbedding = inputsTransposed.matmul(embeddingError) / Tensor.Scalar(self.batchLength)
         
-        if self.wrtEmbeddingsDerivatives.isEmpty {
-          self.wrtEmbeddingsDerivatives = dEmbedding
+        if wrtEmbeddings.isEmpty {
+          wrtEmbeddings = dEmbedding
         } else {
-          let dEmbed = self.wrtEmbeddingsDerivatives.detached() + dEmbedding
-          self.wrtEmbeddingsDerivatives = dEmbed
+          let dEmbed = wrtEmbeddings + dEmbedding
+          wrtEmbeddings = dEmbed
         }
         
         if let pae = previousActivationError.value[safe: 0],
@@ -271,6 +273,7 @@ public final class LSTM: Layer {
         }
       }
       
+      self.wrtEmbeddingsDerivatives = wrtEmbeddings
       // merge all weights into a giant 5 depth tensor, shape will be broken here
       let weightDerivatives = wrtLSTMCellInputWeightsDerivatives.concat().concat(wrtOutputWeightsDerivatives, axis: 2)
       
