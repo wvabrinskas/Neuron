@@ -100,7 +100,7 @@ final class LayerTests: XCTestCase {
     let testName = "anna".fill(with: ".", max: batchLength)
     let oneHot = vectorizer.oneHot(testName.characters)
     
-    let inputUnits = 10
+    let inputUnits = 100
     let vocabSize = vectorizer.vector.count
     
     let embedding = Embedding(inputUnits: inputUnits,
@@ -111,6 +111,6 @@ final class LayerTests: XCTestCase {
     
     let out = embedding.forward(tensor: inputTensor)
     
-    XCTAssertEqual(out.shape, [batchLength, 1, batchLength])
+    XCTAssertEqual(out.shape, [inputUnits, 1, batchLength])
   }
 }

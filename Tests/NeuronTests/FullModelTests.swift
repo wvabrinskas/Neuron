@@ -183,10 +183,16 @@ final class FullModelTests: XCTestCase {
       print("training -> ", "loss: ", loss, "accuracy: ", accuracy)
     }
     
-    await rnn.readyUp()
+    rnn.onAccuracyReached = {
+      Task {
     
-    let r = rnn.predict()
+        let r = rnn.predict()
     
-    print(r)
+        print(r)
+      }
+    }
+      
+    await rnn.train()
+
   }
 }

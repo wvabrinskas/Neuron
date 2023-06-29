@@ -1,6 +1,7 @@
 import Foundation
 import NumSwift
 
+/// An `Embedding` layer that maps each input word vector to a `X` dimensional vector.
 public final class Embedding: Layer {
   public var encodingType: EncodingType = .embedding
   public var inputSize: TensorSize = TensorSize(array: [0,0,0])
@@ -20,7 +21,6 @@ public final class Embedding: Layer {
               vocabSize: Int,
               batchLength: Int,
               initializer: InitializerType = .heNormal) {
-    //self.inputSize = inputSize
     let initializerBuilt = initializer.build()
     self.initializer = initializerBuilt
     self.inputUnits = inputUnits
@@ -31,10 +31,10 @@ public final class Embedding: Layer {
                                 depth: batchLength)
     
     let weights = initializerBuilt.calculate(size: TensorSize(rows: vocabSize,
-                                                                 columns: inputUnits,
-                                                                 depth: 1),
-                                                input: batchLength,
-                                                out: inputUnits)
+                                                              columns: inputUnits,
+                                                              depth: 1),
+                                                input: batchLength * vocabSize,
+                                                out: batchLength)
     
     self.weights = weights
   }
@@ -82,6 +82,9 @@ public final class Embedding: Layer {
     try container.encode(inputUnits, forKey: .inputUnits)
   }
   
+  /// Forward path for the layer
+  /// - Parameter tensor: Input word as a 3D tensor with size `rows: 1, columns: vocabSize, depth: batchLength`
+  /// - Returns: An output 3D tensor of shape `rows: 1, columns: inputUnits, depth: batchLength`
   public func forward(tensor: Tensor) -> Tensor {
     let context = TensorContext { inputs, gradient in
       var wrtEmbeddings: Tensor = Tensor()

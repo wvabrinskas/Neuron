@@ -114,6 +114,13 @@ public class RNN: Classifier {
                log: false)
   }
   
+  public func importFrom(url: URL?) {
+    guard let url else { return }
+    
+    let n = Sequential.import(url)
+    optimNetwork.trainable = n
+  }
+  
   public func train() async {
     optimNetwork.isTraining = true
     

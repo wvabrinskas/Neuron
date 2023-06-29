@@ -8,6 +8,9 @@
 import Foundation
 import NumSwift
 
+/// The LSTM layer, Long Short-Term Memory layer, is the heart of the `RNN` model. It should be
+/// preceeded by an `Embedding` layer as that's the expected input rather than the raw
+/// text input itself.
 public final class LSTM: Layer {
   public var encodingType: EncodingType = .lstm
   public var inputSize: TensorSize = TensorSize(array: [0,0,0])
@@ -33,10 +36,6 @@ public final class LSTM: Layer {
   
   private var cellCache: [Cache] = []
   private var cells: [(LSTMCell, OutputCell)] = []
-  
-  // MARK: State variables....
-  // maintaining state is difficult when multi threaded..
-  @Atomic private var wrtEmbeddingsDerivatives: Tensor = Tensor()
 
   public class LSTMActivations {
     let forgetGate: Tensor
@@ -99,12 +98,13 @@ public final class LSTM: Layer {
   /// - Parameters:
   ///   - inputUnits: The number of inputs in the LSTM cell
   ///   - batchLength: The number samples (eg. letters) at a given time
+  ///   - returnSequence: Determines if the layer returns all outputs of the sequence or just the last output. Default:   `true`
   ///   - initializer: Initializer funciton to use
   ///   - hiddenUnits: Number of hidden use
   ///   - vocabSize: size of the expected vocabulary
   public init(inputUnits: Int,
               batchLength: Int,
-              returnSequence: Bool = false,
+              returnSequence: Bool = true,
               initializer: InitializerType = .heNormal,
               hiddenUnits: Int,
               vocabSize: Int) {
@@ -118,7 +118,7 @@ public final class LSTM: Layer {
     self.batchLength = batchLength
     self.outputSize = TensorSize(rows: 1,
                                  columns: vocabSize,
-                                 depth: batchLength) // use `returnSequence ? batchLength : 1` 
+                                 depth: returnSequence ? batchLength : 1)
     
     self.returnSequence = returnSequence
         
@@ -182,9 +182,13 @@ public final class LSTM: Layer {
     try container.encode(inputUnits, forKey: .inputUnits)
   }
   
-  // TODO: consider an Embedding layer that handles embeddings
-  /// expect a 3D input tensor to go through all batches, where each word is a 3D tensor
-  /// size expected: `(rows: 1, columns: vocabSize, depth: batchSize)`
+  
+  /// The forward path for the LSTM layer. Should be preceeded by an `Embedding` layer.
+  /// Emdedding input size expected is `(rows: 1, columns: inputUnits, depth: batchSize)`
+  /// - Parameter tensor: The `Embedding` input `Tensor`
+  /// - Returns: Depending on the state of `returnSequence` it will either returng the whole sequence of size
+  /// `(rows: 1, columns: vocabSize, depth: batchSize)` or just the last output of the sequence of size
+  /// `(rows: 1, columns: vocabSize, depth: 1)`
   public func forward(tensor: Tensor) -> Tensor {
     
     var cellCache: [Cache] = [setupInitialState()]
@@ -205,11 +209,16 @@ public final class LSTM: Layer {
       
       var wrtEmbeddings: Tensor = Tensor()
       
-      // maybe move this to the cell layers...
       for i in 0..<cellCache.count {
-        let outputCell = cells[i].1
-        let activationErrors = outputCell.backward(gradient: gradient.value[i],
-                                                   activations: cellCache[i].activation.value[0], // should be depth of 1 always
+        // so we dont have to reverse the array
+        let index = (cellCache.count - 1) - i
+        let cache = cellCache[index]
+        let previousCache = cellCache[safe: index - 1]
+        
+        let outputCell = cells[index].1
+        
+        let activationErrors = outputCell.backward(gradient: gradient.value[index],
+                                                   activations: cellCache[index].activation.value[0], // should be depth of 1 always
                                                    batchSize: self.batchLength,
                                                    hiddenOutputWeights: self.hiddenOutputWeights)
         
@@ -221,16 +230,12 @@ public final class LSTM: Layer {
         
         let nextActivationError = eat
         let activationOutputError = activationErrors.outputs.value[0]
-        
-        // so we dont have to reverse the array
-        let index = (cellCache.count - 1) - i
-        let cache = cellCache[index]
-        let previousCache = cellCache[safe: index - 1]
+
         
         let cell = cells[index]
         let backward = cell.0.backward(cache: cache,
                                        previousCache: previousCache,
-                                       forwardDirectionCache: cellCache[i],
+                                       forwardDirectionCache: cellCache[index],
                                        activationOutputError: activationOutputError,
                                        nextActivationError: nextActivationError,
                                        nextCellError: ect,
@@ -265,7 +270,6 @@ public final class LSTM: Layer {
         }
       }
       
-    //  self.wrtEmbeddingsDerivatives = wrtEmbeddings
       // merge all weights into a giant 5 depth tensor, shape will be broken here
       let weightDerivatives = wrtLSTMCellInputWeightsDerivatives.concat().concat(wrtOutputWeightsDerivatives, axis: 2)
       
@@ -334,6 +338,10 @@ public final class LSTM: Layer {
       self.cells = cells
     }
     
+    if returnSequence == false, let last = out.value.last {
+      out = Tensor(last)
+    }
+    
     return out
   }
   
@@ -367,9 +375,7 @@ public final class LSTM: Layer {
     self.outputGateWeights = self.outputGateWeights - Tensor(outputGateWeightGrads)
 
     self.hiddenOutputWeights = self.hiddenOutputWeights - Tensor(hiddenOutputWeightGradients)
-    
-    // update wrtEmbeddingsDerivatives
-    //self.embeddings = self.embeddings - (learningRate * wrtEmbeddingsDerivatives)
+
     reset()
   }
   
@@ -379,8 +385,6 @@ public final class LSTM: Layer {
   private func reset() {
     cells.removeAll()
     cellCache.removeAll()
-    
-    wrtEmbeddingsDerivatives = .init()
   }
 
   private func initializeWeights() {
@@ -390,9 +394,6 @@ public final class LSTM: Layer {
     let weightSize = TensorSize(rows: totalInputSize,
                                 columns: hiddenUnits,
                                 depth: 1)
-    
-    let inputWeightSize = totalInputSize * hiddenUnits
-    let outputWeightSize = hiddenUnits * vocabSize
     
     let forgetWeights = initializer.calculate(size: weightSize,
                                               input: inputUnits * vocabSize,
@@ -420,9 +421,6 @@ public final class LSTM: Layer {
     self.gateGateWeights = gateWeights
     self.inputGateWeights = inputWeights
     self.hiddenOutputWeights = outputWeights
-
-//    
-//    self.embeddings = embeddings
   }
   
   private func setupInitialState() -> Cache {
@@ -433,15 +431,7 @@ public final class LSTM: Layer {
     
     initialCache.activation = a
     initialCache.cell = c
-    
-    
-//    let embeddings = initializer.calculate(size: TensorSize(rows: vocabSize,
-//                                                            columns: inputUnits,
-//                                                            depth: 1),
-//                                           input: inputWeightSize,
-//                                           out: outputWeightSize)
-//    initialCache.embedding = embeddings
-    
+
     return initialCache
   }
 
