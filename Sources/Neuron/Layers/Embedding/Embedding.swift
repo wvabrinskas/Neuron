@@ -20,7 +20,7 @@ public final class Embedding: Layer {
   public init(inputUnits: Int,
               vocabSize: Int,
               batchLength: Int,
-              initializer: InitializerType = .heNormal) {
+              initializer: InitializerType = .xavierUniform) {
     let initializerBuilt = initializer.build()
     self.initializer = initializerBuilt
     self.inputUnits = inputUnits

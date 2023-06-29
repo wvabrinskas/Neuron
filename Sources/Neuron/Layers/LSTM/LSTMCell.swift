@@ -140,7 +140,6 @@ class LSTMCell {
   
   func backward(cache: LSTM.Cache,
                 previousCache: LSTM.Cache?,
-                forwardDirectionCache: LSTM.Cache, // cache object starting from the beginning of the array since this is normally calculated in reverse
                 activationOutputError: [[Tensor.Scalar]],
                 nextActivationError: [[Tensor.Scalar]],
                 nextCellError: [[Tensor.Scalar]],

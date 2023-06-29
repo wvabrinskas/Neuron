@@ -212,6 +212,7 @@ public final class LSTM: Layer {
       for i in 0..<cellCache.count {
         // so we dont have to reverse the array
         let index = (cellCache.count - 1) - i
+        
         let cache = cellCache[index]
         let previousCache = cellCache[safe: index - 1]
         
@@ -231,11 +232,9 @@ public final class LSTM: Layer {
         let nextActivationError = eat
         let activationOutputError = activationErrors.outputs.value[0]
 
-        
         let cell = cells[index]
         let backward = cell.0.backward(cache: cache,
                                        previousCache: previousCache,
-                                       forwardDirectionCache: cellCache[index],
                                        activationOutputError: activationOutputError,
                                        nextActivationError: nextActivationError,
                                        nextCellError: ect,

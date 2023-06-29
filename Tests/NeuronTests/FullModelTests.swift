@@ -157,8 +157,8 @@ final class FullModelTests: XCTestCase {
       return
     }
 
-    let inputUnits = 100
-    let hiddenUnits = 256
+    let inputUnits = 25
+    let hiddenUnits = 50
     
     let reporter = MetricsReporter(frequency: 1,
                                    metricsToGather: [.loss,
@@ -183,16 +183,18 @@ final class FullModelTests: XCTestCase {
       print("training -> ", "loss: ", loss, "accuracy: ", accuracy)
     }
     
-    rnn.onAccuracyReached = {
-      Task {
-    
-        let r = rnn.predict()
-    
-        print(r)
-      }
-    }
-      
-    await rnn.train()
+//    rnn.onEpochCompleted = {
+//      let r = rnn.predict()
+//      print(r)
+//    }
+//    
+//    rnn.onAccuracyReached = {
+//
+//    }
+//      
+    await rnn.readyUp()
 
+    let r = rnn.predict()
+    print(r)
   }
 }
