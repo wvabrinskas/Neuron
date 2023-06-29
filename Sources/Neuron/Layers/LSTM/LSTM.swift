@@ -260,7 +260,7 @@ public final class LSTM: Layer {
         if self.wrtEmbeddingsDerivatives.isEmpty {
           self.wrtEmbeddingsDerivatives = dEmbedding
         } else {
-          let dEmbed = self.wrtEmbeddingsDerivatives + dEmbedding
+          let dEmbed = self.wrtEmbeddingsDerivatives.detached() + dEmbedding
           self.wrtEmbeddingsDerivatives = dEmbed
         }
         
