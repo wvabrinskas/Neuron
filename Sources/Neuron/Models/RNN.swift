@@ -116,22 +116,14 @@ public class RNN: Classifier {
   public func train() async {
     optimNetwork.isTraining = true
     
-    if ready == false || datasetData == nil {
-      datasetData = await dataset.build()
-      
-      if let datasetData {
-        compile(dataset: datasetData)
-      }
-    }
-
+    await readyUp()
+    
     if let datasetData {
       fit(datasetData.training, datasetData.val)
     }
   }
   
   public func predict() -> String {
-    guard let lstm else { return "" }
-    
     optimNetwork.isTraining = false
     
     var name: String = ""
@@ -142,26 +134,34 @@ public class RNN: Classifier {
     
     batch[index] = 1.0
     
-    while runningChar != ".", name.count < 50 {
-      // use LSTM layer since that's really all we need
-      let out = lstm.forward(tensor: Tensor(batch))
-      let outRounded = out.value[safe: 0]?[safe: 0] ?? []
-      let maxIndex = Int(outRounded.indexOfMax.0)
+    let out = optimNetwork.predict([Tensor(batch)])
+    
+    var iterator = out[safe: 0]?.value.makeIterator()
+    
+    while runningChar != ".", let o = iterator?.next() {
+      let flat = o.flatten()
+      var v: [Float] = [Float](repeating: 0, count: flat.count)
+      let indexOfMax = Int(flat.indexOfMax.0)
+      v[indexOfMax] = 1
       
-      var outHot = [Float](repeating: 0, count: vocabSize)
-      outHot[maxIndex] = 1.0
-      
-      let unvec = dataset.getWord(for: Tensor(outHot)).joined()
-      
+      let unvec = dataset.getWord(for: Tensor(v)).joined()
       name += unvec
       runningChar = unvec
-      
-      batch = outHot
     }
     
     optimNetwork.isTraining = true
     
     return name
+  }
+  
+  public func readyUp() async {
+    if ready == false || datasetData == nil {
+      datasetData = await dataset.build()
+      
+      if let datasetData {
+        compile(dataset: datasetData)
+      }
+    }
   }
   
   private func compile(dataset: RNNSupportedDatasetData) {

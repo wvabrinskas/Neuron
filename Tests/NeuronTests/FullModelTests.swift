@@ -10,6 +10,34 @@ import XCTest
 import NumSwift
 @testable import Neuron
 
+
+class MockRNNDataset: RNNSupportedDataset {
+  let vectorizer = Vectorizer<String>()
+  
+  func getWord(for data: Neuron.Tensor) -> [String] {
+    return vectorizer.unvectorizeOneHot(data)
+  }
+  
+  func build() async -> Neuron.RNNSupportedDatasetData {
+    vectorizer.vectorize("mary".fill(with: ".",
+                                     max: 10).characters)
+    
+    let oneHot = vectorizer.oneHot("mary".fill(with: ".",
+                                               max: 10).characters)
+    
+    var labels: [[[Float]]] = Array(oneHot.value.dropFirst())
+    labels.append([[0.0, 0.0, 0.0, 0.0, 1.0]])
+    
+    let labelTensor = Tensor(labels)
+    let inputTensor = oneHot
+    
+    return ([DatasetModel](repeating: DatasetModel(data: inputTensor,
+                                                  label: labelTensor), count: 900),
+           [DatasetModel](repeating: DatasetModel(data: inputTensor,
+                                                  label: labelTensor), count: 5))
+  }
+}
+
 final class FullModelTests: XCTestCase {
   public var trainingData: [DatasetModel] = []
   public var validationData: [DatasetModel] = []
@@ -123,7 +151,7 @@ final class FullModelTests: XCTestCase {
   
   
   /// LSTM test example
-  func test_LSTM_Forward_Example() {
+  func test_LSTM_Forward_Example() async {
     guard isGithubCI == false else {
       XCTAssertTrue(true)
       return
@@ -131,82 +159,34 @@ final class FullModelTests: XCTestCase {
 
     let inputUnits = 100
     let hiddenUnits = 256
-
-    // this is 20 samples, aka 20 letters for a single word, aka a 2D tensor that represents the word
-    let input: [[[Float]]] = [[[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                               [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                               [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                               [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                               [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                               [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                               [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                               [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                               [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                               [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]]
-
-    let labels: [[[Float]]] = [[[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]],
-                                [[0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]],
-                                [[0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]],
-                                [[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]],
-                                [[0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]],
-                                [[0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]],
-                                [[0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]],
-                                [[0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]],
-                                [[0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]],
-                                [[0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]]
     
-    let labelTensor = Tensor(labels)
-   // let vocabSize = 27// the size of the total map of vocab letters available. Likely comes from Vectorize
-    let vocabSize = input.shape[0]
-    let rows = input.shape[1]
-
-    let lstm = LSTM(inputUnits: inputUnits,
-                    batchLength: rows,
-                    initializer: .heNormal,
-                    hiddenUnits: hiddenUnits,
-                    vocabSize: vocabSize)
-
-    // TODO: get other layers to work with multiple batches.
-    let sequential = Sequential(
-      lstm
-//      Flatten(),
-//      Dense(64),
-//      ReLu(),
-//      Dropout(0.5),
-//      Dense(vocabSize * rows * 1),
-//      Reshape(to: TensorSize(array: [vocabSize, rows, 1])),
-//      Softmax()
-    )
-
-    let optimizer = Adam(sequential,
-                         learningRate: 0.005,
-                         l2Normalize: false)
-
     let reporter = MetricsReporter(frequency: 1,
                                    metricsToGather: [.loss,
                                                      .accuracy,
                                                      .valAccuracy,
                                                      .valLoss])
 
+    
+    let rnn = RNN(dataset: MockRNNDataset(), classifierParameters: RNN.ClassifierParameters(batchSize: 16,
+                                                                                            epochs: 20,
+                                                                                            accuracyThreshold: 0.8,
+                                                                                            threadWorkers: 8),
+                  optimizerParameters: RNN.OptimizerParameters(learningRate: 0.005,
+                                                               metricsReporter: reporter),
+                  lstmParameters: RNN.RNNLSTMParameters(hiddenUnits: hiddenUnits,
+                                                        inputUnits: inputUnits))
+    
+    
     reporter.receive = { metrics in
       let accuracy = metrics[.accuracy] ?? 0
       let loss = metrics[.loss] ?? 0
       print("training -> ", "loss: ", loss, "accuracy: ", accuracy)
     }
     
-    optimizer.metricsReporter = reporter
-
-    let classifier = Classifier(optimizer: optimizer,
-                                epochs: 20,
-                                batchSize: 16,
-                                accuracyThreshold: 0.9,
-                                threadWorkers: 8,
-                                log: false)
-
-    classifier.fit([DatasetModel](repeating: DatasetModel(data: labelTensor,
-                                                          label: labelTensor), count: 900),
-                   [DatasetModel](repeating: DatasetModel(data: labelTensor,
-                                                          label: labelTensor), count: 5))
-
+    await rnn.readyUp()
+    
+    let r = rnn.predict()
+    
+    print(r)
   }
 }

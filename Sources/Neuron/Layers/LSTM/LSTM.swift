@@ -31,6 +31,7 @@ public final class LSTM: Layer {
   private var vocabSize: Int
   private var inputUnits: Int
   private var batchLength: Int
+  private let returnSequence: Bool
   
   private var cellCache: [Cache] = []
   private var cells: [(LSTMCell, OutputCell)] = []
@@ -105,6 +106,7 @@ public final class LSTM: Layer {
   ///   - vocabSize: size of the expected vocabulary
   public init(inputUnits: Int,
               batchLength: Int,
+              returnSequence: Bool = false,
               initializer: InitializerType = .heNormal,
               hiddenUnits: Int,
               vocabSize: Int) {
@@ -118,7 +120,9 @@ public final class LSTM: Layer {
     self.batchLength = batchLength
     self.outputSize = TensorSize(rows: 1,
                                  columns: vocabSize,
-                                 depth: batchLength)
+                                 depth: batchLength) // use `returnSequence ? batchLength : 1` 
+    
+    self.returnSequence = returnSequence
         
     initializeWeights()
   }
@@ -275,10 +279,12 @@ public final class LSTM: Layer {
     
     var out = Tensor(context: context)
     
+    // TODO: figure out how to avoid setting batch length and have it be dynamic.
+    // Right now we are just using a hard list of batchLength and generating that length
     for d in 0..<batchLength {
       guard let cache = cellCache[safe: d] else { break }
 
-      let word = Tensor(tensor.value[safe: d] ?? tensor.value[0])
+      let word = Tensor(tensor.value[safe: d] ?? out.value[safe: d] ?? tensor.value[0])
       
       let cell = cells[safe: d]?.0 ?? LSTMCell(hidden: hiddenUnits,
                                                input: inputUnits,

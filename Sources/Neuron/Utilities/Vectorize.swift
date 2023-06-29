@@ -56,6 +56,11 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
   
   public init() {}
   
+  
+  /// One hot vectorizes a input that has already been vectorized.
+  ///  `NOTE: Please call `vectorize` on your input first before calling `oneHot` otherwise it will not work
+  /// - Parameter items: Array or `Item` to oneHot encode
+  /// - Returns: The encoded one hot vector as a 3D tensor where the depth is the length of `items`.
   public func oneHot(_ items: [T]) -> Tensor {
     var result: Tensor.Data = []
     
