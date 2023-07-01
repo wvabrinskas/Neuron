@@ -164,6 +164,7 @@ public class RNN: Classifier {
         batch = oneHotWith.value.flatten()
         name += with
 
+<<<<<<< HEAD
       } else {
         batch = [Float](repeating: 0, count: vocabSize)
         let index = Int.random(in: 0..<vocabSize)
@@ -203,6 +204,28 @@ public class RNN: Classifier {
       }
       
       names.append(name)
+=======
+    // might need to feed Embedding -> LSTM if extra layers are present.
+    // TODO: Handle extra layers
+    let out = optimNetwork.predict([Tensor(batch)])
+    
+    var iterator = out[safe: 0]?.value.makeIterator()
+    
+    while runningChar != "." {
+      guard let o = iterator?.next() else {
+        break
+      }
+      
+      let flat = o.flatten()
+      var v: [Float] = [Float](repeating: 0, count: flat.count)
+      let indexOfMax = Int(flat.indexOfMax.0)
+      v[indexOfMax] = 1
+      
+      let unvec = dataset.getWord(for: Tensor(v)).joined()
+      
+      runningChar = unvec
+      name += unvec
+>>>>>>> 1afbfaa (Trainable layer (#39))
     }
     
     optimNetwork.isTraining = true
@@ -241,7 +264,11 @@ public class RNN: Classifier {
                               vocabSize: vocabSize,
                               batchLength: wordLength,
                               initializer: lstmParameters.embeddingInitializer,
+<<<<<<< HEAD
                               trainable: true)
+=======
+                              trainable: false)
+>>>>>>> 1afbfaa (Trainable layer (#39))
     
     self.embedding = embedding
     self.lstm = lstm
