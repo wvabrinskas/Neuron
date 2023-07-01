@@ -11,11 +11,14 @@ public final class ___VARIABLE_productName___: Layer {
   public var trainable: Bool = true
   public var initializer: Initializer?
   public var device: Device = CPU()
-  
+  public var isTraining: Bool = true
+
   public init(inputSize: TensorSize = TensorSize(array: []),
-              initializer: InitializerType = .heNormal) {
+              initializer: InitializerType = .heNormal,
+              trainable: Bool = true) {
     self.inputSize = inputSize
     self.initializer = initializer.build()
+    self.trainable = trainable
   }
   
   enum CodingKeys: String, CodingKey {

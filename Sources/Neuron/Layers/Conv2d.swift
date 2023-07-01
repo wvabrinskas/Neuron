@@ -36,7 +36,8 @@ public class Conv2d: ConvolutionalLayer {
   public var biases: Tensor = Tensor()
   public var trainable: Bool = true
   public var initializer: Initializer?
-  
+  public var isTraining: Bool = true
+
   /// Default initializer for a 2d convolutional layer
   /// - Parameters:
   ///   - filterCount: Number of filters at this layer

@@ -24,6 +24,8 @@ public final class LeakyReLu: ActivationLayer {
   public var weights: Tensor = Tensor()
   public var biases: Tensor = Tensor()
   public var initializer: Initializer?
+  public var isTraining: Bool = true
+
   private var limit: Float
   
   /// Default initializer for a leaky relu activation function.

@@ -24,7 +24,8 @@ public final class ReLu: ActivationLayer {
   public var weights: Tensor = Tensor()
   public var biases: Tensor = Tensor()
   public var initializer: Initializer?
-  
+  public var isTraining: Bool = true
+
   enum CodingKeys: String, CodingKey {
     case inputSize,
          type

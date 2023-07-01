@@ -21,7 +21,7 @@ public protocol Trainable: Codable, CustomDebugStringConvertible {
   var isCompiled: Bool { get }
   
   /// Indicates if this particular network has its weights updated. Mainly used for Batch and Layer normalize. As they have different paths for training and not training.
-  var trainable: Bool { get set }
+  var isTraining: Bool { get set }
   
   /// The device to execute the ML ops and math ops on. Default: CPU()
   var device: Device { get set }

@@ -30,7 +30,8 @@ public final class BatchNormalize: Layer {
   }
   public var biases: Tensor = Tensor()
   public var initializer: Initializer?
-  
+  public var isTraining: Bool = true
+
   public var gamma: [Tensor.Scalar] = []
   public var beta: [Tensor.Scalar] = []
   public var movingMean: [Tensor.Scalar] = []
@@ -154,11 +155,11 @@ public final class BatchNormalize: Layer {
       let count = inputSize.rows * inputSize.columns
       let total = Float(count)
       
-      let mean = trainable == true ? inputs[i].sum / total : movingMean[i]
+      let mean = isTraining == true ? inputs[i].sum / total : movingMean[i]
       
       let inputsCentered = inputs[i] - mean
 
-      let variance = trainable == true ? inputsCentered.sumOfSquares / total : movingVariance[i]
+      let variance = isTraining == true ? inputsCentered.sumOfSquares / total : movingVariance[i]
               
       let std = sqrt(variance + e)
       
@@ -166,7 +167,7 @@ public final class BatchNormalize: Layer {
       
       let normalizedScaledAndShifted = normalized * gamma[i] + beta[i]
 
-      if trainable {
+      if isTraining {
         let lock = NSLock()
         lock.with {
           movingMean[i] = momentum * movingMean[i] + (1 - momentum) * mean
@@ -177,7 +178,7 @@ public final class BatchNormalize: Layer {
       forward.append(normalizedScaledAndShifted)
     }
     
-    if trainable {
+    if isTraining {
       iterations += 1
     }
 
