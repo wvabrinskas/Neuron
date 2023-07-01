@@ -22,7 +22,7 @@ public class SGD: Optimizer {
 
   public var isTraining: Bool = true {
     didSet {
-      trainable.trainable = isTraining
+      trainable.isTraining = isTraining
     }
   }
   
@@ -60,7 +60,12 @@ public class SGD: Optimizer {
         gradient.l2Normalize()
       }
       
-      let sgdGradient = run(gradient: gradient, biasGradient: biasGradient, index: i)
+      var sgdGradient = (gradient, biasGradient)
+      
+      if layer.trainable {
+        sgdGradient = run(gradient: gradient, biasGradient: biasGradient, index: i)
+      }
+      
       layer.apply(gradients: sgdGradient, learningRate: learningRate)
       
       clip(layer: layer)

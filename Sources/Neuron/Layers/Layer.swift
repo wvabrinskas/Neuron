@@ -54,6 +54,7 @@ public protocol Layer: AnyObject, Codable {
   var biases: Tensor { get }
   var biasEnabled: Bool { get set }
   var trainable: Bool { get set }
+  var isTraining: Bool { get set }
   var initializer: Initializer? { get }
   var device: Device { get set }
   func forward(tensor: Tensor) -> Tensor

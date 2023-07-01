@@ -25,6 +25,8 @@ public final class Dropout: Layer {
   public var biases: Tensor = Tensor()
   public var trainable: Bool = true
   public var initializer: Initializer?
+  public var isTraining: Bool = true
+
   internal var mask: Tensor = Tensor()
   private var chance: Float
   

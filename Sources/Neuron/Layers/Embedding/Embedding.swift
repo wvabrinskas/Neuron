@@ -9,19 +9,20 @@ public final class Embedding: Layer {
   public var weights: Tensor = Tensor()
   public var biases: Tensor = Tensor()
   public var biasEnabled: Bool = false
-  public var trainable: Bool = true
+  public var trainable: Bool = false
   public var initializer: Initializer?
   public var device: Device = CPU()
+  public var isTraining: Bool = true
   
   private let inputUnits: Int
   private let vocabSize: Int
   private let batchLength: Int
-  @Atomic private var dEmbeddings: Tensor = Tensor()
   
   public init(inputUnits: Int,
               vocabSize: Int,
               batchLength: Int,
-              initializer: InitializerType = .xavierNormal) {
+              initializer: InitializerType = .xavierNormal,
+              trainable: Bool = false) {
     let initializerBuilt = initializer.build()
     self.initializer = initializerBuilt
     self.inputUnits = inputUnits
@@ -30,6 +31,7 @@ public final class Embedding: Layer {
     self.inputSize = TensorSize(rows: 1,
                                 columns: vocabSize,
                                 depth: batchLength)
+    self.trainable = trainable
     
     let weights = initializerBuilt.calculate(size: TensorSize(rows: vocabSize,
                                                               columns: inputUnits,
@@ -105,9 +107,7 @@ public final class Embedding: Layer {
         }
       }
 
-      self.dEmbeddings = wrtEmbeddings
-      // sending the weights through will make them get modified by the optimizer. not sure if that's okay?
-      return (Tensor(), Tensor())
+      return (Tensor(), wrtEmbeddings)
     }
     
     var out = Tensor(context: context)
@@ -127,7 +127,6 @@ public final class Embedding: Layer {
   }
   
   public func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Float) {
-    weights = weights - (dEmbeddings * learningRate)
-    dEmbeddings = Tensor()
+    weights = weights - (gradients.weights * learningRate)
   }
 }

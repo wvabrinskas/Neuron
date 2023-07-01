@@ -13,6 +13,7 @@ public final class Reshape: Layer {
   public var encodingType: EncodingType = .reshape
   public var device: Device = CPU()
   public var biasEnabled: Bool = true
+  public var isTraining: Bool = true
 
   public var inputSize: TensorSize = TensorSize(array: [])
   public var outputSize: TensorSize {

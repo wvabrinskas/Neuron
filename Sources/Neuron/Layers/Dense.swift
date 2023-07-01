@@ -23,7 +23,8 @@ public final class Dense: Layer {
   public let outputSize: TensorSize
   public internal(set) var weights: Tensor = Tensor()
   public private(set)var biases: Tensor = Tensor()
-  
+  public var isTraining: Bool = true
+
   /// Default initializer for the fully connected layer
   /// - Parameters:
   ///   - nodes: Number of output nodes

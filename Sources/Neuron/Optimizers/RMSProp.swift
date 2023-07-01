@@ -15,7 +15,7 @@ public class RMSProp: Optimizer {
   public var learningRate: Float
   public var isTraining: Bool = true {
     didSet {
-      trainable.trainable = isTraining
+      trainable.isTraining = isTraining
     }
   }
   public var device: Device = CPU() {
@@ -68,7 +68,12 @@ public class RMSProp: Optimizer {
         gradient.l2Normalize()
       }
 
-      let adamGradient = run(gradient: gradient, biasGradient: biasGradient, index: i)
+      var adamGradient = (gradient, biasGradient)
+      
+      if layer.trainable {
+        adamGradient = run(gradient: gradient, biasGradient: biasGradient, index: i)
+      }
+      
       layer.apply(gradients: adamGradient, learningRate: learningRate)
       
       clip(layer: layer)

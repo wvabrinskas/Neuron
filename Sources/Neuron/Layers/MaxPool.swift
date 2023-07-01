@@ -13,6 +13,7 @@ public final class MaxPool: Layer {
   public var encodingType: EncodingType = .maxPool
   public var device: Device = CPU()
   public var biasEnabled: Bool = true
+  public var isTraining: Bool = true
 
   internal struct PoolingIndex: Hashable, Codable {
     var r: Int
