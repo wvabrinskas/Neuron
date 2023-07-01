@@ -127,6 +127,10 @@ public final class Embedding: Layer {
   }
   
   public func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Float) {
-    weights = weights - (gradients.weights * learningRate)
+    if trainable {
+      weights = weights - gradients.weights // use Optimizer adjusted weights to adjust
+    } else {
+      weights = weights - (gradients.weights * learningRate) // apply many weight update using learning rate
+    }
   }
 }
