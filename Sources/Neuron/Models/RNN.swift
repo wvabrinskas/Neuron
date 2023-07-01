@@ -19,11 +19,17 @@ public class RNN: Classifier {
   public struct RNNLSTMParameters {
     let hiddenUnits: Int
     let inputUnits: Int
-    
+    let embeddingInitializer: InitializerType
+    let lstmInitializer: InitializerType
+
     public init(hiddenUnits: Int,
-                inputUnits: Int) {
+                inputUnits: Int,
+                embeddingInitializer: InitializerType = .xavierNormal,
+                lstmInitializer: InitializerType = .xavierNormal) {
       self.hiddenUnits = hiddenUnits
       self.inputUnits = inputUnits
+      self.embeddingInitializer = embeddingInitializer
+      self.lstmInitializer = lstmInitializer
     }
   }
   
@@ -202,12 +208,14 @@ public class RNN: Classifier {
     let lstm = LSTM(inputUnits: lstmParameters.inputUnits,
                     batchLength: wordLength,
                     returnSequence: returnSequence,
+                    initializer: lstmParameters.lstmInitializer,
                     hiddenUnits: lstmParameters.hiddenUnits,
                     vocabSize: vocabSize)
     
     let embedding = Embedding(inputUnits: lstmParameters.inputUnits,
                               vocabSize: vocabSize,
-                              batchLength: wordLength)
+                              batchLength: wordLength,
+                              initializer: lstmParameters.embeddingInitializer)
     
     self.embedding = embedding
     self.lstm = lstm

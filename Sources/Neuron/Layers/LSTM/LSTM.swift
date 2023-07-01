@@ -105,7 +105,7 @@ public final class LSTM: Layer {
   public init(inputUnits: Int,
               batchLength: Int,
               returnSequence: Bool = true,
-              initializer: InitializerType = .heNormal,
+              initializer: InitializerType = .xavierNormal,
               hiddenUnits: Int,
               vocabSize: Int) {
     self.inputSize = TensorSize(rows: 1,
