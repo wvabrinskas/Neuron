@@ -24,7 +24,8 @@ public final class Tanh: ActivationLayer {
   public var weights: Tensor = Tensor()
   public var biases: Tensor = Tensor()
   public var initializer: Initializer?
-  
+  public var isTraining: Bool = true
+
   /// Default initializer for a Tanh activation.
   /// - Parameter inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
   public init(inputSize: TensorSize = TensorSize(array: [])) {

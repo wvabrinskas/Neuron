@@ -21,9 +21,9 @@ public final class Sequential: Trainable {
       }
     }
   }
-  public var trainable: Bool = true {
+  public var isTraining: Bool = true {
     didSet {
-      layers.forEach { $0.trainable = trainable }
+      layers.forEach { $0.isTraining = isTraining }
     }
   }
   

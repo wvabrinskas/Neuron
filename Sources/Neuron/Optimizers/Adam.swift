@@ -15,7 +15,7 @@ public class Adam: Optimizer {
   public var l2Normalize: Bool
   public var isTraining: Bool = true {
     didSet {
-      trainable.trainable = isTraining
+      trainable.isTraining = isTraining
     }
   }
   
@@ -76,8 +76,14 @@ public class Adam: Optimizer {
       if l2Normalize {
         gradient.l2Normalize()
       }
-
-      let adamGradient = run(gradient: gradient, biasGradient: biasGradient, index: i)
+      
+      var adamGradient: Gradient = (gradient, biasGradient)
+      
+      // only apply optimizer gradient if the layer is trainable by the optimizer
+      if layer.trainable {
+        adamGradient = run(gradient: gradient, biasGradient: biasGradient, index: i)
+      }
+      
       layer.apply(gradients: adamGradient, learningRate: learningRate)
       
       clip(layer: layer)

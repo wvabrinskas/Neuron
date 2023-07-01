@@ -28,7 +28,8 @@ public final class LayerNormalize: Layer {
   public var trainable: Bool = true
   public var initializer: Initializer? = nil
   public var device: Device = CPU()
-  
+  public var isTraining: Bool = true
+
   private var epsilon: Tensor.Scalar
   public var gamma: [Tensor.Scalar] = []
   public var beta: [Tensor.Scalar] = []

@@ -25,7 +25,8 @@ public final class Flatten: Layer {
   public var biases: Tensor = Tensor()
   public var trainable: Bool = true
   public var initializer: Initializer?
-  
+  public var isTraining: Bool = true
+
   /// Default initializer for Flatten layer.
   /// - Parameter inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
   public init(inputSize: TensorSize = TensorSize(array: [])) {

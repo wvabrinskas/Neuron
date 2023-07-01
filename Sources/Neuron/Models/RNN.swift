@@ -170,15 +170,20 @@ public class RNN: Classifier {
     
     var iterator = out[safe: 0]?.value.makeIterator()
     
-    while runningChar != ".", let o = iterator?.next() {
+    while runningChar != "." {
+      guard let o = iterator?.next() else {
+        break
+      }
+      
       let flat = o.flatten()
       var v: [Float] = [Float](repeating: 0, count: flat.count)
       let indexOfMax = Int(flat.indexOfMax.0)
       v[indexOfMax] = 1
       
       let unvec = dataset.getWord(for: Tensor(v)).joined()
-      name += unvec
+      
       runningChar = unvec
+      name += unvec
     }
     
     optimNetwork.isTraining = true
@@ -215,7 +220,8 @@ public class RNN: Classifier {
     let embedding = Embedding(inputUnits: lstmParameters.inputUnits,
                               vocabSize: vocabSize,
                               batchLength: wordLength,
-                              initializer: lstmParameters.embeddingInitializer)
+                              initializer: lstmParameters.embeddingInitializer,
+                              trainable: false)
     
     self.embedding = embedding
     self.lstm = lstm

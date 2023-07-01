@@ -21,7 +21,8 @@ public final class LSTM: Layer {
   public var trainable: Bool = true
   public var initializer: Initializer?
   public var device: Device = CPU()
-  
+  public var isTraining: Bool = true
+
   public var forgetGateWeights: Tensor = Tensor()
   public var inputGateWeights: Tensor = Tensor()
   public var gateGateWeights: Tensor = Tensor()
@@ -194,7 +195,7 @@ public final class LSTM: Layer {
     var cellCache: [Cache] = [setupInitialState()]
     var cells: [(LSTMCell, OutputCell)] = []
     
-    if trainable == false {
+    if isTraining == false {
       cellCache = self.cellCache.isEmpty ? [setupInitialState()] : self.cellCache
       cells = self.cells
     }
@@ -330,7 +331,7 @@ public final class LSTM: Layer {
     // drop first state since it's just default values
     cellCache = Array(cellCache.dropFirst())
 
-    if trainable == false {
+    if isTraining == false {
       self.cellCache = cellCache
       self.cells = cells
     }
