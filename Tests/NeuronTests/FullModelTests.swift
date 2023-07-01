@@ -23,14 +23,14 @@ class MockRNNDataset: RNNSupportedDataset {
   }
   
   func build() async -> Neuron.RNNSupportedDatasetData {
-    vectorizer.vectorize("mary".fill(with: ".",
+    vectorizer.vectorize("xavier".fill(with: ".",
                                      max: 10).characters)
     
-    let oneHot = vectorizer.oneHot("mary".fill(with: ".",
+    let oneHot = vectorizer.oneHot("xavier".fill(with: ".",
                                                max: 10).characters)
     
     var labels: [[[Float]]] = Array(oneHot.value.dropFirst())
-    labels.append([[0.0, 0.0, 0.0, 0.0, 1.0]])
+    labels.append([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]])
     
     let labelTensor = Tensor(labels)
     let inputTensor = oneHot
@@ -181,28 +181,27 @@ final class FullModelTests: XCTestCase {
                   optimizerParameters: RNN.OptimizerParameters(learningRate: 0.005,
                                                                metricsReporter: reporter),
                   lstmParameters: RNN.RNNLSTMParameters(hiddenUnits: hiddenUnits,
-                                                       inputUnits: inputUnits)) //{
-//      [Dense(16),
-//       ReLu(),
-//       Dropout(0.5),
-//       Dense(5),
-//       Softmax()]
-//    }
+                                                       inputUnits: inputUnits)) {
+      [
+       Dropout(0.5),
+       Softmax()]
+    }
     
     
     reporter.receive = { metrics in
       let accuracy = metrics[.accuracy] ?? 0
       let loss = metrics[.loss] ?? 0
-      print("training -> ", "loss: ", loss, "accuracy: ", accuracy)
+      //print("training -> ", "loss: ", loss, "accuracy: ", accuracy)
+    }
+        
+    rnn.onEpochCompleted = {
+      let r = rnn.predict()
+      print(r)
     }
     
     await rnn.train()
-    
-//    rnn.onEpochCompleted = {
-//      let r = rnn.predict()
-//      print(r)
-//    }
-//    
+
+//
 //    rnn.onAccuracyReached = {
 //
 //    }
