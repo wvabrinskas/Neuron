@@ -23,6 +23,7 @@ class MockRNNDataset: RNNSupportedDataset {
   }
   
   func build() async -> Neuron.RNNSupportedDatasetData {
+<<<<<<< HEAD
     vectorizer.vectorize("hammley".fill(with: ".",
                                      max: 8).characters)
     
@@ -30,6 +31,16 @@ class MockRNNDataset: RNNSupportedDataset {
                                                   max: 8).characters)
     
     //let labels: [[[Float]]] = Array(oneHot.value)
+=======
+    vectorizer.vectorize("xavier".fill(with: ".",
+                                     max: 10).characters)
+    
+    let oneHot = vectorizer.oneHot("xavier".fill(with: ".",
+                                               max: 10).characters)
+    
+    var labels: [[[Float]]] = Array(oneHot.value.dropFirst())
+    labels.append([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]])
+>>>>>>> 1afbfaa (Trainable layer (#39))
     
     let labelTensor = oneHot
     let inputTensor = oneHot
@@ -191,7 +202,15 @@ final class FullModelTests: XCTestCase {
                   optimizerParameters: RNN.OptimizerParameters(learningRate: 0.001,
                                                                metricsReporter: reporter),
                   lstmParameters: RNN.RNNLSTMParameters(hiddenUnits: hiddenUnits,
+<<<<<<< HEAD
                                                        inputUnits: inputUnits))
+=======
+                                                       inputUnits: inputUnits)) {
+      [
+       Dropout(0.5),
+       Softmax()]
+    }
+>>>>>>> 1afbfaa (Trainable layer (#39))
     
     
     reporter.receive = { metrics in
@@ -201,7 +220,11 @@ final class FullModelTests: XCTestCase {
     }
         
     rnn.onEpochCompleted = {
+<<<<<<< HEAD
       let r = rnn.predict(starting: "h", maxWordLength: 20, randomizeSelection: true)
+=======
+      let r = rnn.predict()
+>>>>>>> 1afbfaa (Trainable layer (#39))
       print(r)
     }
     
