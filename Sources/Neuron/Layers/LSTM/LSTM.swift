@@ -196,8 +196,8 @@ public final class LSTM: Layer {
     var cells: [(LSTMCell, OutputCell)] = []
     
     if isTraining == false {
-      cellCache = self.cellCache.isEmpty ? [setupInitialState()] : self.cellCache
-      cells = self.cells
+   //   cellCache = self.cellCache.isEmpty ? [setupInitialState()] : self.cellCache
+    //  cells = self.cells
     }
     
     let context = TensorContext { inputs, gradient in
@@ -332,8 +332,8 @@ public final class LSTM: Layer {
     cellCache = Array(cellCache.dropFirst())
 
     if isTraining == false {
-      self.cellCache = cellCache
-      self.cells = cells
+     // self.cellCache = cellCache
+    //  self.cells = cells
     }
     
     if returnSequence == false, let last = out.value.last {
