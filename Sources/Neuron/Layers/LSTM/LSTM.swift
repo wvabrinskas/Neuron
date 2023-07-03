@@ -34,9 +34,6 @@ public final class LSTM: Layer {
   private var inputUnits: Int
   private var batchLength: Int
   private let returnSequence: Bool
-  
-  private var cellCache: [Cache] = []
-  private var cells: [(LSTMCell, OutputCell)] = []
 
   public class LSTMActivations {
     let forgetGate: Tensor
@@ -194,12 +191,7 @@ public final class LSTM: Layer {
     
     var cellCache: [Cache] = [setupInitialState()]
     var cells: [(LSTMCell, OutputCell)] = []
-    
-    if isTraining == false {
-   //   cellCache = self.cellCache.isEmpty ? [setupInitialState()] : self.cellCache
-    //  cells = self.cells
-    }
-    
+
     let context = TensorContext { inputs, gradient in
       var eat: [[Tensor.Scalar]] = NumSwift.zerosLike((rows: 1,
                                                        columns: self.hiddenUnits))
@@ -331,11 +323,6 @@ public final class LSTM: Layer {
     // drop first state since it's just default values
     cellCache = Array(cellCache.dropFirst())
 
-    if isTraining == false {
-     // self.cellCache = cellCache
-    //  self.cells = cells
-    }
-    
     if returnSequence == false, let last = out.value.last {
       out = Tensor(last, context: context)
     }
@@ -376,18 +363,10 @@ public final class LSTM: Layer {
     self.outputGateWeights = self.outputGateWeights - Tensor(outputGateWeightGrads)
 
     self.hiddenOutputWeights = self.hiddenOutputWeights - Tensor(hiddenOutputWeightGradients)
-
-    reset()
   }
   
   
   // MARK: Private
-
-  private func reset() {
-    cells.removeAll()
-    cellCache.removeAll()
-  }
-
   private func initializeWeights() {
     guard let initializer = self.initializer else { return }
         
