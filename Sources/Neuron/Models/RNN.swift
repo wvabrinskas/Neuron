@@ -170,8 +170,6 @@ public class RNN: Classifier {
         name += unvec
       }
 
-      // might need to feed Embedding -> LSTM if extra layers are present.
-      // TODO: Handle extra layers
       let out = optimNetwork.predict([Tensor(batch)])
       
       var iterator = out[safe: 0]?.value.makeIterator()
