@@ -31,6 +31,7 @@ public final class Embedding: Layer {
     self.inputSize = TensorSize(rows: 1,
                                 columns: vocabSize,
                                 depth: batchLength)
+    self.outputSize = TensorSize(array: [inputUnits, 1, batchLength])
     self.trainable = trainable
     
     let weights = initializerBuilt.calculate(size: TensorSize(rows: vocabSize,
