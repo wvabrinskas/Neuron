@@ -143,54 +143,63 @@ public class RNN: Classifier {
     }
   }
   
-  public func predict(starting with: String? = nil) -> String {
+  public func predict(starting with: String? = nil, count: Int = 1) -> [String] {
     optimNetwork.isTraining = false
     
-    var name: String = ""
-    var runningChar: String = ""
+    var names: [String] = []
+    
+    for _ in 0..<count {
+      
+      var name: String = ""
+      var runningChar: String = ""
+          
+      var batch: [Float]
+      
+      if let with {
+        let oneHotWith = dataset.oneHot([with])
+        batch = oneHotWith.value.flatten()
         
-    var batch: [Float]
-    
-    if let with {
-      let oneHotWith = dataset.oneHot([with])
-      batch = oneHotWith.value.flatten()
-      
-    } else {
-      batch = [Float](repeating: 0, count: vocabSize)
-      let index = Int.random(in: 0..<vocabSize)
-      
-      batch[index] = 1.0
-      
-      // append random letter
-      let unvec = dataset.getWord(for: Tensor(batch)).joined()
-      name += unvec
-    }
+      } else {
+        batch = [Float](repeating: 0, count: vocabSize)
+        let index = Int.random(in: 0..<vocabSize)
+        
+        batch[index] = 1.0
+        
+        // append random letter
+        let unvec = dataset.getWord(for: Tensor(batch)).joined()
+        name += unvec
+      }
 
-    // might need to feed Embedding -> LSTM if extra layers are present.
-    // TODO: Handle extra layers
-    let out = optimNetwork.predict([Tensor(batch)])
-    
-    var iterator = out[safe: 0]?.value.makeIterator()
-    
-    while runningChar != "." {
-      guard let o = iterator?.next() else {
-        break
+      // might need to feed Embedding -> LSTM if extra layers are present.
+      // TODO: Handle extra layers
+      let out = optimNetwork.predict([Tensor(batch)])
+      
+      var iterator = out[safe: 0]?.value.makeIterator()
+      
+      while runningChar != "." {
+        guard let o = iterator?.next() else {
+          break
+        }
+        
+        let flat = o.flatten()
+        var v: [Float] = [Float](repeating: 0, count: flat.count)
+        let indexOfMax = Int(flat.indexOfMax.0)
+        v[indexOfMax] = 1
+        
+        let unvec = dataset.getWord(for: Tensor(v)).joined()
+        
+        runningChar = unvec
+        name += unvec
       }
       
-      let flat = o.flatten()
-      var v: [Float] = [Float](repeating: 0, count: flat.count)
-      let indexOfMax = Int(flat.indexOfMax.0)
-      v[indexOfMax] = 1
       
-      let unvec = dataset.getWord(for: Tensor(v)).joined()
-      
-      runningChar = unvec
-      name += unvec
+      names.append(name)
     }
     
     optimNetwork.isTraining = true
-    
-    return name
+
+    return names
+
   }
   
   public func readyUp() async {
