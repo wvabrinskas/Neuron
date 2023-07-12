@@ -174,8 +174,6 @@ public class RNN: Classifier {
       
       var iterator = out[safe: 0]?.value.makeIterator()
       
-      guard name != "." else { return [name] }
-      
       while runningChar != "." {
         guard let o = iterator?.next() else {
           break
