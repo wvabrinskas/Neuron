@@ -110,22 +110,26 @@ class LSTMCell {
     let previousCellMatrix = cache.cell
     
     let concat = tensor.concat(previousActivationMatrix)
-        
+    
+    // forget gate
     let fa = device.matmul(concat, fgw)
-    let faOut = Sigmoid(inputSize: .init(array: fa.shape)).forward(tensor: fa)
+    let faOut = Sigmoid().forward(tensor: fa)
     
+    // input gate
     let ia = device.matmul(concat, igw)
-    let iaOut = Sigmoid(inputSize: .init(array: ia.shape)).forward(tensor: ia)
+    let iaOut = Sigmoid().forward(tensor: ia)
     
-    let oa = device.matmul(concat, ogw)
-    let oaOut = Sigmoid(inputSize: .init(array: oa.shape)).forward(tensor: oa)
-    
+    // gate gate
     let ga = device.matmul(concat, ggw)
-    let gaOut = Tanh(inputSize: .init(array: ga.shape)).forward(tensor: ga)
+    let gaOut = Tanh().forward(tensor: ga)
+    
+    // output gate
+    let oa = device.matmul(concat, ogw)
+    let oaOut = Sigmoid().forward(tensor: oa)
     
     let cellMemoryMatrix = (faOut * previousCellMatrix) + (iaOut * gaOut)
     
-    let tanOut = Tanh(inputSize: .init(array: cellMemoryMatrix.shape)).forward(tensor: cellMemoryMatrix)
+    let tanOut = Tanh().forward(tensor: cellMemoryMatrix)
     
     let activationMatrix = oaOut * tanOut
     
