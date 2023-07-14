@@ -35,8 +35,8 @@ public final class LSTM: Layer {
   private var batchLength: Int
   private let returnSequence: Bool
   
-  private var cellCache: [Cache] = []
-  private var cells: [(LSTMCell, OutputCell)] = []
+  @Atomic private var cellCache: [Cache] = []
+  @Atomic private var cells: [(LSTMCell, OutputCell)] = []
 
   public class LSTMActivations {
     let forgetGate: Tensor
