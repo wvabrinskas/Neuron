@@ -181,7 +181,7 @@ final class FullModelTests: XCTestCase {
                   optimizerParameters: RNN.OptimizerParameters(learningRate: 0.005,
                                                                metricsReporter: reporter),
                   lstmParameters: RNN.RNNLSTMParameters(hiddenUnits: hiddenUnits,
-                                                       inputUnits: inputUnits)) 
+                                                       inputUnits: inputUnits))
     
     
     reporter.receive = { metrics in
@@ -191,7 +191,7 @@ final class FullModelTests: XCTestCase {
     }
         
     rnn.onEpochCompleted = {
-      let r = rnn.predict()
+      let r = rnn.predict(maxWordLength: 20, randomizeSelection: true)
       print(r)
     }
     
