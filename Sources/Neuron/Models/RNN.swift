@@ -170,11 +170,12 @@ public class RNN: Classifier {
         name += unvec
       }
 
-      let out = optimNetwork.predict([Tensor(batch)])
-      
-      var iterator = out[safe: 0]?.value.makeIterator()
-      
-      while runningChar != "." {
+      while runningChar != "." && name.count < 20 {
+        
+        let out = optimNetwork.predict([Tensor(batch)])
+        
+        var iterator = out[safe: 0]?.value.makeIterator()
+        
         guard let o = iterator?.next() else {
           break
         }
@@ -188,8 +189,9 @@ public class RNN: Classifier {
         
         runningChar = unvec
         name += unvec
+        
+        batch = v
       }
-      
       
       names.append(name)
     }
@@ -245,4 +247,3 @@ public class RNN: Classifier {
     ready = true
   }
 }
-

@@ -27,7 +27,7 @@ class MockRNNDataset: RNNSupportedDataset {
                                      max: 10).characters)
     
     let oneHot = vectorizer.oneHot("xavier".fill(with: ".",
-                                               max: 10).characters)
+                                               max: 7).characters)
     
     var labels: [[[Float]]] = Array(oneHot.value.dropFirst())
     labels.append([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]])
@@ -162,7 +162,7 @@ final class FullModelTests: XCTestCase {
     }
 
     let inputUnits = 25
-    let hiddenUnits = 50
+    let hiddenUnits = 100
     
     let reporter = MetricsReporter(frequency: 1,
                                    metricsToGather: [.loss,
@@ -174,18 +174,14 @@ final class FullModelTests: XCTestCase {
     let rnn = RNN(returnSequence: true,
                   dataset: MockRNNDataset(),
                   classifierParameters: RNN.ClassifierParameters(batchSize: 16,
-                                                                 epochs: 20,
+                                                                 epochs: 40,
                                                                  accuracyThreshold: 0.8,
                                                                  killOnAccuracy: false,
                                                                  threadWorkers: 8),
                   optimizerParameters: RNN.OptimizerParameters(learningRate: 0.005,
                                                                metricsReporter: reporter),
                   lstmParameters: RNN.RNNLSTMParameters(hiddenUnits: hiddenUnits,
-                                                       inputUnits: inputUnits)) {
-      [
-       Dropout(0.5),
-       Softmax()]
-    }
+                                                       inputUnits: inputUnits)) 
     
     
     reporter.receive = { metrics in

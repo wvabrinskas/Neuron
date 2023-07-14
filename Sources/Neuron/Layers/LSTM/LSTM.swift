@@ -34,6 +34,9 @@ public final class LSTM: Layer {
   private var inputUnits: Int
   private var batchLength: Int
   private let returnSequence: Bool
+  
+  private var cellCache: [Cache] = []
+  private var cells: [(LSTMCell, OutputCell)] = []
 
   public class LSTMActivations {
     let forgetGate: Tensor
@@ -191,7 +194,12 @@ public final class LSTM: Layer {
     
     var cellCache: [Cache] = [setupInitialState()]
     var cells: [(LSTMCell, OutputCell)] = []
-
+    
+    if isTraining == false {
+      cellCache = self.cellCache.isEmpty ? [setupInitialState()] : self.cellCache
+      cells = self.cells
+    }
+    
     let context = TensorContext { inputs, gradient in
       var eat: [[Tensor.Scalar]] = NumSwift.zerosLike((rows: 1,
                                                        columns: self.hiddenUnits))
@@ -272,13 +280,18 @@ public final class LSTM: Layer {
     
     // TODO: figure out how to avoid setting batch length and have it be dynamic.
     // Right now we are just using a hard list of batchLength and generating that length
-    for d in 0..<batchLength {
-      guard let cache = cellCache[safe: d] else { break }
+    // TODO: start from last stored cell cache when prediciting, this way we can pass in 1 hot vectors like in training
+    
+    let range = 0..<tensor.value.count
+    
+    for d in range {
+      let cellIndex = isTraining ? d : max(self.cellCache.count - 1, 0)
+      guard let cache = cellCache[safe: cellIndex] else { break }
 
       // get embeddings from input
-      let getEmbeddings = Tensor(tensor.value[safe: d] ?? out.value[safe: d] ?? tensor.value[0])
+      let getEmbeddings = Tensor(tensor.value[safe: d] ?? tensor.value[0])
       
-      let cell = cells[safe: d]?.0 ?? LSTMCell(hidden: hiddenUnits,
+      let cell = cells[safe: cellIndex]?.0 ?? LSTMCell(hidden: hiddenUnits,
                                                input: inputUnits,
                                                vocabSize: vocabSize,
                                                batchSize: batchLength)
@@ -292,7 +305,7 @@ public final class LSTM: Layer {
                                     parameters: cellParameters,
                                     cache: cache)
       
-      let outputCell = cells[safe: d]?.1 ?? OutputCell(device: device)
+      let outputCell = cells[safe: cellIndex]?.1 ?? OutputCell(device: device)
       let outputCellParameters = OutputCell.Parameters(hiddenOutputWeights: hiddenOutputWeights.detached(),
                                                        activationMatrix: cellOutput.activationMatrix.detached())
       
@@ -323,6 +336,11 @@ public final class LSTM: Layer {
     // drop first state since it's just default values
     cellCache = Array(cellCache.dropFirst())
 
+    if isTraining == false {
+      self.cellCache = cellCache
+      self.cells = cells
+    }
+    
     if returnSequence == false, let last = out.value.last {
       out = Tensor(last, context: context)
     }
@@ -363,10 +381,18 @@ public final class LSTM: Layer {
     self.outputGateWeights = self.outputGateWeights - Tensor(outputGateWeightGrads)
 
     self.hiddenOutputWeights = self.hiddenOutputWeights - Tensor(hiddenOutputWeightGradients)
+
+    reset()
   }
   
   
   // MARK: Private
+
+  private func reset() {
+    cells.removeAll()
+    cellCache.removeAll()
+  }
+
   private func initializeWeights() {
     guard let initializer = self.initializer else { return }
         
