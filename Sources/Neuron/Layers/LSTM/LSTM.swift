@@ -185,10 +185,10 @@ public final class LSTM: Layer {
   
   
   /// The forward path for the LSTM layer. Should be preceeded by an `Embedding` layer.
-  /// Emdedding input size expected is `(rows: 1, columns: inputUnits, depth: batchSize)`
+  /// Emdedding input size expected is `(rows: 1, columns: inputUnits, depth: batchLength)`
   /// - Parameter tensor: The `Embedding` input `Tensor`
   /// - Returns: Depending on the state of `returnSequence` it will either returng the whole sequence of size
-  /// `(rows: 1, columns: vocabSize, depth: batchSize)` or just the last output of the sequence of size
+  /// `(rows: 1, columns: vocabSize, depth: batchLength)` or just the last output of the sequence of size
   /// `(rows: 1, columns: vocabSize, depth: 1)`
   public func forward(tensor: Tensor) -> Tensor {
     
@@ -288,10 +288,9 @@ public final class LSTM: Layer {
       let getEmbeddings = Tensor(tensor.value[safe: d] ?? tensor.value[0])
       
       let cell = cells[safe: cellIndex]?.0 ?? LSTMCell(hidden: hiddenUnits,
-                                               input: inputUnits,
-                                               vocabSize: vocabSize,
-                                               batchSize: batchLength)
-                  
+                                                       input: inputUnits,
+                                                       vocabSize: vocabSize)
+      
       let cellParameters = LSTMCell.Parameters(forgetGateWeights: forgetGateWeights.detached(),
                                                inputGateWeights: inputGateWeights.detached(),
                                                gateGateWeights: gateGateWeights.detached(),

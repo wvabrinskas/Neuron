@@ -12,7 +12,6 @@ class LSTMCell {
   let hidden: Int
   let input: Int
   let vocabSize: Int
-  let batchSize: Int
   let device: Device
   
   struct Parameters {
@@ -88,11 +87,9 @@ class LSTMCell {
   init(hidden: Int,
        input: Int,
        vocabSize: Int,
-       batchSize: Int,
        device: Device = CPU()) {
     self.hidden = hidden
     self.input = input
-    self.batchSize = batchSize
     self.device = device
     self.vocabSize = vocabSize
   }

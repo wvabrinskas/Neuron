@@ -191,7 +191,7 @@ final class FullModelTests: XCTestCase {
     }
         
     rnn.onEpochCompleted = {
-      let r = rnn.predict(maxWordLength: 20, randomizeSelection: true)
+      let r = rnn.predict(maxWordLength: 20, randomizeSelection: false)
       print(r)
     }
     
