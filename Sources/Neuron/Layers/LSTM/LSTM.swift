@@ -221,7 +221,7 @@ public final class LSTM: Layer {
 
         let activationErrors = outputCell.backward(gradient: gradient.value[safe: index] ?? gradient.zerosLike().value[0], // if we dont emit the sequence then they dont effect the output so we zero them
                                                    activations: cellCache[index].activation.value[0], // should be depth of 1 always
-                                                   batchSize: self.batchLength,
+                                                   batchSize: 1,
                                                    hiddenOutputWeights: self.hiddenOutputWeights)
         
         if wrtOutputWeightsDerivatives.isEmpty {
@@ -239,7 +239,7 @@ public final class LSTM: Layer {
                                        activationOutputError: activationOutputError,
                                        nextActivationError: nextActivationError,
                                        nextCellError: ect,
-                                       batchSize: self.batchLength,
+                                       batchSize: 1,
                                        parameters: .init(forgetGateWeights: self.forgetGateWeights,
                                                          inputGateWeights: self.inputGateWeights,
                                                          gateGateWeights: self.gateGateWeights,
@@ -277,11 +277,7 @@ public final class LSTM: Layer {
     }
     
     var out = Tensor(context: context)
-    
-    // TODO: figure out how to avoid setting batch length and have it be dynamic.
-    // Right now we are just using a hard list of batchLength and generating that length
-    // TODO: start from last stored cell cache when prediciting, this way we can pass in 1 hot vectors like in training
-    
+
     let range = 0..<tensor.value.count
     
     for d in range {

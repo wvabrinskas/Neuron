@@ -146,7 +146,8 @@ public class RNN: Classifier {
   public func predict(starting with: String? = nil,
                       count: Int = 1,
                       maxWordLength: Int = 20,
-                      randomizeSelection: Bool = false) -> [String] {
+                      randomizeSelection: Bool = false,
+                      endingMark: String = ".") -> [String] {
     optimNetwork.isTraining = false
     
     var names: [String] = []
@@ -173,17 +174,14 @@ public class RNN: Classifier {
         name += unvec
       }
 
-      while runningChar != "." && name.count < maxWordLength {
+      while runningChar != endingMark && name.count < maxWordLength {
         
         let out = optimNetwork.predict([Tensor(batch)])
         
-        var iterator = out[safe: 0]?.value.makeIterator()
-        
-        guard let o = iterator?.next() else {
+        guard let flat = out[safe: 0]?.value[safe: 0]?[safe: 0] else {
           break
         }
-        
-        let flat = o.flatten()
+      
         var v: [Float] = [Float](repeating: 0, count: flat.count)
         
         let indexToChoose: Int
