@@ -23,16 +23,15 @@ class MockRNNDataset: RNNSupportedDataset {
   }
   
   func build() async -> Neuron.RNNSupportedDatasetData {
-    vectorizer.vectorize("xavier".fill(with: ".",
-                                     max: 10).characters)
+    vectorizer.vectorize("hammley".fill(with: ".",
+                                     max: 8).characters)
     
-    let oneHot = vectorizer.oneHot("xavier".fill(with: ".",
-                                               max: 7).characters)
+    let oneHot = vectorizer.oneHot("hammley".fill(with: ".",
+                                                  max: 8).characters)
     
-    var labels: [[[Float]]] = Array(oneHot.value.dropFirst())
-    labels.append([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]])
+    //let labels: [[[Float]]] = Array(oneHot.value)
     
-    let labelTensor = Tensor(labels)
+    let labelTensor = oneHot
     let inputTensor = oneHot
     
     return ([DatasetModel](repeating: DatasetModel(data: inputTensor,
@@ -191,7 +190,7 @@ final class FullModelTests: XCTestCase {
     }
         
     rnn.onEpochCompleted = {
-      let r = rnn.predict(maxWordLength: 20, randomizeSelection: false)
+      let r = rnn.predict(maxWordLength: 20, randomizeSelection: true)
       print(r)
     }
     

@@ -186,7 +186,7 @@ public class RNN: Classifier {
         
         let indexToChoose: Int
         if randomizeSelection {
-          indexToChoose = Int.random(in: 0..<v.count)
+          indexToChoose = NumSwift.randomChoice(in: Array(0..<vocabSize), p: flat).1
         } else {
           indexToChoose = Int(flat.indexOfMax.0)
         }
