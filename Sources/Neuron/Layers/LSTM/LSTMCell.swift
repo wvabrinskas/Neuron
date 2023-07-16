@@ -130,12 +130,12 @@ class LSTMCell {
     
     let activationMatrix = oaOut * tanOut
     
-    return Activations(fa: faOut,
-                       ia: iaOut,
-                       oa: oaOut,
-                       ga: gaOut,
-                       activationMatrix: activationMatrix,
-                       cellMemoryMatrix: cellMemoryMatrix)
+    return Activations(fa: faOut.detached(),
+                       ia: iaOut.detached(),
+                       oa: oaOut.detached(),
+                       ga: gaOut.detached(),
+                       activationMatrix: activationMatrix.detached(),
+                       cellMemoryMatrix: cellMemoryMatrix.detached())
     
   }
   
@@ -233,10 +233,17 @@ class LSTMCell {
     let eo = lstmError.eo
     let eg = lstmError.eg
     
-    let dfgw = concat.matmul(ef) / Tensor.Scalar(batchSize)
-    let digw = concat.matmul(ei) / Tensor.Scalar(batchSize)
-    let dogw = concat.matmul(eo) / Tensor.Scalar(batchSize)
-    let dggw = concat.matmul(eg) / Tensor.Scalar(batchSize)
+    var dfgw = concat.matmul(ef)
+    var digw = concat.matmul(ei)
+    var dogw = concat.matmul(eo)
+    var dggw = concat.matmul(eg)
+    
+    if batchSize > 1 {
+      dfgw = dfgw / Tensor.Scalar(batchSize)
+      digw = digw / Tensor.Scalar(batchSize)
+      dogw = dogw / Tensor.Scalar(batchSize)
+      dggw = dggw / Tensor.Scalar(batchSize)
+    }
 
     return .init(dForgetGateWeights: dfgw,
                  dInputGateWeights: digw,

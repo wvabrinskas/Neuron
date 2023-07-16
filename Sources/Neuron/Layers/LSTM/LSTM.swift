@@ -210,7 +210,7 @@ public final class LSTM: Layer {
       
       var wrtEmbeddings: Tensor = Tensor()
       
-      for i in 0..<cellCache.count {
+      for i in 1..<cellCache.count {
         // so we dont have to reverse the array
         let index = (cellCache.count - 1) - i
 
@@ -222,7 +222,7 @@ public final class LSTM: Layer {
         let activationErrors = outputCell.backward(gradient: gradient.value[safe: index] ?? gradient.zerosLike().value[0], // if we dont emit the sequence then they dont effect the output so we zero them
                                                    activations: cellCache[index].activation.value[0], // should be depth of 1 always
                                                    batchSize: 1,
-                                                   hiddenOutputWeights: self.hiddenOutputWeights)
+                                                   hiddenOutputWeights: self.hiddenOutputWeights.detached())
         
         if wrtOutputWeightsDerivatives.isEmpty {
           wrtOutputWeightsDerivatives = activationErrors.weights
@@ -240,10 +240,10 @@ public final class LSTM: Layer {
                                        nextActivationError: nextActivationError,
                                        nextCellError: ect,
                                        batchSize: 1,
-                                       parameters: .init(forgetGateWeights: self.forgetGateWeights,
-                                                         inputGateWeights: self.inputGateWeights,
-                                                         gateGateWeights: self.gateGateWeights,
-                                                         outputGateWeights: self.outputGateWeights))
+                                       parameters: .init(forgetGateWeights: self.forgetGateWeights.detached(),
+                                                         inputGateWeights: self.inputGateWeights.detached(),
+                                                         gateGateWeights: self.gateGateWeights.detached(),
+                                                         outputGateWeights: self.outputGateWeights.detached()))
         
         if wrtLSTMCellInputWeightsDerivatives.isEmpty {
           wrtLSTMCellInputWeightsDerivatives = backward.weights
@@ -283,7 +283,7 @@ public final class LSTM: Layer {
     for d in range {
       let cellIndex = isTraining ? d : max(self.cellCache.count - 1, 0)
       guard let cache = cellCache[safe: cellIndex] else { break }
-
+      
       // get embeddings from input
       let getEmbeddings = Tensor(tensor.value[safe: d] ?? tensor.value[0])
       

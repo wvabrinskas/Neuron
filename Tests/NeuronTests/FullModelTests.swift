@@ -177,7 +177,7 @@ final class FullModelTests: XCTestCase {
                                                                  accuracyThreshold: 0.8,
                                                                  killOnAccuracy: false,
                                                                  threadWorkers: 8),
-                  optimizerParameters: RNN.OptimizerParameters(learningRate: 0.005,
+                  optimizerParameters: RNN.OptimizerParameters(learningRate: 0.0005,
                                                                metricsReporter: reporter),
                   lstmParameters: RNN.RNNLSTMParameters(hiddenUnits: hiddenUnits,
                                                        inputUnits: inputUnits))

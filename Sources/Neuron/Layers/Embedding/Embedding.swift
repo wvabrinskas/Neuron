@@ -98,7 +98,7 @@ public final class Embedding: Layer {
         
         let embeddingError = Tensor(gradientAtIndex)
         let inputsTransposed = Tensor(inputs.value[i].transpose()) // should only ever have a depth of 1
-        let dEmbedding = inputsTransposed.matmul(embeddingError) / Tensor.Scalar(self.batchLength)
+        let dEmbedding = inputsTransposed.matmul(embeddingError)
         
         if wrtEmbeddings.isEmpty {
           wrtEmbeddings = dEmbedding
