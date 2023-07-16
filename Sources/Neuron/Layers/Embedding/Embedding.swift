@@ -97,7 +97,7 @@ public final class Embedding: Layer {
         let gradientAtIndex = gradient.value[i]
         
         let embeddingError = Tensor(gradientAtIndex)
-        let inputsTransposed = Tensor(inputs.value[i].transpose()) // should only ever have a depth of 1
+        let inputsTransposed = Tensor(inputs.value[i].transpose())
         let dEmbedding = inputsTransposed.matmul(embeddingError)
         
         if wrtEmbeddings.isEmpty {
@@ -130,8 +130,6 @@ public final class Embedding: Layer {
   public func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Float) {
     if trainable {
       weights = weights - gradients.weights // use Optimizer adjusted weights to adjust
-    } else {
-      weights = weights - (gradients.weights * learningRate) // apply many weight update using learning rate
     }
   }
 }

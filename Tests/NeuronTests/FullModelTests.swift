@@ -177,7 +177,7 @@ final class FullModelTests: XCTestCase {
                                                                  accuracyThreshold: 0.8,
                                                                  killOnAccuracy: false,
                                                                  threadWorkers: 8),
-                  optimizerParameters: RNN.OptimizerParameters(learningRate: 0.0005,
+                  optimizerParameters: RNN.OptimizerParameters(learningRate: 0.001,
                                                                metricsReporter: reporter),
                   lstmParameters: RNN.RNNLSTMParameters(hiddenUnits: hiddenUnits,
                                                        inputUnits: inputUnits))
@@ -190,7 +190,7 @@ final class FullModelTests: XCTestCase {
     }
         
     rnn.onEpochCompleted = {
-      let r = rnn.predict(maxWordLength: 20, randomizeSelection: true)
+      let r = rnn.predict(starting: "h", maxWordLength: 20, randomizeSelection: true)
       print(r)
     }
     

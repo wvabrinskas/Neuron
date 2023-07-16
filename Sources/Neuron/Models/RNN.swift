@@ -162,7 +162,8 @@ public class RNN: Classifier {
       if let with {
         let oneHotWith = dataset.oneHot([with])
         batch = oneHotWith.value.flatten()
-        
+        name += with
+
       } else {
         batch = [Float](repeating: 0, count: vocabSize)
         let index = Int.random(in: 0..<vocabSize)
@@ -240,7 +241,7 @@ public class RNN: Classifier {
                               vocabSize: vocabSize,
                               batchLength: wordLength,
                               initializer: lstmParameters.embeddingInitializer,
-                              trainable: false)
+                              trainable: true)
     
     self.embedding = embedding
     self.lstm = lstm
