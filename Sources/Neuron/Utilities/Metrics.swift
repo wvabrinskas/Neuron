@@ -42,36 +42,17 @@ internal protocol MetricCalculator: MetricLogger {
   var totalGuesses: Int { get set }
   var totalValCorrectGuesses: Int { get set }
   var totalValGuesses: Int { get set }
-  
-  func calculateValAccuracy(_ guess: [Float], label: [Float], binary: Bool) -> Float
-  func calculateAccuracy(_ guess: [Float], label: [Float], binary: Bool) -> Float
-  func calculateAccuracy(_ guess: Tensor, label: Tensor, binary: Bool) -> Float
-  func calculateValAccuracy(_ guess: Tensor, label: Tensor, binary: Bool) -> Float
+
+  func calculateAccuracy(_ guess: Tensor, label: Tensor, binary: Bool, running: Bool) -> Float
+  func calculateValAccuracy(_ guess: Tensor, label: Tensor, binary: Bool,  running: Bool) -> Float
 
 }
 
 internal extension MetricCalculator {
-  func calculateValAccuracy(_ guess: [Float], label: [Float], binary: Bool) -> Float {
-    //only useful for classification problems
-    let max = label.indexOfMax
-    let guessMax = guess.indexOfMax
-    if binary {
-      if max.1 - guessMax.1 < 0.5 {
-        totalValCorrectGuesses += 1
-      }
-    } else {
-      if max.0 == guessMax.0 {
-        totalValCorrectGuesses += 1
-      }
-    }
+  func calculateValAccuracy(_ guess: Tensor, label: Tensor, binary: Bool, running: Bool = false) -> Float {
+    var totalCorrect = 0
+    var totalGuess = 0
     
-    totalValGuesses += 1
-    
-    let accuracy = Float(totalValCorrectGuesses) / Float(totalValGuesses) * 100.0
-    return accuracy
-  }
-  
-  func calculateValAccuracy(_ guess: Tensor, label: Tensor, binary: Bool) -> Float {
     typealias Max = (UInt, Float)
     
     func perform(max: Max, guessMax: Max) -> Int {
@@ -91,16 +72,23 @@ internal extension MetricCalculator {
       for r in 0..<guess.value[d].count {
         let guessMax = guess.value[d][r].indexOfMax
         let labelMax = label.value[d][r].indexOfMax
+        totalCorrect += perform(max: labelMax, guessMax: guessMax)
         totalValCorrectGuesses += perform(max: labelMax, guessMax: guessMax)
+        totalGuess += 1
         totalValGuesses += 1
       }
     }
     
-    let accuracy = Float(totalValCorrectGuesses) / Float(totalValGuesses) * 100.0
-    return accuracy
+    let runningAccuracy = Float(totalValCorrectGuesses) / Float(totalValGuesses) * 100.0
+    let accuracy = Float(totalCorrect) / Float(totalGuess) * 100.0
+    return running ? runningAccuracy : accuracy
   }
   
-  func calculateAccuracy(_ guess: Tensor, label: Tensor, binary: Bool) -> Float {
+  func calculateAccuracy(_ guess: Tensor, label: Tensor, binary: Bool, running: Bool = false) -> Float {
+    
+    var totalCorrect = 0
+    var totalGuess = 0
+    
     typealias Max = (UInt, Float)
     
     func perform(max: Max, guessMax: Max) -> Int {
@@ -120,34 +108,17 @@ internal extension MetricCalculator {
       for r in 0..<guess.value[d].count {
         let guessMax = guess.value[d][r].indexOfMax
         let labelMax = label.value[d][r].indexOfMax
+        totalCorrect += perform(max: labelMax, guessMax: guessMax)
         totalCorrectGuesses += perform(max: labelMax, guessMax: guessMax)
+        totalGuess += 1
         totalGuesses += 1
       }
     }
     
-    let accuracy = Float(totalCorrectGuesses) / Float(totalGuesses) * 100.0
-    return accuracy
+    let runningAccuracy = Float(totalCorrectGuesses) / Float(totalGuesses) * 100.0
+    let accuracy = Float(totalCorrect) / Float(totalGuess) * 100.0
+    return running ? runningAccuracy : accuracy
   }
-  
-  func calculateAccuracy(_ guess: [Float], label: [Float], binary: Bool = false) -> Float {
-    //only useful for classification problems
-    let max = label.indexOfMax
-    let guessMax = guess.indexOfMax
-    if binary {
-      if max.1 - guessMax.1 < 0.5 {
-        totalCorrectGuesses += 1
-      }
-    } else {
-      if max.0 == guessMax.0 {
-        totalCorrectGuesses += 1
-      }
-    }
-    totalGuesses += 1
-    
-    let accuracy = Float(totalCorrectGuesses) / Float(totalGuesses) * 100.0
-    return accuracy
-  }
-
 }
 
 @dynamicMemberLookup
