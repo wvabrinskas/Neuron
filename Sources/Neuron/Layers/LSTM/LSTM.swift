@@ -36,7 +36,6 @@ public final class LSTM: Layer {
   private let returnSequence: Bool
   
   @Atomic private var cellCache: [Cache] = []
-  @Atomic private var cells: [(LSTMCell, OutputCell)] = []
 
   public class LSTMActivations {
     let forgetGate: Tensor
@@ -193,11 +192,9 @@ public final class LSTM: Layer {
   public func forward(tensor: Tensor) -> Tensor {
     
     var cellCache: [Cache] = [setupInitialState()]
-    var cells: [(LSTMCell, OutputCell)] = []
     
     if isTraining == false {
       cellCache = self.cellCache.isEmpty ? [setupInitialState()] : self.cellCache
-      cells = self.cells
     }
     
     let context = TensorContext { inputs, gradient in
@@ -210,14 +207,14 @@ public final class LSTM: Layer {
       
       var wrtEmbeddings: Tensor = Tensor()
       
-      for i in 1..<cellCache.count {
+      for index in (1..<cellCache.count).reversed() {
         // so we dont have to reverse the array
-        let index = (cellCache.count - 1) - i
+       // let index = (cellCache.count - 1) - i
 
         let cache = cellCache[index]
         let previousCache = cellCache[safe: index - 1]
         
-        let outputCell = cells[index].1
+        let outputCell = OutputCell(device: self.device)
 
         let activationErrors = outputCell.backward(gradient: gradient.value[safe: index] ?? gradient.zerosLike().value[0], // if we dont emit the sequence then they dont effect the output so we zero them
                                                    activations: cellCache[index].activation.value[0], // should be depth of 1 always
@@ -233,17 +230,20 @@ public final class LSTM: Layer {
         let nextActivationError = eat
         let activationOutputError = activationErrors.outputs.value[0]
 
-        let cell = cells[index]
-        let backward = cell.0.backward(cache: cache,
-                                       previousCache: previousCache,
-                                       activationOutputError: activationOutputError,
-                                       nextActivationError: nextActivationError,
-                                       nextCellError: ect,
-                                       batchSize: 1,
-                                       parameters: .init(forgetGateWeights: self.forgetGateWeights.detached(),
-                                                         inputGateWeights: self.inputGateWeights.detached(),
-                                                         gateGateWeights: self.gateGateWeights.detached(),
-                                                         outputGateWeights: self.outputGateWeights.detached()))
+        let cell = LSTMCell(hidden: self.hiddenUnits,
+                            input: self.inputUnits,
+                            vocabSize: self.vocabSize,
+                            device: self.device)
+        let backward = cell.backward(cache: cache,
+                                     previousCache: previousCache,
+                                     activationOutputError: activationOutputError,
+                                     nextActivationError: nextActivationError,
+                                     nextCellError: ect,
+                                     batchSize: 1,
+                                     parameters: .init(forgetGateWeights: self.forgetGateWeights.detached(),
+                                                       inputGateWeights: self.inputGateWeights.detached(),
+                                                       gateGateWeights: self.gateGateWeights.detached(),
+                                                       outputGateWeights: self.outputGateWeights.detached()))
         
         if wrtLSTMCellInputWeightsDerivatives.isEmpty {
           wrtLSTMCellInputWeightsDerivatives = backward.weights
@@ -280,16 +280,17 @@ public final class LSTM: Layer {
 
     let range = 0..<tensor.value.count
     
+    // TODO: What happens to the prediction after we extend pass the batchLength
     for d in range {
-      let cellIndex = isTraining ? d : max(self.cellCache.count - 1, 0)
-      guard let cache = cellCache[safe: cellIndex] else { break }
+      let index = isTraining ? d : max(self.cellCache.count - 1, 0)
+      guard let cache = cellCache[safe: index] else { break }
       
       // get embeddings from input
-      let getEmbeddings = Tensor(tensor.value[safe: d] ?? tensor.value[0])
+      let getEmbeddings = Tensor(tensor.value[safe: index] ?? tensor.value[0])
       
-      let cell = cells[safe: cellIndex]?.0 ?? LSTMCell(hidden: hiddenUnits,
-                                                       input: inputUnits,
-                                                       vocabSize: vocabSize)
+      let cell = LSTMCell(hidden: hiddenUnits,
+                          input: inputUnits,
+                          vocabSize: vocabSize)
       
       let cellParameters = LSTMCell.Parameters(forgetGateWeights: forgetGateWeights.detached(),
                                                inputGateWeights: inputGateWeights.detached(),
@@ -300,7 +301,7 @@ public final class LSTM: Layer {
                                     parameters: cellParameters,
                                     cache: cache)
       
-      let outputCell = cells[safe: cellIndex]?.1 ?? OutputCell(device: device)
+      let outputCell = OutputCell(device: device)
       let outputCellParameters = OutputCell.Parameters(hiddenOutputWeights: hiddenOutputWeights.detached(),
                                                        activationMatrix: cellOutput.activationMatrix.detached())
       
@@ -312,16 +313,10 @@ public final class LSTM: Layer {
                                embedding: getEmbeddings.detached(),
                                output: outputCellOutput.detached())
       
-      if cellCache[safe: d + 1] != nil {
-        cellCache[d + 1] = newCellCache
+      if cellCache[safe: index + 1] != nil {
+        cellCache[index + 1] = newCellCache
       } else {
         cellCache.append(newCellCache)
-      }
-      
-      if cells[safe: d + 1] != nil {
-        cells[d + 1] = (cell, outputCell)
-      } else {
-        cells.append((cell, outputCell))
       }
       
       let new = out.concat(outputCellOutput, axis: 2)
@@ -329,11 +324,10 @@ public final class LSTM: Layer {
     }
     
     // drop first state since it's just default values
-    cellCache = Array(cellCache.dropFirst())
+   // cellCache = Array(cellCache.dropFirst())
 
     if isTraining == false {
       self.cellCache = cellCache
-      self.cells = cells
     }
     
     if returnSequence == false, let last = out.value.last {
@@ -384,7 +378,6 @@ public final class LSTM: Layer {
   // MARK: Private
 
   private func reset() {
-    cells.removeAll()
     cellCache.removeAll()
   }
 
@@ -425,13 +418,25 @@ public final class LSTM: Layer {
   }
   
   private func setupInitialState() -> Cache {
-    let a = Tensor(NumSwift.zerosLike((rows: batchLength, columns: hiddenUnits, depth: 1)))
-    let c = Tensor(NumSwift.zerosLike((rows: batchLength, columns: hiddenUnits, depth: 1)))
+    let a = Tensor(NumSwift.zerosLike((rows: 1, columns: hiddenUnits, depth: batchLength)))
+    let c = Tensor(NumSwift.zerosLike((rows: 1, columns: hiddenUnits, depth: batchLength)))
     
-    let initialCache = Cache()
-    
-    initialCache.activation = a
-    initialCache.cell = c
+    let og =  Tensor(NumSwift.zerosLike((rows: 1, columns: hiddenUnits, depth: 1)))
+    let ig =  Tensor(NumSwift.zerosLike((rows: 1, columns: hiddenUnits, depth: 1)))
+    let fg =  Tensor(NumSwift.zerosLike((rows: 1, columns: hiddenUnits, depth: 1)))
+    let gg =  Tensor(NumSwift.zerosLike((rows: 1, columns: hiddenUnits, depth: 1)))
+
+    let embedding =  Tensor(NumSwift.zerosLike((rows: 1, columns: inputUnits, depth: 1)))
+    let output =  Tensor(NumSwift.zerosLike((rows: 1, columns: vocabSize, depth: 1)))
+
+    let initialCache = Cache(lstm: .init(forgetGate: fg,
+                                         inputGate: ig,
+                                         outputGate: og,
+                                         gateGate: gg),
+                             cell: c,
+                             activation: a,
+                             embedding: embedding,
+                             output: output)
 
     return initialCache
   }
