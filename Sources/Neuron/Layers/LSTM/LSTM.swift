@@ -206,18 +206,16 @@ public final class LSTM: Layer {
       var wrtLSTMCellInputWeightsDerivatives: LSTMCell.ParameterDerivatives = .init()
       
       var wrtEmbeddings: Tensor = Tensor()
-      
+            
       for index in (1..<cellCache.count).reversed() {
-        // so we dont have to reverse the array
-       // let index = (cellCache.count - 1) - i
-
+        
         let cache = cellCache[index]
         let previousCache = cellCache[safe: index - 1]
         
         let outputCell = OutputCell(device: self.device)
 
-        let activationErrors = outputCell.backward(gradient: gradient.value[safe: index] ?? gradient.zerosLike().value[0], // if we dont emit the sequence then they dont effect the output so we zero them
-                                                   activations: cellCache[index].activation.value[0], // should be depth of 1 always
+        let activationErrors = outputCell.backward(gradient: gradient.value[safe: index] ?? gradient.zerosLike().value[0],
+                                                   activations: cellCache[index].activation.value[0],
                                                    batchSize: 1,
                                                    hiddenOutputWeights: self.hiddenOutputWeights.detached())
         
@@ -234,6 +232,7 @@ public final class LSTM: Layer {
                             input: self.inputUnits,
                             vocabSize: self.vocabSize,
                             device: self.device)
+        
         let backward = cell.backward(cache: cache,
                                      previousCache: previousCache,
                                      activationOutputError: activationOutputError,
@@ -313,18 +312,11 @@ public final class LSTM: Layer {
                                embedding: getEmbeddings.detached(),
                                output: outputCellOutput.detached())
       
-      if cellCache[safe: index + 1] != nil {
-        cellCache[index + 1] = newCellCache
-      } else {
-        cellCache.append(newCellCache)
-      }
+      cellCache.append(newCellCache)
       
       let new = out.concat(outputCellOutput, axis: 2)
       out = new
     }
-    
-    // drop first state since it's just default values
-   // cellCache = Array(cellCache.dropFirst())
 
     if isTraining == false {
       self.cellCache = cellCache
