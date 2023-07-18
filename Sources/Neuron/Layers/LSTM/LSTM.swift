@@ -24,10 +24,19 @@ public final class LSTM: Layer {
   public var isTraining: Bool = true
 
   public var forgetGateWeights: Tensor = Tensor()
+  public var forgetGateBiases: Tensor = Tensor()
+
   public var inputGateWeights: Tensor = Tensor()
+  public var inputGateBiases: Tensor = Tensor()
+
   public var gateGateWeights: Tensor = Tensor()
+  public var gateGateBiases: Tensor = Tensor()
+
   public var outputGateWeights: Tensor = Tensor()
+  public var outputGateBiases: Tensor = Tensor()
+
   public var hiddenOutputWeights: Tensor = Tensor()
+  public var hiddenOutputBiases: Tensor = Tensor()
     
   private var hiddenUnits: Int
   private var vocabSize: Int
@@ -242,7 +251,11 @@ public final class LSTM: Layer {
                                      parameters: .init(forgetGateWeights: self.forgetGateWeights.detached(),
                                                        inputGateWeights: self.inputGateWeights.detached(),
                                                        gateGateWeights: self.gateGateWeights.detached(),
-                                                       outputGateWeights: self.outputGateWeights.detached()))
+                                                       outputGateWeights: self.outputGateWeights.detached(),
+                                                       forgetGateBiases: self.forgetGateBiases.detached(),
+                                                       inputGateBiases: self.inputGateBiases.detached(),
+                                                       gateGateBiases: self.gateGateBiases.detached(),
+                                                       outputGateBiases: self.outputGateBiases.detached()))
         
         if wrtLSTMCellInputWeightsDerivatives.isEmpty {
           wrtLSTMCellInputWeightsDerivatives = backward.weights
@@ -294,7 +307,11 @@ public final class LSTM: Layer {
       let cellParameters = LSTMCell.Parameters(forgetGateWeights: forgetGateWeights.detached(),
                                                inputGateWeights: inputGateWeights.detached(),
                                                gateGateWeights: gateGateWeights.detached(),
-                                               outputGateWeights: outputGateWeights.detached())
+                                               outputGateWeights: outputGateWeights.detached(),
+                                               forgetGateBiases: forgetGateBiases.detached(),
+                                               inputGateBiases: inputGateBiases.detached(),
+                                               gateGateBiases: gateGateBiases.detached(),
+                                               outputGateBiases: outputGateBiases.detached())
 
       let cellOutput = cell.forward(tensor: getEmbeddings,
                                     parameters: cellParameters,
@@ -346,22 +363,32 @@ public final class LSTM: Layer {
 
     var gLayers = gradients.weights.value.reshape(columns: 1)
     
-    guard let forgetGateWeightGrads = gLayers[safe: 0],
-          let inputGateWeightGrads = gLayers[safe: 1],
-          let gateGateWeightGrads = gLayers[safe: 2],
-          let outputGateWeightGrads = gLayers[safe: 3],
-          let hiddenOutputWeightGradients = gLayers[safe: 4]?[..<vocabSize, 0..<hiddenUnits, 0...] else {
-      fatalError("Certain gate weights are not in the gradient")
+    if let forgetGateWeightGrads = gLayers[safe: 0],
+       let inputGateWeightGrads = gLayers[safe: 1],
+       let gateGateWeightGrads = gLayers[safe: 2],
+       let outputGateWeightGrads = gLayers[safe: 3],
+       let hiddenOutputWeightGradients = gLayers[safe: 4]?[..<vocabSize, 0..<hiddenUnits, 0...]  {
+      
+      gLayers = gLayers.dropLast()
+      
+      self.forgetGateWeights = self.forgetGateWeights - Tensor(forgetGateWeightGrads)
+      self.inputGateWeights = self.inputGateWeights - Tensor(inputGateWeightGrads)
+      self.gateGateWeights = self.gateGateWeights - Tensor(gateGateWeightGrads)
+      self.outputGateWeights = self.outputGateWeights - Tensor(outputGateWeightGrads)
+      
+      self.hiddenOutputWeights = self.hiddenOutputWeights - Tensor(hiddenOutputWeightGradients)
     }
-
-    gLayers = gLayers.dropLast()
-
-    self.forgetGateWeights = self.forgetGateWeights - Tensor(forgetGateWeightGrads)
-    self.inputGateWeights = self.inputGateWeights - Tensor(inputGateWeightGrads)
-    self.gateGateWeights = self.gateGateWeights - Tensor(gateGateWeightGrads)
-    self.outputGateWeights = self.outputGateWeights - Tensor(outputGateWeightGrads)
-
-    self.hiddenOutputWeights = self.hiddenOutputWeights - Tensor(hiddenOutputWeightGradients)
+    
+    /*
+     order of biases in tensor...
+     
+     dForgetGateWeights = 0
+     dInputGateWeights = 1
+     dGateGateWeights = 2
+     dOutputGateWeights = 3
+     
+     hiddenOutputWeightGradients = 4
+     */
 
     reset()
   }
