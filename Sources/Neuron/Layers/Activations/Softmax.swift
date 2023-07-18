@@ -53,7 +53,7 @@ public final class Softmax: ActivationLayer {
   
   public func forward(tensor: Tensor) -> Tensor {
     let context = TensorContext { inputs, gradient in
-      return (Tensor(gradient.value), Tensor())
+      return (Tensor(gradient.value), Tensor(), Tensor())
     }
     
     var activationResult: [[[Tensor.Scalar]]] = []

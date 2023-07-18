@@ -115,7 +115,7 @@ public final class Dense: Layer {
         weightGradients.append(inputsFlat * delta)
       }
       
-      return (deltas, Tensor(weightGradients))
+      return (deltas, Tensor(weightGradients), Tensor(inputsFlat.sum))
     }
     
     //THIS WAS A MAJOR BUG POINT. DO NOT SWITCH ROWS AND COLUMNS HERE BY ACCIDENT - Billy 05-20-2022

@@ -66,7 +66,7 @@ public final class Reshape: Layer {
   public func forward(tensor: Tensor) -> Tensor {
     let context = TensorContext { inputs, gradient in
       let value: [Tensor.Scalar] = gradient.value.flatten()
-      return (Tensor(value), Tensor())
+      return (Tensor(value), Tensor(), Tensor())
     }
     
     let flat: [Tensor.Scalar] = tensor.value.flatten()
