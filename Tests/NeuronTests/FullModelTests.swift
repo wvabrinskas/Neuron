@@ -23,16 +23,15 @@ class MockRNNDataset: RNNSupportedDataset {
   }
   
   func build() async -> Neuron.RNNSupportedDatasetData {
-    vectorizer.vectorize("xavier".fill(with: ".",
-                                     max: 10).characters)
+    vectorizer.vectorize("hammley".fill(with: ".",
+                                     max: 8).characters)
     
-    let oneHot = vectorizer.oneHot("xavier".fill(with: ".",
-                                               max: 10).characters)
+    let oneHot = vectorizer.oneHot("hammley".fill(with: ".",
+                                                  max: 8).characters)
     
-    var labels: [[[Float]]] = Array(oneHot.value.dropFirst())
-    labels.append([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]])
+    //let labels: [[[Float]]] = Array(oneHot.value)
     
-    let labelTensor = Tensor(labels)
+    let labelTensor = oneHot
     let inputTensor = oneHot
     
     return ([DatasetModel](repeating: DatasetModel(data: inputTensor,
@@ -162,7 +161,7 @@ final class FullModelTests: XCTestCase {
     }
 
     let inputUnits = 25
-    let hiddenUnits = 50
+    let hiddenUnits = 100
     
     let reporter = MetricsReporter(frequency: 1,
                                    metricsToGather: [.loss,
@@ -174,18 +173,14 @@ final class FullModelTests: XCTestCase {
     let rnn = RNN(returnSequence: true,
                   dataset: MockRNNDataset(),
                   classifierParameters: RNN.ClassifierParameters(batchSize: 16,
-                                                                 epochs: 20,
+                                                                 epochs: 40,
                                                                  accuracyThreshold: 0.8,
                                                                  killOnAccuracy: false,
                                                                  threadWorkers: 8),
-                  optimizerParameters: RNN.OptimizerParameters(learningRate: 0.005,
+                  optimizerParameters: RNN.OptimizerParameters(learningRate: 0.001,
                                                                metricsReporter: reporter),
                   lstmParameters: RNN.RNNLSTMParameters(hiddenUnits: hiddenUnits,
-                                                       inputUnits: inputUnits)) {
-      [
-       Dropout(0.5),
-       Softmax()]
-    }
+                                                       inputUnits: inputUnits))
     
     
     reporter.receive = { metrics in
@@ -195,7 +190,7 @@ final class FullModelTests: XCTestCase {
     }
         
     rnn.onEpochCompleted = {
-      let r = rnn.predict()
+      let r = rnn.predict(starting: "h", maxWordLength: 20, randomizeSelection: true)
       print(r)
     }
     

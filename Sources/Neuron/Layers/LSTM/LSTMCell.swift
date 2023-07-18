@@ -12,7 +12,6 @@ class LSTMCell {
   let hidden: Int
   let input: Int
   let vocabSize: Int
-  let batchSize: Int
   let device: Device
   
   struct Parameters {
@@ -88,11 +87,9 @@ class LSTMCell {
   init(hidden: Int,
        input: Int,
        vocabSize: Int,
-       batchSize: Int,
        device: Device = CPU()) {
     self.hidden = hidden
     self.input = input
-    self.batchSize = batchSize
     self.device = device
     self.vocabSize = vocabSize
   }
@@ -110,31 +107,35 @@ class LSTMCell {
     let previousCellMatrix = cache.cell
     
     let concat = tensor.concat(previousActivationMatrix)
-        
+    
+    // forget gate
     let fa = device.matmul(concat, fgw)
-    let faOut = Sigmoid(inputSize: .init(array: fa.shape)).forward(tensor: fa)
+    let faOut = Sigmoid().forward(tensor: fa)
     
+    // input gate
     let ia = device.matmul(concat, igw)
-    let iaOut = Sigmoid(inputSize: .init(array: ia.shape)).forward(tensor: ia)
+    let iaOut = Sigmoid().forward(tensor: ia)
     
-    let oa = device.matmul(concat, ogw)
-    let oaOut = Sigmoid(inputSize: .init(array: oa.shape)).forward(tensor: oa)
-    
+    // gate gate
     let ga = device.matmul(concat, ggw)
-    let gaOut = Tanh(inputSize: .init(array: ga.shape)).forward(tensor: ga)
+    let gaOut = Tanh().forward(tensor: ga)
+    
+    // output gate
+    let oa = device.matmul(concat, ogw)
+    let oaOut = Sigmoid().forward(tensor: oa)
     
     let cellMemoryMatrix = (faOut * previousCellMatrix) + (iaOut * gaOut)
     
-    let tanOut = Tanh(inputSize: .init(array: cellMemoryMatrix.shape)).forward(tensor: cellMemoryMatrix)
+    let tanOut = Tanh().forward(tensor: cellMemoryMatrix)
     
     let activationMatrix = oaOut * tanOut
     
-    return Activations(fa: faOut,
-                       ia: iaOut,
-                       oa: oaOut,
-                       ga: gaOut,
-                       activationMatrix: activationMatrix,
-                       cellMemoryMatrix: cellMemoryMatrix)
+    return Activations(fa: faOut.detached(),
+                       ia: iaOut.detached(),
+                       oa: oaOut.detached(),
+                       ga: gaOut.detached(),
+                       activationMatrix: activationMatrix.detached(),
+                       cellMemoryMatrix: cellMemoryMatrix.detached())
     
   }
   
@@ -232,10 +233,17 @@ class LSTMCell {
     let eo = lstmError.eo
     let eg = lstmError.eg
     
-    let dfgw = concat.matmul(ef) / Tensor.Scalar(batchSize)
-    let digw = concat.matmul(ei) / Tensor.Scalar(batchSize)
-    let dogw = concat.matmul(eo) / Tensor.Scalar(batchSize)
-    let dggw = concat.matmul(eg) / Tensor.Scalar(batchSize)
+    var dfgw = concat.matmul(ef)
+    var digw = concat.matmul(ei)
+    var dogw = concat.matmul(eo)
+    var dggw = concat.matmul(eg)
+    
+    if batchSize > 1 {
+      dfgw = dfgw / Tensor.Scalar(batchSize)
+      digw = digw / Tensor.Scalar(batchSize)
+      dogw = dogw / Tensor.Scalar(batchSize)
+      dggw = dggw / Tensor.Scalar(batchSize)
+    }
 
     return .init(dForgetGateWeights: dfgw,
                  dInputGateWeights: digw,
