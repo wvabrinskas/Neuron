@@ -114,19 +114,19 @@ class LSTMCell {
     
     // forget gate
     let fa = device.matmul(concat, fgw)
-    let faOut = Sigmoid().forward(tensor: fa)
+    let faOut = Sigmoid().forward(tensor: fa) + parameters.forgetGateBiases.asScalar()
     
     // input gate
     let ia = device.matmul(concat, igw)
-    let iaOut = Sigmoid().forward(tensor: ia)
+    let iaOut = Sigmoid().forward(tensor: ia) + parameters.inputGateBiases.asScalar()
     
     // gate gate
     let ga = device.matmul(concat, ggw)
-    let gaOut = Tanh().forward(tensor: ga)
+    let gaOut = Tanh().forward(tensor: ga) + parameters.gateGateBiases.asScalar()
     
     // output gate
     let oa = device.matmul(concat, ogw)
-    let oaOut = Sigmoid().forward(tensor: oa)
+    let oaOut = Sigmoid().forward(tensor: oa) + parameters.outputGateBiases.asScalar()
     
     let cellMemoryMatrix = (faOut * previousCellMatrix) + (iaOut * gaOut)
     
@@ -174,16 +174,16 @@ class LSTMCell {
     let ga = lstm.gateGate
     var ei = cellError * ia
     ei = (ei * ia) * (1 - ia)
-    
+
     // gate gate error
     var eg = cellError * ia
     eg = eg * self.device.derivate(ga, .tanh)
-    
+
     // forget gate error
     let fa = lstm.forgetGate
     var ef = cellError * previousCellActivaion
     ef = (ef * fa) * (1 - fa)
-    
+
     // prev cell error
     let prevCellError = cellError * fa
     
@@ -229,7 +229,15 @@ class LSTMCell {
   
   private func backwarsWRTBiases(lstmError: Errors.LSTMError,
                                  batchSize: Int) -> ParameterDerivatives {
-    .init()
+    let outputGateBiasesUpdate = lstmError.eo.sum(axis: 1)
+    let inputGateBiasesUpdate = lstmError.ei.sum(axis: 1)
+    let gateGateBiasesUpdate = lstmError.eg.sum(axis: 1)
+    let forgetGateBiasesUpdate = lstmError.ef.sum(axis: 1)
+
+    return .init(dForgetGate: forgetGateBiasesUpdate,
+                 dInputGate: inputGateBiasesUpdate,
+                 dGateGate: gateGateBiasesUpdate,
+                 dOutputGate: outputGateBiasesUpdate)
   }
   
   private func backwardsWRTWeights(lstmError: Errors.LSTMError,
