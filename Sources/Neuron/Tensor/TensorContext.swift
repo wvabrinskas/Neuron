@@ -8,13 +8,13 @@
 import Foundation
 
 public struct TensorContext: Codable {
-  public typealias TensorBackpropResult = (input: Tensor, weight: Tensor)
+  public typealias TensorBackpropResult = (input: Tensor, weight: Tensor, bias: Tensor)
   public typealias TensorContextFunction = (_ inputs: Tensor, _ gradient: Tensor) -> TensorBackpropResult
   var backpropagate: TensorContextFunction
   
   public init(backpropagate: TensorContextFunction? = nil) {
     let defaultFunction = { (input: Tensor, gradient: Tensor) in
-      return (Tensor(gradient.value), Tensor())
+      return (Tensor(gradient.value), Tensor(), Tensor())
     }
     
     self.backpropagate = backpropagate ?? defaultFunction

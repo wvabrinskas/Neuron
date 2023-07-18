@@ -66,7 +66,7 @@ public final class Dropout: Layer {
     let context = TensorContext { inputs, gradient in
       let droppedOutGradients = gradient * self.mask
       
-      return (droppedOutGradients, Tensor())
+      return (droppedOutGradients, Tensor(), Tensor())
     }
     
     var droppedOut = tensor

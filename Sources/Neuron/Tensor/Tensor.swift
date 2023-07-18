@@ -164,16 +164,10 @@ public class Tensor: Equatable, Codable {
   public func gradients(delta: Tensor) -> Tensor.Gradient {
     var inputGradients: [Tensor] = []
     var weightGradients: [Tensor] = []
+    var biasGradients: [Tensor] = []
 
     var tensor: Tensor? = self
     var incomingGradient = delta
-    
-    var currentBiasGrads: [Scalar] = []
-    incomingGradient.value.forEach { val in
-      currentBiasGrads.append(val.sum)
-    }
-  
-    var biasGradients: [Tensor] = [Tensor(currentBiasGrads)]
 
     while let tensorNode = tensor {
 
@@ -183,21 +177,12 @@ public class Tensor: Equatable, Codable {
         
         inputGradients.insert(newGrads.input, at: 0)
         weightGradients.insert(newGrads.weight, at: 0)
-        
-        // automatically calculates bias gradients
-        var currentBiasGrads: [Scalar] = []
-        newGrads.input.value.forEach { val in
-          currentBiasGrads.append(val.sum)
-        }
-        
-        biasGradients.insert(Tensor(currentBiasGrads), at: 0)
+        biasGradients.insert(newGrads.bias, at: 0)
       }
             
       tensor = tensorNode.graph
     }
 
-    // there is no bias for the input layer
-    biasGradients.removeFirst()
     return .init(input: inputGradients, weights: weightGradients, biases: biasGradients)
   }
   

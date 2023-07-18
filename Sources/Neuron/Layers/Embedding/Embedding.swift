@@ -108,7 +108,7 @@ public final class Embedding: Layer {
         }
       }
 
-      return (Tensor(), wrtEmbeddings)
+      return (Tensor(), wrtEmbeddings, Tensor())
     }
     
     var out = Tensor(context: context)

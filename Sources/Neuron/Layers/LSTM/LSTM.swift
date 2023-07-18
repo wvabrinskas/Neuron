@@ -24,10 +24,19 @@ public final class LSTM: Layer {
   public var isTraining: Bool = true
 
   public var forgetGateWeights: Tensor = Tensor()
+  public var forgetGateBiases: Tensor = Tensor()
+
   public var inputGateWeights: Tensor = Tensor()
+  public var inputGateBiases: Tensor = Tensor()
+
   public var gateGateWeights: Tensor = Tensor()
+  public var gateGateBiases: Tensor = Tensor()
+
   public var outputGateWeights: Tensor = Tensor()
+  public var outputGateBiases: Tensor = Tensor()
+
   public var hiddenOutputWeights: Tensor = Tensor()
+  public var hiddenOutputBiases: Tensor = Tensor()
     
   private var hiddenUnits: Int
   private var vocabSize: Int
@@ -105,6 +114,7 @@ public final class LSTM: Layer {
   public init(inputUnits: Int,
               batchLength: Int,
               returnSequence: Bool = true,
+              biasEnabled: Bool = true,
               initializer: InitializerType = .xavierNormal,
               hiddenUnits: Int,
               vocabSize: Int) {
@@ -121,8 +131,12 @@ public final class LSTM: Layer {
                                  depth: returnSequence ? batchLength : 1)
     
     self.returnSequence = returnSequence
-        
+    self.biasEnabled = biasEnabled
+    
     initializeWeights()
+    if biasEnabled {
+      initializeBiases()
+    }
   }
   
   enum CodingKeys: String, CodingKey {
@@ -197,83 +211,7 @@ public final class LSTM: Layer {
       cellCache = self.cellCache.isEmpty ? [setupInitialState()] : self.cellCache
     }
     
-    let context = TensorContext { inputs, gradient in
-      var eat: [[Tensor.Scalar]] = NumSwift.zerosLike((rows: 1,
-                                                       columns: self.hiddenUnits))
-      var ect: [[Tensor.Scalar]] = eat
-      
-      var wrtOutputWeightsDerivatives: Tensor = Tensor()
-      var wrtLSTMCellInputWeightsDerivatives: LSTMCell.ParameterDerivatives = .init()
-      
-      var wrtEmbeddings: Tensor = Tensor()
-            
-      for index in (1..<cellCache.count).reversed() {
-        
-        let cache = cellCache[index]
-        let previousCache = cellCache[safe: index - 1]
-        
-        let outputCell = OutputCell(device: self.device)
-
-        let activationErrors = outputCell.backward(gradient: gradient.value[safe: index] ?? gradient.zerosLike().value[0],
-                                                   activations: cellCache[index].activation.value[0],
-                                                   batchSize: 1,
-                                                   hiddenOutputWeights: self.hiddenOutputWeights.detached())
-        
-        if wrtOutputWeightsDerivatives.isEmpty {
-          wrtOutputWeightsDerivatives = activationErrors.weights
-        } else {
-          wrtOutputWeightsDerivatives = wrtOutputWeightsDerivatives + activationErrors.weights
-        }
-        
-        let nextActivationError = eat
-        let activationOutputError = activationErrors.outputs.value[0]
-
-        let cell = LSTMCell(hidden: self.hiddenUnits,
-                            input: self.inputUnits,
-                            vocabSize: self.vocabSize,
-                            device: self.device)
-        
-        let backward = cell.backward(cache: cache,
-                                     previousCache: previousCache,
-                                     activationOutputError: activationOutputError,
-                                     nextActivationError: nextActivationError,
-                                     nextCellError: ect,
-                                     batchSize: 1,
-                                     parameters: .init(forgetGateWeights: self.forgetGateWeights.detached(),
-                                                       inputGateWeights: self.inputGateWeights.detached(),
-                                                       gateGateWeights: self.gateGateWeights.detached(),
-                                                       outputGateWeights: self.outputGateWeights.detached()))
-        
-        if wrtLSTMCellInputWeightsDerivatives.isEmpty {
-          wrtLSTMCellInputWeightsDerivatives = backward.weights
-        } else {
-          wrtLSTMCellInputWeightsDerivatives = wrtLSTMCellInputWeightsDerivatives + backward.weights
-        }
-        
-        let previousCellError = backward.inputs.previousCellError
-        let previousActivationError = backward.inputs.previousActivationError
-        
-        let embeddingError = backward.inputs.embeddingError
-        
-        if wrtEmbeddings.isEmpty {
-          wrtEmbeddings = embeddingError
-        } else {
-          let dEmbed = wrtEmbeddings.concat(embeddingError, axis: 2)
-          wrtEmbeddings = dEmbed
-        }
-        
-        if let pae = previousActivationError.value[safe: 0],
-           let pce = previousCellError.value[safe: 0] {
-          eat = pae
-          ect = pce
-        }
-      }
-      
-      // merge all weights into a giant 5 depth tensor, shape will be broken here
-      let weightDerivatives = wrtLSTMCellInputWeightsDerivatives.concat().concat(wrtOutputWeightsDerivatives, axis: 2)
-      
-      return (wrtEmbeddings, weightDerivatives)
-    }
+    let context = TensorContext { self.backward(inputs: $0, gradient: $1, cellCache: cellCache) }
     
     var out = Tensor(context: context)
 
@@ -294,7 +232,11 @@ public final class LSTM: Layer {
       let cellParameters = LSTMCell.Parameters(forgetGateWeights: forgetGateWeights.detached(),
                                                inputGateWeights: inputGateWeights.detached(),
                                                gateGateWeights: gateGateWeights.detached(),
-                                               outputGateWeights: outputGateWeights.detached())
+                                               outputGateWeights: outputGateWeights.detached(),
+                                               forgetGateBiases: forgetGateBiases.detached(),
+                                               inputGateBiases: inputGateBiases.detached(),
+                                               gateGateBiases: gateGateBiases.detached(),
+                                               outputGateBiases: outputGateBiases.detached())
 
       let cellOutput = cell.forward(tensor: getEmbeddings,
                                     parameters: cellParameters,
@@ -302,6 +244,7 @@ public final class LSTM: Layer {
       
       let outputCell = OutputCell(device: device)
       let outputCellParameters = OutputCell.Parameters(hiddenOutputWeights: hiddenOutputWeights.detached(),
+                                                       hiddenOutputBiases: hiddenOutputBiases.detached(),
                                                        activationMatrix: cellOutput.activationMatrix.detached())
       
       let outputCellOutput = outputCell.forward(parameters: outputCellParameters)
@@ -331,6 +274,7 @@ public final class LSTM: Layer {
     
     return out
   }
+  
   
   public func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Float) {
     /*
@@ -365,19 +309,131 @@ public final class LSTM: Layer {
     /*
      order of biases in tensor...
      
-     dForgetGateWeights = 0
-     dInputGateWeights = 1
-     dGateGateWeights = 2
-     dOutputGateWeights = 3
+     dForgetGateBiases = 0
+     dInputGateBiases = 1
+     dGateGateBiases = 2
+     dOutputGateBiases = 3
      
-     hiddenOutputWeightGradients = 4
-     */ 
+     hiddenOutputWeightBiases = 4
+     */
+    let gBiasLayers = gradients.biases.value.flatten()
+
+    if biasEnabled,
+       let forgetGateBiasGrads = gBiasLayers[safe: 0],
+       let inputGateBiasGrads = gBiasLayers[safe: 1],
+       let gateGateBiasGrads = gBiasLayers[safe: 2],
+       let outputGateBiasGrads = gBiasLayers[safe: 3],
+       let hiddenOutputBiasGradients = gBiasLayers[safe: 4] {
+      
+      forgetGateBiases = forgetGateBiases - Tensor(forgetGateBiasGrads)
+      inputGateBiases = inputGateBiases - Tensor(inputGateBiasGrads)
+      gateGateBiases = gateGateBiases - Tensor(gateGateBiasGrads)
+      outputGateBiases = outputGateBiases - Tensor(outputGateBiasGrads)
+      hiddenOutputBiases = hiddenOutputBiases - Tensor(hiddenOutputBiasGradients)
+    }
 
     reset()
   }
   
-  
   // MARK: Private
+  private func backward(inputs: Tensor, gradient: Tensor, cellCache: [Cache]) -> TensorContext.TensorBackpropResult {
+    var eat: [[Tensor.Scalar]] = NumSwift.zerosLike((rows: 1,
+                                                     columns: self.hiddenUnits))
+    var ect: [[Tensor.Scalar]] = eat
+    
+    var wrtOutputWeightsDerivatives: Tensor = Tensor()
+    var wrtOutputBiasesDerivatives: Tensor = Tensor()
+    var wrtLSTMCellInputWeightsDerivatives: LSTMCell.ParameterDerivatives = .init()
+    var wrtLSTMCellInputBiasDerivatives: LSTMCell.ParameterDerivatives = .init()
+
+    var wrtEmbeddings: Tensor = Tensor()
+          
+    for index in (1..<cellCache.count).reversed() {
+      
+      let cache = cellCache[index]
+      let previousCache = cellCache[safe: index - 1]
+      
+      let outputCell = OutputCell(device: self.device)
+
+      let activationErrors = outputCell.backward(gradient: gradient.value[safe: index] ?? gradient.zerosLike().value[0],
+                                                 activations: cellCache[index].activation.value[0],
+                                                 batchSize: 1,
+                                                 hiddenOutputWeights: self.hiddenOutputWeights.detached())
+      
+      if wrtOutputWeightsDerivatives.isEmpty {
+        wrtOutputWeightsDerivatives = activationErrors.weights
+      } else {
+        wrtOutputWeightsDerivatives = wrtOutputWeightsDerivatives + activationErrors.weights
+      }
+      
+      if wrtOutputBiasesDerivatives.isEmpty {
+        wrtOutputBiasesDerivatives = activationErrors.biases
+      } else {
+        wrtOutputBiasesDerivatives = wrtOutputBiasesDerivatives + activationErrors.biases
+      }
+      
+      let nextActivationError = eat
+      let activationOutputError = activationErrors.outputs.value[0]
+
+      let cell = LSTMCell(hidden: self.hiddenUnits,
+                          input: self.inputUnits,
+                          vocabSize: self.vocabSize,
+                          device: self.device)
+      
+      let backward = cell.backward(cache: cache,
+                                   previousCache: previousCache,
+                                   activationOutputError: activationOutputError,
+                                   nextActivationError: nextActivationError,
+                                   nextCellError: ect,
+                                   batchSize: 1,
+                                   parameters: .init(forgetGateWeights: self.forgetGateWeights.detached(),
+                                                     inputGateWeights: self.inputGateWeights.detached(),
+                                                     gateGateWeights: self.gateGateWeights.detached(),
+                                                     outputGateWeights: self.outputGateWeights.detached(),
+                                                     forgetGateBiases: self.forgetGateBiases.detached(),
+                                                     inputGateBiases: self.inputGateBiases.detached(),
+                                                     gateGateBiases: self.gateGateBiases.detached(),
+                                                     outputGateBiases: self.outputGateBiases.detached()))
+      
+      if wrtLSTMCellInputWeightsDerivatives.isEmpty {
+        wrtLSTMCellInputWeightsDerivatives = backward.weights
+      } else {
+        wrtLSTMCellInputWeightsDerivatives = wrtLSTMCellInputWeightsDerivatives + backward.weights
+      }
+      
+      if wrtLSTMCellInputBiasDerivatives.isEmpty {
+        wrtLSTMCellInputBiasDerivatives = backward.biases
+      } else {
+        wrtLSTMCellInputBiasDerivatives = wrtLSTMCellInputBiasDerivatives + backward.biases
+      }
+      
+      let previousCellError = backward.inputs.previousCellError
+      let previousActivationError = backward.inputs.previousActivationError
+      
+      let embeddingError = backward.inputs.embeddingError
+      
+      if wrtEmbeddings.isEmpty {
+        wrtEmbeddings = embeddingError
+      } else {
+        let dEmbed = wrtEmbeddings.concat(embeddingError, axis: 2)
+        wrtEmbeddings = dEmbed
+      }
+      
+      if let pae = previousActivationError.value[safe: 0],
+         let pce = previousCellError.value[safe: 0] {
+        eat = pae
+        ect = pce
+      }
+    }
+    
+    // merge all weights into a giant 5 depth tensor, shape will be broken here
+    let weightDerivatives = wrtLSTMCellInputWeightsDerivatives.concat().concat(wrtOutputWeightsDerivatives, axis: 2)
+
+    // merge all biases into a giant 5 depth tensor, shape will be broken here
+    let biasDerivatives = wrtLSTMCellInputBiasDerivatives.concat().concat(wrtOutputBiasesDerivatives, axis: 2)
+    
+    return (wrtEmbeddings, weightDerivatives, biasDerivatives)
+  }
 
   private func reset() {
     cellCache.removeAll()
@@ -417,6 +473,16 @@ public final class LSTM: Layer {
     self.gateGateWeights = gateWeights
     self.inputGateWeights = inputWeights
     self.hiddenOutputWeights = outputWeights
+  }
+  
+  private func initializeBiases() {
+    let biases = Tensor(NumSwift.zerosLike((rows: 1, columns: 1, depth: 1)))
+    self.outputGateBiases = biases.detached()
+    self.forgetGateBiases = biases.detached()
+    self.gateGateBiases = biases.detached()
+    self.inputGateBiases = biases.detached()
+    
+    self.hiddenOutputBiases = Tensor(NumSwift.zerosLike((rows: 1, columns: 1, depth: 1)))
   }
   
   private func setupInitialState() -> Cache {
