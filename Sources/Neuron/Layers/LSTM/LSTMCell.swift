@@ -19,10 +19,6 @@ class LSTMCell {
     var inputGateWeights: Tensor
     var gateGateWeights: Tensor
     var outputGateWeights: Tensor
-    var forgetGateBiases: Tensor
-    var inputGateBiases: Tensor
-    var gateGateBiases: Tensor
-    var outputGateBiases: Tensor
   }
   
   struct ParameterDerivatives {
