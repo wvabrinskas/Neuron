@@ -108,11 +108,7 @@ public final class Embedding: Layer {
         }
       }
 
-<<<<<<< HEAD
       return (Tensor(), wrtEmbeddings, Tensor())
-=======
-      return (Tensor(), wrtEmbeddings)
->>>>>>> 1afbfaa (Trainable layer (#39))
     }
     
     var out = Tensor(context: context)
@@ -132,12 +128,8 @@ public final class Embedding: Layer {
   }
   
   public func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Float) {
-<<<<<<< HEAD
     if trainable {
       weights = weights - gradients.weights // use Optimizer adjusted weights to adjust
     }
-=======
-    weights = weights - (gradients.weights * learningRate)
->>>>>>> 1afbfaa (Trainable layer (#39))
   }
 }
