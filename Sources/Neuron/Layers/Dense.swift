@@ -114,8 +114,8 @@ public final class Dense: Layer {
         let delta = gradientsFlat[i]
         weightGradients.append(inputsFlat * delta)
       }
-      
-      return (deltas, Tensor(weightGradients), Tensor(inputsFlat.sum))
+
+      return (deltas, Tensor(weightGradients), gradients.sum(axis: -1))
     }
     
     //THIS WAS A MAJOR BUG POINT. DO NOT SWITCH ROWS AND COLUMNS HERE BY ACCIDENT - Billy 05-20-2022

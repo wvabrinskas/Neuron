@@ -24,10 +24,19 @@ public final class LSTM: Layer {
   public var isTraining: Bool = true
 
   public var forgetGateWeights: Tensor = Tensor()
+  public var forgetGateBiases: Tensor = Tensor()
+
   public var inputGateWeights: Tensor = Tensor()
+  public var inputGateBiases: Tensor = Tensor()
+
   public var gateGateWeights: Tensor = Tensor()
+  public var gateGateBiases: Tensor = Tensor()
+
   public var outputGateWeights: Tensor = Tensor()
+  public var outputGateBiases: Tensor = Tensor()
+
   public var hiddenOutputWeights: Tensor = Tensor()
+  public var hiddenOutputBiases: Tensor = Tensor()
     
   private var hiddenUnits: Int
   private var vocabSize: Int
@@ -242,7 +251,11 @@ public final class LSTM: Layer {
                                      parameters: .init(forgetGateWeights: self.forgetGateWeights.detached(),
                                                        inputGateWeights: self.inputGateWeights.detached(),
                                                        gateGateWeights: self.gateGateWeights.detached(),
-                                                       outputGateWeights: self.outputGateWeights.detached()))
+                                                       outputGateWeights: self.outputGateWeights.detached(),
+                                                       forgetGateBiases: self.forgetGateBiases.detached(),
+                                                       inputGateBiases: self.inputGateBiases.detached(),
+                                                       gateGateBiases: self.gateGateBiases.detached(),
+                                                       outputGateBiases: self.outputGateBiases.detached()))
         
         if wrtLSTMCellInputWeightsDerivatives.isEmpty {
           wrtLSTMCellInputWeightsDerivatives = backward.weights
@@ -272,7 +285,7 @@ public final class LSTM: Layer {
       // merge all weights into a giant 5 depth tensor, shape will be broken here
       let weightDerivatives = wrtLSTMCellInputWeightsDerivatives.concat().concat(wrtOutputWeightsDerivatives, axis: 2)
       
-      return (wrtEmbeddings, weightDerivatives)
+      return (wrtEmbeddings, weightDerivatives, Tensor())
     }
     
     var out = Tensor(context: context)
@@ -294,7 +307,11 @@ public final class LSTM: Layer {
       let cellParameters = LSTMCell.Parameters(forgetGateWeights: forgetGateWeights.detached(),
                                                inputGateWeights: inputGateWeights.detached(),
                                                gateGateWeights: gateGateWeights.detached(),
-                                               outputGateWeights: outputGateWeights.detached())
+                                               outputGateWeights: outputGateWeights.detached(),
+                                               forgetGateBiases: forgetGateBiases.detached(),
+                                               inputGateBiases: inputGateBiases.detached(),
+                                               gateGateBiases: gateGateBiases.detached(),
+                                               outputGateBiases: outputGateBiases.detached())
 
       let cellOutput = cell.forward(tensor: getEmbeddings,
                                     parameters: cellParameters,

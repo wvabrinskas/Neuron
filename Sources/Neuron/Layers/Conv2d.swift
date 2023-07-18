@@ -159,14 +159,14 @@ public class Conv2d: ConvolutionalLayer {
     return out
   }
   
-  internal func backward(_ input: Tensor, _ delta: Tensor) -> (input: Tensor, weight: Tensor) {
+  internal func backward(_ input: Tensor, _ delta: Tensor) -> (input: Tensor, weight: Tensor, bias: Tensor) {
     let deltas = delta.value
     let flippedTransposed = filters.map { flip180($0) }.transposed() as [[[[Tensor.Scalar]]]]
     
     var weightGradients: [[[Tensor.Scalar]]] = []
     //2D array because each item is the result of conv2d which returns a 1D array
     var inputGradients: [[[Tensor.Scalar]]] = []
-    
+        
     for i in 0..<deltas.count {
       let delta = deltas[i]
       var workingDelta = NumSwiftC.stridePad(signal: delta, strides: strides)
@@ -216,7 +216,9 @@ public class Conv2d: ConvolutionalLayer {
       weightGradients.append(contentsOf: filterGradients)
     }
     
-    return (Tensor(inputGradients), Tensor(weightGradients))
+    let biasGradients = delta.value.map { $0.sum }
+    
+    return (Tensor(inputGradients), Tensor(weightGradients), Tensor(biasGradients))
   }
   
   internal func calculateFilterGradients(_ input: Tensor, _ delta: [[Tensor.Scalar]], index: Int) -> Tensor.Data {

@@ -19,46 +19,50 @@ class LSTMCell {
     var inputGateWeights: Tensor
     var gateGateWeights: Tensor
     var outputGateWeights: Tensor
+    var forgetGateBiases: Tensor
+    var inputGateBiases: Tensor
+    var gateGateBiases: Tensor
+    var outputGateBiases: Tensor
   }
   
   struct ParameterDerivatives {
-    var dForgetGateWeights: Tensor
-    var dInputGateWeights: Tensor
-    var dGateGateWeights: Tensor
-    var dOutputGateWeights: Tensor
-    
+    var dForgetGate: Tensor
+    var dInputGate: Tensor
+    var dGateGate: Tensor
+    var dOutputGate: Tensor
+
     var isEmpty: Bool {
-      dForgetGateWeights.isEmpty &&
-      dInputGateWeights.isEmpty &&
-      dGateGateWeights.isEmpty &&
-      dOutputGateWeights.isEmpty
+      dForgetGate.isEmpty &&
+      dInputGate.isEmpty &&
+      dGateGate.isEmpty &&
+      dOutputGate.isEmpty
     }
     
-    init(dForgetGateWeights: Tensor = .init(),
-         dInputGateWeights: Tensor = .init(),
-         dGateGateWeights: Tensor = .init(),
-         dOutputGateWeights: Tensor = .init()) {
-      self.dForgetGateWeights = dForgetGateWeights
-      self.dInputGateWeights = dInputGateWeights
-      self.dGateGateWeights = dGateGateWeights
-      self.dOutputGateWeights = dOutputGateWeights
+    init(dForgetGate: Tensor = .init(),
+         dInputGate: Tensor = .init(),
+         dGateGate: Tensor = .init(),
+         dOutputGate: Tensor = .init()) {
+      self.dForgetGate = dForgetGate
+      self.dInputGate = dInputGate
+      self.dGateGate = dGateGate
+      self.dOutputGate = dOutputGate
     }
     
     static func +(lhs: ParameterDerivatives, rhs: ParameterDerivatives) -> ParameterDerivatives {
-      let newDFG = lhs.dForgetGateWeights + rhs.dForgetGateWeights
-      let newDIG = lhs.dInputGateWeights + rhs.dInputGateWeights
-      let newDGG = lhs.dGateGateWeights + rhs.dGateGateWeights
-      let newDOG = lhs.dOutputGateWeights + rhs.dOutputGateWeights
-      return .init(dForgetGateWeights: newDFG,
-                   dInputGateWeights: newDIG,
-                   dGateGateWeights: newDGG,
-                   dOutputGateWeights: newDOG)
+      let newDFG = lhs.dForgetGate + rhs.dForgetGate
+      let newDIG = lhs.dInputGate + rhs.dInputGate
+      let newDGG = lhs.dGateGate + rhs.dGateGate
+      let newDOG = lhs.dOutputGate + rhs.dOutputGate
+      return .init(dForgetGate: newDFG,
+                   dInputGate: newDIG,
+                   dGateGate: newDGG,
+                   dOutputGate: newDOG)
     }
     
     func concat() -> Tensor {
-      dForgetGateWeights.concat(dInputGateWeights, axis: 2)
-        .concat(dGateGateWeights, axis: 2)
-        .concat(dOutputGateWeights, axis: 2)
+      dForgetGate.concat(dInputGate, axis: 2)
+        .concat(dGateGate, axis: 2)
+        .concat(dOutputGate, axis: 2)
     }
   }
   
@@ -145,7 +149,7 @@ class LSTMCell {
                 nextActivationError: [[Tensor.Scalar]],
                 nextCellError: [[Tensor.Scalar]],
                 batchSize: Int,
-                parameters: Parameters) -> (inputs: Errors, weights: ParameterDerivatives) {
+                parameters: Parameters) -> (inputs: Errors, weights: ParameterDerivatives, biases: ParameterDerivatives) {
 
     let activationError = activationOutputError + nextActivationError
 
@@ -213,10 +217,19 @@ class LSTMCell {
                                                 activation: cache.activation,
                                                 batchSize: batchSize)
     
+    let biasDerivatives = backwarsWRTBiases(lstmError: errors,
+                                            batchSize: batchSize)
+    
     return (inputs: Errors(previousActivationError: prevActivationError,
                            previousCellError: prevCellError,
                            embeddingError: embedError),
-            weights: weightDerivatives)
+            weights: weightDerivatives,
+            biases: biasDerivatives)
+  }
+  
+  private func backwarsWRTBiases(lstmError: Errors.LSTMError,
+                                 batchSize: Int) -> ParameterDerivatives {
+    .init()
   }
   
   private func backwardsWRTWeights(lstmError: Errors.LSTMError,
@@ -245,9 +258,9 @@ class LSTMCell {
       dggw = dggw / Tensor.Scalar(batchSize)
     }
 
-    return .init(dForgetGateWeights: dfgw,
-                 dInputGateWeights: digw,
-                 dGateGateWeights: dggw,
-                 dOutputGateWeights: dogw)
+    return .init(dForgetGate: dfgw,
+                 dInputGate: digw,
+                 dGateGate: dggw,
+                 dOutputGate: dogw)
   }
 }
