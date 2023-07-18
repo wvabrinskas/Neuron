@@ -102,15 +102,51 @@ public extension Tensor {
   }
   
   func sum(axis: Int = -1) -> Tensor {
-    let block: MathBlock = { feature in
-      feature.sum
-    }
-     
-    if axis == -1 {
-      return Tensor(self.value.sum)
-    }
+    let shape = shape
+    let rows = shape[safe: 1, 0]
+    let depth = shape[safe: 2, 0]
+    let columns = shape[safe: 0, 0]
     
-    return apply(axis: axis, block)
+    if axis == 2 {
+      return Tensor(value.sum)
+    } else if axis == 1 || axis == -1 {
+      var fullDepthResult: [[Float]] = []
+      var depthResult: [Float] = []
+      for d in 0..<depth {
+        if axis == 1 {
+          depthResult.append(value[d].sum)
+        }
+        var rowResult: [Float] = []
+        for r in 0..<rows {
+          if axis == -1 {
+            rowResult.append(value[d][r].sum)
+          }
+        }
+
+        fullDepthResult.append(rowResult)
+      }
+      
+      if axis == 1 {
+        return Tensor(depthResult, context: context)
+      } else {
+        return Tensor(fullDepthResult, context: context)
+      }
+    } else if axis == 0 {
+      
+      var result: [[Scalar]] = []
+      for d in 0..<depth {
+        if result.isEmpty {
+          result = value[d]
+        } else {
+          result = result + value[d]
+        }
+      }
+      
+      return Tensor(result, context: context)
+      
+    } else {
+      return self
+    }
   }
   
   func norm(axis: Int = -1) -> Tensor {
