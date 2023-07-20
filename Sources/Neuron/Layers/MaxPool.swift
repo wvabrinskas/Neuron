@@ -65,7 +65,7 @@ public final class MaxPool: Layer {
   }
   
   public func forward(tensor: Tensor) -> Tensor {
-    func backwards(input: Tensor, gradient: Tensor) -> (Tensor, Tensor) {
+    func backwards(input: Tensor, gradient: Tensor) -> (Tensor, Tensor, Tensor) {
       let deltas = gradient.value
       var poolingGradients: [[[Tensor.Scalar]]] = []
       
@@ -96,10 +96,10 @@ public final class MaxPool: Layer {
       }
       
       if poolingGradients.isEmpty {
-        return (gradient, Tensor())
+        return (gradient, Tensor(), Tensor())
       }
       
-      return (Tensor(poolingGradients), Tensor())
+      return (Tensor(poolingGradients), Tensor(), Tensor())
     }
     
     var currentIndicies: [[PoolingIndex]] = []

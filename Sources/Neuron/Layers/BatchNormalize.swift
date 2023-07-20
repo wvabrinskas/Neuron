@@ -103,7 +103,7 @@ public final class BatchNormalize: Layer {
   public func forward(tensor: Tensor) -> Tensor {
     let context = TensorContext { inputs, gradient in
       let backward = self.backward(inputs: inputs.value, gradient: gradient.value)
-      return (Tensor(backward), Tensor())
+      return (Tensor(backward), Tensor(), Tensor())
     }
     
     let forward = normalize(inputs: tensor.value)

@@ -31,6 +31,7 @@ public final class Embedding: Layer {
     self.inputSize = TensorSize(rows: 1,
                                 columns: vocabSize,
                                 depth: batchLength)
+    self.outputSize = TensorSize(array: [inputUnits, 1, batchLength])
     self.trainable = trainable
     
     let weights = initializerBuilt.calculate(size: TensorSize(rows: vocabSize,
@@ -96,8 +97,8 @@ public final class Embedding: Layer {
         let gradientAtIndex = gradient.value[i]
         
         let embeddingError = Tensor(gradientAtIndex)
-        let inputsTransposed = Tensor(inputs.value[i].transpose()) // should only ever have a depth of 1
-        let dEmbedding = inputsTransposed.matmul(embeddingError) / Tensor.Scalar(self.batchLength)
+        let inputsTransposed = Tensor(inputs.value[i].transpose())
+        let dEmbedding = inputsTransposed.matmul(embeddingError)
         
         if wrtEmbeddings.isEmpty {
           wrtEmbeddings = dEmbedding
@@ -107,7 +108,7 @@ public final class Embedding: Layer {
         }
       }
 
-      return (Tensor(), wrtEmbeddings)
+      return (Tensor(), wrtEmbeddings, Tensor())
     }
     
     var out = Tensor(context: context)
@@ -129,8 +130,6 @@ public final class Embedding: Layer {
   public func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Float) {
     if trainable {
       weights = weights - gradients.weights // use Optimizer adjusted weights to adjust
-    } else {
-      weights = weights - (gradients.weights * learningRate) // apply many weight update using learning rate
     }
   }
 }

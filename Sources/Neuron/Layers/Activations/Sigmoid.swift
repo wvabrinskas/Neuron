@@ -54,7 +54,7 @@ public final class Sigmoid: ActivationLayer {
     
     let context = TensorContext { inputs, gradient in
       let out = self.device.derivate(inputs, self.type).value * gradient.value
-      return (Tensor(out), Tensor())
+      return (Tensor(out), Tensor(), Tensor())
     }
     
     let result = device.activate(tensor, type)

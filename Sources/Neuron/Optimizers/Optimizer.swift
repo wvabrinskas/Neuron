@@ -103,9 +103,9 @@ public extension Optimizer {
       
       if let reporter = self.metricsReporter {
         if validation {
-          accuracy += reporter.calculateValAccuracy(out, label: labels[index], binary: label.count == 1) / Tensor.Scalar(data.count)
+          accuracy += reporter.calculateValAccuracy(out, label: labels[index], binary: label.count == 1, running: false) / Tensor.Scalar(data.count)
         } else {
-          accuracy += reporter.calculateAccuracy(out, label: labels[index], binary: label.count == 1) / Tensor.Scalar(data.count)
+          accuracy += reporter.calculateAccuracy(out, label: labels[index], binary: label.count == 1, running: false) / Tensor.Scalar(data.count)
         }
       }
       

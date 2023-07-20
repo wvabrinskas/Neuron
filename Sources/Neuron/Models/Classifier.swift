@@ -58,6 +58,8 @@ public class Classifier {
       let valSet = splitDataset(b)
       validationBatches.append(valSet)
     }
+    
+    optimNetwork.isTraining = true
 
     for i in 0..<epochs {
       let startTime = Date().timeIntervalSince1970
@@ -66,7 +68,6 @@ public class Classifier {
       
       if let randomValBatch = validationBatches.randomElement() {
         
-        optimNetwork.isTraining = false
         let result = trainOn(randomValBatch.data,
                              labels: randomValBatch.labels,
                              validation: true,
@@ -84,9 +85,7 @@ public class Classifier {
           }
         }
       }
-      
-      optimNetwork.isTraining = true
-      
+            
       for batch in trainingBatches {
         optimNetwork.zeroGradients()
 
@@ -113,6 +112,8 @@ public class Classifier {
       onEpochCompleted?()
       print("----epoch \(i) completed: \(Date().timeIntervalSince1970 - startTime)s-----")
     }
+    
+    optimNetwork.isTraining = false
   }
   
   @discardableResult

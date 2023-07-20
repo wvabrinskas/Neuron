@@ -124,8 +124,10 @@ public class RNN: Classifier {
                log: false)
   }
   
-  public func importFrom(url: URL?) {
+  public func importFrom(url: URL?) async {
     guard let url else { return }
+    
+    await readyUp()
     
     let n = Sequential.import(url)
     optimNetwork.trainable = n
@@ -141,54 +143,72 @@ public class RNN: Classifier {
     }
   }
   
-  public func predict(starting with: String? = nil) -> String {
+  public func predict(starting with: String? = nil,
+                      count: Int = 1,
+                      maxWordLength: Int = 20,
+                      randomizeSelection: Bool = false,
+                      endingMark: String = ".") -> [String] {
     optimNetwork.isTraining = false
     
-    var name: String = ""
-    var runningChar: String = ""
-        
-    var batch: [Float]
+    var names: [String] = []
     
-    if let with {
-      let oneHotWith = dataset.oneHot([with])
-      batch = oneHotWith.value.flatten()
+    for _ in 0..<count {
       
-    } else {
-      batch = [Float](repeating: 0, count: vocabSize)
-      let index = Int.random(in: 0..<vocabSize)
+      var name: String = ""
+      var runningChar: String = ""
+          
+      var batch: [Float]
       
-      batch[index] = 1.0
-      
-      // append random letter
-      let unvec = dataset.getWord(for: Tensor(batch)).joined()
-      name += unvec
-    }
+      if let with {
+        let oneHotWith = dataset.oneHot([with])
+        batch = oneHotWith.value.flatten()
+        name += with
 
-    // might need to feed Embedding -> LSTM if extra layers are present.
-    // TODO: Handle extra layers
-    let out = optimNetwork.predict([Tensor(batch)])
-    
-    var iterator = out[safe: 0]?.value.makeIterator()
-    
-    while runningChar != "." {
-      guard let o = iterator?.next() else {
-        break
+      } else {
+        batch = [Float](repeating: 0, count: vocabSize)
+        let index = Int.random(in: 0..<vocabSize)
+        
+        batch[index] = 1.0
+        
+        // append random letter
+        let unvec = dataset.getWord(for: Tensor(batch)).joined()
+        name += unvec
+      }
+
+      while runningChar != endingMark && name.count < maxWordLength {
+        
+        let out = optimNetwork.predict([Tensor(batch)])
+        
+        guard let flat = out[safe: 0]?.value[safe: 0]?[safe: 0] else {
+          break
+        }
+      
+        var v: [Float] = [Float](repeating: 0, count: flat.count)
+        
+        let indexToChoose: Int
+        if randomizeSelection {
+          indexToChoose = NumSwift.randomChoice(in: Array(0..<vocabSize), p: flat).1
+        } else {
+          indexToChoose = Int(flat.indexOfMax.0)
+        }
+        
+        v[indexToChoose] = 1
+        
+        let unvec = dataset.getWord(for: Tensor(v)).joined()
+        
+        runningChar = unvec
+        name += unvec
+        
+        batch = v
       }
       
-      let flat = o.flatten()
-      var v: [Float] = [Float](repeating: 0, count: flat.count)
-      let indexOfMax = Int(flat.indexOfMax.0)
-      v[indexOfMax] = 1
-      
-      let unvec = dataset.getWord(for: Tensor(v)).joined()
-      
-      runningChar = unvec
-      name += unvec
+      names.append(name)
     }
     
     optimNetwork.isTraining = true
-    
-    return name
+
+    return names
+
   }
   
   public func readyUp() async {
@@ -221,7 +241,7 @@ public class RNN: Classifier {
                               vocabSize: vocabSize,
                               batchLength: wordLength,
                               initializer: lstmParameters.embeddingInitializer,
-                              trainable: false)
+                              trainable: true)
     
     self.embedding = embedding
     self.lstm = lstm
@@ -236,4 +256,3 @@ public class RNN: Classifier {
     ready = true
   }
 }
-

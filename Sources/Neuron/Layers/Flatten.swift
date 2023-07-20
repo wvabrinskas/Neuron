@@ -64,7 +64,7 @@ public final class Flatten: Layer {
       let batchedDeltas = deltas.batched(into: inputSize.columns * inputSize.rows)
       let gradients = batchedDeltas.map { $0.reshape(columns: inputSize.columns) }
       
-      return (Tensor(gradients), Tensor())
+      return (Tensor(gradients), Tensor(), Tensor())
     }
     
     let flatten: [Tensor.Scalar] = tensor.value.flatten()

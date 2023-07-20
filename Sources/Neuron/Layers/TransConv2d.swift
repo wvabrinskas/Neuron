@@ -24,7 +24,7 @@ public class TransConv2d: Conv2d {
     return TensorSize(array: [columns, rows, filterCount])
   }
   
-  internal override func backward(_ input: Tensor, _ delta: Tensor) -> (input: Tensor, weight: Tensor) {
+  internal override func backward(_ input: Tensor, _ delta: Tensor) -> (input: Tensor, weight: Tensor, bias: Tensor) {
     let deltas = delta.value
     let flippedTransposed = filters.map { flip180($0) }.transposed() as [[[[Tensor.Scalar]]]]
     
@@ -64,7 +64,9 @@ public class TransConv2d: Conv2d {
       }
     }
       
-    return (Tensor(inputGradients), Tensor(weightGradients))
+    let biasGradients = input.value.map { $0.sum }
+
+    return (Tensor(inputGradients), Tensor(weightGradients), Tensor(biasGradients))
   }
   
   internal override func calculateFilterGradients(_ input: Tensor, _ delta: [[Tensor.Scalar]], index: Int) -> Tensor.Data {

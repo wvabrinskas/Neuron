@@ -89,7 +89,7 @@ public final class LayerNormalize: Layer {
   public func forward(tensor: Tensor) -> Tensor {
     let context = TensorContext { inputs, gradient in
       let gradient = self.backward(inputs: inputs.value, gradient: gradient.value)
-      return (Tensor(gradient), Tensor())
+      return (Tensor(gradient), Tensor(), Tensor())
     }
     
     let forward = normalize(inputs: tensor.value)

@@ -14,6 +14,7 @@ class OutputCell {
   
   struct Parameters {
     var hiddenOutputWeights: Tensor
+    var hiddenOutputBiases: Tensor
     var activationMatrix: Tensor
   }
   
@@ -22,7 +23,7 @@ class OutputCell {
   }
 
   func forward(parameters: Parameters) -> Tensor {
-    var outputMatrix = parameters.activationMatrix.matmul(parameters.hiddenOutputWeights)
+    var outputMatrix = parameters.activationMatrix.matmul(parameters.hiddenOutputWeights) + parameters.hiddenOutputBiases.asScalar()
     outputMatrix = Softmax(inputSize: .init(array: outputMatrix.shape)).forward(tensor: outputMatrix)
     return outputMatrix
   }
@@ -30,11 +31,19 @@ class OutputCell {
   func backward(gradient: [[Tensor.Scalar]],
                 activations: [[Tensor.Scalar]],
                 batchSize: Int,
-                hiddenOutputWeights: Tensor) -> (outputs: Tensor, weights: Tensor) {
+                hiddenOutputWeights: Tensor) -> (outputs: Tensor, weights: Tensor, biases: Tensor) {
     let w = hiddenOutputWeights.value.transpose()
     
     let wrtOutputs = Tensor(gradient).matmul(Tensor(w))
-    let wrtWeights = Tensor(activations.transpose()).matmul(Tensor(gradient)) / Tensor.Scalar(batchSize)
-    return (wrtOutputs, wrtWeights)
+    
+    var wrtWeights = Tensor(activations.transpose()).matmul(Tensor(gradient))
+    
+    let wrtBiases = Tensor(gradient).sum(axis: 1)
+    
+    if batchSize > 1 {
+      wrtWeights = wrtWeights / Tensor.Scalar(batchSize)
+    }
+    
+    return (wrtOutputs, wrtWeights, wrtBiases)
   }
 }
