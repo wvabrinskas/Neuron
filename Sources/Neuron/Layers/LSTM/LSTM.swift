@@ -143,15 +143,19 @@ public final class LSTM: Layer {
     case inputSize,
          biasEnabled,
          outputSize,
-         biases,
          type,
          forgetGateWeights,
          inputGateWeights,
          gateGateWeights,
          outputGateWeights,
+         forgetGateBiases,
+         inputGateBiases,
+         gateGateBiases,
+         outputGateBiases,
          hiddenUnits,
          vocabSize,
          hiddenOutputWeights,
+         hiddenOutputBiases,
          batchLength,
          inputUnits
   }
@@ -168,7 +172,6 @@ public final class LSTM: Layer {
               hiddenUnits: hiddenUnits,
               vocabSize: vocabSize)
 
-    self.biases = try container.decodeIfPresent(Tensor.self, forKey: .biases) ?? Tensor()
     self.biasEnabled = try container.decodeIfPresent(Bool.self, forKey: .biasEnabled) ?? false
     self.outputSize = try container.decodeIfPresent(TensorSize.self, forKey: .outputSize) ?? TensorSize(array: [])
     self.forgetGateWeights = try container.decodeIfPresent(Tensor.self, forKey: .forgetGateWeights) ?? Tensor()
@@ -176,11 +179,31 @@ public final class LSTM: Layer {
     self.gateGateWeights = try container.decodeIfPresent(Tensor.self, forKey: .gateGateWeights) ?? Tensor()
     self.outputGateWeights = try container.decodeIfPresent(Tensor.self, forKey: .outputGateWeights) ?? Tensor()
     self.hiddenOutputWeights = try container.decodeIfPresent(Tensor.self, forKey: .hiddenOutputWeights) ?? Tensor()
+    self.forgetGateBiases = try container.decodeIfPresent(Tensor.self, forKey: .forgetGateBiases) ?? Tensor()
+    self.inputGateBiases = try container.decodeIfPresent(Tensor.self, forKey: .inputGateBiases) ?? Tensor()
+    self.gateGateBiases = try container.decodeIfPresent(Tensor.self, forKey: .gateGateBiases) ?? Tensor()
+    self.outputGateBiases = try container.decodeIfPresent(Tensor.self, forKey: .outputGateBiases) ?? Tensor()
+    self.hiddenOutputBiases = try container.decodeIfPresent(Tensor.self, forKey: .hiddenOutputBiases) ?? Tensor()
+    
+    if forgetGateBiases.isEmpty ||
+        inputGateBiases.isEmpty ||
+        gateGateBiases.isEmpty ||
+        outputGateBiases.isEmpty ||
+        hiddenOutputBiases.isEmpty {
+      initializeBiases()
+    }
+    
+    if forgetGateWeights.isEmpty ||
+        inputGateWeights.isEmpty ||
+        gateGateWeights.isEmpty ||
+        outputGateWeights.isEmpty ||
+        hiddenOutputWeights.isEmpty {
+      initializeWeights()
+    }
   }
   
   public func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
-    try container.encode(biases, forKey: .biases)
     try container.encode(outputSize, forKey: .outputSize)
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(encodingType, forKey: .type)
@@ -194,6 +217,11 @@ public final class LSTM: Layer {
     try container.encode(vocabSize, forKey: .vocabSize)
     try container.encode(batchLength, forKey: .batchLength)
     try container.encode(inputUnits, forKey: .inputUnits)
+    try container.encode(forgetGateBiases, forKey: .forgetGateBiases)
+    try container.encode(inputGateBiases, forKey: .inputGateBiases)
+    try container.encode(gateGateBiases, forKey: .gateGateBiases)
+    try container.encode(outputGateBiases, forKey: .outputGateBiases)
+    try container.encode(hiddenOutputBiases, forKey: .hiddenOutputBiases)
   }
   
   
