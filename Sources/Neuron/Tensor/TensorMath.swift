@@ -188,22 +188,28 @@ public extension Tensor {
   }
   
   @discardableResult
-  func concat(_ tensor: Tensor, axis: Int = -1) -> Tensor {
+  func concat(_ tensor: Tensor, axis: Int = 1) -> Tensor {
     let shape = shape
     let rows = shape[safe: 1, 0]
     let depth = shape[safe: 2, 0]
     
     var new = self.value
     
+    if axis == -1 {
+      var flatSelf = value.flatten()
+      flatSelf.append(contentsOf: tensor.value.flatten())
+      return Tensor(flatSelf, context: context)
+    }
+    
     if axis == 2 {
       new.append(contentsOf: tensor.value)
     } else {
       for d in 0..<depth {
-        if axis == 1 {
+        if axis == 0 {
           new[d].append(contentsOf: tensor.value[safe: d] ?? [])
         }
         for r in 0..<rows {
-          if axis == -1 {
+          if axis == 1 {
             new[d][r].append(contentsOf: tensor.value[safe: d]?[safe: r] ?? [])
           }
         }
