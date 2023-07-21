@@ -28,15 +28,17 @@ public enum LossFunction {
       for r in 0..<predicted.value[d].count {
         let p = predicted.value[d][r]
         let c = correct.value[d][r]
-        
+        let loss = calculate(p, correct: c)
+        rowResult.append(loss)
       }
       depthResult.append(rowResult)
+      result.append(depthResult)
     }
     
     return Tensor(result)
     
   }
-  
+
   public func calculate(_ predicted: [Tensor.Scalar], correct: [Tensor.Scalar]) -> Tensor.Scalar {
     guard predicted.count == correct.count else {
       return 0
