@@ -35,7 +35,7 @@ class MockRNNDataset: RNNSupportedDataset {
     let inputTensor = oneHot
     
     return ([DatasetModel](repeating: DatasetModel(data: inputTensor,
-                                                  label: labelTensor), count: 900),
+                                                  label: labelTensor), count: 100),
            [DatasetModel](repeating: DatasetModel(data: inputTensor,
                                                   label: labelTensor), count: 5))
   }
@@ -184,11 +184,11 @@ final class FullModelTests: XCTestCase {
     let rnn = RNN(returnSequence: true,
                   dataset: MockRNNDataset(),
                   classifierParameters: RNN.ClassifierParameters(batchSize: 16,
-                                                                 epochs: 40,
+                                                                 epochs: 1000,
                                                                  accuracyThreshold: 0.8,
                                                                  killOnAccuracy: false,
                                                                  threadWorkers: 8),
-                  optimizerParameters: RNN.OptimizerParameters(learningRate: 0.001,
+                  optimizerParameters: RNN.OptimizerParameters(learningRate: 0.0001,
                                                                metricsReporter: reporter),
                   lstmParameters: RNN.RNNLSTMParameters(hiddenUnits: hiddenUnits,
                                                        inputUnits: inputUnits))
@@ -201,7 +201,7 @@ final class FullModelTests: XCTestCase {
     }
         
     rnn.onEpochCompleted = {
-      let r = rnn.predict(starting: "h", maxWordLength: 20, randomizeSelection: true)
+      let r = rnn.predict(starting: "h", maxWordLength: 20, randomizeSelection: false)
       print(r)
     }
     

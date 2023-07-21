@@ -16,6 +16,27 @@ public enum LossFunction {
   case wasserstein
   case minimaxBinaryCrossEntropy
   
+  public func calculate(_ predicted: Tensor, correct: Tensor) -> Tensor {
+    guard predicted.shape == correct.shape else {
+      fatalError("predicted shape does not match correct shape")
+    }
+    
+    var result: [[[Tensor.Scalar]]] = []
+    for d in 0..<predicted.value.count {
+      var depthResult: [[Tensor.Scalar]] = []
+      var rowResult: [Tensor.Scalar] = []
+      for r in 0..<predicted.value[d].count {
+        let p = predicted.value[d][r]
+        let c = correct.value[d][r]
+        
+      }
+      depthResult.append(rowResult)
+    }
+    
+    return Tensor(result)
+    
+  }
+  
   public func calculate(_ predicted: [Tensor.Scalar], correct: [Tensor.Scalar]) -> Tensor.Scalar {
     guard predicted.count == correct.count else {
       return 0
