@@ -28,9 +28,7 @@ class MockRNNDataset: RNNSupportedDataset {
     
     let oneHot = vectorizer.oneHot("hammley".fill(with: ".",
                                                   max: 8).characters)
-    
-    //let labels: [[[Float]]] = Array(oneHot.value)
-    
+        
     let labelTensor = oneHot
     let inputTensor = oneHot
     

@@ -95,10 +95,8 @@ public extension Optimizer {
       let out = self.trainable.predict(input)
       
       outputs[index] = out
-
-      let outFlat: [Tensor.Scalar] = out.value.flatten()
             
-      let loss = lossFunction.calculate(outFlat, correct: label)
+      let loss = lossFunction.calculate(out, correct: labels[index]).sum(axis: -1).asScalar()
       losses += loss / Tensor.Scalar(data.count)
       
       if let reporter = self.metricsReporter {
