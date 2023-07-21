@@ -21,7 +21,13 @@ public final class LSTM: Layer {
   public var trainable: Bool = true
   public var initializer: Initializer?
   public var device: Device = CPU()
-  public var isTraining: Bool = true
+  public var isTraining: Bool = true {
+    willSet {
+      if newValue == false {
+        reset()
+      }
+    }
+  }
 
   public var forgetGateWeights: Tensor = Tensor()
   public var forgetGateBiases: Tensor = Tensor()
