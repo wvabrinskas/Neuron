@@ -130,8 +130,8 @@ public class Adam: Optimizer {
           var previousV: Tensor.Scalar = 0
           
           if m[safe: i - 1]?.isEmpty == false && v[safe: i - 1]?.isEmpty == false {
-            previousM = m[safe: i - 1]?[d][r][c] ?? 0
-            previousV = v[safe: i - 1]?[d][r][c] ?? 0
+            previousM = m[safe: i - 1]?[safe: d]?[safe: r]?[safe: c] ?? 0
+            previousV = v[safe: i - 1]?[safe: d]?[safe: r]?[safe: c] ?? 0
           }
 
           m[i][d][r][c] = b1 * previousM + (1 - b1) * gradientValue[d][r][c]
@@ -154,8 +154,8 @@ public class Adam: Optimizer {
       var previousV: Tensor.Scalar = 0
       
       if mb[safe: i - 1]?.isEmpty == false && vb[safe: i - 1]?.isEmpty == false {
-        previousM = mb[safe: i - 1]?[d] ?? 0
-        previousV = vb[safe: i - 1]?[d] ?? 0
+        previousM = mb[safe: i - 1]?[safe: d] ?? 0
+        previousV = vb[safe: i - 1]?[safe: d] ?? 0
       }
       
       mb[i][d] = b1 * previousM + (1 - b1) * gradientSum
