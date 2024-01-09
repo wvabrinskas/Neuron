@@ -126,8 +126,16 @@ public class Adam: Optimizer {
       for r in 0..<depthGradient.count {
         let rowGradient = depthGradient[r]
         for c in 0..<rowGradient.count {
-          m[i][d][r][c] = b1 * m[i][d][r][c] + (1 - b1) * gradientValue[d][r][c]
-          v[i][d][r][c] = b2 * v[i][d][r][c] + (1 - b2) * pow(gradientValue[d][r][c], 2)
+          var previousM: Tensor.Scalar = 0
+          var previousV: Tensor.Scalar = 0
+          
+          if m[safe: i - 1]?.isEmpty == false && v[safe: i - 1]?.isEmpty == false {
+            previousM = m[safe: i - 1]?[d][r][c] ?? 0
+            previousV = v[safe: i - 1]?[d][r][c] ?? 0
+          }
+
+          m[i][d][r][c] = b1 * previousM + (1 - b1) * gradientValue[d][r][c]
+          v[i][d][r][c] = b2 * previousV + (1 - b2) * pow(gradientValue[d][r][c], 2)
           
           let mHat = m[i][d][r][c] / (1 - pow(b1, Tensor.Scalar(t)))
           let vHat = v[i][d][r][c] / (1 - pow(b2, Tensor.Scalar(t)))
@@ -141,8 +149,17 @@ public class Adam: Optimizer {
     for d in 0..<flatBias.count {
       // bias gradients are performed at a depth level
       let gradientSum = flatBias[d]
-      mb[i][d] = b1 * mb[i][d] + (1 - b1) * gradientSum
-      vb[i][d] = b2 * vb[i][d] + (1 - b2) * pow(gradientSum, 2)
+      
+      var previousM: Tensor.Scalar = 0
+      var previousV: Tensor.Scalar = 0
+      
+      if mb[safe: i - 1]?.isEmpty == false && vb[safe: i - 1]?.isEmpty == false {
+        previousM = mb[safe: i - 1]?[d] ?? 0
+        previousV = vb[safe: i - 1]?[d] ?? 0
+      }
+      
+      mb[i][d] = b1 * previousM + (1 - b1) * gradientSum
+      vb[i][d] = b2 * previousV + (1 - b2) * pow(gradientSum, 2)
       
       let mHat = mb[i][d] / (1 - pow(b1, Tensor.Scalar(t)))
       let vHat = vb[i][d] / (1 - pow(b2, Tensor.Scalar(t)))
