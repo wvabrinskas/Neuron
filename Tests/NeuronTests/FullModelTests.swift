@@ -108,13 +108,7 @@ final class FullModelTests: XCTestCase {
                                 batchSize: 64,
                                 accuracyThreshold: 0.9)
 
-    optim.metricsReporter?.receive = { metrics in
-      //let accuracy = metrics[.accuracy] ?? 0
-      //let loss = metrics[.loss] ?? 0
-      //let valLoss = metrics[.valLoss] ?? 0
-      
-      //print("training -> ", "loss: ", loss, "val_loss: ", valLoss, "accuracy: ", accuracy)
-    }
+    optim.metricsReporter?.receive = { _ in }
     
     classifier.onAccuracyReached = {
       let red = ColorType.red.color()
@@ -161,7 +155,6 @@ final class FullModelTests: XCTestCase {
     }
   }
   
-  
   /// LSTM test example
   func test_LSTM_Forward_Example() async {
     guard isGithubCI == false else {
@@ -192,11 +185,7 @@ final class FullModelTests: XCTestCase {
                                                        inputUnits: inputUnits))
     
     
-    reporter.receive = { metrics in
-      let accuracy = metrics[.accuracy] ?? 0
-      let loss = metrics[.loss] ?? 0
-      //print("training -> ", "loss: ", loss, "accuracy: ", accuracy)
-    }
+    reporter.receive = { _ in }
         
     rnn.onEpochCompleted = {
       let r = rnn.predict(starting: "h", maxWordLength: 20, randomizeSelection: false)
@@ -204,15 +193,5 @@ final class FullModelTests: XCTestCase {
     }
     
     await rnn.train()
-
-//
-//    rnn.onAccuracyReached = {
-//
-//    }
-//      
-//    await rnn.readyUp()
-//
-//    let r = rnn.predict()
-//    print(r)
   }
 }
