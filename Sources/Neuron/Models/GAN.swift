@@ -198,6 +198,7 @@ public class GAN {
     discriminator.fit(batch,
                       labels: labels,
                       lossFunction: lossFunction,
+                      validation: false,
                       requiresGradients: requiresGradients)
   }
   
