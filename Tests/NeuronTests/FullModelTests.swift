@@ -108,13 +108,7 @@ final class FullModelTests: XCTestCase {
                                 batchSize: 64,
                                 accuracyThreshold: 0.9)
 
-    optim.metricsReporter?.receive = { metrics in
-      //let accuracy = metrics[.accuracy] ?? 0
-      //let loss = metrics[.loss] ?? 0
-      //let valLoss = metrics[.valLoss] ?? 0
-      
-      //print("training -> ", "loss: ", loss, "val_loss: ", valLoss, "accuracy: ", accuracy)
-    }
+    optim.metricsReporter?.receive = { _ in }
     
     classifier.onAccuracyReached = {
       let red = ColorType.red.color()
