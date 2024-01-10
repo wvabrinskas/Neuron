@@ -8,30 +8,7 @@
 import Foundation
 import NumSwift
 
-public class RMSProp: Optimizer {
-  public let gradientAccumulator: GradientAccumulator = .init()
-  public var clip: Float?
-  public var trainable: Trainable
-  public var learningRate: Float
-  public var isTraining: Bool = true {
-    didSet {
-      trainable.isTraining = isTraining
-    }
-  }
-  public var device: Device = CPU() {
-    didSet {
-      switch device.type {
-      case .cpu:
-        trainable.device = CPU()
-      case .gpu:
-        trainable.device = GPU()
-      }
-    }
-  }
-  public var l2Normalize: Bool
-  public var workers: Int = 8
-  public var metricsReporter: MetricsReporter?
-
+public class RMSProp: BaseOptimizer {
   private var b: Tensor.Scalar = 0.9
   private var v: [Tensor.Data] = []
   private var vb: [[Tensor.Scalar]] = []
@@ -43,19 +20,20 @@ public class RMSProp: Optimizer {
               b: Float = 0.9,
               eps: Float = 1e-8,
               l2Normalize: Bool = false) {
-    self.trainable = trainable
     self.eps = eps
     self.b = b
-    self.learningRate = learningRate
-    self.device = device
-    self.l2Normalize = l2Normalize
+
     v = [[[[Tensor.Scalar]]]].init(repeating: [], count: trainable.layers.count)
     vb = [[Tensor.Scalar]].init(repeating: [], count: trainable.layers.count)
-
+    
     trainable.compile()
+    
+    super.init(trainable: trainable,
+               learningRate: learningRate,
+               l2Normalize: l2Normalize)
   }
   
-  public func step() {
+  public override func step() {
     let gradients = gradientAccumulator.accumulate()
     
     for i in 0..<trainable.layers.count {
@@ -80,7 +58,7 @@ public class RMSProp: Optimizer {
     }
   }
   
-  public func reset() {
+  public override func reset() {
     v.removeAll(keepingCapacity: true)
     vb.removeAll(keepingCapacity: true)
   }

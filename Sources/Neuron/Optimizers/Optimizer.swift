@@ -36,7 +36,52 @@ public protocol Optimizer: AnyObject {
 }
 
 // TODO: allow for arbitrary weight shape in Optimizer, so we dont have to cram all weights into a 3D tensor
-public extension Optimizer {
+open class BaseOptimizer: Optimizer {
+  public var trainable: Trainable
+  public var learningRate: Float
+  public var isTraining: Bool = true {
+    didSet {
+      trainable.isTraining = isTraining
+    }
+  }
+  public var device: Device = CPU() {
+    didSet {
+      switch device.type {
+      case .cpu:
+        trainable.device = CPU()
+      case .gpu:
+        trainable.device = GPU()
+      }
+    }
+  }
+  public var l2Normalize: Bool
+  public var workers: Int
+  public var metricsReporter: MetricsReporter?
+  public var gradientAccumulator: GradientAccumulator = .init()
+  public var clip: Float?
+  
+  public init(trainable: Trainable,
+              learningRate: Float,
+              l2Normalize: Bool,
+              workers: Int = 8,
+              metricsReporter: MetricsReporter? = nil,
+              clip: Float? = nil) {
+    self.trainable = trainable
+    self.learningRate = learningRate
+    self.l2Normalize = l2Normalize
+    self.workers = workers
+    self.metricsReporter = metricsReporter
+    self.clip = clip
+  }
+  
+  public func step() {
+    // override
+  }
+  
+  public func reset() {
+    // override
+  }
+  
   func clip(layer: Layer) {
     if let clip = clip {
       if let con = layer as? ConvolutionalLayer {
@@ -47,21 +92,21 @@ public extension Optimizer {
     }
   }
   
-  func zeroGradients() {
+  open func zeroGradients() {
     gradientAccumulator.clear()
   }
   
   /// Adds gradients to the Optimizer but does not provide an average. Please use a `GradientAccumulator` to get average gradients then apply them.
   /// - Parameter newGradients: Gradients to add to the `Optimizer`
-  func apply(_ newGradients: Tensor.Gradient) {
+  open func apply(_ newGradients: Tensor.Gradient) {
     gradientAccumulator.insert(newGradients)
   }
   
-  func callAsFunction(_ data: [Tensor]) -> [Tensor] {
+  open func callAsFunction(_ data: [Tensor]) -> [Tensor] {
     predict(data)
   }
   
-  func predict(_ data: [Tensor]) -> [Tensor] {
+  open func predict(_ data: [Tensor]) -> [Tensor] {
     var results: [Tensor] = [Tensor].init(repeating: Tensor(), count: data.count)
 
     data.concurrentForEach(workers: Int(ceil(Double(data.count) / Double(4))),
@@ -73,11 +118,11 @@ public extension Optimizer {
     return results
   }
   
-  func fit(_ data: [Tensor],
-           labels: [Tensor],
-           lossFunction: LossFunction,
-           validation: Bool = false,
-           requiresGradients: Bool = true) -> Output {
+  open func fit(_ data: [Tensor],
+                  labels: [Tensor],
+                  lossFunction: LossFunction,
+                  validation: Bool = false,
+                  requiresGradients: Bool = true) -> Output {
     
     let accumulator = GradientAccumulator()
     
@@ -134,3 +179,4 @@ public extension Optimizer {
     }
   }
 }
+

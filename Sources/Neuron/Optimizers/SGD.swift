@@ -8,26 +8,7 @@
 import Foundation
 import NumSwift
 
-public class SGD: Optimizer {
-  public let gradientAccumulator: GradientAccumulator = .init()
-  public var clip: Float?
-  public var metricsReporter: MetricsReporter?
-  public var workers: Int = 8
-  public var l2Normalize: Bool
-  public var device: Device = CPU() {
-    didSet {
-      trainable.device = device
-    }
-  }
-
-  public var isTraining: Bool = true {
-    didSet {
-      trainable.isTraining = isTraining
-    }
-  }
-  
-  public var trainable: Trainable
-  public let learningRate: Float
+public class SGD: BaseOptimizer {
   private let momentum: Float
   private var v: [Tensor.Data] = []
   private var vb: [[Tensor.Scalar]] = []
@@ -37,18 +18,16 @@ public class SGD: Optimizer {
               learningRate: Float,
               momentum: Float = 0.9,
               l2Normalize: Bool = false) {
-    self.trainable = trainable
-    self.learningRate = learningRate
     self.momentum = momentum
-    self.device = device
-    self.l2Normalize = l2Normalize
     
     trainable.compile()
     v = [[[[Tensor.Scalar]]]].init(repeating: [], count: trainable.layers.count)
     vb = [[Tensor.Scalar]].init(repeating: [], count: trainable.layers.count)
+    
+    super.init(trainable: trainable, learningRate: learningRate, l2Normalize: l2Normalize)
   }
   
-  public func step() {
+  public override func step() {
     let gradients = gradientAccumulator.accumulate()
 
     for i in 0..<trainable.layers.count {
@@ -106,7 +85,7 @@ public class SGD: Optimizer {
     return (Tensor(v[i]), Tensor(vb[i]))
   }
   
-  public func reset() {
+  public override func reset() {
     v.removeAll(keepingCapacity: true)
     vb.removeAll(keepingCapacity: true)
   }

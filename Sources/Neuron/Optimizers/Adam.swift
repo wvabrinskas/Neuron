@@ -8,34 +8,13 @@
 import Foundation
 import NumSwift
 
-public class Adam: Optimizer {
-  public let gradientAccumulator: GradientAccumulator = .init()
-  public var metricsReporter: MetricsReporter?
-  public var workers: Int = 8
-  public var l2Normalize: Bool
-  public var isTraining: Bool = true {
-    didSet {
-      trainable.isTraining = isTraining
-    }
-  }
-  
-  public var trainable: Trainable {
+public class Adam: BaseOptimizer {
+  public override var trainable: Trainable {
     didSet {
       build()
     }
   }
-  public var learningRate: Float
-  public var device: Device = CPU() {
-    didSet {
-      switch device.type {
-      case .cpu:
-        trainable.device = CPU()
-      case .gpu:
-        trainable.device = GPU()
-      }
-    }
-  }
-  public var clip: Float?
+  
   private var b1: Float = 0.9
   private var b2: Float = 0.999
   private var eps: Float = 1e-8
@@ -53,19 +32,17 @@ public class Adam: Optimizer {
               b2: Float = 0.999,
               eps: Float = 1e-8,
               l2Normalize: Bool = false) {
-    self.trainable = trainable
-    
     self.b1 = b1
     self.b2 = b2
     self.eps = eps
-    self.learningRate = learningRate
-    self.device = device
-    self.l2Normalize = l2Normalize
-    
+        
+    super.init(trainable: trainable, 
+               learningRate: learningRate,
+               l2Normalize: l2Normalize)
     build()
   }
   
-  public func step() {
+  public override func step() {
     let gradients = gradientAccumulator.accumulate()
     
     for i in 0..<trainable.layers.count {
@@ -90,6 +67,8 @@ public class Adam: Optimizer {
     }
     
     t += 1
+    
+    super.step()
   }
   
   private func build() {
@@ -155,7 +134,7 @@ public class Adam: Optimizer {
     return (Tensor(result), Tensor(biases))
   }
   
-  public func reset() {
+  public override func reset() {
     t = 1
     m.removeAll(keepingCapacity: true)
     v.removeAll(keepingCapacity: true)
