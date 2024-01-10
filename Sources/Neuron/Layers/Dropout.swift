@@ -54,7 +54,6 @@ public final class Dropout: Layer {
     self.chance = try container.decodeIfPresent(Float.self, forKey: .chance) ?? 0
     self.outputSize = inputSize
     self.mask = try container.decodeIfPresent(Tensor.self, forKey: .chance) ?? Tensor()
-    self.generateMask()
   }
   
   public func encode(to encoder: Encoder) throws {
