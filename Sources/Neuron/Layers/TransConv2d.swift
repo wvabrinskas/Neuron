@@ -25,6 +25,8 @@ public class TransConv2d: Conv2d {
   }
   
   internal override func backward(_ input: Tensor, _ delta: Tensor) -> (input: Tensor, weight: Tensor, bias: Tensor) {
+    //let time = Date()
+
     let deltas = delta.value
     let flippedTransposed = filters.map { flip180($0) }.transposed() as [[[[Tensor.Scalar]]]]
     
@@ -65,15 +67,16 @@ public class TransConv2d: Conv2d {
     }
       
     let biasGradients = input.value.map { $0.sum }
+    //print("TransConv Backward time: \(Date().timeIntervalSince1970 - time.timeIntervalSince1970)")
 
     return (Tensor(inputGradients), Tensor(weightGradients), Tensor(biasGradients))
   }
   
   internal override func calculateFilterGradients(_ input: Tensor, _ delta: [[Tensor.Scalar]], index: Int) -> Tensor.Data {
-    var newGradientsForFilters: Tensor.Data = []
-      
-    for i in 0..<input.value.count {
-      let forwardInputs = input.value[i]
+    let total = input.value.count
+    var newGradientsForFilters: Tensor.Data = Tensor.Data.init(repeating: [], count: total)
+    
+    input.value.concurrentForEach(workers: min(Constants.maxWorkers, max(8, total / 4))) { [self] forwardInputs, i in
       
       var filter = forwardInputs
       var signal = delta
@@ -107,8 +110,7 @@ public class TransConv2d: Conv2d {
                                  filterSize: newFilterSize,
                                  inputSize: inputSize,
                                  outputSize: nil)
-      
-      newGradientsForFilters.append(result.reversed())
+      newGradientsForFilters[i] = result
     }
     
     //all filter gradients will be mashed into one 3D array and then batched out later by num of filters

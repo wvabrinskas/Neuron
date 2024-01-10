@@ -18,6 +18,7 @@ public enum Metric: String {
   case realImageLoss
   case fakeImageLoss
   case valAccuracy
+  case batchTime
 }
 
 public protocol MetricLogger: AnyObject {
@@ -45,7 +46,8 @@ internal protocol MetricCalculator: MetricLogger {
 
   func calculateAccuracy(_ guess: Tensor, label: Tensor, binary: Bool, running: Bool) -> Float
   func calculateValAccuracy(_ guess: Tensor, label: Tensor, binary: Bool,  running: Bool) -> Float
-
+  func startTimer(metric: Metric)
+  func endTimer(metric: Metric)
 }
 
 internal extension MetricCalculator {
@@ -132,10 +134,21 @@ public class MetricsReporter: MetricCalculator {
   
   private var frequency: Int
   private var currentStep: Int = 0
+  private var timers: [Metric: [Date]] = [:]
+  
+  private var timerQueue: OperationQueue = {
+    let queue = OperationQueue()
+    queue.maxConcurrentOperationCount = 1
+    return queue
+  }()
   
   public var metricsToGather: Set<Metric>
   public var metrics: [Metric : Float] = [:]
   public var receive: ((_ metrics: [Metric: Float]) -> ())? = nil
+  
+  deinit {
+    timerQueue.cancelAllOperations()
+  }
   
   public subscript(dynamicMember member: String) -> Float? {
     guard let metric = Metric(rawValue: member) else { return nil }
@@ -145,6 +158,35 @@ public class MetricsReporter: MetricCalculator {
   public init(frequency: Int = 5, metricsToGather: Set<Metric>) {
     self.frequency = frequency
     self.metricsToGather = metricsToGather
+  }
+  
+  public func startTimer(metric: Metric) {
+    timerQueue.addBarrierBlock { [weak self] in
+      guard let self else { return }
+      
+      if var hasTimers = timers[metric] {
+        hasTimers.append(Date())
+        timers[metric] = hasTimers
+      } else {
+        timers[metric] = [Date()]
+      }
+    }
+  }
+  
+  public func endTimer(metric: Metric) {
+    timerQueue.waitUntilAllOperationsAreFinished()
+    
+    timerQueue.addBarrierBlock { [weak self] in
+      guard let self else { return }
+      
+      if let timer = timers[metric] {
+        let result = timer.map { Float(Date().timeIntervalSince1970 - $0.timeIntervalSince1970) }
+        let average = result.average
+        addMetric(value: average,
+                  key: metric)
+        timers.removeValue(forKey: metric)
+      }
+    }
   }
   
   internal func update(metric: Metric, value: Float) {
