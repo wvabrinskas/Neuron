@@ -130,11 +130,11 @@ public class RNN: Classifier {
     await readyUp()
     
     let n = Sequential.import(url)
-    optimNetwork.trainable = n
+    optimizer.trainable = n
   }
   
   public func train() async {
-    optimNetwork.isTraining = true
+    optimizer.isTraining = true
     
     await readyUp()
     
@@ -148,7 +148,7 @@ public class RNN: Classifier {
                       maxWordLength: Int = 20,
                       randomizeSelection: Bool = false,
                       endingMark: String = ".") -> [String] {
-    optimNetwork.isTraining = false
+    optimizer.isTraining = false
     
     var names: [String] = []
     
@@ -177,7 +177,7 @@ public class RNN: Classifier {
 
       while runningChar != endingMark && name.count < maxWordLength {
         
-        let out = optimNetwork.predict([Tensor(batch)])
+        let out = optimizer.predict([Tensor(batch)])
         
         guard let flat = out[safe: 0]?.value[safe: 0]?[safe: 0] else {
           break
@@ -205,7 +205,7 @@ public class RNN: Classifier {
       names.append(name)
     }
     
-    optimNetwork.isTraining = true
+    optimizer.isTraining = true
 
     return names
 
@@ -251,7 +251,7 @@ public class RNN: Classifier {
     
     let sequential = Sequential({ layers })
     
-    optimNetwork.trainable = sequential
+    optimizer.trainable = sequential
     
     ready = true
   }
