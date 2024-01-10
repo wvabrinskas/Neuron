@@ -109,6 +109,17 @@ let optim = Adam(network,
 
 The first parameter here is the network we defined above. `learningRate` is the the size of the steps the optimizer will take when `.step()` is called. `l2Normalize` defines if the optimizer will normalize the gradients before they are applied to the weights. Default value for this is `false`. `Adam` also takes in properties for its `beta1`, `beta2`, and `epsilon` properties. 
 
+### Decay Functions
+An `Optimizer` has an optional property for setting a learning rate decay function. 
+```
+public protocol DecayFunction {
+  var decayedLearningRate: Float { get }
+  func reset()
+  func step()
+}
+```
+Currently there's only one available `DecayFunction` and that's `ExponentialDecay`. You can set a decay function by setting the `decayFunction` property on the `Optimizer`. Once it's set there's nothing else that needs to be done. The `Optimizer` with take care of updating and calling the function object.
+
 ## Set up training model
 By this point you are ready to train the `Optimizer` and the network. You could create your own training cycle to create the classifier or you can use the built in provided `Classifier` model. 
 
