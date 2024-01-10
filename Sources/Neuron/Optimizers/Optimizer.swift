@@ -21,6 +21,7 @@ public protocol Optimizer: AnyObject {
   var metricsReporter: MetricsReporter? { get set }
   var clip: Float? { get set }
   var gradientAccumulator: GradientAccumulator { get }
+  var decayFunction: DecayFunction? { get set }
 
   func callAsFunction(_ data: [Tensor]) -> [Tensor]
   func apply(_ gradients: Tensor.Gradient)
@@ -37,8 +38,20 @@ public protocol Optimizer: AnyObject {
 
 // TODO: allow for arbitrary weight shape in Optimizer, so we dont have to cram all weights into a 3D tensor
 open class BaseOptimizer: Optimizer {
+  public var decayFunction: DecayFunction?
   public var trainable: Trainable
-  public var learningRate: Float
+  public var learningRate: Float {
+    get {
+      if let decayFunction {
+        return decayFunction.decayedLearningRate
+      } else {
+        return localLearningRate
+      }
+    }
+    set {
+      localLearningRate = newValue
+    }
+  }
   public var isTraining: Bool = true {
     didSet {
       trainable.isTraining = isTraining
@@ -59,6 +72,7 @@ open class BaseOptimizer: Optimizer {
   public var metricsReporter: MetricsReporter?
   public var gradientAccumulator: GradientAccumulator = .init()
   public var clip: Float?
+  private var localLearningRate: Float
   
   public init(trainable: Trainable,
               learningRate: Float,
@@ -67,19 +81,22 @@ open class BaseOptimizer: Optimizer {
               metricsReporter: MetricsReporter? = nil,
               clip: Float? = nil) {
     self.trainable = trainable
-    self.learningRate = learningRate
     self.l2Normalize = l2Normalize
     self.workers = workers
     self.metricsReporter = metricsReporter
     self.clip = clip
+    self.localLearningRate = learningRate
+    self.learningRate = learningRate
   }
   
   public func step() {
     // override
+    decayFunction?.step()
   }
   
   public func reset() {
     // override
+    decayFunction?.reset()
   }
   
   func clip(layer: Layer) {

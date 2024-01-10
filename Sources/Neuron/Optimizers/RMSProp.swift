@@ -61,6 +61,7 @@ public class RMSProp: BaseOptimizer {
   public override func reset() {
     v.removeAll(keepingCapacity: true)
     vb.removeAll(keepingCapacity: true)
+    super.reset()
   }
 
   private func run(gradient: Tensor, biasGradient: Tensor, index: Int) -> Optimizer.Gradient {

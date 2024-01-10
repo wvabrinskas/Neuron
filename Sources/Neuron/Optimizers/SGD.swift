@@ -88,5 +88,6 @@ public class SGD: BaseOptimizer {
   public override func reset() {
     v.removeAll(keepingCapacity: true)
     vb.removeAll(keepingCapacity: true)
+    super.reset()
   }
 }

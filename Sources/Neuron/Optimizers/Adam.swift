@@ -140,5 +140,6 @@ public class Adam: BaseOptimizer {
     v.removeAll(keepingCapacity: true)
     mb.removeAll(keepingCapacity: true)
     vb.removeAll(keepingCapacity: true)
+    super.reset()
   }
 }
