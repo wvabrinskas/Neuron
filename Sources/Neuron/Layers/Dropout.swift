@@ -43,7 +43,8 @@ public final class Dropout: Layer {
   enum CodingKeys: String, CodingKey {
     case inputSize,
          chance,
-         type
+         type,
+         mask
   }
   
   convenience public init(from decoder: Decoder) throws {
@@ -52,7 +53,7 @@ public final class Dropout: Layer {
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
     self.chance = try container.decodeIfPresent(Float.self, forKey: .chance) ?? 0
     self.outputSize = inputSize
-    self.generateMask()
+    self.mask = try container.decodeIfPresent(Tensor.self, forKey: .chance) ?? Tensor()
   }
   
   public func encode(to encoder: Encoder) throws {
@@ -60,6 +61,7 @@ public final class Dropout: Layer {
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(chance, forKey: .chance)
     try container.encode(encodingType, forKey: .type)
+    try container.encode(mask, forKey: .mask)
   }
   
   public func forward(tensor: Tensor) -> Tensor {
