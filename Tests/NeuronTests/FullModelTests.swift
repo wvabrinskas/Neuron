@@ -190,6 +190,9 @@ final class FullModelTests: XCTestCase {
     rnn.onEpochCompleted = {
       let r = rnn.predict(starting: "h", maxWordLength: 20, randomizeSelection: false)
       print(r)
+      if r.contains("hammley") {
+        XCTAssertTrue(true)
+      }
     }
     
     await rnn.train()

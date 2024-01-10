@@ -21,14 +21,15 @@ public enum LossFunction {
       fatalError("predicted shape does not match correct shape")
     }
     
+    let depth = predicted.value.count
     var result: [[[Tensor.Scalar]]] = []
-    for d in 0..<predicted.value.count {
+    for d in 0..<depth{
       var depthResult: [[Tensor.Scalar]] = []
       var rowResult: [Tensor.Scalar] = []
       for r in 0..<predicted.value[d].count {
         let p = predicted.value[d][r]
         let c = correct.value[d][r]
-        let loss = calculate(p, correct: c)
+        let loss = calculate(p, correct: c) / Float(depth)
         rowResult.append(loss)
       }
       depthResult.append(rowResult)
