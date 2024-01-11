@@ -323,6 +323,14 @@ public extension Tensor {
     return Tensor(NumSwift.zerosLike((rows, columns, depth)))
   }
 
+  func onesLike() -> Tensor {
+    let shape = shape
+    let rows = shape[safe: 1, 0]
+    let columns = shape[safe: 0, 0]
+    let depth = shape[safe: 2, 0]
+    
+    return Tensor(NumSwift.onesLike((rows, columns, depth)))
+  }
 }
 
 extension Tensor: CustomDebugStringConvertible {

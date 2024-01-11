@@ -97,18 +97,16 @@ public class WGANGP: GAN {
       let interOut = self.trainOn([interSample], labels: [interLabel], requiresGradients: true)
       let interGradients = interOut.gradients.input[safe: 0, Tensor()]
       let normGradients = interGradients.norm().asScalar()
-      let penalty = LossFunction.meanSquareError.calculate([normGradients], correct: [1.0])
+      let penalty = LossFunction.meanSquareError.calculate([normGradients], correct: [1.0]) // just using this for the calculation part
             
       // calculate critic loss vs real and fake.
-      // Real is already multiplied by -1 due to the label, so we can just add them
       let criticCost = fakeOutput - realOutput
       let gp = penalty * self.lambda
       let criticLoss = criticCost + gp
       
-      // calculate gradients w.r.t to the interpolated gradients
-      let derivativeSumSqr = (interGradients * 2).sum()
-     // let derivOfGrads = self.discriminator.predict([derivativeSumSqr])[safe: 0, Tensor()].asScalar()
-      let derivativeLoss = Tensor(self.lambda * (normGradients - 1) * pow(interGradients.sumOfSquares().asScalar(), -0.5) * derivativeSumSqr)
+      let derivPenalty = LossFunction.meanSquareError.derivative(Tensor(normGradients), correct: Tensor([1.0]))
+      
+      let derivativeLoss = derivPenalty
       
       let interpolatedGradients = interOut.outputs[safe: 0, Tensor()].gradients(delta: derivativeLoss)
       
