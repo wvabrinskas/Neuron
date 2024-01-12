@@ -160,13 +160,15 @@ public class Conv2d: ConvolutionalLayer {
   }
   
   internal func backward(_ input: Tensor, _ delta: Tensor) -> (input: Tensor, weight: Tensor, bias: Tensor) {
+    let time = Date()
+
     let deltas = delta.value
     let flippedTransposed = filters.map { flip180($0) }.transposed() as [[[[Tensor.Scalar]]]]
     
     var weightGradients: [[[Tensor.Scalar]]] = []
     //2D array because each item is the result of conv2d which returns a 1D array
     var inputGradients: [[[Tensor.Scalar]]] = []
-        
+
     for i in 0..<deltas.count {
       let delta = deltas[i]
       var workingDelta = NumSwiftC.stridePad(signal: delta, strides: strides)
@@ -218,15 +220,15 @@ public class Conv2d: ConvolutionalLayer {
     
     let biasGradients = delta.value.map { $0.sum }
     
+    print("Conv Backward time: \(Date().timeIntervalSince1970 - time.timeIntervalSince1970)")
     return (Tensor(inputGradients), Tensor(weightGradients), Tensor(biasGradients))
   }
   
   internal func calculateFilterGradients(_ input: Tensor, _ delta: [[Tensor.Scalar]], index: Int) -> Tensor.Data {
-    var newGradientsForFilters: Tensor.Data = []
-    
-    for i in 0..<input.value.count {
-      let forwardInputs = input.value[i]
-      
+    let total = input.value.count
+    var newGradientsForFilters: Tensor.Data = Tensor.Data.init(repeating: [], count: total)
+
+    input.value.concurrentForEach(workers: max(8, total / 4)) { [self] forwardInputs, i in
       var filter = delta
       var signal = forwardInputs
       
@@ -271,9 +273,8 @@ public class Conv2d: ConvolutionalLayer {
                                  inputSize: inputSize,
                                  outputSize: nil)
       
-      newGradientsForFilters.append(result)
+      newGradientsForFilters[i] = result
     }
-    
     //all filter gradients will be mashed into one 3D array and then batched out later by num of filters
     //this way we dont have to store these gradients
     return newGradientsForFilters
@@ -299,23 +300,23 @@ public class Conv2d: ConvolutionalLayer {
   }
   
   internal func conv(_ input: Tensor) -> [[[Tensor.Scalar]]] {
-    var results: [[[Tensor.Scalar]]] = []
+    var results: [[[Tensor.Scalar]]] = [[[Tensor.Scalar]]].init(repeating: [], count: filterCount)
     
     let flatBias: [Tensor.Scalar] = biases.value.flatten()
     
-    for f in 0..<filterCount {
-      var convolved: [[Tensor.Scalar]] = []
+    Array(0..<filterCount).concurrentForEach(workers: max(8, filterCount / 4)) { element, f in
+      var convolved: [[Tensor.Scalar]] = [] // maybe do concurrentForEach here too
 
       for i in 0..<input.value.count {
-        let currentFilter = filters[f].value[i]
+        let currentFilter = self.filters[f].value[i]
         let currentInput = input.value[i]
         
-        let conv = device.conv2d(signal: currentInput,
+        let conv = self.device.conv2d(signal: currentInput,
                                  filter: currentFilter,
-                                 strides: strides,
-                                 padding: padding,
-                                 filterSize: filterSize,
-                                 inputSize: (inputSize.rows, inputSize.columns),
+                                 strides: self.strides,
+                                 padding: self.padding,
+                                 filterSize: self.filterSize,
+                                 inputSize: (self.inputSize.rows, self.inputSize.columns),
                                  outputSize: nil)
         
         if convolved.isEmpty {
@@ -325,14 +326,14 @@ public class Conv2d: ConvolutionalLayer {
         }
       }
       
-      if biasEnabled {
+      if self.biasEnabled {
         let bias = flatBias[f]
         convolved = convolved + bias
       }
-
-      results.append(convolved)
+      
+      results[f] = convolved
     }
-
+    
     return results
   }
   

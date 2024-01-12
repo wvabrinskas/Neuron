@@ -25,7 +25,7 @@ public class GAN {
   public var epochs: Int
   
   internal let batchSize: Int
-  private let threadWorkers: Int
+  let threadWorkers: Int
   private let discriminatorSteps: Int
   private let generatorSteps: Int
   private let discriminatorNoiseFactor: Tensor.Scalar?
