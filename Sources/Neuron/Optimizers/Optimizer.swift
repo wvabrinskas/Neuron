@@ -141,6 +141,7 @@ open class BaseOptimizer: Optimizer {
                   validation: Bool = false,
                   requiresGradients: Bool = true) -> Output {
     
+    metricsReporter?.startTimer(metric: .batchTime)
     let accumulator = GradientAccumulator()
     
     var outputs: [Tensor] = [Tensor].init(repeating: Tensor(), count: data.count)
@@ -175,6 +176,8 @@ open class BaseOptimizer: Optimizer {
         accumulator.insert(gradient)
       }
     }
+    
+    metricsReporter?.endTimer(metric: .batchTime)
     
     if requiresGradients {
       let accumulated = accumulator.accumulate(clearAtEnd: true)
