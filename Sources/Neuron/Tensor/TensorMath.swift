@@ -367,7 +367,7 @@ extension Array where Element == Tensor {
     var result = [Tensor.Gradient](repeating: .init(),
                                       count: deltas.count)
     
-    let workerCount = Int(ceil(Double(deltas.count) / 4))
+    let workerCount = Swift.min(Constants.maxWorkers, Int(ceil(Double(deltas.count) / 4)))
     deltas.concurrentForEach(workers: workerCount) { element, index in
       let delta = deltas[index]
       let output = self[index]

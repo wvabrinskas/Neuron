@@ -76,7 +76,7 @@ public class TransConv2d: Conv2d {
     let total = input.value.count
     var newGradientsForFilters: Tensor.Data = Tensor.Data.init(repeating: [], count: total)
     
-    input.value.concurrentForEach(workers: max(8, total / 4)) { [self] forwardInputs, i in
+    input.value.concurrentForEach(workers: min(Constants.maxWorkers, max(8, total / 4))) { [self] forwardInputs, i in
       
       var filter = forwardInputs
       var signal = delta

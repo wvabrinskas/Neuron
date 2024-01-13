@@ -126,7 +126,7 @@ open class BaseOptimizer: Optimizer {
   open func predict(_ data: [Tensor]) -> [Tensor] {
     var results: [Tensor] = [Tensor].init(repeating: Tensor(), count: data.count)
 
-    data.concurrentForEach(workers: Int(ceil(Double(data.count) / Double(4))),
+    data.concurrentForEach(workers: min(Constants.maxWorkers, Int(ceil(Double(data.count) / Double(4)))),
                            priority: device.qosPriority) { tensor, index in
       let output = self.trainable.predict(tensor)
       results[index] = output
@@ -150,7 +150,7 @@ open class BaseOptimizer: Optimizer {
     
     // TODO: Batch consolidation: https://github.com/wvabrinskas/Neuron/issues/36
   
-    data.concurrentForEach(workers: workers, priority: device.qosPriority) { b, index in
+    data.concurrentForEach(workers: min(Constants.maxWorkers, workers), priority: device.qosPriority) { b, index in
       let label: [Tensor.Scalar] = labels[index].value.flatten()
       let input = data[index]
       

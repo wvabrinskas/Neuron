@@ -228,7 +228,7 @@ public class Conv2d: ConvolutionalLayer {
     let total = input.value.count
     var newGradientsForFilters: Tensor.Data = Tensor.Data.init(repeating: [], count: total)
 
-    input.value.concurrentForEach(workers: max(8, total / 4)) { [self] forwardInputs, i in
+    input.value.concurrentForEach(workers: min(Constants.maxWorkers, max(8, total / 4))) { [self] forwardInputs, i in
       var filter = delta
       var signal = forwardInputs
       
@@ -304,7 +304,7 @@ public class Conv2d: ConvolutionalLayer {
     
     let flatBias: [Tensor.Scalar] = biases.value.flatten()
     
-    Array(0..<filterCount).concurrentForEach(workers: max(8, filterCount / 4)) { element, f in
+    Array(0..<filterCount).concurrentForEach(workers: min(Constants.maxWorkers, max(8, filterCount / 4))) { element, f in
       var convolved: [[Tensor.Scalar]] = [] // maybe do concurrentForEach here too
 
       for i in 0..<input.value.count {

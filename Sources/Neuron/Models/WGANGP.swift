@@ -73,7 +73,7 @@ public class WGANGP: GAN {
     let generated = self.getGenerated(.fake, detatch: true, count: batchSize)
     let interpolated = self.interpolated(real: real, fake: generated.data)
 
-    let workers = max(max(4, threadWorkers), Int(ceil(batchSize.asTensorScalar / 4)))
+    let workers = min(Constants.maxWorkers, max(max(4, threadWorkers), Int(ceil(batchSize.asTensorScalar / 4))))
     Array(0..<batchSize).concurrentForEach(workers: workers) { _, i in
       // create data
       let realSample = real[i]
