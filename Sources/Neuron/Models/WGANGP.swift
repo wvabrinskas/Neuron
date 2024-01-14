@@ -26,42 +26,6 @@ public class WGANGP: GAN {
   
   public override var lossFunction: LossFunction { .wasserstein  }
   
-  // SLOW =(
-  func NEW_discriminatorStep(_ real: [Tensor], labels: [Tensor]) {
-    discriminator.zeroGradients()
-    
-    let realOutput = trainOn(real, labels: labels)
-    discriminator.apply(realOutput.gradients)
-    
-    let fake = getGenerated(.fake, detatch: true, count: batchSize)
-    let fakeOutput = trainOn(fake.data, labels: fake.labels)
-    discriminator.apply(fakeOutput.gradients)
-
-    let interpolated = self.interpolated(real: real, fake: fake.data)
-    
-    let interOut = trainOn(interpolated.data, labels: interpolated.labels)
-    let penalty = interOut.gradients.input.map { Tensor(LossFunction.meanSquareError.calculate([$0.norm().asScalar()], correct: [1.0])) }
-    
-    let interAccumulator = GradientAccumulator()
-    interOut.outputs.gradients(penalty.map { Tensor(LossFunction.meanSquareError.derivative([self.lambda * $0.asScalar()], correct: [1.0]))}).forEach { interAccumulator.insert($0) }
-    discriminator.apply(interAccumulator.accumulate(clearAtEnd: true))
-    
-    let realLoss = realOutput.loss
-    let fakeLoss = fakeOutput.loss
-              
-    // calculate critic loss vs real and fake.
-    // Real is already multiplied by -1 due to the label, so we can just add them
-    let criticCost = realLoss + fakeLoss
-    let gp = penalty.mean * self.lambda
-    let criticLoss = criticCost + gp.asScalar()
-
-    discriminator.metricsReporter?.update(metric: .criticLoss, value: criticLoss)
-    discriminator.metricsReporter?.update(metric: .realImageLoss, value: realLoss)
-    discriminator.metricsReporter?.update(metric: .fakeImageLoss, value: fakeLoss)
-    
-    discriminator.step()
-  }
-  
   override func discriminatorStep(_ real: [Tensor], labels: [Tensor]) {
     discriminator.zeroGradients()
     
@@ -95,7 +59,10 @@ public class WGANGP: GAN {
 
       // get gradient for interpolated
       let interOut = self.trainOn([interSample], labels: [interLabel], requiresGradients: true)
+      // interpolated gradients wrt to interpolated sample
       let interGradients = interOut.gradients.input[safe: 0, Tensor()]
+      
+      // calculate gradient penalty
       let normGradients = interGradients.norm().asScalar()
       let penalty = LossFunction.meanSquareError.calculate([normGradients], correct: [1.0]) // just using this for the calculation part
             
@@ -105,10 +72,10 @@ public class WGANGP: GAN {
           
       let part1 = Tensor.Scalar(2 / fakeOutput.value.count) * self.lambda
       let part2 = normGradients - 1
-      let part3 = interGradients / normGradients
+      let part3 = interOut.outputs[safe: 0, Tensor()] / normGradients
       let dGradInter = part1 * part2 * part3
       
-      let interpolatedGradients = interOut.outputs[safe: 0, Tensor()].gradients(delta: dGradInter.sum(axis: -1))
+      let interpolatedGradients = interOut.outputs[safe: 0, Tensor()].gradients(delta: dGradInter)
 
       let totalGradients = fakeOut.gradients + realOut.gradients + interpolatedGradients
       
@@ -130,15 +97,12 @@ public class WGANGP: GAN {
   
   override func generatorStep() {
     generator.zeroGradients()
-    let fake = getGenerated(.fake, count: batchSize)
+    let fake = getGenerated(.real, count: batchSize)
+        
+    let fakeOut = trainOn(fake.data, labels: fake.labels)
     
-    // invert labels so that we can get the negative mean
-    let labels = fake.labels.map { $0 * -1 }
-    
-    let fakeOut = trainOn(fake.data, labels: labels)
-    let fakeGradients = fakeOut.gradients
-    
-    generator.apply(fakeGradients)
+    // these gradients have the discriminator gradients as well. Maybe we can speed it up by removing them somehow?
+    generator.apply(fakeOut.gradients)
     generator.step()
     
     generator.metricsReporter?.update(metric: .generatorLoss, value: fakeOut.loss)
