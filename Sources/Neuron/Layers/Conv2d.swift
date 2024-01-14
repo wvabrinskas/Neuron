@@ -160,8 +160,6 @@ public class Conv2d: ConvolutionalLayer {
   }
   
   internal func backward(_ input: Tensor, _ delta: Tensor) -> (input: Tensor, weight: Tensor, bias: Tensor) {
-    //let time = Date()
-
     let deltas = delta.value
     let flippedTransposed = filters.map { flip180($0) }.transposed() as [[[[Tensor.Scalar]]]]
     
@@ -220,7 +218,6 @@ public class Conv2d: ConvolutionalLayer {
     
     let biasGradients = delta.value.map { $0.sum }
     
-    //print("Conv Backward time: \(Date().timeIntervalSince1970 - time.timeIntervalSince1970)")
     return (Tensor(inputGradients), Tensor(weightGradients), Tensor(biasGradients))
   }
   
