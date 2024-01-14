@@ -38,10 +38,19 @@ public protocol Trainable: Codable, CustomDebugStringConvertible {
   
   /// Compiles the network, getting it ready to be trained.
   func compile()
+  
+  /// Exports the weights of the network
+  func exportWeights() throws -> [[Tensor]]
+ 
+  /// Attempts to replace the weights in the network
+  func importWeights(_ weights: [[Tensor]]) throws
 }
 
 public extension Trainable {
   var debugDescription: String {
+    guard isCompiled else {
+      return "Trainable isn't compiled yet. Please compile first."
+    }
     let string = TrainablePrinter.build(self)
     return string
   }

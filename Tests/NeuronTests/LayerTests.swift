@@ -13,6 +13,170 @@ import NumSwift
 
 final class LayerTests: XCTestCase {
   
+  // MARK: Sequential
+  func test_Sequential_importWeights() {
+    let network = Sequential {
+      [
+        Dense(20,
+              inputs: 8,
+              initializer: .heNormal,
+              biasEnabled: true),
+        ReLu(),
+        Dense(10, initializer: .heNormal,
+              biasEnabled: true),
+        ReLu()
+      ]
+    }
+    
+    network.compile()
+    
+    do {
+      let newWeights = try network.exportWeights().map { $0.map { $0.zerosLike() }}
+      try network.importWeights(newWeights)
+      try network.exportWeights().forEach { $0.forEach { XCTAssertTrue($0.isValueEqual(to: $0.zerosLike() ))}}
+    } catch {
+      XCTFail(error.localizedDescription)
+    }
+  }
+  
+  func test_Sequential_exportWeights_didNotCompile() {
+    let network = Sequential {
+      [
+        Dense(20,
+              inputs: 8,
+              initializer: .heNormal,
+              biasEnabled: true),
+        ReLu(),
+        Dense(10, initializer: .heNormal,
+              biasEnabled: true),
+        ReLu()
+      ]
+    }
+        
+    do {
+      let _ = try network.exportWeights().map { $0.map { $0.zerosLike() }}
+    } catch {
+      XCTAssertTrue(true)
+    }
+  }
+  
+  // MARK: Dense
+  func test_Dense_Parameters() {
+    let dense = Dense(256,
+                      inputs: 100,
+                      initializer: .heNormal,
+                      biasEnabled: true)
+    
+    XCTAssertEqual(dense.biases.shape, [1, 1, 1])
+  }
+  
+  func test_Dense_importWeights_valid() {
+    let dense = Dense(256,
+                      inputs: 100,
+                      initializer: .heNormal,
+                      biasEnabled: true)
+    
+    do {
+      let newWeights = try dense.exportWeights()[safe: 0, Tensor()].zerosLike()
+      try dense.importWeights([newWeights])
+      XCTAssert(try dense.exportWeights().first!.isValueEqual(to: newWeights))
+    } catch {
+      XCTFail(error.localizedDescription)
+    }
+  }
+  
+  func test_Dense_importWeights_invalid_Shape() {
+    let dense = Dense(256,
+                      inputs: 100,
+                      initializer: .heNormal,
+                      biasEnabled: true)
+    
+    do {
+      try dense.importWeights([Tensor([10, 10, 10])])
+    } catch {
+      if let _ = error as? LayerErrors {
+        XCTAssertTrue(true)
+      } else {
+        XCTFail()
+      }
+    }
+  }
+  
+  // MARK: Convolution
+  func test_Conv2d_filters() {
+    let conv = Conv2d(filterCount: 32,
+                      inputSize: .init(array: [28,28,8]),
+                      padding: .same,
+                      filterSize: (3,3),
+                      initializer: .heNormal,
+                      biasEnabled: true)
+    
+    XCTAssertFalse(conv.filters.isEmpty)
+    XCTAssertEqual(conv.filters.shape, [32])
+    conv.filters.forEach { f in
+      XCTAssertEqual(f.shape, [3,3,8])
+    }
+    
+    XCTAssertEqual(conv.outputSize, TensorSize(array: [28, 28, 32]))
+  }
+  
+  func test_Conv2d_importWeights_valid() {
+    let layer = Conv2d(filterCount: 5,
+                       inputSize: .init(array: [28,28,1]),
+                       filterSize: (3,3),
+                       initializer: .heNormal)
+    
+    do {
+      let newWeights = try layer.exportWeights().map { $0.zerosLike() }
+      try layer.importWeights(newWeights)
+      let exported = try layer.exportWeights()
+      
+      for i in 0..<exported.count {
+        let export = exported[i]
+        let new = newWeights[i]
+        XCTAssert(new.isValueEqual(to: export))
+      }
+    } catch {
+      XCTFail(error.localizedDescription)
+    }
+  }
+  
+  func test_Conv2d_importWeights_invalid_Shape() {
+    let layer = Conv2d(filterCount: 5,
+                       inputSize: .init(array: [28,28,1]),
+                       filterSize: (3,3),
+                       initializer: .heNormal)
+    
+    do {
+      try layer.importWeights([Tensor([10, 10, 10])])
+    } catch {
+      if let _ = error as? LayerErrors {
+        XCTAssertTrue(true)
+      } else {
+        XCTFail()
+      }
+    }
+  }
+  
+  func test_TransConv2d_filters() {
+    let conv = TransConv2d(filterCount: 32,
+                           inputSize: .init(array: [28,28,8]),
+                           strides: (2,2),
+                           padding: .same,
+                           filterSize: (3,3),
+                           initializer: .heNormal,
+                           biasEnabled: true)
+    
+    XCTAssertFalse(conv.filters.isEmpty)
+    XCTAssertEqual(conv.filters.shape, [32])
+    conv.filters.forEach { f in
+      XCTAssertEqual(f.shape, [3,3,8])
+    }
+    
+    XCTAssertEqual(conv.outputSize, TensorSize(array: [56, 56, 32]))
+  }
+
+  
   // MARK: LSTM
   
   func test_LSTM_Weights() {

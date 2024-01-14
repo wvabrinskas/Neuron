@@ -11,17 +11,8 @@ import NumSwift
 /// The LSTM layer, Long Short-Term Memory layer, is the heart of the `RNN` model. It should be
 /// preceeded by an `Embedding` layer as that's the expected input rather than the raw
 /// text input itself.
-public final class LSTM: Layer {
-  public var encodingType: EncodingType = .lstm
-  public var inputSize: TensorSize = TensorSize(array: [0,0,0])
-  public var outputSize: TensorSize = TensorSize(array: [0,0,0])
-  public var weights: Tensor = Tensor()
-  public var biases: Tensor = Tensor()
-  public var biasEnabled: Bool = false
-  public var trainable: Bool = true
-  public var initializer: Initializer?
-  public var device: Device = CPU()
-  public var isTraining: Bool = true {
+public final class LSTM: BaseLayer {
+  public override var isTraining: Bool {
     willSet {
       if newValue == false {
         reset()
@@ -120,24 +111,23 @@ public final class LSTM: Layer {
   public init(inputUnits: Int,
               batchLength: Int,
               returnSequence: Bool = true,
-              biasEnabled: Bool = true,
+              biasEnabled: Bool = false,
               initializer: InitializerType = .xavierNormal,
               hiddenUnits: Int,
               vocabSize: Int) {
-    self.inputSize = TensorSize(rows: 1,
+    let inputSize = TensorSize(rows: 1,
                                 columns: vocabSize,
                                 depth: batchLength)
-    self.initializer = initializer.build()
     self.hiddenUnits = hiddenUnits
     self.vocabSize = vocabSize
     self.inputUnits = inputUnits
     self.batchLength = batchLength
-    self.outputSize = TensorSize(rows: 1,
-                                 columns: vocabSize,
-                                 depth: returnSequence ? batchLength : 1)
-    
     self.returnSequence = returnSequence
-    self.biasEnabled = biasEnabled
+    
+    super.init(inputSize: inputSize,
+               initializer: initializer,
+               biasEnabled: biasEnabled,
+               encodingType: .lstm)
     
     initializeWeights()
     if biasEnabled {
@@ -166,7 +156,7 @@ public final class LSTM: Layer {
          inputUnits
   }
   
-  convenience public init(from decoder: Decoder) throws {
+  convenience required public init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let hiddenUnits = try container.decodeIfPresent(Int.self, forKey: .hiddenUnits) ?? 0
     let vocabSize = try container.decodeIfPresent(Int.self, forKey: .vocabSize) ?? 0
@@ -208,7 +198,7 @@ public final class LSTM: Layer {
     }
   }
   
-  public func encode(to encoder: Encoder) throws {
+  public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(outputSize, forKey: .outputSize)
     try container.encode(inputSize, forKey: .inputSize)
@@ -237,7 +227,7 @@ public final class LSTM: Layer {
   /// - Returns: Depending on the state of `returnSequence` it will either returng the whole sequence of size
   /// `(rows: 1, columns: vocabSize, depth: batchLength)` or just the last output of the sequence of size
   /// `(rows: 1, columns: vocabSize, depth: 1)`
-  public func forward(tensor: Tensor) -> Tensor {
+  public override func forward(tensor: Tensor) -> Tensor {
     
     var cellCache: [Cache] = [setupInitialState()]
     
@@ -310,7 +300,7 @@ public final class LSTM: Layer {
   }
   
   
-  public func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Float) {
+  public override func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Float) {
     /*
      order of weights in tensor...
      
@@ -467,6 +457,12 @@ public final class LSTM: Layer {
     let biasDerivatives = wrtLSTMCellInputBiasDerivatives.concat().concat(wrtOutputBiasesDerivatives, axis: 2)
     
     return (wrtEmbeddings, weightDerivatives, biasDerivatives)
+  }
+  
+  override public func onInputSizeSet() {
+    outputSize = TensorSize(rows: 1,
+                            columns: vocabSize,
+                            depth: returnSequence ? batchLength : 1)
   }
 
   private func reset() {

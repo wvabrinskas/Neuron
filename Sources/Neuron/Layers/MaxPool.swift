@@ -9,12 +9,7 @@ import Foundation
 import NumSwift
 
 /// Will decrease the size of the input tensor by half using a max pooling technique.
-public final class MaxPool: Layer {
-  public var encodingType: EncodingType = .maxPool
-  public var device: Device = CPU()
-  public var biasEnabled: Bool = true
-  public var isTraining: Bool = true
-
+public final class MaxPool: BaseLayer {
   internal struct PoolingIndex: Hashable, Codable {
     var r: Int
     var c: Int
@@ -29,22 +24,16 @@ public final class MaxPool: Layer {
     var indicies: [[PoolingIndex]]
   }
   
-  public var inputSize: TensorSize = TensorSize(array: [])
-  public var outputSize: TensorSize {
-    TensorSize(array: [inputSize.columns / 2, inputSize.rows / 2, inputSize.depth])
-  }
-  
-  public var weights: Tensor = Tensor()
-  public var biases: Tensor = Tensor()
-  public var trainable: Bool = true
-  public var initializer: Initializer?
   internal var poolingGradients: [PoolingGradient] = []
   private lazy var queue: OperationQueue = OperationQueue()
   
   /// Default initializer for max pooling.
   /// - Parameter inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
   public init(inputSize: TensorSize = TensorSize(array: [])) {
-    self.inputSize = inputSize
+    super.init(inputSize: inputSize,
+               initializer: nil,
+               biasEnabled: false,
+               encodingType: .maxPool)
   }
   
   enum CodingKeys: String, CodingKey {
@@ -52,19 +41,19 @@ public final class MaxPool: Layer {
          type
   }
   
-  convenience public init(from decoder: Decoder) throws {
+  convenience public required init(from decoder: Decoder) throws {
     self.init()
     let container = try decoder.container(keyedBy: CodingKeys.self)
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
   }
   
-  public func encode(to encoder: Encoder) throws {
+  public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(encodingType, forKey: .type)
   }
   
-  public func forward(tensor: Tensor) -> Tensor {
+  public override func forward(tensor: Tensor) -> Tensor {
     func backwards(input: Tensor, gradient: Tensor) -> (Tensor, Tensor, Tensor) {
       let deltas = gradient.value
       var poolingGradients: [[[Tensor.Scalar]]] = []
@@ -124,11 +113,15 @@ public final class MaxPool: Layer {
     return out
   }
   
+  override public func onInputSizeSet() {
+    outputSize = TensorSize(array: [inputSize.columns / 2, inputSize.rows / 2, inputSize.depth])
+  }
+  
   private func setGradients(indicies: [[PoolingIndex]], id: UUID) {
     self.poolingGradients.append(PoolingGradient(tensorId: id, indicies: indicies))
   }
   
-  public func apply(gradients: Optimizer.Gradient, learningRate: Float) {
+  public override func apply(gradients: Optimizer.Gradient, learningRate: Float) {
     poolingGradients.removeAll(keepingCapacity: true)
   }
   
