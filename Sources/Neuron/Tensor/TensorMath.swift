@@ -142,6 +142,20 @@ public extension Tensor {
     return apply(axis: axis, block)
   }
   
+  func mean(axis: Int = -1) -> Tensor {
+    let block: MathBlock = { feature in
+      feature.average
+    }
+    
+    if axis == -1 {
+      let total = self.shape.reduce(1, *)
+      let all = self.value.flatten().sum / Float(total)
+      return Tensor(all)
+    }
+    
+    return apply(axis: axis, block)
+  }
+  
   func sum(axis: Int = -1) -> Tensor {
     if axis == -1 {
       return Tensor(value.sum)
@@ -323,6 +337,14 @@ public extension Tensor {
     return Tensor(NumSwift.zerosLike((rows, columns, depth)))
   }
 
+  func onesLike() -> Tensor {
+    let shape = shape
+    let rows = shape[safe: 1, 0]
+    let columns = shape[safe: 0, 0]
+    let depth = shape[safe: 2, 0]
+    
+    return Tensor(NumSwift.onesLike((rows, columns, depth)))
+  }
 }
 
 extension Tensor: CustomDebugStringConvertible {
@@ -359,7 +381,7 @@ extension Array where Element == Tensor {
     var result = [Tensor.Gradient](repeating: .init(),
                                       count: deltas.count)
     
-    let workerCount = Int(ceil(Double(deltas.count) / 4))
+    let workerCount = Swift.min(Constants.maxWorkers, Int(ceil(Double(deltas.count) / 4)))
     deltas.concurrentForEach(workers: workerCount) { element, index in
       let delta = deltas[index]
       let output = self[index]

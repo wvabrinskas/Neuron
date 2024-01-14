@@ -70,10 +70,10 @@ public class TransConv2d: Conv2d {
   }
   
   internal override func calculateFilterGradients(_ input: Tensor, _ delta: [[Tensor.Scalar]], index: Int) -> Tensor.Data {
-    var newGradientsForFilters: Tensor.Data = []
-      
-    for i in 0..<input.value.count {
-      let forwardInputs = input.value[i]
+    let total = input.value.count
+    var newGradientsForFilters: Tensor.Data = Tensor.Data.init(repeating: [], count: total)
+    
+    input.value.concurrentForEach(workers: min(Constants.maxWorkers, max(8, total / 4))) { [self] forwardInputs, i in
       
       var filter = forwardInputs
       var signal = delta
@@ -107,8 +107,7 @@ public class TransConv2d: Conv2d {
                                  filterSize: newFilterSize,
                                  inputSize: inputSize,
                                  outputSize: nil)
-      
-      newGradientsForFilters.append(result.reversed())
+      newGradientsForFilters[i] = result
     }
     
     //all filter gradients will be mashed into one 3D array and then batched out later by num of filters

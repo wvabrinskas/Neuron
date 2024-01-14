@@ -12,6 +12,35 @@ import NumSwift
 
 final class TensorMathTests: XCTestCase {
   
+  func test_mean() {
+    let tensor = Tensor([[[1,1,1],
+                         [2,2,2]],
+                         [[5,3,5],
+                          [5,3,5]]])
+    
+    // axis -1
+    let result = tensor.mean(axis: -1)
+    XCTAssertTrue(Tensor([2.9166667]).isValueEqual(to: result))
+    
+    // axis 0
+    let resultZero = tensor.mean(axis: 0)
+    let expected = Tensor([[[1.5, 1.5, 1.5]],
+                           [[5.0, 3.0, 5.0]]])
+    XCTAssertTrue(expected.isValueEqual(to: resultZero))
+    
+    // axis 1
+    let resultOne = tensor.mean(axis: 1)
+    let expectedOne = Tensor([[[1.0], [2.0]],
+                              [[4.3333335], [4.3333335]]])
+    XCTAssertTrue(expectedOne.isValueEqual(to: resultOne))
+    
+    // axis 2
+    let resultTwo = tensor.mean(axis: 2)
+    let expectedTwo = Tensor([[3.0, 2.0, 3.0],
+                              [3.5, 2.5, 3.5]])
+    XCTAssertTrue(expectedTwo.isValueEqual(to: resultTwo))
+  }
+  
   func test_sum() {
     let tensor = Tensor([[[1,1,1],
                          [2,2,2]],
