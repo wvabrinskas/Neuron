@@ -142,6 +142,20 @@ public extension Tensor {
     return apply(axis: axis, block)
   }
   
+  func mean(axis: Int = -1) -> Tensor {
+    let block: MathBlock = { feature in
+      feature.average
+    }
+    
+    if axis == -1 {
+      let total = self.shape.reduce(1, *)
+      let all = self.value.flatten().sum / Float(total)
+      return Tensor(all)
+    }
+    
+    return apply(axis: axis, block)
+  }
+  
   func sum(axis: Int = -1) -> Tensor {
     if axis == -1 {
       return Tensor(value.sum)

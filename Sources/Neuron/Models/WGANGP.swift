@@ -101,17 +101,17 @@ public class WGANGP: GAN {
             
       // calculate critic loss vs real and fake.
       let criticCost = fakeOutput - realOutput
-      let gp = penalty * self.lambda
-      let criticLoss = criticCost + gp
+      let criticLoss = criticCost + self.lambda * penalty
+          
+      let part1 = Tensor.Scalar(2 / fakeOutput.value.count) * self.lambda
+      let part2 = normGradients - 1
+      let part3 = interGradients / normGradients
+      let dGradInter = part1 * part2 * part3
       
-      let derivPenalty = LossFunction.meanSquareError.derivative(Tensor(normGradients), correct: Tensor([1.0]))
-      
-      let derivativeLoss = derivPenalty
-      
-      let interpolatedGradients = interOut.outputs[safe: 0, Tensor()].gradients(delta: derivativeLoss)
-      
+      let interpolatedGradients = interOut.outputs[safe: 0, Tensor()].gradients(delta: dGradInter.sum(axis: -1))
+
       let totalGradients = fakeOut.gradients + realOut.gradients + interpolatedGradients
-            
+      
       self.discriminator.apply(totalGradients)
 
       avgRealLoss += realOut.loss / self.batchSize.asTensorScalar
