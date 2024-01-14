@@ -25,7 +25,7 @@ public class GAN {
   public var epochs: Int
   
   internal let batchSize: Int
-  private let threadWorkers: Int
+  let threadWorkers: Int
   private let discriminatorSteps: Int
   private let generatorSteps: Int
   private let discriminatorNoiseFactor: Tensor.Scalar?
@@ -206,7 +206,7 @@ public class GAN {
     var fakeData: [Tensor] = [Tensor](repeating: Tensor(), count: count)
     var fakeLabels: [Tensor] = [Tensor](repeating: Tensor(), count: count)
 
-    Array(0..<count).concurrentForEach(workers: Int(ceil(Double(count) / Double(4)))) { _, index in
+    Array(0..<count).concurrentForEach(workers: min(Constants.maxWorkers, Int(ceil(Double(count) / Double(4))))) { _, index in
       var sample = self.generator([Tensor(self.noise())])[safe: 0, Tensor()]
       
       if detatch {
