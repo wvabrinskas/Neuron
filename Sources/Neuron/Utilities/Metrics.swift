@@ -162,13 +162,13 @@ public class MetricsReporter: MetricCalculator {
   
   public func startTimer(metric: Metric) {
     timerQueue.addBarrierBlock { [weak self] in
-      guard let self else { return }
+      guard let self = self else { return }
       
-      if var hasTimers = timers[metric] {
+      if var hasTimers = self.timers[metric] {
         hasTimers.append(Date())
-        timers[metric] = hasTimers
+        self.timers[metric] = hasTimers
       } else {
-        timers[metric] = [Date()]
+        self.timers[metric] = [Date()]
       }
     }
   }
@@ -177,14 +177,14 @@ public class MetricsReporter: MetricCalculator {
     timerQueue.waitUntilAllOperationsAreFinished()
     
     timerQueue.addBarrierBlock { [weak self] in
-      guard let self else { return }
+      guard let self = self else { return }
       
-      if let timer = timers[metric] {
+      if let timer = self.timers[metric] {
         let result = timer.map { Float(Date().timeIntervalSince1970 - $0.timeIntervalSince1970) }
         let average = result.average
         addMetric(value: average,
                   key: metric)
-        timers.removeValue(forKey: metric)
+        self.timers.removeValue(forKey: metric)
       }
     }
   }
