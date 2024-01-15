@@ -17,12 +17,12 @@ final class LayerTests: XCTestCase {
   func test_Sequential_importWeights() {
     let network = Sequential {
       [
-        Dense(20,
-              inputs: 8,
+        Dense(5,
+              inputs: 5,
               initializer: .heNormal,
               biasEnabled: true),
         ReLu(),
-        Dense(10, initializer: .heNormal,
+        Dense(5, initializer: .heNormal,
               biasEnabled: true),
         ReLu()
       ]
@@ -62,8 +62,8 @@ final class LayerTests: XCTestCase {
   
   // MARK: Dense
   func test_Dense_Parameters() {
-    let dense = Dense(256,
-                      inputs: 100,
+    let dense = Dense(20,
+                      inputs: 8,
                       initializer: .heNormal,
                       biasEnabled: true)
     
@@ -71,8 +71,8 @@ final class LayerTests: XCTestCase {
   }
   
   func test_Dense_importWeights_valid() {
-    let dense = Dense(256,
-                      inputs: 100,
+    let dense = Dense(20,
+                      inputs: 8,
                       initializer: .heNormal,
                       biasEnabled: true)
     

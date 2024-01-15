@@ -296,6 +296,6 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
   }
   
   override public func exportWeights() throws -> [Tensor] {
-    []
+    [Tensor()]
   }
 }
