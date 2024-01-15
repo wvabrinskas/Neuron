@@ -2,18 +2,7 @@ import Foundation
 import NumSwift
 
 /// An `Embedding` layer that maps each input word vector to a `X` dimensional vector.
-public final class Embedding: Layer {
-  public var encodingType: EncodingType = .embedding
-  public var inputSize: TensorSize = TensorSize(array: [0,0,0])
-  public var outputSize: TensorSize = TensorSize(array: [0,0,0])
-  public var weights: Tensor = Tensor()
-  public var biases: Tensor = Tensor()
-  public var biasEnabled: Bool = false
-  public var trainable: Bool = false
-  public var initializer: Initializer?
-  public var device: Device = CPU()
-  public var isTraining: Bool = true
-  
+public final class Embedding: BaseLayer {
   private let inputUnits: Int
   private let vocabSize: Int
   private let batchLength: Int
@@ -23,18 +12,19 @@ public final class Embedding: Layer {
               batchLength: Int,
               initializer: InitializerType = .xavierNormal,
               trainable: Bool = false) {
-    let initializerBuilt = initializer.build()
-    self.initializer = initializerBuilt
     self.inputUnits = inputUnits
     self.vocabSize = vocabSize
     self.batchLength = batchLength
-    self.inputSize = TensorSize(rows: 1,
-                                columns: vocabSize,
-                                depth: batchLength)
-    self.outputSize = TensorSize(array: [inputUnits, 1, batchLength])
-    self.trainable = trainable
     
-    let weights = initializerBuilt.calculate(size: TensorSize(rows: vocabSize,
+    super.init(inputSize: TensorSize(rows: 1,
+                                     columns: vocabSize,
+                                     depth: batchLength),
+               initializer: initializer, biasEnabled: false,
+               encodingType: .embedding)
+    
+    self.outputSize = TensorSize(array: [inputUnits, 1, batchLength])
+
+    let weights = initializer.build().calculate(size: TensorSize(rows: vocabSize,
                                                               columns: inputUnits,
                                                               depth: 1),
                                                 input: batchLength * vocabSize,
@@ -55,7 +45,7 @@ public final class Embedding: Layer {
          batchLength
   }
   
-  convenience public init(from decoder: Decoder) throws {
+  convenience required public init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
 
     let vocabSize = try container.decodeIfPresent(Int.self, forKey: .vocabSize) ?? 0
@@ -73,7 +63,7 @@ public final class Embedding: Layer {
     self.outputSize = try container.decodeIfPresent(TensorSize.self, forKey: .outputSize) ?? TensorSize(array: [])
   }
   
-  public func encode(to encoder: Encoder) throws {
+  public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(weights, forKey: .weights)
     try container.encode(biases, forKey: .biases)
@@ -89,7 +79,7 @@ public final class Embedding: Layer {
   /// Forward path for the layer
   /// - Parameter tensor: Input word as a 3D tensor with size `rows: 1, columns: vocabSize, depth: batchLength`
   /// - Returns: An output 3D tensor of shape `rows: 1, columns: inputUnits, depth: batchLength`
-  public func forward(tensor: Tensor) -> Tensor {
+  public override func forward(tensor: Tensor) -> Tensor {
     let context = TensorContext { inputs, gradient in
       var wrtEmbeddings: Tensor = Tensor()
 
@@ -127,7 +117,7 @@ public final class Embedding: Layer {
     return out
   }
   
-  public func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Float) {
+  public override func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Float) {
     if trainable {
       weights = weights - gradients.weights // use Optimizer adjusted weights to adjust
     }

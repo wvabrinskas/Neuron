@@ -52,6 +52,8 @@ public struct LayerModelConverter {
       layer = try getLayer(layer: LSTM.self, container: con)
     case .embedding:
       layer = try getLayer(layer: Embedding.self, container: con)
+    case .none:
+      layer = nil
     }
 
     return layer

@@ -10,18 +10,38 @@ import NumSwift
 import NumSwiftC
 
 /// Performs a transposed 2d convolution on the inputs. Uses the same properties and initializers of `Conv2D`
-public class TransConv2d: Conv2d {
-  public override var encodingType: EncodingType { get { .transConv2d } set {}}
-  public override var outputSize: TensorSize {
-    var rows = inputSize.rows * strides.rows
-    var columns = inputSize.columns * strides.columns
+public final class TransConv2d: Conv2d {
+  public override init(filterCount: Int,
+                       inputSize: TensorSize? = nil,
+                       strides: (rows: Int, columns: Int) = (1,1),
+                       padding: NumSwift.ConvPadding = .valid,
+                       filterSize: (rows: Int, columns: Int) = (3,3),
+                       initializer: InitializerType = .heNormal,
+                       biasEnabled: Bool = false,
+                       encodingType: EncodingType = .transConv2d) {
+    
+    super.init(filterCount: filterCount,
+               inputSize: inputSize,
+               strides: strides,
+               padding: padding,
+               filterSize: filterSize,
+               initializer: initializer,
+               biasEnabled: biasEnabled,
+               encodingType: encodingType)
+  }
+  
+  override public func onInputSizeSet() {
+    super.onInputSizeSet()
+    
+    var rows = self.inputSize.rows * strides.rows
+    var columns = self.inputSize.columns * strides.columns
     
     if padding == .valid {
-      rows = (inputSize.rows - 1) * strides.rows + filterSize.rows
-      columns = (inputSize.columns - 1) * strides.columns + filterSize.columns
+      rows = (self.inputSize.rows - 1) * strides.rows + filterSize.rows
+      columns = (self.inputSize.columns - 1) * strides.columns + filterSize.columns
     }
-  
-    return TensorSize(array: [columns, rows, filterCount])
+    
+    outputSize = TensorSize(array: [columns, rows, filterCount])
   }
   
   internal override func backward(_ input: Tensor, _ delta: Tensor) -> (input: Tensor, weight: Tensor, bias: Tensor) {

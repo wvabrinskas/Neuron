@@ -9,36 +9,20 @@ import Foundation
 import NumSwift
 
 /// Performs a Softmax activation.
-public final class Softmax: ActivationLayer {
-  public var encodingType: EncodingType = .softmax
-  public var device: Device = CPU()
-  public var biasEnabled: Bool = true
-  public var trainable: Bool = true
-  public var type: Activation = .softmax
-  public var inputSize: TensorSize = TensorSize(array: []){
-    didSet {
-      outputSize = inputSize
-    }
-  }
-  public var outputSize: TensorSize = TensorSize(array: [])
-  public var weights: Tensor = Tensor()
-  public var biases: Tensor = Tensor()
-  public var initializer: Initializer?
-  public var isTraining: Bool = true
-
+public final class Softmax: BaseActivationLayer {
   enum CodingKeys: String, CodingKey {
     case inputSize,
          type
   }
   
-  convenience public init(from decoder: Decoder) throws {
+  convenience required public init(from decoder: Decoder) throws {
     self.init()
     let container = try decoder.container(keyedBy: CodingKeys.self)
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
     self.outputSize = inputSize
   }
   
-  public func encode(to encoder: Encoder) throws {
+  public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(encodingType, forKey: .type)
@@ -47,11 +31,12 @@ public final class Softmax: ActivationLayer {
   /// Default initializer for a Softmax activation.
   /// - Parameter inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
   public init(inputSize: TensorSize = TensorSize(array: [])) {
-    self.inputSize = inputSize
-    self.outputSize = inputSize
+    super.init(inputSize: inputSize,
+               type: .softmax,
+               encodingType: .softmax)
   }
   
-  public func forward(tensor: Tensor) -> Tensor {
+  public override func forward(tensor: Tensor) -> Tensor {
     let context = TensorContext { inputs, gradient in
       return (Tensor(gradient.value), Tensor(), Tensor())
     }
@@ -88,8 +73,8 @@ public final class Softmax: ActivationLayer {
     return pow(Float(Darwin.M_E), outputs[index] - max) / sum
   }
   
-  public func apply(gradients: Optimizer.Gradient, learningRate: Float) {
-    //no op
+  override public func onInputSizeSet() {
+    outputSize = inputSize
   }
 }
 

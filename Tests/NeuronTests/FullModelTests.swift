@@ -87,7 +87,9 @@ final class FullModelTests: XCTestCase {
   func testBasicClassification() {
     let network = Sequential {
       [
-        Dense(6, inputs: 4, initializer: .xavierNormal),
+        Dense(6, inputs: 4,
+              initializer: .xavierNormal,
+              biasEnabled: true),
         LeakyReLu(limit: 0.2),
         //BatchNormalize(), //-> removed since sometimes during tests it can crash
         Dense(3, initializer: .xavierNormal),
