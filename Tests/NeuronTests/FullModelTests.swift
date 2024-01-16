@@ -26,16 +26,29 @@ class MockRNNDataset: RNNSupportedDataset {
     vectorizer.vectorize("hammley".fill(with: ".",
                                      max: 8).characters)
     
+    vectorizer.vectorize("spammley".fill(with: ".",
+                                         max: 8).characters)
     let oneHot = vectorizer.oneHot("hammley".fill(with: ".",
                                                   max: 8).characters)
-        
+    let oneHot2 = vectorizer.oneHot("spammley".fill(with: ".",
+                                                  max: 8).characters)
     let labelTensor = oneHot
     let inputTensor = oneHot
     
-    return ([DatasetModel](repeating: DatasetModel(data: inputTensor,
-                                                  label: labelTensor), count: 100),
-           [DatasetModel](repeating: DatasetModel(data: inputTensor,
-                                                  label: labelTensor), count: 5))
+    let labelTensor2 = oneHot2
+    let inputTensor2 = oneHot2
+    
+    var training = [DatasetModel](repeating: DatasetModel(data: inputTensor,
+                                                          label: labelTensor), count: 1)
+    var val = [DatasetModel](repeating: DatasetModel(data: inputTensor,
+                                                      label: labelTensor), count: 1)
+    
+    training.append(contentsOf: [DatasetModel](repeating: DatasetModel(data: inputTensor2,
+                                                                       label: labelTensor2), count: 1))
+    
+    val.append(contentsOf: [DatasetModel](repeating: DatasetModel(data: inputTensor2,
+                                                                  label: labelTensor2), count: 1))
+    return (training, val)
   }
 }
 
@@ -164,7 +177,7 @@ final class FullModelTests: XCTestCase {
       return
     }
 
-    let inputUnits = 25
+    let inputUnits = 50
     let hiddenUnits = 100
     
     let reporter = MetricsReporter(frequency: 1,
@@ -181,7 +194,7 @@ final class FullModelTests: XCTestCase {
                                                                  accuracyThreshold: 0.8,
                                                                  killOnAccuracy: false,
                                                                  threadWorkers: 8),
-                  optimizerParameters: RNN.OptimizerParameters(learningRate: 0.0001,
+                  optimizerParameters: RNN.OptimizerParameters(learningRate: 0.002,
                                                                metricsReporter: reporter),
                   lstmParameters: RNN.RNNLSTMParameters(hiddenUnits: hiddenUnits,
                                                        inputUnits: inputUnits))
@@ -192,6 +205,8 @@ final class FullModelTests: XCTestCase {
     rnn.onEpochCompleted = {
       let r = rnn.predict(starting: "h", maxWordLength: 20, randomizeSelection: false)
       print(r)
+      let s = rnn.predict(starting: "s", maxWordLength: 20, randomizeSelection: false)
+      print(s)
     }
     
     await rnn.train()

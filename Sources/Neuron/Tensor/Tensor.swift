@@ -46,11 +46,15 @@ public class Tensor: Equatable, Codable {
   public var id: UUID = UUID()
   
   /// Actual numerical value of the Tensor
-  public var value: Data
+  public var value: Data {
+    didSet {
+      shapeCache = value.shape
+    }
+  }
   
   /// Flattens the `value` and returns if there is any content in the array.
   public var isEmpty: Bool {
-    value.flatten().isEmpty
+    shape == [0,0,0]
   }
   
   internal var graph: Tensor?
@@ -58,13 +62,19 @@ public class Tensor: Equatable, Codable {
   
   /// Shape of the Tensor as a 1D array. `[columns, rows, depth]`
   public var shape: [Int] {
-    value.shape
+    guard shapeCache.isEmpty else { return shapeCache }
+    let s = value.shape
+    shapeCache = s
+    return s
   }
   
   /// Input from the graph
   public var input: Tensor {
     graph ?? Tensor()
   }
+  
+  // cache the shape so we dont need to calculate it each time we call for shape
+  private var shapeCache: [Int] = []
  
   /// only works for 3D tensors, Input is [colRange, rowRange, depthRange]
   public subscript(_ colRange: some RangeExpression<Int>,

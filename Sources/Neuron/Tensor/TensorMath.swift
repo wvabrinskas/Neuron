@@ -142,6 +142,54 @@ public extension Tensor {
     return apply(axis: axis, block)
   }
   
+  func split(into: Int, axis: Int = 2) -> [Tensor] {    
+    if axis == 2 { // along depth
+      return self.value.batched(into: into).map { Tensor($0) }
+    }
+    
+    let shape = shape
+    let rows = shape[safe: 1, 0]
+    
+    if axis == 0 {
+      var row: [Tensor] = []
+      for d in 0..<value.count {
+        let feature = value[d]
+        if row.isEmpty {
+          row = feature.batched(into: into).map { Tensor($0) }
+        } else {
+          let current = feature.batched(into: into).map { Tensor($0) }
+          row = zip(row, current).map { $0.0.concat($0.1, axis: 2) }
+        }
+      }
+      return row
+    } else if axis == 1 {
+      var result: [Tensor] = []
+      for d in 0..<value.count {
+        var row: [Tensor] = []
+
+        for r in 0..<rows {
+          if row.isEmpty {
+            let col = value[d][r].batched(into: into).map { Tensor($0) }
+            row = col
+          } else {
+            let col = value[d][r].batched(into: into).map { Tensor($0) }
+            row = zip(row, col).map { $0.0.concat($0.1, axis: 0)}
+          }
+        }
+        
+        if result.isEmpty {
+          result = row
+        } else {
+          result = zip(result, row).map { $0.0.concat($0.1, axis: 2)}
+        }
+      }
+      
+      return result
+    } else {
+      return [self]
+    }
+  }
+  
   func mean(axis: Int = -1) -> Tensor {
     let block: MathBlock = { feature in
       feature.average
