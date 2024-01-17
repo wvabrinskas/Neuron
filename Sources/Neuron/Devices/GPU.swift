@@ -34,14 +34,14 @@ public class GPU: Device {
       return (rows, columns)
     }
     
-    let result = NumSwiftC.transConv2d(signal: signal.flatten(),
-                                       filter: filter.flatten(),
+    let result = NumSwiftC.transConv2d(signal: signal,
+                                       filter: filter,
                                        strides: strides,
                                        padding: padding,
                                        filterSize: filterSize,
                                        inputSize: inputSize)
     
-    return result.reshape(columns: outputSize?.columns ?? calculatedOutputSize.columns)
+    return result
   }
   
   public func conv2d(signal: [[Tensor.Scalar]],
