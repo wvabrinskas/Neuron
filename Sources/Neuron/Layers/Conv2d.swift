@@ -172,7 +172,7 @@ public class Conv2d: BaseConvolutionalLayer {
   
   internal func calculateFilterGradients(_ input: Tensor, _ delta: [[Tensor.Scalar]], index: Int) -> Tensor.Data {
     let total = input.value.count
-    var newGradientsForFilters: Tensor.Data = Tensor.Data.init(repeating: [], count: total)
+    var newGradientsForFilters: Tensor.Data = []
     
     for i in 0..<total {
       var filter = delta
@@ -219,11 +219,8 @@ public class Conv2d: BaseConvolutionalLayer {
                                  inputSize: inputSize,
                                  outputSize: nil)
       
-      newGradientsForFilters[i] = result
+      newGradientsForFilters.append(result)
     }
-//    input.value.concurrentForEach(workers: min(Constants.maxWorkers, max(8, total / 4))) { [self] forwardInputs, i in
-//
-//    }
     //all filter gradients will be mashed into one 3D array and then batched out later by num of filters
     //this way we dont have to store these gradients
     return newGradientsForFilters
@@ -249,7 +246,7 @@ public class Conv2d: BaseConvolutionalLayer {
   }
   
   internal func conv(_ input: Tensor) -> [[[Tensor.Scalar]]] {
-    var results: [[[Tensor.Scalar]]] = [[[Tensor.Scalar]]].init(repeating: [], count: filterCount)
+    var results: [[[Tensor.Scalar]]] = []
     
     let flatBias: [Tensor.Scalar] = biases.value.flatten()
     
@@ -280,13 +277,9 @@ public class Conv2d: BaseConvolutionalLayer {
         convolved = convolved + bias
       }
       
-      results[f] = convolved
+      results.append(convolved)
     }
-//    
-//    Array(0..<filterCount).concurrentForEach(workers: min(Constants.maxWorkers, max(8, filterCount / 4))) { element, f in
-//
-//    }
-//    
+
     return results
   }
   
