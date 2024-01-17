@@ -21,9 +21,9 @@ public final class Sequential: Trainable {
       }
     }
   }
-  public var trainable: Bool = true {
+  public var isTraining: Bool = true {
     didSet {
-      layers.forEach { $0.trainable = trainable }
+      layers.forEach { $0.isTraining = isTraining }
     }
   }
   
@@ -42,6 +42,10 @@ public final class Sequential: Trainable {
     case .failure(let error):
       preconditionFailure(error.localizedDescription)
     }
+  }
+  
+  public init(_ layers: Layer...) {
+    self.layers = layers
   }
   
   public init(_ layers: () -> [Layer]) {
@@ -76,7 +80,9 @@ public final class Sequential: Trainable {
     
     layers.forEach { layer in
       let newTensor = layer.forward(tensor: outputTensor)
-      newTensor.setGraph(outputTensor)
+      if newTensor.graph == nil {
+        newTensor.setGraph(outputTensor)
+      }
       outputTensor = newTensor
     }
     
@@ -100,5 +106,25 @@ public final class Sequential: Trainable {
     }
     
     isCompiled = true
+  }
+  
+  public func exportWeights() throws -> [[Tensor]] {
+    guard isCompiled else {
+      throw LayerErrors.generic(error: "Please compile the trainable first before attempting to export weights.")
+    }
+    
+    return try layers.map { try $0.exportWeights() }
+  }
+  
+  public func importWeights(_ weights: [[Tensor]]) throws {
+    guard isCompiled else {
+      throw LayerErrors.generic(error: "Please compile the trainable first before attempting to import weights.")
+    }
+    
+    for i in 0..<layers.count {
+      let layer = layers[i]
+      let weights = weights[i]
+      try layer.importWeights(weights)
+    }
   }
 }

@@ -20,7 +20,7 @@ public class Classifier {
   public var onAccuracyReached: (() -> ())? = nil
   public var onEpochCompleted: (() -> ())? = nil
   
-  private var optimNetwork: Optimizer
+  public private(set) var optimizer: Optimizer
   
   public init(optimizer: Optimizer,
               epochs: Int = 100,
@@ -32,14 +32,14 @@ public class Classifier {
     self.batchSize = batchSize
     self.accuracyThreshold = accuracyThreshold
     self.threadWorkers = threadWorkers
-    self.optimNetwork = optimizer
+    self.optimizer = optimizer
     self.epochs = epochs
     self.killOnAccuracy = killOnAccuracy
     self.log = log
   }
   
   public func feed(_ data: [Tensor]) -> [Tensor] {
-    optimNetwork(data)
+    optimizer(data)
   }
   
   public func fit(_ data: [DatasetModel], _ validation: [DatasetModel]) {
@@ -58,6 +58,8 @@ public class Classifier {
       let valSet = splitDataset(b)
       validationBatches.append(valSet)
     }
+    
+    optimizer.isTraining = true
 
     for i in 0..<epochs {
       let startTime = Date().timeIntervalSince1970
@@ -66,11 +68,13 @@ public class Classifier {
       
       if let randomValBatch = validationBatches.randomElement() {
         
-        optimNetwork.isTraining = false
-        let result = trainOn(randomValBatch.data, labels: randomValBatch.labels, validation: true)
+        let result = trainOn(randomValBatch.data,
+                             labels: randomValBatch.labels,
+                             validation: true,
+                             requiresGradients: false)
         let loss = result.loss
-        optimNetwork.metricsReporter?.update(metric: .valLoss, value: loss)
-        optimNetwork.metricsReporter?.update(metric: .valAccuracy, value: result.accuracy)
+        optimizer.metricsReporter?.update(metric: .valLoss, value: loss)
+        optimizer.metricsReporter?.update(metric: .valAccuracy, value: result.accuracy)
 
         print("val_complete - ", "loss: ", loss, "accuracy: ", result.accuracy)
         
@@ -81,18 +85,16 @@ public class Classifier {
           }
         }
       }
-      
-      optimNetwork.isTraining = true
-      
+            
       for batch in trainingBatches {
-        optimNetwork.zeroGradients()
+        optimizer.zeroGradients()
 
         let result = trainOn(batch.data, labels: batch.labels)
         let weightGradients = result.gradients
         let loss = result.loss
         
-        optimNetwork.metricsReporter?.update(metric: .loss, value: loss)
-        optimNetwork.metricsReporter?.update(metric: .accuracy, value: result.accuracy)
+        optimizer.metricsReporter?.update(metric: .loss, value: loss)
+        optimizer.metricsReporter?.update(metric: .accuracy, value: result.accuracy)
 
         let batchesCompletePercent = (round((Double(b) / Double(batches.count)) * 10000) / 10000) * 100
         
@@ -100,16 +102,31 @@ public class Classifier {
           print("complete :", "\(b) / \(batches.count) -> \(batchesCompletePercent)%")
         }
         
-        optimNetwork.apply(weightGradients)
-        optimNetwork.step()
+        optimizer.apply(weightGradients)
+        optimizer.step()
         b += 1
         
-        optimNetwork.metricsReporter?.report()
+        optimizer.metricsReporter?.report()
       }
       
       onEpochCompleted?()
       print("----epoch \(i) completed: \(Date().timeIntervalSince1970 - startTime)s-----")
     }
+    
+    optimizer.isTraining = false
+  }
+  
+  @discardableResult
+  public func export(overrite: Bool = false) -> URL? {
+    if let network = optimizer.trainable as? Sequential {
+      let additional = overrite == false ? "-\(Date().timeIntervalSince1970)" : ""
+      
+      let dUrl = ExportHelper.getModel(filename: "classifier\(additional)", model: network)
+      
+      return dUrl
+    }
+    
+    return nil
   }
   
   private func splitDataset(_ data: [DatasetModel]) -> (data: [Tensor], labels: [Tensor]) {
@@ -126,11 +143,13 @@ public class Classifier {
   
   private func trainOn(_ batch: [Tensor],
                        labels: [Tensor],
-                       validation: Bool = false) -> Optimizer.Output {
-    optimNetwork.fit(batch,
+                       validation: Bool = false,
+                       requiresGradients: Bool = true) -> Optimizer.Output {
+    optimizer.fit(batch,
                      labels: labels,
                      lossFunction: lossFunction,
-                     validation: validation)
+                     validation: validation,
+                     requiresGradients: requiresGradients)
   }
 
 }

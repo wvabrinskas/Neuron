@@ -9,32 +9,23 @@ import Foundation
 import NumSwift
 
 /// Performs a layer normalization function.
-public final class LayerNormalize: Layer {
-  public var encodingType: EncodingType = .layerNormalize
-  public var inputSize: TensorSize {
-    didSet {
-      outputSize = inputSize
+public final class LayerNormalize: BaseLayer {
+  public override var weights: Tensor {
+    get {
+      // For printing purposes. Not actually used
+      var trainables = beta
+      trainables.append(contentsOf: gamma)
+      return Tensor(trainables)
     }
+    set {}
   }
-  public var outputSize: TensorSize
-  public var weights: Tensor {
-    // For printing purposes. Not actually used
-    var trainables = beta
-    trainables.append(contentsOf: gamma)
-    return Tensor(trainables)
-  }
-  public var biases: Tensor = Tensor()
-  public var biasEnabled: Bool = false
-  public var trainable: Bool = true
-  public var initializer: Initializer? = nil
-  public var device: Device = CPU()
-  
+
   private var epsilon: Tensor.Scalar
   public var gamma: [Tensor.Scalar] = []
   public var beta: [Tensor.Scalar] = []
   private var dGamma: [Tensor.Scalar] = []
   private var dBeta: [Tensor.Scalar] = []
-  @AtomicCodable private var iterations: Int = 0
+  @Atomic private var iterations: Int = 0
 
   public enum CodingKeys: String, CodingKey {
     case gamma, beta, epsilon, inputSize
@@ -53,14 +44,19 @@ public final class LayerNormalize: Layer {
     self.epsilon = epsilon
     self.beta = beta
     self.gamma = gamma
-    self.inputSize = inputSize
+    
+    super.init(inputSize: inputSize,
+               initializer: nil,
+               biasEnabled: false,
+               encodingType: .layerNormalize)
+    
     self.outputSize = inputSize
     
     setupTrainables()
     resetDeltas()
   }
   
-  convenience public init(from decoder: Decoder) throws {
+  convenience public required init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let gamma = try container.decodeIfPresent([Tensor.Scalar].self, forKey: .gamma) ?? []
     let beta = try container.decodeIfPresent([Tensor.Scalar].self, forKey: .beta) ?? []
@@ -77,7 +73,7 @@ public final class LayerNormalize: Layer {
     resetDeltas()
   }
   
-  public func encode(to encoder: Encoder) throws {
+  public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(beta, forKey: .beta)
@@ -85,14 +81,20 @@ public final class LayerNormalize: Layer {
     try container.encode(epsilon, forKey: .epsilon)
   }
   
-  public func forward(tensor: Tensor) -> Tensor {
+  public override func forward(tensor: Tensor) -> Tensor {
     let context = TensorContext { inputs, gradient in
       let gradient = self.backward(inputs: inputs.value, gradient: gradient.value)
-      return (Tensor(gradient), Tensor())
+      return (Tensor(gradient), Tensor(), Tensor())
     }
     
     let forward = normalize(inputs: tensor.value)
-    return Tensor(forward, context: context)
+    let out = Tensor(forward, context: context)
+    out.setGraph(tensor)
+    return out
+  }
+  
+  override public func onInputSizeSet() {
+    outputSize = inputSize
   }
   
   private func resetDeltas() {
@@ -170,7 +172,7 @@ public final class LayerNormalize: Layer {
     return backward
   }
   
-  public func apply(gradients: Optimizer.Gradient) {
+  public override func apply(gradients: Optimizer.Gradient, learningRate: Float) {
     gamma = gamma - (dGamma / iterations.asTensorScalar)
     beta = beta - (dBeta / iterations.asTensorScalar)
     

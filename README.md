@@ -4,7 +4,7 @@
 
 ![](https://img.shields.io/github/v/tag/wvabrinskas/Neuron?style=flat-square)
 ![](https://img.shields.io/github/license/wvabrinskas/Neuron?style=flat-square)
-![](https://img.shields.io/badge/swift-5.5-orange?style=flat-square)
+![](https://img.shields.io/badge/swift-5.7.1-orange?style=flat-square)
 ![](https://img.shields.io/badge/iOS-13+-darkcyan?style=flat-square)
 ![](https://img.shields.io/badge/macOS-11+-darkcyan?style=flat-square)
 ![](https://img.shields.io/badge/watchOS-6+-darkcyan?style=flat-square)
@@ -20,6 +20,10 @@
 Feel free to send me suggestions on how to improve this. I would be delighted to learn more!! You can also feel free to assign issues here. Run the unit tests as well to learn how the project works!
 
 [Full Documentation](https://williamvabrinskas.com/Neuron/documentation/neuron/)
+
+# Before you begin developing
+Run `./scripts/onboard.sh` to install the Xcode templates that `Neuron` provides to quickly generate layer code templates.
+
 
 # Grand Re-Opening! 
 
@@ -105,6 +109,17 @@ let optim = Adam(network,
 
 The first parameter here is the network we defined above. `learningRate` is the the size of the steps the optimizer will take when `.step()` is called. `l2Normalize` defines if the optimizer will normalize the gradients before they are applied to the weights. Default value for this is `false`. `Adam` also takes in properties for its `beta1`, `beta2`, and `epsilon` properties. 
 
+### Decay Functions
+An `Optimizer` has an optional property for setting a learning rate decay function. 
+```
+public protocol DecayFunction {
+  var decayedLearningRate: Float { get }
+  func reset()
+  func step()
+}
+```
+Currently there's only one available `DecayFunction` and that's `ExponentialDecay`. You can set a decay function by setting the `decayFunction` property on the `Optimizer`. Once it's set there's nothing else that needs to be done. The `Optimizer` with take care of updating and calling the function object.
+
 ## Set up training model
 By this point you are ready to train the `Optimizer` and the network. You could create your own training cycle to create the classifier or you can use the built in provided `Classifier` model. 
 
@@ -172,6 +187,10 @@ public enum Metric: String {
 ```
 
 `MetricReporter` will call `receive` when it is updated. 
+
+### Remote metric logging
+
+You can use the [NeuronRemoteLogger](https://github.com/wvabrinskas/NeuronRemoteLogger) to log to remote services like [Weights and Biases](https://wandb.ai/). Follow the instructions in the `README` in that repo on how to get started! 
 
 ## Exporting your model
 

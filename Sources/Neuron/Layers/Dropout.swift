@@ -9,22 +9,7 @@ import Foundation
 import NumSwift
 
 /// Performs a dropout operation on the inputs based on the chance percentage. The mask changes on every `apply` called.
-public final class Dropout: Layer {
-  public var encodingType: EncodingType = .dropout
-  public var device: Device = CPU()
-  public var biasEnabled: Bool = true
-  public var inputSize: TensorSize = TensorSize(array: []){
-    didSet {
-      outputSize = inputSize
-      generateMask()
-    }
-  }
-  
-  public var outputSize: TensorSize = TensorSize(array: [])
-  public var weights: Tensor = Tensor()
-  public var biases: Tensor = Tensor()
-  public var trainable: Bool = true
-  public var initializer: Initializer?
+public final class Dropout: BaseLayer {
   internal var mask: Tensor = Tensor()
   private var chance: Float
   
@@ -33,38 +18,45 @@ public final class Dropout: Layer {
   ///   - chance: Percent change between 0 and 1 of an input node dropping out
   ///   - inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
   public init(_ chance: Float, inputSize: TensorSize = TensorSize(array: [])) {
-    self.inputSize = inputSize
     self.chance = max(min(chance, 1.0), 0.0)
+    
+    super.init(inputSize: inputSize,
+               initializer: nil,
+               biasEnabled: false,
+               encodingType: .dropout)
+    
     self.generateMask()
   }
   
   enum CodingKeys: String, CodingKey {
     case inputSize,
          chance,
-         type
+         type,
+         mask
   }
   
-  convenience public init(from decoder: Decoder) throws {
+  convenience public required init(from decoder: Decoder) throws {
     self.init(0)
     let container = try decoder.container(keyedBy: CodingKeys.self)
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
     self.chance = try container.decodeIfPresent(Float.self, forKey: .chance) ?? 0
     self.outputSize = inputSize
-    self.generateMask()
+    self.mask = try container.decodeIfPresent(Tensor.self, forKey: .chance) ?? Tensor()
   }
   
-  public func encode(to encoder: Encoder) throws {
+  public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(chance, forKey: .chance)
     try container.encode(encodingType, forKey: .type)
+    try container.encode(mask, forKey: .mask)
   }
   
-  public func forward(tensor: Tensor) -> Tensor {
+  public override func forward(tensor: Tensor) -> Tensor {
     let context = TensorContext { inputs, gradient in
       let droppedOutGradients = gradient * self.mask
       
-      return (droppedOutGradients, Tensor())
+      return (droppedOutGradients, Tensor(), Tensor())
     }
     
     var droppedOut = tensor
@@ -73,13 +65,22 @@ public final class Dropout: Layer {
       droppedOut = tensor * mask
     }
 
-    let result = Tensor(droppedOut.value, context: context)
+    let out = Tensor(droppedOut.value, context: context)
     
-    return result
+    out.setGraph(tensor)
+    
+    out.label = String(describing: self)
+    
+    return out
   }
   
-  public func apply(gradients: Optimizer.Gradient) {
+  public override func apply(gradients: Optimizer.Gradient, learningRate: Float) {
     mask = Tensor()
+    generateMask()
+  }
+  
+  override public func onInputSizeSet() {
+    outputSize = inputSize
     generateMask()
   }
   

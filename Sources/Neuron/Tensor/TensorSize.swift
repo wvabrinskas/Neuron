@@ -15,6 +15,9 @@ public struct TensorSize: Codable, Equatable {
   public var isEmpty: Bool {
     return rows == 0 && columns == 0 && depth == 0
   }
+  public var asArray: [Int] {
+    [columns, rows, depth]
+  }
   
   /// Initializer that takes in array of any size. Will take the first three elements and construct row, columns, depth. `Rows` is from index 1, `columns` is index 0, and `depth` is index 2.
   /// - Parameter array: Array to build the tensor size

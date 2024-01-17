@@ -10,21 +10,41 @@ import NumSwift
 import NumSwiftC
 
 /// Performs a transposed 2d convolution on the inputs. Uses the same properties and initializers of `Conv2D`
-public class TransConv2d: Conv2d {
-  public override var encodingType: EncodingType { get { .transConv2d } set {}}
-  public override var outputSize: TensorSize {
-    var rows = inputSize.rows * strides.rows
-    var columns = inputSize.columns * strides.columns
+public final class TransConv2d: Conv2d {
+  public override init(filterCount: Int,
+                       inputSize: TensorSize? = nil,
+                       strides: (rows: Int, columns: Int) = (1,1),
+                       padding: NumSwift.ConvPadding = .valid,
+                       filterSize: (rows: Int, columns: Int) = (3,3),
+                       initializer: InitializerType = .heNormal,
+                       biasEnabled: Bool = false,
+                       encodingType: EncodingType = .transConv2d) {
     
-    if padding == .valid {
-      rows = (inputSize.rows - 1) * strides.rows + filterSize.rows
-      columns = (inputSize.columns - 1) * strides.columns + filterSize.columns
-    }
-  
-    return TensorSize(array: [columns, rows, filterCount])
+    super.init(filterCount: filterCount,
+               inputSize: inputSize,
+               strides: strides,
+               padding: padding,
+               filterSize: filterSize,
+               initializer: initializer,
+               biasEnabled: biasEnabled,
+               encodingType: encodingType)
   }
   
-  internal override func backward(_ input: Tensor, _ delta: Tensor) -> (input: Tensor, weight: Tensor) {
+  override public func onInputSizeSet() {
+    super.onInputSizeSet()
+    
+    var rows = self.inputSize.rows * strides.rows
+    var columns = self.inputSize.columns * strides.columns
+    
+    if padding == .valid {
+      rows = (self.inputSize.rows - 1) * strides.rows + filterSize.rows
+      columns = (self.inputSize.columns - 1) * strides.columns + filterSize.columns
+    }
+    
+    outputSize = TensorSize(array: [columns, rows, filterCount])
+  }
+  
+  internal override func backward(_ input: Tensor, _ delta: Tensor) -> (input: Tensor, weight: Tensor, bias: Tensor) {
     let deltas = delta.value
     let flippedTransposed = filters.map { flip180($0) }.transposed() as [[[[Tensor.Scalar]]]]
     
@@ -63,14 +83,16 @@ public class TransConv2d: Conv2d {
       }
     }
       
-    return (Tensor(inputGradients), Tensor(weightGradients))
+    let biasGradients = input.value.map { $0.sum }
+
+    return (Tensor(inputGradients), Tensor(weightGradients), Tensor(biasGradients))
   }
   
   internal override func calculateFilterGradients(_ input: Tensor, _ delta: [[Tensor.Scalar]], index: Int) -> Tensor.Data {
-    var newGradientsForFilters: Tensor.Data = []
-      
-    for i in 0..<input.value.count {
-      let forwardInputs = input.value[i]
+    let total = input.value.count
+    var newGradientsForFilters: Tensor.Data = Tensor.Data.init(repeating: [], count: total)
+    
+    input.value.concurrentForEach(workers: min(Constants.maxWorkers, max(8, total / 4))) { [self] forwardInputs, i in
       
       var filter = forwardInputs
       var signal = delta
@@ -103,8 +125,7 @@ public class TransConv2d: Conv2d {
                                  padding: .valid,
                                  filterSize: newFilterSize,
                                  inputSize: inputSize)
-      
-      newGradientsForFilters.append(result.reversed())
+      newGradientsForFilters[i] = result
     }
     
     //all filter gradients will be mashed into one 3D array and then batched out later by num of filters

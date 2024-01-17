@@ -48,6 +48,12 @@ public struct LayerModelConverter {
       layer = try getLayer(layer: TransConv2d.self, container: con)
     case .layerNormalize:
       layer = try getLayer(layer: LayerNormalize.self, container: con)
+    case .lstm:
+      layer = try getLayer(layer: LSTM.self, container: con)
+    case .embedding:
+      layer = try getLayer(layer: Embedding.self, container: con)
+    case .none:
+      layer = nil
     }
 
     return layer

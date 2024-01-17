@@ -67,40 +67,6 @@ public struct Atomic<Value> {
   }
 }
 
-@propertyWrapper
-public struct AtomicCodable<Value: Codable>: Codable {
-  private let lock = NSLock()
-  private var value: Value
-  
-  public init(wrappedValue: Value) {
-    self.value = wrappedValue
-  }
-  
-  public var wrappedValue: Value {
-    get {
-      lock.lock()
-      defer { lock.unlock() }
-      return value
-    }
-    set {
-      lock.lock()
-      value = newValue
-      lock.unlock()
-    }
-  }
-  
-  public func encode(to encoder: Encoder) throws {
-    var container = encoder.singleValueContainer()
-    try container.encode(self.value)
-  }
-  
-  public init(from decoder: Decoder) throws {
-    let values = try decoder.singleValueContainer()
-    let val = try values.decode(Value.self)
-    self.value = val
-  }
-}
-
 extension OperationQueue {
   
   func addSynchronousOperation(barrier: Bool = false, _ block: @escaping () -> ()) {

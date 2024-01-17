@@ -9,21 +9,9 @@ import Foundation
 import NumSwift
 
 /// A fully connected layer that performs a `sum(wx) + b` operation using matrix multiplication.
-public final class Dense: Layer {
-  public var encodingType: EncodingType = .dense
-  public var device: Device = CPU()
-  public var biasEnabled: Bool = true
-  public var trainable: Bool = true
-  public var inputSize: TensorSize = TensorSize(array: []) {
-    didSet {
-      initializeWeights(inputs: inputSize.columns)
-    }
-  }
-  public private(set) var initializer: Initializer?
-  public let outputSize: TensorSize
-  public internal(set) var weights: Tensor = Tensor()
-  public private(set)var biases: Tensor = Tensor()
-  
+public final class Dense: BaseLayer {
+  private var nodes: Int
+
   /// Default initializer for the fully connected layer
   /// - Parameters:
   ///   - nodes: Number of output nodes
@@ -33,17 +21,21 @@ public final class Dense: Layer {
   public init(_ nodes: Int,
               inputs: Int? = nil,
               initializer: InitializerType = .heNormal,
-              biasEnabled: Bool = true) {
-    outputSize = TensorSize(array: [nodes, 1, 1])
+              biasEnabled: Bool = false) {
     
+    self.nodes = nodes
+    
+    super.init(inputSize: nil,
+               initializer: initializer,
+               biasEnabled: biasEnabled,
+               encodingType: .dense)
+    
+    self.outputSize = TensorSize(array: [nodes, 1, 1])
+
     if let inputs = inputs {
       inputSize = TensorSize(array: [inputs, 1, 1])
       initializeWeights(inputs: inputs)
     }
-    
-    self.initializer = initializer.build()
-    self.biases = Tensor([Tensor.Scalar](repeating: 0, count: outputSize.depth))
-    self.biasEnabled = biasEnabled
   }
   
   enum CodingKeys: String, CodingKey {
@@ -55,7 +47,7 @@ public final class Dense: Layer {
          type
   }
   
-  convenience public init(from decoder: Decoder) throws {
+  convenience public required init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let outputSize = try container.decodeIfPresent(TensorSize.self, forKey: .outputSize) ?? TensorSize(array: [])
     let inputs = outputSize.columns
@@ -67,7 +59,8 @@ public final class Dense: Layer {
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
   }
   
-  public func encode(to encoder: Encoder) throws {
+  
+  public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(weights, forKey: .weights)
     try container.encode(biases, forKey: .biases)
@@ -75,6 +68,11 @@ public final class Dense: Layer {
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(encodingType, forKey: .type)
     try container.encode(biasEnabled, forKey: .biasEnabled)
+  }
+  
+  override public func onInputSizeSet() {
+    initializeWeights(inputs: inputSize.columns)
+    self.biases = Tensor([Tensor.Scalar](repeating: 0, count: outputSize.depth))
   }
   
   private func initializeWeights(inputs: Int) {
@@ -99,18 +97,12 @@ public final class Dense: Layer {
     weights = Tensor(newWeights)
   }
   
-  public func forward(tensor: Tensor) -> Tensor {
+  public override func forward(tensor: Tensor) -> Tensor {
     
     let tensorContext = TensorContext { inputs, gradients in
-      let previousLayerCount = inputs.value.shape[safe: 0] ?? 0
-      let outputSize = self.outputSize.columns
-      
       let gradientsFlat: [Tensor.Scalar] = gradients.value.flatten()
       
-      let deltas = self.device.matrixMultiply(gradients,
-                                              self.weights.detached(),
-                                              columns: previousLayerCount,
-                                              rows: outputSize)
+      let deltas = self.device.matmul(gradients, self.weights.detached())
       
       let inputsFlat = inputs.value[safe: 0]?[safe: 0] ?? []
       var weightGradients: [[Tensor.Scalar]] = []
@@ -119,21 +111,16 @@ public final class Dense: Layer {
         let delta = gradientsFlat[i]
         weightGradients.append(inputsFlat * delta)
       }
-      
-      return (deltas, Tensor(weightGradients))
+
+      return (deltas, Tensor(weightGradients), gradients.sum(axis: -1))
     }
     
     //THIS WAS A MAJOR BUG POINT. DO NOT SWITCH ROWS AND COLUMNS HERE BY ACCIDENT - Billy 05-20-2022
-    let weightsTransposed: [Tensor.Scalar] = weights.value.flatten().transpose(columns: inputSize.columns,
-                                                                                     rows: outputSize.columns)
+    let weightsTransposed: [[Tensor.Scalar]] = weights.value.flatten().transpose(columns: inputSize.columns,
+                                                                               rows: outputSize.columns)
+                                                                       .reshape(columns: outputSize.columns)
     
-    let columns = outputSize.columns
-    let rows = inputSize.columns
-    
-    var dotProducts = device.matrixMultiply(tensor,
-                                            Tensor(weightsTransposed),
-                                            columns: columns,
-                                            rows: rows)
+    var dotProducts = device.matmul(tensor, Tensor(weightsTransposed))
     
     if biasEnabled {
       dotProducts = dotProducts + biases.asScalar()
@@ -141,10 +128,13 @@ public final class Dense: Layer {
     
     let out = Tensor(dotProducts.value, context: tensorContext)
     out.label = "Dense"
+    
+    out.setGraph(tensor)
+
     return out
   }
   
-  public func apply(gradients: Optimizer.Gradient) {
+  public override func apply(gradients: Optimizer.Gradient, learningRate: Float) {
     weights.value = weights.value - gradients.weights.value
     
     if biasEnabled {

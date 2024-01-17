@@ -9,20 +9,7 @@ import Foundation
 import NumSwift
 
 /// Will take the inputSize as `[M * N * K, 1, 1]` and output a tensor of size `[M, N, K]`
-public final class Reshape: Layer {
-  public var encodingType: EncodingType = .reshape
-  public var device: Device = CPU()
-  public var biasEnabled: Bool = true
-
-  public var inputSize: TensorSize = TensorSize(array: [])
-  public var outputSize: TensorSize {
-    reshapeSize
-  }
-  
-  public var weights: Tensor = Tensor()
-  public var biases: Tensor = Tensor()
-  public var trainable: Bool = true
-  public var initializer: Initializer?
+public final class Reshape: BaseLayer {
   private let reshapeSize: TensorSize
   
   /// Default initializer for a reshape layer.
@@ -31,7 +18,10 @@ public final class Reshape: Layer {
   ///   - inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
   public init(to size: TensorSize, inputSize: TensorSize = TensorSize(array: [])) {
     reshapeSize = size
-    self.inputSize = inputSize
+    super.init(inputSize: inputSize,
+               initializer: nil,
+               biasEnabled: false,
+               encodingType: .reshape)
   }
   
   enum CodingKeys: String, CodingKey {
@@ -43,7 +33,7 @@ public final class Reshape: Layer {
          type
   }
   
-  convenience public init(from decoder: Decoder) throws {
+  convenience public required init(from decoder: Decoder) throws {
     self.init(to: TensorSize(array: []))
     let container = try decoder.container(keyedBy: CodingKeys.self)
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
@@ -53,7 +43,7 @@ public final class Reshape: Layer {
     self.init(to: resize)
   }
   
-  public func encode(to encoder: Encoder) throws {
+  public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(weights, forKey: .weights)
@@ -62,10 +52,10 @@ public final class Reshape: Layer {
     try container.encode(encodingType, forKey: .type)
   }
   
-  public func forward(tensor: Tensor) -> Tensor {
+  public override func forward(tensor: Tensor) -> Tensor {
     let context = TensorContext { inputs, gradient in
       let value: [Tensor.Scalar] = gradient.value.flatten()
-      return (Tensor(value), Tensor())
+      return (Tensor(value), Tensor(), Tensor())
     }
     
     let flat: [Tensor.Scalar] = tensor.value.flatten()
@@ -75,11 +65,14 @@ public final class Reshape: Layer {
     
     let reshaped = flat.reshape(columns: sizeCols).reshape(columns: sizeRows)
     
-    return Tensor(reshaped, context: context)
+    let out = Tensor(reshaped, context: context)
+    
+    out.setGraph(tensor)
+
+    return out
   }
   
-  public func apply(gradients: Optimizer.Gradient) {
-    //no opp
+  override public func onInputSizeSet() {
+    outputSize = reshapeSize
   }
-  
 }

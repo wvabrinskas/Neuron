@@ -9,38 +9,28 @@ import Foundation
 import NumSwift
 
 /// Performs a normalization of the inputs based on the batch.
-public final class BatchNormalize: Layer {
-  public var encodingType: EncodingType = .batchNormalize
-  public var device: Device = CPU()
-  public var biasEnabled: Bool = true
-  public var trainable: Bool = true
-  public var inputSize: TensorSize = TensorSize(array: []) {
-    didSet {
-      outputSize = inputSize
-      setupTrainables()
-      resetDeltas()
-    }
-  }
-  public var outputSize: TensorSize = TensorSize(array: [])
-  public var weights: Tensor {
-    // For printing purposes. Not actually used
-    var trainables = beta
-    trainables.append(contentsOf: gamma)
-    return Tensor(trainables)
-  }
-  public var biases: Tensor = Tensor()
-  public var initializer: Initializer?
-  
+public final class BatchNormalize: BaseLayer {
   public var gamma: [Tensor.Scalar] = []
   public var beta: [Tensor.Scalar] = []
   public var movingMean: [Tensor.Scalar] = []
   public var movingVariance: [Tensor.Scalar] = []
   public let momentum: Tensor.Scalar
+  public override var weights: Tensor {
+    // only used for print purposes.
+    get {
+      var beta = beta
+      beta.append(contentsOf: gamma)
+      beta.append(contentsOf: movingMean)
+      beta.append(contentsOf: movingVariance)
+      return Tensor(beta)
+    }
+    set {}
+  }
 
   private let e: Float = 1e-5 //this is a standard smoothing term
   private var dGamma: [Tensor.Scalar] = []
   private var dBeta: [Tensor.Scalar] = []
-  @AtomicCodable private var iterations: Int = 0
+  @Atomic private var iterations: Int = 0
   
   /// Default initializer for Batch Normalize layer
   /// - Parameters:
@@ -61,8 +51,10 @@ public final class BatchNormalize: Layer {
     self.movingVariance = movingVariance
     self.movingMean = movingMean
     self.momentum = momentum
-    self.inputSize = inputSize
-
+    
+    super.init(inputSize: inputSize,
+               encodingType: .batchNormalize)
+    
     setupTrainables()
     resetDeltas()
   }
@@ -71,7 +63,7 @@ public final class BatchNormalize: Layer {
     case gamma, beta, momentum, movingMean, movingVariance, inputSize
   }
 
-  convenience public init(from decoder: Decoder) throws {
+  convenience public required init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let movingMean = try container.decodeIfPresent([Tensor.Scalar].self, forKey: .movingMean) ?? []
     let movingVar = try container.decodeIfPresent([Tensor.Scalar].self, forKey: .movingVariance) ?? []
@@ -89,7 +81,7 @@ public final class BatchNormalize: Layer {
     self.outputSize = inputSize
   }
   
-  public func encode(to encoder: Encoder) throws {
+  public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(movingMean, forKey: .movingMean)
@@ -99,22 +91,32 @@ public final class BatchNormalize: Layer {
     try container.encode(momentum, forKey: .momentum)
   }
 
-  public func forward(tensor: Tensor) -> Tensor {
+  public override func forward(tensor: Tensor) -> Tensor {
     let context = TensorContext { inputs, gradient in
       let backward = self.backward(inputs: inputs.value, gradient: gradient.value)
-      return (Tensor(backward), Tensor())
+      return (Tensor(backward), Tensor(), Tensor())
     }
     
     let forward = normalize(inputs: tensor.value)
-    return Tensor(forward, context: context)
+    let out = Tensor(forward, context: context)
+    
+    out.setGraph(tensor)
+
+    return out
   }
   
-  public func apply(gradients: Optimizer.Gradient) {
+  public override func apply(gradients: Optimizer.Gradient, learningRate: Float) {
     gamma = gamma - (dGamma / iterations.asTensorScalar)
     beta = beta - (dBeta / iterations.asTensorScalar)
     
     resetDeltas()
     iterations = 0
+  }
+  
+  override public func onInputSizeSet() {
+    outputSize = inputSize
+    setupTrainables()
+    resetDeltas()
   }
   
   private func setupTrainables() {
@@ -150,11 +152,11 @@ public final class BatchNormalize: Layer {
       let count = inputSize.rows * inputSize.columns
       let total = Float(count)
       
-      let mean = trainable == true ? inputs[i].sum / total : movingMean[i]
+      let mean = isTraining == true ? inputs[i].sum / total : movingMean[i]
       
       let inputsCentered = inputs[i] - mean
 
-      let variance = trainable == true ? inputsCentered.sumOfSquares / total : movingVariance[i]
+      let variance = isTraining == true ? inputsCentered.sumOfSquares / total : movingVariance[i]
               
       let std = sqrt(variance + e)
       
@@ -162,7 +164,7 @@ public final class BatchNormalize: Layer {
       
       let normalizedScaledAndShifted = normalized * gamma[i] + beta[i]
 
-      if trainable {
+      if isTraining {
         let lock = NSLock()
         lock.with {
           movingMean[i] = momentum * movingMean[i] + (1 - momentum) * mean
@@ -173,7 +175,7 @@ public final class BatchNormalize: Layer {
       forward.append(normalizedScaledAndShifted)
     }
     
-    if trainable {
+    if isTraining {
       iterations += 1
     }
 

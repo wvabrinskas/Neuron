@@ -1,4 +1,4 @@
-// swift-tools-version: 5.5
+// swift-tools-version: 5.7.1
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -16,7 +16,7 @@ let package = Package(
             targets: ["Neuron"]),
     ],
     dependencies: [
-      .package(url: "https://github.com/wvabrinskas/NumSwift.git", from: "2.0.1"),
+      .package(url: "https://github.com/wvabrinskas/NumSwift.git", from: "2.0.9"),
       //.package(url: "https://github.com/wvabrinskas/NumSwift.git", branch: "main"),
       .package(url: "https://github.com/wvabrinskas/Logger.git", from: "1.0.6")
       //.package(url: "https://github.com/apple/swift-docc-plugin", branch: "main")

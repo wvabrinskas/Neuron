@@ -9,19 +9,37 @@ import Foundation
 import NumSwift
 
 public extension Tensor {
-  typealias MathBlock = (_ feature: [[Scalar]]) -> Scalar
-  
+  typealias MathBlock = (_ feature: [Scalar]) -> Scalar
+
+  /*
+       +--------+
+      /        /|
+     /        Z |
+    +---X----+  |
+    |        |  |
+    |   -1   Y  +
+    |        | /
+    |        |/
+    +--------+
+    Along axis 0 the Tensor of shape AxBxC, where A is the columns, B is the rows, and C is the depth, would perform a mathematical function along the Y axis returning a (Ax1xC) Tensor
+
+    Along axis 1 the Tensor of shape AxBxC, where A is the columns, B is the rows, and C is the depth, would perform a mathematical function along the X axis returning a (1xBxC) Tensor
+
+    Along axis 2 the Tensor of shape AxBxC, where A is the columns, B is the rows, and C is the depth, would perform a mathematical function along the Z axis returning a (AxBx1) Tensor
+
+    Along axis -1 the Tensor of shape AxBxC, where A is the columns, B is the rows, and C is the depth, would perform a mathematical function along the Z axis returning a (1x1x1) Tensor Scalar
+   */
   func apply(axis: Int, _ block: MathBlock) -> Tensor {
-    let shape = self.shape
+    let shape = shape
     let rows = shape[safe: 1, 0]
     let columns = shape[safe: 0, 0]
     
     var result: [[[Scalar]]] = []
     
     if axis == 0 {
-      var featureResults: [[Scalar]] = []
+      var featureResults: [[[Scalar]]] = []
       
-      for feature in self.value {
+      for feature in value {
         var resultRow: [Scalar] = []
         for x in 0..<columns {
           var workingRow: [Scalar] = []
@@ -30,24 +48,47 @@ public extension Tensor {
             workingRow.append(feature[y][x])
           }
             
-          resultRow.append(block([workingRow]))
+          resultRow.append(block(workingRow))
         }
-        featureResults.append(resultRow)
+        featureResults.append([resultRow])
       }
 
-      result.append(featureResults)
+      result = featureResults
       
     } else if axis == 1 {
-      var featureResults: [[Scalar]] = []
+      var featureResults: [[[Scalar]]] = []
       
-      for feature in self.value {
-        var resultRow: [Scalar] = []
-        for y in 0..<columns {
-          resultRow.append(block([feature[y]]))
+      for d in 0..<value.count {
+        var result: [[Scalar]] = []
+        
+        for r in 0..<rows {
+          result.append([block(value[d][r])])
         }
-        featureResults.append(resultRow)
+        
+        featureResults.append(result)
       }
-
+                         
+      result = featureResults
+                        
+    } else if axis == 2 {
+      var featureResults: [[Scalar]] = []
+        
+      for r in 0..<rows {
+        var results: [Scalar] = []
+        for c in 0..<columns {
+          
+          var featureR: [Scalar] = []
+          for d in 0..<value.count {
+            let f = value[d][r][c]
+            featureR.append(f)
+          }
+          
+          results.append(block(featureR))
+        }
+        
+        featureResults.append(results)
+      }
+      
       result.append(featureResults)
     }
     
@@ -82,6 +123,13 @@ public extension Tensor {
     }
   }
   
+  func matmul(_ with: Tensor) -> Tensor {
+    // TODO: maybe do auto grad here?
+    let A = value
+    let B = with.value
+    return Tensor(A.matmul(B))
+  }
+  
   func sumOfSquares(axis: Int = -1) -> Tensor {
     let block: MathBlock = { feature in
       feature.sumOfSquares
@@ -94,16 +142,51 @@ public extension Tensor {
     return apply(axis: axis, block)
   }
   
-  func sum(axis: Int = -1) -> Tensor {
+  func mean(axis: Int = -1) -> Tensor {
     let block: MathBlock = { feature in
-      feature.sum
+      feature.average
     }
-     
+    
     if axis == -1 {
-      return Tensor(self.value.sum)
+      let total = self.shape.reduce(1, *)
+      let all = self.value.flatten().sum / Float(total)
+      return Tensor(all)
     }
     
     return apply(axis: axis, block)
+  }
+  
+  func sum(axis: Int = -1) -> Tensor {
+    if axis == -1 {
+      return Tensor(value.sum)
+    } else {
+      return apply(axis: axis) { feature in
+        feature.sum
+      }
+    }
+  }
+  
+  func subtract(axis: Int = -1) -> Tensor {
+    if axis == -1 {
+      return Tensor(value.flatten().reduce(0, -))
+    } else {
+      return apply(axis: axis) { feature in
+        var feature = feature
+        let first = feature.first ?? 0
+        feature = Array(feature.dropFirst())
+        return feature.reduce(first, -)
+      }
+    }
+  }
+  
+  func multiply(axis: Int = -1) -> Tensor {
+    if axis == -1 {
+      return Tensor(value.flatten().reduce(1, *))
+    } else {
+      return apply(axis: axis) { feature in
+        feature.reduce(1, *)
+      }
+    }
   }
   
   func norm(axis: Int = -1) -> Tensor {
@@ -118,12 +201,73 @@ public extension Tensor {
     return apply(axis: axis, block)
   }
   
+  @discardableResult
+  func concat(_ tensor: Tensor, axis: Int = 1) -> Tensor {
+    let shape = shape
+    let rows = shape[safe: 1, 0]
+    let depth = shape[safe: 2, 0]
+    
+    var new = self.value
+    
+    if axis == -1 {
+      var flatSelf = value.flatten()
+      flatSelf.append(contentsOf: tensor.value.flatten())
+      return Tensor(flatSelf, context: context)
+    }
+    
+    if axis == 2 {
+      new.append(contentsOf: tensor.value)
+    } else {
+      for d in 0..<depth {
+        if axis == 0 {
+          new[d].append(contentsOf: tensor.value[safe: d] ?? [])
+        }
+        for r in 0..<rows {
+          if axis == 1 {
+            new[d][r].append(contentsOf: tensor.value[safe: d]?[safe: r] ?? [])
+          }
+        }
+      }
+    }
+
+    return Tensor(new, context: context)
+  }
+  
   func l2Normalize() {
     let flatValue: Float = value.sumOfSquares
     let normalized = value / sqrt(flatValue)
     self.value = normalized
   }
+  
+  func map(_ transform: (Tensor.Scalar) -> Tensor.Scalar) -> Tensor {
+    var result: Tensor.Data = []
+    
+    self.value.forEach { d in
+      var row: [[Tensor.Scalar]] = []
+      d.forEach { r in
+        row.append(r.map(transform))
+      }
+      result.append(row)
+    }
+    
+    return Tensor(result, context: context)
+  }
 
+  static func /(lhs: Scalar, rhs: Tensor) -> Tensor {
+    let newTensorValue = lhs / rhs.value
+    return Tensor(newTensorValue, context: rhs.context)
+  }
+  
+  static func *(lhs: Scalar, rhs: Tensor) -> Tensor {
+    let newTensorValue = lhs * rhs.value
+    return Tensor(newTensorValue, context: rhs.context)
+  }
+  
+  static func -(lhs: Scalar, rhs: Tensor) -> Tensor {
+    let newTensorValue = lhs - rhs.value
+    return Tensor(newTensorValue, context: rhs.context)
+  }
+  
   static func /(lhs: Tensor, rhs: Scalar) -> Tensor {
     let left = lhs.value
     
@@ -193,6 +337,14 @@ public extension Tensor {
     return Tensor(NumSwift.zerosLike((rows, columns, depth)))
   }
 
+  func onesLike() -> Tensor {
+    let shape = shape
+    let rows = shape[safe: 1, 0]
+    let columns = shape[safe: 0, 0]
+    let depth = shape[safe: 2, 0]
+    
+    return Tensor(NumSwift.onesLike((rows, columns, depth)))
+  }
 }
 
 extension Tensor: CustomDebugStringConvertible {
@@ -229,7 +381,7 @@ extension Array where Element == Tensor {
     var result = [Tensor.Gradient](repeating: .init(),
                                       count: deltas.count)
     
-    let workerCount = Int(ceil(Double(deltas.count) / 4))
+    let workerCount = Swift.min(Constants.maxWorkers, Int(ceil(Double(deltas.count) / 4)))
     deltas.concurrentForEach(workers: workerCount) { element, index in
       let delta = deltas[index]
       let output = self[index]

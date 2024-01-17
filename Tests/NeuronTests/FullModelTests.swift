@@ -10,6 +10,35 @@ import XCTest
 import NumSwift
 @testable import Neuron
 
+
+class MockRNNDataset: RNNSupportedDataset {
+  func oneHot(_ items: [String]) -> Neuron.Tensor {
+    vectorizer.oneHot(items)
+  }
+  
+  let vectorizer = Vectorizer<String>()
+  
+  func getWord(for data: Neuron.Tensor) -> [String] {
+    return vectorizer.unvectorizeOneHot(data)
+  }
+  
+  func build() async -> Neuron.RNNSupportedDatasetData {
+    vectorizer.vectorize("hammley".fill(with: ".",
+                                     max: 8).characters)
+    
+    let oneHot = vectorizer.oneHot("hammley".fill(with: ".",
+                                                  max: 8).characters)
+        
+    let labelTensor = oneHot
+    let inputTensor = oneHot
+    
+    return ([DatasetModel](repeating: DatasetModel(data: inputTensor,
+                                                  label: labelTensor), count: 100),
+           [DatasetModel](repeating: DatasetModel(data: inputTensor,
+                                                  label: labelTensor), count: 5))
+  }
+}
+
 final class FullModelTests: XCTestCase {
   public var trainingData: [DatasetModel] = []
   public var validationData: [DatasetModel] = []
@@ -44,10 +73,23 @@ final class FullModelTests: XCTestCase {
     
   }
   
+  func testTensor_Sum() {
+    let tensor = Tensor([
+                         [[1,1,1],
+                          [1,1,1]],
+                         [[2,2,2],
+                          [2,2,2]]
+                         ])
+    
+    print(tensor.sum(axis: 1))
+  }
+  
   func testBasicClassification() {
     let network = Sequential {
       [
-        Dense(6, inputs: 4, initializer: .xavierNormal),
+        Dense(6, inputs: 4,
+              initializer: .xavierNormal,
+              biasEnabled: true),
         LeakyReLu(limit: 0.2),
         //BatchNormalize(), //-> removed since sometimes during tests it can crash
         Dense(3, initializer: .xavierNormal),
@@ -68,13 +110,7 @@ final class FullModelTests: XCTestCase {
                                 batchSize: 64,
                                 accuracyThreshold: 0.9)
 
-    optim.metricsReporter?.receive = { metrics in
-      //let accuracy = metrics[.accuracy] ?? 0
-      //let loss = metrics[.loss] ?? 0
-      //let valLoss = metrics[.valLoss] ?? 0
-      
-      //print("training -> ", "loss: ", loss, "val_loss: ", valLoss, "accuracy: ", accuracy)
-    }
+    optim.metricsReporter?.receive = { _ in }
     
     classifier.onAccuracyReached = {
       let red = ColorType.red.color()
@@ -119,5 +155,45 @@ final class FullModelTests: XCTestCase {
     } catch {
       XCTFail(error.localizedDescription)
     }
+  }
+  
+  /// LSTM test example
+  func test_LSTM_Forward_Example() async {
+    guard isGithubCI == false else {
+      XCTAssertTrue(true)
+      return
+    }
+
+    let inputUnits = 25
+    let hiddenUnits = 100
+    
+    let reporter = MetricsReporter(frequency: 1,
+                                   metricsToGather: [.loss,
+                                                     .accuracy,
+                                                     .valAccuracy,
+                                                     .valLoss])
+
+    
+    let rnn = RNN(returnSequence: true,
+                  dataset: MockRNNDataset(),
+                  classifierParameters: RNN.ClassifierParameters(batchSize: 16,
+                                                                 epochs: 1000,
+                                                                 accuracyThreshold: 0.8,
+                                                                 killOnAccuracy: false,
+                                                                 threadWorkers: 8),
+                  optimizerParameters: RNN.OptimizerParameters(learningRate: 0.0001,
+                                                               metricsReporter: reporter),
+                  lstmParameters: RNN.RNNLSTMParameters(hiddenUnits: hiddenUnits,
+                                                       inputUnits: inputUnits))
+    
+    
+    reporter.receive = { _ in }
+        
+    rnn.onEpochCompleted = {
+      let r = rnn.predict(starting: "h", maxWordLength: 20, randomizeSelection: false)
+      print(r)
+    }
+    
+    await rnn.train()
   }
 }

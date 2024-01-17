@@ -21,7 +21,7 @@ public protocol Trainable: Codable, CustomDebugStringConvertible {
   var isCompiled: Bool { get }
   
   /// Indicates if this particular network has its weights updated. Mainly used for Batch and Layer normalize. As they have different paths for training and not training.
-  var trainable: Bool { get set }
+  var isTraining: Bool { get set }
   
   /// The device to execute the ML ops and math ops on. Default: CPU()
   var device: Device { get set }
@@ -38,10 +38,19 @@ public protocol Trainable: Codable, CustomDebugStringConvertible {
   
   /// Compiles the network, getting it ready to be trained.
   func compile()
+  
+  /// Exports the weights of the network
+  func exportWeights() throws -> [[Tensor]]
+ 
+  /// Attempts to replace the weights in the network
+  func importWeights(_ weights: [[Tensor]]) throws
 }
 
 public extension Trainable {
   var debugDescription: String {
+    guard isCompiled else {
+      return "Trainable isn't compiled yet. Please compile first."
+    }
     let string = TrainablePrinter.build(self)
     return string
   }
@@ -110,10 +119,12 @@ private struct TrainablePrinter {
     // TODO: maybe find a better way to do this so we can just reference a property like `parameters` or something
     if let conv = layer as? ConvolutionalLayer {
       parameters = conv.filters.map { $0.value.flatten().count }.sumSlow
+    } else if let lstm = layer as? LSTM {
+      parameters = lstm.forgetGateWeights.concat(lstm.gateGateWeights).concat(lstm.hiddenOutputWeights).concat(lstm.inputGateWeights).concat(lstm.outputGateWeights).value.flatten().count
     }
     
     let col1 = Column(value: layer.encodingType.rawValue, width: col1Width)
-    let col2 = Column(value: "\(layer.outputSize)", width: col2Width)
+    let col2 = Column(value: "\(layer.outputSize.asArray)", width: col2Width)
     let col3 = Column(value: "\(parameters)", width: col3Width, leftAlign: false)
 
     return Line(columns: [col1, col2, col3])
