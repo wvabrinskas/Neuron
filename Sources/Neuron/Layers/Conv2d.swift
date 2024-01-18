@@ -1,6 +1,6 @@
 //
 //  File.swift
-//  
+//
 //
 //  Created by William Vabrinskas on 5/5/22.
 //
@@ -10,34 +10,7 @@ import NumSwift
 import NumSwiftC
 
 /// A layer that performs a 2D convolution operation
-public class Conv2d: ConvolutionalLayer {
-  public var encodingType: EncodingType = .conv2d
-  public var device: Device = CPU()
-  public var biasEnabled: Bool = true
-  public var filterCount: Int
-  public var strides: (rows: Int, columns: Int)
-  public var padding: NumSwift.ConvPadding
-  public var filterSize: (rows: Int, columns: Int)
-  public var filters: [Tensor] = []
-  public var inputSize: TensorSize = TensorSize(array: []) {
-    didSet {
-      initializeFilters()
-    }
-  }
-  public var outputSize: TensorSize {
-    let paddingValue = padding.extra(inputSize: (inputSize.rows, inputSize.columns), filterSize: filterSize)
-    
-    let rows = (((inputSize.rows + (paddingValue.top + paddingValue.bottom)) - (filterSize.rows - 1) - 1) / strides.rows) + 1
-    let columns = (((inputSize.columns + (paddingValue.left + paddingValue.right)) - (filterSize.columns - 1) - 1) / strides.columns) + 1
-    
-    return TensorSize(array: [columns, rows, filterCount])
-  }
-  public var weights: Tensor = Tensor() //not used
-  public var biases: Tensor = Tensor()
-  public var trainable: Bool = true
-  public var initializer: Initializer?
-  public var isTraining: Bool = true
-
+public class Conv2d: BaseConvolutionalLayer {
   /// Default initializer for a 2d convolutional layer
   /// - Parameters:
   ///   - filterCount: Number of filters at this layer
@@ -47,28 +20,23 @@ public class Conv2d: ConvolutionalLayer {
   ///   - filterSize: Size of the filter kernel. Default: `(3,3)`
   ///   - initializer: Weight / filter initializer function. Default: `.heNormal`
   ///   - biasEnabled: Boolean defining if the filters have a bias applied. Default: `false`
-  public init(filterCount: Int,
-              inputSize: TensorSize? = nil,
-              strides: (rows: Int, columns: Int) = (1,1),
-              padding: NumSwift.ConvPadding = .valid,
-              filterSize: (rows: Int, columns: Int) = (3,3),
-              initializer: InitializerType = .heNormal,
-              biasEnabled: Bool = false) {
-    self.initializer = initializer.build()
-    self.filterSize = filterSize
-    self.filterCount = filterCount
-    self.padding = padding
-    self.strides = strides
-    self.biasEnabled = biasEnabled
+  public override init(filterCount: Int,
+                       inputSize: TensorSize? = nil,
+                       strides: (rows: Int, columns: Int) = (1,1),
+                       padding: NumSwift.ConvPadding = .valid,
+                       filterSize: (rows: Int, columns: Int) = (3,3),
+                       initializer: InitializerType = .heNormal,
+                       biasEnabled: Bool = false,
+                       encodingType: EncodingType = .conv2d) {
     
-    if biasEnabled {
-      biases = Tensor([Tensor.Scalar](repeating: 0, count: filterCount))
-    }
-    
-    if let inputSize = inputSize {
-      self.inputSize = inputSize
-      initializeFilters()
-    }
+    super.init(filterCount: filterCount,
+               inputSize: inputSize,
+               strides: strides,
+               padding: padding,
+               filterSize: filterSize,
+               initializer: initializer,
+               biasEnabled: biasEnabled,
+               encodingType: .conv2d)
   }
   
   enum CodingKeys: String, CodingKey {
@@ -105,7 +73,7 @@ public class Conv2d: ConvolutionalLayer {
     self.filters = try container.decodeIfPresent([Tensor].self, forKey: .filters) ?? []
   }
   
-  public func encode(to encoder: Encoder) throws {
+  public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode([filterSize.rows, filterSize.columns], forKey: .filterSize)
@@ -117,37 +85,18 @@ public class Conv2d: ConvolutionalLayer {
     try container.encode(encodingType, forKey: .type)
   }
   
-  private func initializeFilters() {
-    guard filters.isEmpty else {
-      return
-    }
+  public override func onInputSizeSet() {
+    super.onInputSizeSet()
     
-    for _ in 0..<filterCount {
-      var kernels: [[[Tensor.Scalar]]] = []
-      for _ in 0..<inputSize.depth {
-        var kernel: [[Tensor.Scalar]] = []
-        
-        for _ in 0..<filterSize.0 {
-          var filterRow: [Tensor.Scalar] = []
-          
-          for _ in 0..<filterSize.1 {
-            let weight = initializer?.calculate(input: inputSize.depth * filterSize.rows * filterSize.columns,
-                                                out: inputSize.depth * filterSize.rows * filterSize.columns) ?? Float.random(in: -1...1)
-            filterRow.append(weight)
-          }
-          
-          kernel.append(filterRow)
-        }
-        
-        kernels.append(kernel)
-      }
-      
-      let filter = Tensor(kernels)
-      filters.append(filter)
-    }
+    let paddingValue = padding.extra(inputSize: (self.inputSize.rows, self.inputSize.columns), filterSize: filterSize)
+    
+    let rows = (((self.inputSize.rows + (paddingValue.top + paddingValue.bottom)) - (filterSize.rows - 1) - 1) / strides.rows) + 1
+    let columns = (((self.inputSize.columns + (paddingValue.left + paddingValue.right)) - (filterSize.columns - 1) - 1) / strides.columns) + 1
+    
+    outputSize = TensorSize(array: [columns, rows, filterCount])
   }
   
-  public func forward(tensor: Tensor) -> Tensor {
+  public override func forward(tensor: Tensor) -> Tensor {
     let context = TensorContext { inputs, gradient in
       self.backward(inputs, gradient)
     }
@@ -223,11 +172,11 @@ public class Conv2d: ConvolutionalLayer {
   
   internal func calculateFilterGradients(_ input: Tensor, _ delta: [[Tensor.Scalar]], index: Int) -> Tensor.Data {
     let total = input.value.count
-    var newGradientsForFilters: Tensor.Data = Tensor.Data.init(repeating: [], count: total)
-
-    input.value.concurrentForEach(workers: min(Constants.maxWorkers, max(8, total / 4))) { [self] forwardInputs, i in
+    var newGradientsForFilters: Tensor.Data = []
+    
+    for i in 0..<total {
       var filter = delta
-      var signal = forwardInputs
+      var signal = input.value[i]
       
       let extraPadding = padding.extra(inputSize: (inputSize.rows, inputSize.columns),
                                        filterSize: filterSize,
@@ -270,14 +219,14 @@ public class Conv2d: ConvolutionalLayer {
                                  inputSize: inputSize,
                                  outputSize: nil)
       
-      newGradientsForFilters[i] = result
+      newGradientsForFilters.append(result)
     }
     //all filter gradients will be mashed into one 3D array and then batched out later by num of filters
     //this way we dont have to store these gradients
     return newGradientsForFilters
   }
   
-  public func apply(gradients: Optimizer.Gradient, learningRate: Float) {
+  public override func apply(gradients: Optimizer.Gradient, learningRate: Float) {
       
     //batch out gradients by number of filters
     var weightGradientsBatched = [gradients.weights.value]
@@ -297,11 +246,11 @@ public class Conv2d: ConvolutionalLayer {
   }
   
   internal func conv(_ input: Tensor) -> [[[Tensor.Scalar]]] {
-    var results: [[[Tensor.Scalar]]] = [[[Tensor.Scalar]]].init(repeating: [], count: filterCount)
+    var results: [[[Tensor.Scalar]]] = []
     
     let flatBias: [Tensor.Scalar] = biases.value.flatten()
     
-    Array(0..<filterCount).concurrentForEach(workers: min(Constants.maxWorkers, max(8, filterCount / 4))) { element, f in
+    for f in 0..<filterCount {
       var convolved: [[Tensor.Scalar]] = [] // maybe do concurrentForEach here too
 
       for i in 0..<input.value.count {
@@ -309,12 +258,12 @@ public class Conv2d: ConvolutionalLayer {
         let currentInput = input.value[i]
         
         let conv = self.device.conv2d(signal: currentInput,
-                                 filter: currentFilter,
-                                 strides: self.strides,
-                                 padding: self.padding,
-                                 filterSize: self.filterSize,
-                                 inputSize: (self.inputSize.rows, self.inputSize.columns),
-                                 outputSize: nil)
+                                      filter: currentFilter,
+                                      strides: self.strides,
+                                      padding: self.padding,
+                                      filterSize: self.filterSize,
+                                      inputSize: (self.inputSize.rows, self.inputSize.columns),
+                                      outputSize: nil)
         
         if convolved.isEmpty {
           convolved = conv
@@ -328,9 +277,9 @@ public class Conv2d: ConvolutionalLayer {
         convolved = convolved + bias
       }
       
-      results[f] = convolved
+      results.append(convolved)
     }
-    
+
     return results
   }
   

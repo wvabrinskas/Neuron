@@ -9,30 +9,16 @@ import Foundation
 import NumSwift
 
 /// Performs a LeakyRelu activation.
-public final class LeakyReLu: ActivationLayer {
-  public var encodingType: EncodingType = .leakyRelu
-  public var device: Device = CPU()
-  public var biasEnabled: Bool = true
-  public var trainable: Bool = true
-  public var type: Activation
-  public var inputSize: TensorSize = TensorSize(array: []) {
-    didSet {
-      outputSize = inputSize
-    }
-  }
-  public var outputSize: TensorSize = TensorSize(array: [])
-  public var weights: Tensor = Tensor()
-  public var biases: Tensor = Tensor()
-  public var initializer: Initializer?
-  public var isTraining: Bool = true
-
+public final class LeakyReLu: BaseActivationLayer {
   private var limit: Float
   
   /// Default initializer for a leaky relu activation function.
   /// - Parameter limit: The alpha limit value for leaky relu.
   public init(limit: Float = 0.01) {
-    type = .leakyRelu(limit: limit)
     self.limit = limit
+    
+    super.init(type: .leakyRelu(limit: limit),
+               encodingType: .leakyRelu)
   }
   
   enum CodingKeys: String, CodingKey {
@@ -41,7 +27,7 @@ public final class LeakyReLu: ActivationLayer {
          limit
   }
   
-  convenience public init(from decoder: Decoder) throws {
+  convenience public required init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let limit = try container.decodeIfPresent(Float.self, forKey: .limit) ?? 0.01
     self.init(limit: limit)
@@ -50,14 +36,14 @@ public final class LeakyReLu: ActivationLayer {
     self.outputSize = inputSize
   }
   
-  public func encode(to encoder: Encoder) throws {
+  public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(type, forKey: .type)
     try container.encode(limit, forKey: .limit)
   }
   
-  public func forward(tensor: Tensor) -> Tensor {
+  public override func forward(tensor: Tensor) -> Tensor {
     
     let context = TensorContext { inputs, gradient in
       let out = self.device.derivate(inputs, self.type).value * gradient.value
@@ -72,7 +58,7 @@ public final class LeakyReLu: ActivationLayer {
     return out
   }
   
-  public func apply(gradients: Optimizer.Gradient, learningRate: Float) {
-    //no op
+  override public func onInputSizeSet() {
+    outputSize = inputSize
   }
 }

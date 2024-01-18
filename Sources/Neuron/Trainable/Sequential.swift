@@ -107,4 +107,24 @@ public final class Sequential: Trainable {
     
     isCompiled = true
   }
+  
+  public func exportWeights() throws -> [[Tensor]] {
+    guard isCompiled else {
+      throw LayerErrors.generic(error: "Please compile the trainable first before attempting to export weights.")
+    }
+    
+    return try layers.map { try $0.exportWeights() }
+  }
+  
+  public func importWeights(_ weights: [[Tensor]]) throws {
+    guard isCompiled else {
+      throw LayerErrors.generic(error: "Please compile the trainable first before attempting to import weights.")
+    }
+    
+    for i in 0..<layers.count {
+      let layer = layers[i]
+      let weights = weights[i]
+      try layer.importWeights(weights)
+    }
+  }
 }

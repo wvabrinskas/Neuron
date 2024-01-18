@@ -16,8 +16,8 @@ let package = Package(
             targets: ["Neuron"]),
     ],
     dependencies: [
-      .package(url: "https://github.com/wvabrinskas/NumSwift.git", from: "2.0.9"),
-      //.package(url: "https://github.com/wvabrinskas/NumSwift.git", branch: "main"),
+      //.package(path: "../NumSwift"),
+      .package(url: "https://github.com/wvabrinskas/NumSwift.git", from: "2.0.10"),
       .package(url: "https://github.com/wvabrinskas/Logger.git", from: "1.0.6")
       //.package(url: "https://github.com/apple/swift-docc-plugin", branch: "main")
     ],
@@ -33,6 +33,8 @@ let package = Package(
             resources: [ .process("Resources") ]),
         .testTarget(
             name: "NeuronTests",
-            dependencies: ["Neuron"]),
+            dependencies: ["Neuron"],
+            resources: [ .process("Resources") ]),
+
     ]
 )
