@@ -291,7 +291,7 @@ final class NeuronTests: XCTestCase {
     
     let out = adam([input]).first ?? Tensor()
     
-    let expectedTensor = Tensor([[[0.95000005, 0.19, 0.95000005, 0.19, 0.95000005]]])
+    let expectedTensor = Tensor([[[0.95, 0.19, 0.95, 0.19, 0.95]]])
     
     XCTAssert(expectedTensor.isValueEqual(to: out))
   }

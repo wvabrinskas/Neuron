@@ -46,14 +46,14 @@ public struct CPU: Device {
       return (rows, columns)
     }
     
-    let result = NumSwiftC.transConv2d(signal: signal.flatten(),
-                                       filter: filter.flatten(),
+    let result = NumSwiftC.transConv2d(signal: signal,
+                                       filter: filter,
                                        strides: strides,
                                        padding: padding,
                                        filterSize: filterSize,
                                        inputSize: inputSize)
     
-    return result.reshape(columns: outputSize?.columns ?? calculatedOutputSize.columns)
+    return result
   }
   
   /// Calculates the convolution of the given inputs
@@ -83,14 +83,14 @@ public struct CPU: Device {
       return (rows, columns)
     }
     
-    let result = NumSwiftC.conv2d(signal: signal.flatten(),
-                                  filter: filter.flatten(),
+    let result = NumSwiftC.conv2d(signal: signal,
+                                  filter: filter,
                                   strides: strides,
                                   padding: padding,
                                   filterSize: filterSize,
                                   inputSize: inputSize)
     
-    return result.reshape(columns: outputSize?.columns ?? calculatedOutputSize.columns)
+    return result
   }
   
   /// Performs an activation function

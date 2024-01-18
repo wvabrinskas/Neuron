@@ -113,20 +113,20 @@ class LSTMCell {
     let concat = tensor.concat(previousActivationMatrix)
     
     // forget gate
-    let fa = device.matmul(concat, fgw)
-    let faOut = Sigmoid().forward(tensor: fa) + parameters.forgetGateBiases.asScalar()
+    let fa = device.matmul(concat, fgw) + parameters.forgetGateBiases.asScalar()
+    let faOut = Sigmoid().forward(tensor: fa)
     
     // input gate
-    let ia = device.matmul(concat, igw)
-    let iaOut = Sigmoid().forward(tensor: ia) + parameters.inputGateBiases.asScalar()
+    let ia = device.matmul(concat, igw) + parameters.inputGateBiases.asScalar()
+    let iaOut = Sigmoid().forward(tensor: ia)
     
     // gate gate
-    let ga = device.matmul(concat, ggw)
-    let gaOut = Tanh().forward(tensor: ga) + parameters.gateGateBiases.asScalar()
+    let ga = device.matmul(concat, ggw) + parameters.gateGateBiases.asScalar()
+    let gaOut = Tanh().forward(tensor: ga)
     
     // output gate
-    let oa = device.matmul(concat, ogw)
-    let oaOut = Sigmoid().forward(tensor: oa) + parameters.outputGateBiases.asScalar()
+    let oa = device.matmul(concat, ogw) + parameters.outputGateBiases.asScalar()
+    let oaOut = Sigmoid().forward(tensor: oa)
     
     let cellMemoryMatrix = (faOut * previousCellMatrix) + (iaOut * gaOut)
     
@@ -258,7 +258,7 @@ class LSTMCell {
     var digw = concat.matmul(ei)
     var dogw = concat.matmul(eo)
     var dggw = concat.matmul(eg)
-    
+
     if batchSize > 1 {
       dfgw = dfgw / Tensor.Scalar(batchSize)
       digw = digw / Tensor.Scalar(batchSize)

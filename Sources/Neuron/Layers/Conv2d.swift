@@ -172,11 +172,11 @@ public class Conv2d: BaseConvolutionalLayer {
   
   internal func calculateFilterGradients(_ input: Tensor, _ delta: [[Tensor.Scalar]], index: Int) -> Tensor.Data {
     let total = input.value.count
-    var newGradientsForFilters: Tensor.Data = Tensor.Data.init(repeating: [], count: total)
-
-    input.value.concurrentForEach(workers: min(Constants.maxWorkers, max(8, total / 4))) { [self] forwardInputs, i in
+    var newGradientsForFilters: Tensor.Data = []
+    
+    for i in 0..<total {
       var filter = delta
-      var signal = forwardInputs
+      var signal = input.value[i]
       
       let extraPadding = padding.extra(inputSize: (inputSize.rows, inputSize.columns),
                                        filterSize: filterSize,
@@ -219,7 +219,7 @@ public class Conv2d: BaseConvolutionalLayer {
                                  inputSize: inputSize,
                                  outputSize: nil)
       
-      newGradientsForFilters[i] = result
+      newGradientsForFilters.append(result)
     }
     //all filter gradients will be mashed into one 3D array and then batched out later by num of filters
     //this way we dont have to store these gradients
@@ -246,11 +246,11 @@ public class Conv2d: BaseConvolutionalLayer {
   }
   
   internal func conv(_ input: Tensor) -> [[[Tensor.Scalar]]] {
-    var results: [[[Tensor.Scalar]]] = [[[Tensor.Scalar]]].init(repeating: [], count: filterCount)
+    var results: [[[Tensor.Scalar]]] = []
     
     let flatBias: [Tensor.Scalar] = biases.value.flatten()
     
-    Array(0..<filterCount).concurrentForEach(workers: min(Constants.maxWorkers, max(8, filterCount / 4))) { element, f in
+    for f in 0..<filterCount {
       var convolved: [[Tensor.Scalar]] = [] // maybe do concurrentForEach here too
 
       for i in 0..<input.value.count {
@@ -258,12 +258,12 @@ public class Conv2d: BaseConvolutionalLayer {
         let currentInput = input.value[i]
         
         let conv = self.device.conv2d(signal: currentInput,
-                                 filter: currentFilter,
-                                 strides: self.strides,
-                                 padding: self.padding,
-                                 filterSize: self.filterSize,
-                                 inputSize: (self.inputSize.rows, self.inputSize.columns),
-                                 outputSize: nil)
+                                      filter: currentFilter,
+                                      strides: self.strides,
+                                      padding: self.padding,
+                                      filterSize: self.filterSize,
+                                      inputSize: (self.inputSize.rows, self.inputSize.columns),
+                                      outputSize: nil)
         
         if convolved.isEmpty {
           convolved = conv
@@ -277,9 +277,9 @@ public class Conv2d: BaseConvolutionalLayer {
         convolved = convolved + bias
       }
       
-      results[f] = convolved
+      results.append(convolved)
     }
-    
+
     return results
   }
   

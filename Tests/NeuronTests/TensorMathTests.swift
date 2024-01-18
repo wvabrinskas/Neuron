@@ -12,6 +12,55 @@ import NumSwift
 
 final class TensorMathTests: XCTestCase {
   
+  func test_split_dataIntegrity() {
+    let tensor = Tensor([
+                         [[1,1,1],
+                          [2,2,2]],
+                         
+                         [[5,3,5],
+                          [5,3,5]]
+                        ])
+    
+    // axis 2
+    let split = tensor.split(into: 1)
+    XCTAssertEqual(split.shape, [2])
+    XCTAssertTrue(split[0].isValueEqual(to: Tensor([[1,1,1],
+                                                    [2,2,2]])))
+    XCTAssertTrue(split[1].isValueEqual(to: Tensor([[5,3,5],
+                                                    [5,3,5]])))
+    // axis 0
+    let split1 = tensor.split(into: 1, axis: 0)
+    XCTAssertEqual(split1.shape, [2])
+    XCTAssertTrue(split1[0].isValueEqual(to: Tensor([[[1,1,1]],
+                                                     [[5,3,5]]])))
+    XCTAssertTrue(split1[1].isValueEqual(to: Tensor([[[2,2,2]],
+                                                     [[5,3,5]]])))
+    
+    let split2 = tensor.split(into: 1, axis: 1)
+    XCTAssertEqual(split2.shape, [3])
+    XCTAssertTrue(split2[0].isValueEqual(to: Tensor([[[1.0],[2.0]], [[5.0], [5.0]]])))
+    XCTAssertTrue(split2[1].isValueEqual(to: Tensor([[[1.0],[2.0]], [[3.0], [3.0]]])))
+    XCTAssertTrue(split2[2].isValueEqual(to: Tensor([[[1.0],[2.0]], [[5.0], [5.0]]])))
+  }
+  
+  func test_split() {
+    let tensor = Tensor(NumSwift.onesLike((10, 10, 10)))
+    
+    // axis 2
+    let split = tensor.split(into: 2)
+    XCTAssertEqual(split.shape, [5])
+    split.forEach { XCTAssertEqual($0.shape, [10,10,2]) }
+    
+    // axis 0
+    let split1 = tensor.split(into: 2, axis: 0)
+    XCTAssertEqual(split1.shape, [5])
+    split1.forEach { XCTAssertEqual($0.shape, [10,2,10]) }
+    
+    let split2 = tensor.split(into: 2, axis: 1)
+    XCTAssertEqual(split2.shape, [5])
+    split2.forEach { XCTAssertEqual($0.shape, [2,10,10]) }
+  }
+  
   func test_mean() {
     let tensor = Tensor([[[1,1,1],
                          [2,2,2]],
