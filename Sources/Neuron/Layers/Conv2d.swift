@@ -219,7 +219,7 @@ public class Conv2d: BaseConvolutionalLayer {
                                  inputSize: inputSize,
                                  outputSize: nil)
       
-      newGradientsForFilters.append(result)
+      newGradientsForFilters[i] = result
     }
     //all filter gradients will be mashed into one 3D array and then batched out later by num of filters
     //this way we dont have to store these gradients
@@ -246,7 +246,7 @@ public class Conv2d: BaseConvolutionalLayer {
   }
   
   internal func conv(_ input: Tensor) -> [[[Tensor.Scalar]]] {
-    var results: [[[Tensor.Scalar]]] = []
+    var results: [[[Tensor.Scalar]]] = [[[Tensor.Scalar]]].init(repeating: [], count: filterCount)
     
     let flatBias: [Tensor.Scalar] = biases.value.flatten()
     
@@ -279,7 +279,7 @@ public class Conv2d: BaseConvolutionalLayer {
       
       results.append(convolved)
     }
-
+    
     return results
   }
   
