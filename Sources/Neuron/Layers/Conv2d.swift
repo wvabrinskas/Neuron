@@ -258,12 +258,12 @@ public class Conv2d: BaseConvolutionalLayer {
         let currentInput = input.value[i]
         
         let conv = self.device.conv2d(signal: currentInput,
-                                 filter: currentFilter,
-                                 strides: self.strides,
-                                 padding: self.padding,
-                                 filterSize: self.filterSize,
-                                 inputSize: (self.inputSize.rows, self.inputSize.columns),
-                                 outputSize: nil)
+                                      filter: currentFilter,
+                                      strides: self.strides,
+                                      padding: self.padding,
+                                      filterSize: self.filterSize,
+                                      inputSize: (self.inputSize.rows, self.inputSize.columns),
+                                      outputSize: nil)
         
         if convolved.isEmpty {
           convolved = conv
