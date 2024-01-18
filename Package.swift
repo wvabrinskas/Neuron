@@ -33,6 +33,8 @@ let package = Package(
             resources: [ .process("Resources") ]),
         .testTarget(
             name: "NeuronTests",
-            dependencies: ["Neuron"]),
+            dependencies: ["Neuron"],
+            resources: [ .process("Resources") ]),
+
     ]
 )

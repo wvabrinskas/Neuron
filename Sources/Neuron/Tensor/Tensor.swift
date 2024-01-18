@@ -76,6 +76,13 @@ public class Tensor: Equatable, Codable {
   // cache the shape so we dont need to calculate it each time we call for shape
   private var shapeCache: [Int] = []
  
+  enum CodingKeys: String, CodingKey {
+    case label
+    case id
+    case context
+    case value
+  }
+  
   /// only works for 3D tensors, Input is [colRange, rowRange, depthRange]
   public subscript(_ colRange: some RangeExpression<Int>,
                    _ rowRange: some RangeExpression<Int>,
