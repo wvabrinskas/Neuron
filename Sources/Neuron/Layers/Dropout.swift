@@ -41,7 +41,7 @@ public final class Dropout: BaseLayer {
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
     self.chance = try container.decodeIfPresent(Float.self, forKey: .chance) ?? 0
     self.outputSize = inputSize
-    self.mask = try container.decodeIfPresent(Tensor.self, forKey: .chance) ?? Tensor()
+    self.mask = try container.decodeIfPresent(Tensor.self, forKey: .mask) ?? Tensor()
   }
   
   public override func encode(to encoder: Encoder) throws {
