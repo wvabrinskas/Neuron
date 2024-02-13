@@ -45,8 +45,7 @@ public class Adam: BaseOptimizer {
   public override func step() {
     let gradients = gradientAccumulator.accumulate()
     
-    trainable.layers.concurrentForEach(workers: min(Constants.maxWorkers, 
-                                                    Int(ceil(Double(trainable.layers.count) / Double(2))))) { [self] element, i in
+    for i in 0..<trainable.layers.count {
       let layer = trainable.layers[i]
       let gradient = gradients.weights[i]
       let biasGradient = gradients.biases[i]
@@ -66,9 +65,6 @@ public class Adam: BaseOptimizer {
       
       clip(layer: layer)
     }
-//    for i in 0..<trainable.layers.count {
-//     
-//    }
     
     t += 1
     
