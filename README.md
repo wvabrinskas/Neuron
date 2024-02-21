@@ -10,7 +10,7 @@
 ![](https://img.shields.io/badge/watchOS-6+-darkcyan?style=flat-square)
 ![](https://img.shields.io/badge/tvOS-13+-darkcyan?style=flat-square)
 
-[![Tests](https://github.com/wvabrinskas/Neuron/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/wvabrinskas/Neuron/actions/workflows/tests.yml)
+[![Tests](https://github.com/wvabrinskas/Neuron/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/wvabrinskas/Neuron/actions/workflows/tests.yml)
 
 # Support 
 [<img width="75" src="images/twitter.png"> ](https://twitter.com/wvabrinskas)
