@@ -58,6 +58,7 @@ public final class MaxPool: BaseLayer {
       let deltas = gradient.value
       var poolingGradients: [[[Tensor.Scalar]]] = []
       
+      // operation is performed first then returned
       queue.addSynchronousOperation { [weak self] in
         guard let sSelf = self else {
           return

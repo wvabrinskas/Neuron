@@ -14,12 +14,7 @@ public class GradientAccumulator {
   private var biasGradients: [Tensor] = []//gradients w.r.t to each layer's weights
   private var weightGradients: [Tensor] = []//gradients w.r.t to each layer's weights
   private var inputGradients: [Tensor] = [] //gradients w.r.t to each top level input
-  private var modificationQueue: OperationQueue = {
-    let queue = OperationQueue()
-    queue.name = "gradient_accumulator"
-    queue.maxConcurrentOperationCount = 1
-    return queue
-  }()
+  private var modificationQueue = SynchronousOperationQueue(name: "gradient_accumulator")
   
   /// A flag that when enabled will average the gradients when calling `accumulate`. Default: `true`
   public var average: Bool = true

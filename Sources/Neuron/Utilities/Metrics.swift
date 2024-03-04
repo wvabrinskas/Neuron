@@ -136,11 +136,7 @@ public class MetricsReporter: MetricCalculator {
   private var currentStep: Int = 0
   private var timers: [Metric: [Date]] = [:]
   
-  private var timerQueue: OperationQueue = {
-    let queue = OperationQueue()
-    queue.maxConcurrentOperationCount = 1
-    return queue
-  }()
+  private var timerQueue = SynchronousOperationQueue(name: "metrics_reporter")
   
   public var metricsToGather: Set<Metric>
   public var metrics: [Metric : Float] = [:]
