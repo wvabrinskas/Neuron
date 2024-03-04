@@ -36,7 +36,7 @@ public class Conv2d: BaseConvolutionalLayer {
                filterSize: filterSize,
                initializer: initializer,
                biasEnabled: biasEnabled,
-               encodingType: .conv2d)
+               encodingType: encodingType)
   }
   
   enum CodingKeys: String, CodingKey {
