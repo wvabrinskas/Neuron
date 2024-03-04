@@ -27,7 +27,7 @@ public final class TransConv2d: Conv2d {
                filterSize: filterSize,
                initializer: initializer,
                biasEnabled: biasEnabled,
-               encodingType: encodingType)
+               encodingType: .transConv2d)
   }
   
   override public func onInputSizeSet() {
