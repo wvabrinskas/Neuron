@@ -19,6 +19,7 @@ public enum Metric: String {
   case fakeImageLoss
   case valAccuracy
   case batchTime
+  case optimizerRunTime
 }
 
 public protocol MetricLogger: AnyObject {

@@ -144,12 +144,12 @@ public class Conv2d: BaseConvolutionalLayer {
         let kernel = filter[i]
         
         let gradientsForKernelIndex: [[Tensor.Scalar]] = device.conv2d(signal: workingDelta,
-                                                                             filter: kernel,
-                                                                             strides: (1,1),
-                                                                             padding: .same,
-                                                                             filterSize: filterSize,
-                                                                             inputSize: (newRows, newColumns),
-                                                                             outputSize: nil)
+                                                                       filter: kernel,
+                                                                       strides: (1,1),
+                                                                       padding: .same,
+                                                                       filterSize: filterSize,
+                                                                       inputSize: (newRows, newColumns),
+                                                                       outputSize: nil)
         
         let currentGradientsForFilter = inputGradients[safe: f] ?? NumSwift.zerosLike((inputSize.rows, inputSize.columns))
         let updatedGradientsForFilter = currentGradientsForFilter + gradientsForKernelIndex
