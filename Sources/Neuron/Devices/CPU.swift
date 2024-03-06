@@ -99,8 +99,9 @@ public struct CPU: Device {
   ///   - type: The type of activation to apply
   /// - Returns: The activated result as a Tensor
   public func activate(_ input: Tensor, _ type: Activation) -> Tensor {
-    let result = input.value.map { $0.map { $0.map { type.activate(input: $0) }}}
-    return Tensor(result)
+//    let result = input.value.map { $0.map { $0.map { type.activate(input: $0) }}}
+//    return Tensor(result)
+    type.activate(input: input)
   }
   
   /// Performs an activation derivative function
@@ -109,8 +110,7 @@ public struct CPU: Device {
   ///   - type: The type of activation derivative to apply
   /// - Returns: The activated derivative result as a Tensor
   public func derivate(_ input: Tensor, _ type: Activation) -> Tensor {
-    let result = input.value.map { $0.map { $0.map { type.derivative(input: $0) }}}
-    return Tensor(result)
+    type.derivate(input)
   }
   
   /// Matrix multiplication operation

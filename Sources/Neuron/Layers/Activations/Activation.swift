@@ -41,9 +41,25 @@ public enum Activation: Codable, Equatable {
   }
   
   /// Runs the activation function calculation based on the case of self.
+  /// - Parameter input: Input Tensor value to run through the activation function
+  /// - Returns: The result of the calculation
+  public func activate(input: Tensor) -> Tensor {
+    let result = input.value.map { $0.map { $0.map { activate(input: $0) }}}
+    return Tensor(result)
+  }
+  
+  /// Runs the derivative of the activation function based on the case of self.
+  /// - Parameter input: Input Tensor into the calculation
+  /// - Returns: The result of the calculation
+  public func derivate(_ input: Tensor) -> Tensor {
+    let result = input.value.map { $0.map { $0.map { derivative(input: $0) }}}
+    return Tensor(result)
+  }
+  
+  /// Runs the activation function calculation based on the case of self.
   /// - Parameter input: Input value to run through the activation function
   /// - Returns: The result of the calculation
-  public func activate(input: Float) -> Float {
+  private func activate(input: Float) -> Float {
     var returnValue: Float = 0
     switch self {
     case .reLu:
@@ -82,7 +98,7 @@ public enum Activation: Codable, Equatable {
   /// Runs the derivative of the activation function based on the case of self.
   /// - Parameter input: Input into the calculation
   /// - Returns: The result of the calculation
-  public func derivative(input: Float) -> Float {
+  private func derivative(input: Float) -> Float {
     switch self {
     case .reLu:
       return input >= 0 ? 1 : 0

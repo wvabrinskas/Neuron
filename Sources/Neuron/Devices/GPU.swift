@@ -12,7 +12,7 @@ public class GPU: Device {
   public var qosPriority: DispatchQoS.QoSClass = .default
   public var type: DeviceType = .gpu
 
-  private let manager = GPUManager()
+  private let manager = GPUManager.shared
   
   public func transConv2d(signal: [[Tensor.Scalar]],
                           filter: [[Tensor.Scalar]],
