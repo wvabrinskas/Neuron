@@ -13,7 +13,7 @@ public class GradientAccumulator {
   private var iterations: Int = 0
   private var biasGradients: [[Tensor]] = []//gradients w.r.t to each layer's weights
   private var weightGradients: [[Tensor]] = []//gradients w.r.t to each layer's weights
-  private var inputGradients: [[Tensor]] = [] //gradients w.r.t to each top level input
+  private var inputGradients: [Tensor] = [] //gradients w.r.t to each top level input
   private var modificationQueue = SynchronousOperationQueue(name: "gradient_accumulator")
   
   /// A flag that when enabled will average the gradients when calling `accumulate`. Default: `true`
@@ -54,7 +54,7 @@ public class GradientAccumulator {
       
       self.weightGradients.append(newWeightGradients)
       self.biasGradients.append(newBiasGradient)
-      self.inputGradients.append([newInputGradient])
+      self.inputGradients.append(newInputGradient)
     }
   }
   
@@ -71,14 +71,11 @@ public class GradientAccumulator {
       }
     }
     
-    var firstW = weightGradients.removeFirst()
+    let firstW = weightGradients.removeFirst()
     let weightSum = weightGradients.reduce(firstW, +)
     
-    var firstBias = biasGradients.removeFirst()
+    let firstBias = biasGradients.removeFirst()
     let biasSum = biasGradients.reduce(firstBias, +)
-    
-    var firstInput = inputGradients.removeFirst()
-    let inputSum = inputGradients.reduce(firstInput, +)
     
     var weight = weightSum
     var bias = biasSum
@@ -88,6 +85,6 @@ public class GradientAccumulator {
       bias = bias / iterations.asTensorScalar
     }
         // average the gradients
-    return .init(input: inputSum, weights: weight, biases: bias)
+    return .init(input: inputGradients, weights: weight, biases: bias)
   }
 }
