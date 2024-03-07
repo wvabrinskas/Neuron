@@ -11,9 +11,9 @@ import NumSwift
 /// Accumulates gradients returning the average gradients for each layer w.r.t the weights and an array of gradients w.r.t to each input
 public class GradientAccumulator {
   private var iterations: Int = 0
-  private var biasGradients: [Tensor] = []//gradients w.r.t to each layer's weights
-  private var weightGradients: [Tensor] = []//gradients w.r.t to each layer's weights
-  private var inputGradients: [Tensor] = [] //gradients w.r.t to each top level input
+  private var biasGradients: [[Tensor]] = []//gradients w.r.t to each layer's weights
+  private var weightGradients: [[Tensor]] = []//gradients w.r.t to each layer's weights
+  private var inputGradients: [[Tensor]] = [] //gradients w.r.t to each top level input
   private var modificationQueue = SynchronousOperationQueue(name: "gradient_accumulator")
   
   /// A flag that when enabled will average the gradients when calling `accumulate`. Default: `true`
@@ -51,23 +51,10 @@ public class GradientAccumulator {
     modificationQueue.addOperation { [weak self] in
       guard let self else { return }
       self.iterations += 1
-      if self.weightGradients.isEmpty {
-        self.weightGradients = newWeightGradients
-      } else {
-        self.weightGradients = self.weightGradients + newWeightGradients
-      }
       
-      if self.biasGradients.isEmpty {
-        self.biasGradients = newBiasGradient
-      } else {
-        self.biasGradients = self.biasGradients + newBiasGradient
-      }
-      
-      if self.inputGradients.isEmpty {
-        self.inputGradients = [newInputGradient]
-      } else {
-        self.inputGradients.append(newInputGradient)
-      }
+      self.weightGradients.append(newWeightGradients)
+      self.biasGradients.append(newBiasGradient)
+      self.inputGradients.append([newInputGradient])
     }
   }
   
@@ -83,15 +70,24 @@ public class GradientAccumulator {
         clear()
       }
     }
-          
-    var weight = weightGradients
-    var bias = biasGradients
+    
+    var firstW = weightGradients.removeFirst()
+    let weightSum = weightGradients.reduce(firstW, +)
+    
+    var firstBias = biasGradients.removeFirst()
+    let biasSum = biasGradients.reduce(firstBias, +)
+    
+    var firstInput = inputGradients.removeFirst()
+    let inputSum = inputGradients.reduce(firstInput, +)
+    
+    var weight = weightSum
+    var bias = biasSum
     
     if iterations > 1 && average {
       weight = weight / iterations.asTensorScalar
       bias = bias / iterations.asTensorScalar
     }
         // average the gradients
-    return .init(input: inputGradients, weights: weight, biases: bias)
+    return .init(input: inputSum, weights: weight, biases: bias)
   }
 }

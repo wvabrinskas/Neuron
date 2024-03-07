@@ -113,7 +113,6 @@ public class Conv2d: BaseConvolutionalLayer {
     let flippedTransposed = filters.map { flip180($0) }.transposed() as [[[[Tensor.Scalar]]]]
     
     var weightGradients: [[[Tensor.Scalar]]] = []
-    //2D array because each item is the result of conv2d which returns a 1D array
     var inputGradients: [[[Tensor.Scalar]]] = []
 
     for i in 0..<deltas.count {
@@ -151,13 +150,10 @@ public class Conv2d: BaseConvolutionalLayer {
                                                                        inputSize: (newRows, newColumns),
                                                                        outputSize: nil)
         
-        let currentGradientsForFilter = inputGradients[safe: f] ?? NumSwift.zerosLike((inputSize.rows, inputSize.columns))
-        let updatedGradientsForFilter = currentGradientsForFilter + gradientsForKernelIndex
-        
-        if let _ = inputGradients[safe: f] {
-          inputGradients[f] = updatedGradientsForFilter
+        if let currentGradientsForFilter = inputGradients[safe: f] {
+          inputGradients[f] = currentGradientsForFilter + gradientsForKernelIndex
         } else {
-          inputGradients.append(updatedGradientsForFilter)
+          inputGradients.append(gradientsForKernelIndex)
         }
       }
       

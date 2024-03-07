@@ -67,19 +67,15 @@ public final class TransConv2d: Conv2d {
                                                                              inputSize: (outputSize.rows, outputSize.columns),
                                                                              outputSize: nil)
 
-        let currentGradientsForFilter = inputGradients[safe: f, NumSwift.zerosLike((inputSize.rows, inputSize.columns))]
-        let updatedGradientsForFilter = currentGradientsForFilter + gradientsForKernelIndex
-        
-        if let _ = inputGradients[safe: f] {
-          inputGradients[f] = updatedGradientsForFilter
+        if let currentGradientsForFilter = inputGradients[safe: f] {
+          inputGradients[f] = currentGradientsForFilter + gradientsForKernelIndex
         } else {
-          inputGradients.append(updatedGradientsForFilter)
+          inputGradients.append(gradientsForKernelIndex)
         }
       }
       
       if trainable {
         let filterGradients = calculateFilterGradients(input, delta, index: i)
-        //weightGradients.append(contentsOf: filterGradients)
         weightGradients.insert(contentsOf: filterGradients, at: 0)
       }
     }
@@ -174,8 +170,11 @@ public final class TransConv2d: Conv2d {
                                                                              inputSize: (newRows, newColumns),
                                                                              outputSize: nil)
 
-        let currentGradientsForFilter = convolved[safe: f] ?? NumSwift.zerosLike((outputSize.rows, outputSize.columns))
-        var updatedGradientsForFilter = currentGradientsForFilter + gradientsForKernelIndex
+        var updatedGradientsForFilter = gradientsForKernelIndex
+        
+        if let currentGradientsForFilter = convolved[safe: f] {
+          updatedGradientsForFilter = gradientsForKernelIndex + currentGradientsForFilter
+        }
         
         if biasEnabled {
           updatedGradientsForFilter = updatedGradientsForFilter + flatBiases[f]
