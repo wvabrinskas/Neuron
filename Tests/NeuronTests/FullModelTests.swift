@@ -86,17 +86,6 @@ final class FullModelTests: XCTestCase {
     
   }
   
-  func testTensor_Sum() {
-    let tensor = Tensor([
-                         [[1,1,1],
-                          [1,1,1]],
-                         [[2,2,2],
-                          [2,2,2]]
-                         ])
-    
-    print(tensor.sum(axis: 1))
-  }
-  
   func testBasicClassification() {
     let network = Sequential {
       [

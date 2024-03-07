@@ -10,26 +10,6 @@ import XCTest
 import NumSwift
 @testable import Neuron
 
-final class ArrayTests: XCTestCase {
-  func test_array() {
-    measure {
-      let result: [[Float]] = Array(0..<1000).map { _ in [Float](repeating: 0.0, count: 1000) }
-    }
-  }
-  
-  func test_base() {
-    print("other")
-    measure {
-      var result: [[Float]] = []
-
-      for _ in 0..<1000 {
-        result.append([Float](repeating: 0.0, count: 1000))
-      }
-    }
-  }
-}
-
-
 final class LayerTests: XCTestCase {
   
   // MARK: Sequential
