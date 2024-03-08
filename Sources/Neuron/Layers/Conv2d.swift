@@ -186,9 +186,11 @@ public class Conv2d: BaseConvolutionalLayer {
       signal = NumSwiftC.zeroPad(signal: signal, padding: numPadding)
       filter = NumSwiftC.stridePad(signal: filter, strides: strides)
       
-      let sShape = signal.shape
-      let fShape = filter.shape
+      let expectedRows = inputSize.rows + numPadding.top + numPadding.bottom
+      let expectedColumns = inputSize.columns + numPadding.left + numPadding.right
       
+      let fShape = filter.shape
+     
       //TODO: figure out valid with strides. need to pad right and bottom for filter
       //
       //
@@ -205,7 +207,7 @@ public class Conv2d: BaseConvolutionalLayer {
       //      }
       
       let newFilterSize = (fShape[safe: 1] ?? 0, fShape[safe: 0] ?? 0)
-      let inputSize = (sShape[safe: 1] ?? 0, sShape[safe: 0] ?? 0)
+      let inputSize = (expectedRows, expectedColumns)
       
       let result = device.conv2d(signal: signal,
                                  filter: filter,
