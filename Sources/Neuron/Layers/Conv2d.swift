@@ -109,17 +109,25 @@ public class Conv2d: BaseConvolutionalLayer {
   }
   
   internal func backward(_ input: Tensor, _ delta: Tensor) -> (input: Tensor, weight: Tensor, bias: Tensor) {
-    let deltas = delta.value
     let flippedTransposed = filters.map { flip180($0) }.transposed() as [[[[Tensor.Scalar]]]]
     
     var weightGradients: [[[Tensor.Scalar]]] = []
     var inputGradients: [[[Tensor.Scalar]]] = []
 
-    for i in 0..<deltas.count {
-      let delta = deltas[i]
+    var cachedDeltaShape: [Int]?
+    
+    for i in 0..<filterCount {
+      let delta = delta.value[i]
       var workingDelta = NumSwiftC.stridePad(signal: delta, strides: strides)
       
-      let deltaShape = workingDelta.shape
+      let deltaShape: [Int]
+      if let cachedDeltaShape {
+        deltaShape = cachedDeltaShape
+      } else {
+        deltaShape = workingDelta.shape
+        cachedDeltaShape = deltaShape
+      }
+      
       let deltaRows = Double(inputSize.rows) - Double(deltaShape[safe: 1, 0])
       let deltaColumns = Double(inputSize.columns) - Double(deltaShape[safe: 0, 0])
       
@@ -167,30 +175,38 @@ public class Conv2d: BaseConvolutionalLayer {
   }
   
   internal func calculateFilterGradients(_ input: Tensor, _ delta: [[Tensor.Scalar]], index: Int) -> Tensor.Data {
-    let total = input.value.count
     var newGradientsForFilters: Tensor.Data = []
+    var cachedFilterShape: [Int]?
+
     
-    for i in 0..<total {
+    let extraPadding = padding.extra(inputSize: (inputSize.rows, inputSize.columns),
+                                     filterSize: filterSize,
+                                     stride: strides)
+    
+    let numPadding = NumSwiftPadding(top: extraPadding.top,
+                                     left: extraPadding.left,
+                                     right: extraPadding.right,
+                                     bottom: extraPadding.bottom)
+    
+    let expectedRows = inputSize.rows + numPadding.top + numPadding.bottom
+    let expectedColumns = inputSize.columns + numPadding.left + numPadding.right
+    let convInputSize = (expectedRows, expectedColumns)
+
+    for i in 0..<inputSize.depth {
       var filter = delta
       var signal = input.value[i]
       
-      let extraPadding = padding.extra(inputSize: (inputSize.rows, inputSize.columns),
-                                       filterSize: filterSize,
-                                       stride: strides)
-      
-      let numPadding = NumSwiftPadding(top: extraPadding.top,
-                                       left: extraPadding.left,
-                                       right: extraPadding.right,
-                                       bottom: extraPadding.bottom)
-      
       signal = NumSwiftC.zeroPad(signal: signal, padding: numPadding)
       filter = NumSwiftC.stridePad(signal: filter, strides: strides)
+    
+      let fShape: [Int]
+      if let cachedFilterShape {
+        fShape = cachedFilterShape
+      } else {
+        fShape = filter.shape
+        cachedFilterShape = fShape
+      }
       
-      let expectedRows = inputSize.rows + numPadding.top + numPadding.bottom
-      let expectedColumns = inputSize.columns + numPadding.left + numPadding.right
-      
-      let fShape = filter.shape
-     
       //TODO: figure out valid with strides. need to pad right and bottom for filter
       //
       //
@@ -207,14 +223,13 @@ public class Conv2d: BaseConvolutionalLayer {
       //      }
       
       let newFilterSize = (fShape[safe: 1] ?? 0, fShape[safe: 0] ?? 0)
-      let inputSize = (expectedRows, expectedColumns)
       
       let result = device.conv2d(signal: signal,
                                  filter: filter,
                                  strides: (1,1),
                                  padding: .valid,
                                  filterSize: newFilterSize,
-                                 inputSize: inputSize,
+                                 inputSize: convInputSize,
                                  outputSize: nil)
       
       newGradientsForFilters.append(result)
@@ -233,7 +248,7 @@ public class Conv2d: BaseConvolutionalLayer {
       weightGradientsBatched = gradients.weights.value.batched(into: inputSize.depth)
     }
     
-    for i in 0..<weightGradientsBatched.count {
+    for i in 0..<filterCount {
       let filterGradients = weightGradientsBatched[i]
       filters[i] = filters[i] - Tensor(filterGradients)
     }
@@ -251,7 +266,7 @@ public class Conv2d: BaseConvolutionalLayer {
     for f in 0..<filterCount {
       var convolved: [[Tensor.Scalar]] = [] // maybe do concurrentForEach here too
 
-      for i in 0..<input.value.count {
+      for i in 0..<inputSize.depth {
         let currentFilter = self.filters[f].value[i]
         let currentInput = input.value[i]
         
