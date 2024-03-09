@@ -68,7 +68,7 @@ public final class MaxPool: BaseLayer {
           return
         }
         
-        for i in 0..<deltas.count {
+        for i in 0..<sSelf.inputSize.depth {
           let delta: [Tensor.Scalar] = deltas[i].flatten()
           var modifiableDeltas = delta
           
@@ -94,7 +94,7 @@ public final class MaxPool: BaseLayer {
     
     var currentIndicies: [[PoolingIndex]] = []
     var results: [[[Tensor.Scalar]]] = []
-    currentIndicies.reserveCapacity(tensor.value.count)
+    currentIndicies.reserveCapacity(inputSize.depth)
 
     tensor.value.forEach { input in
       let pool = pool(input: input)
@@ -135,13 +135,13 @@ public final class MaxPool: BaseLayer {
     let columns = inputSize.columns
             
     for r in stride(from: 0, through: rows, by: 2) {
-      guard r < input.count else {
+      guard r < rows else {
         continue
       }
       rowResults = []
       
       for c in stride(from: 0, through: columns, by: 2) {
-        guard c < input[r].count else {
+        guard c < columns else {
           continue
         }
         let current = input[r][c]

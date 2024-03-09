@@ -109,7 +109,7 @@ public final class Dense: BaseLayer {
       let inputsFlat = inputs.value[safe: 0]?[safe: 0] ?? []
       var weightGradients: [[Tensor.Scalar]] = []
       
-      for i in 0..<gradientsFlat.count {
+      for i in 0..<self.nodes {
         let delta = gradientsFlat[i]
         weightGradients.append(inputsFlat * delta)
       }
@@ -118,8 +118,9 @@ public final class Dense: BaseLayer {
     }
     
     //THIS WAS A MAJOR BUG POINT. DO NOT SWITCH ROWS AND COLUMNS HERE BY ACCIDENT - Billy 05-20-2022
-    let weightsTransposed: [[Tensor.Scalar]] = NumSwiftC.tranpose(weights.value[safe: 0] ?? [], size: (rows: outputSize.columns,
-                                                                                                       columns: inputSize.columns))
+    let weightsTransposed: [[Tensor.Scalar]] = NumSwiftC.tranpose(weights.value[safe: 0] ?? [],
+                                                                  size: (rows: outputSize.columns,
+                                                                         columns: inputSize.columns))
     
     var dotProducts = device.matmul(tensor, Tensor(weightsTransposed))
     
