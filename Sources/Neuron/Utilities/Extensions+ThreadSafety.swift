@@ -77,3 +77,13 @@ extension OperationQueue {
     group.wait()
   }
 }
+
+public final class SynchronousOperationQueue: OperationQueue {
+  
+  public init(name: String? = nil) {
+    super.init()
+    
+    self.name = name
+    maxConcurrentOperationCount = 1
+  }
+}
