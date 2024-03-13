@@ -199,10 +199,10 @@ public class GPUManager {
     
     let w = pipelineStrong.threadExecutionWidth
     let h = pipelineStrong.maxTotalThreadsPerThreadgroup / w
-    let threadsPerThreadgroup = MTLSizeMake(w, h, 1)
+    let threadsPerThreadgroup = MTLSizeMake(1, 1, 1)
     
-    let threadgroupsPerGrid = MTLSize(width: data.count / 2,
-                                      height: data.count / 2,
+    let threadgroupsPerGrid = MTLSize(width: 1,
+                                      height: 1,
                                       depth: 1)
     
     encoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)

@@ -11,16 +11,18 @@ import NumSwift
 /// Accumulates gradients returning the average gradients for each layer w.r.t the weights and an array of gradients w.r.t to each input
 public class GradientAccumulator {
   private var iterations: Int = 0
-  private var biasGradients: [Tensor] = []//gradients w.r.t to each layer's weights
-  private var weightGradients: [Tensor] = []//gradients w.r.t to each layer's weights
+  private var biasGradients: [[Tensor]] = []//gradients w.r.t to each layer's weights
+  private var weightGradients: [[Tensor]] = []//gradients w.r.t to each layer's weights
   private var inputGradients: [Tensor] = [] //gradients w.r.t to each top level input
-  private let lock = NSLock()
+  private var modificationQueue = SynchronousOperationQueue(name: "gradient_accumulator")
   
   /// A flag that when enabled will average the gradients when calling `accumulate`. Default: `true`
   public var average: Bool = true
   
   /// Removes all elements from the gradient arrays
   public func clear() {
+    modificationQueue.waitUntilAllOperationsAreFinished()
+    
     biasGradients.removeAll(keepingCapacity: true)
     weightGradients.removeAll(keepingCapacity: true)
     inputGradients.removeAll(keepingCapacity: true)
@@ -46,27 +48,14 @@ public class GradientAccumulator {
     let newInputGradient = input
     let newBiasGradient = biases
     
-    lock.with {
+    modificationQueue.addOperation { [weak self] in
+      guard let self else { return }
       self.iterations += 1
-      if self.weightGradients.isEmpty {
-        self.weightGradients = newWeightGradients
-      } else {
-        self.weightGradients = self.weightGradients + newWeightGradients
-      }
       
-      if self.biasGradients.isEmpty {
-        self.biasGradients = newBiasGradient
-      } else {
-        self.biasGradients = self.biasGradients + newBiasGradient
-      }
-      
-      if self.inputGradients.isEmpty {
-        self.inputGradients = [newInputGradient]
-      } else {
-        self.inputGradients.append(newInputGradient)
-      }
+      self.weightGradients.append(newWeightGradients)
+      self.biasGradients.append(newBiasGradient)
+      self.inputGradients.append(newInputGradient)
     }
-
   }
   
   /// Performs the averaging calculation on the weight gradients.
@@ -74,14 +63,22 @@ public class GradientAccumulator {
   /// - Parameter clearAtEnd: will erase all the accumulated gradients thus far.
   /// - Returns: The average gradients w.r.t to each layers weights and the gradient w.r.t the each input given.
   public func accumulate(clearAtEnd: Bool = false) -> Tensor.Gradient {
+    modificationQueue.waitUntilAllOperationsAreFinished()
+
     defer {
       if clearAtEnd {
         clear()
       }
     }
-          
-    var weight = weightGradients
-    var bias = biasGradients
+    
+    let firstW = weightGradients.removeFirst()
+    let weightSum = weightGradients.reduce(firstW, +)
+    
+    let firstBias = biasGradients.removeFirst()
+    let biasSum = biasGradients.reduce(firstBias, +)
+    
+    var weight = weightSum
+    var bias = biasSum
     
     if iterations > 1 && average {
       weight = weight / iterations.asTensorScalar

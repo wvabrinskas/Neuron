@@ -71,6 +71,8 @@ public final class Dense: BaseLayer {
   }
   
   override public func onInputSizeSet() {
+    precondition(inputSize.rows == 1 && inputSize.depth == 1, "Dense expects Tensor dimensions of Nx1x1 where N is the columns, got: \(inputSize)")
+    
     initializeWeights(inputs: inputSize.columns)
     self.biases = Tensor([Tensor.Scalar](repeating: 0, count: outputSize.depth))
   }
@@ -107,7 +109,7 @@ public final class Dense: BaseLayer {
       let inputsFlat = inputs.value[safe: 0]?[safe: 0] ?? []
       var weightGradients: [[Tensor.Scalar]] = []
       
-      for i in 0..<gradientsFlat.count {
+      for i in 0..<self.nodes {
         let delta = gradientsFlat[i]
         weightGradients.append(inputsFlat * delta)
       }
@@ -116,9 +118,9 @@ public final class Dense: BaseLayer {
     }
     
     //THIS WAS A MAJOR BUG POINT. DO NOT SWITCH ROWS AND COLUMNS HERE BY ACCIDENT - Billy 05-20-2022
-    let weightsTransposed: [[Tensor.Scalar]] = weights.value.flatten().transpose(columns: inputSize.columns,
-                                                                               rows: outputSize.columns)
-                                                                       .reshape(columns: outputSize.columns)
+    let weightsTransposed: [[Tensor.Scalar]] = NumSwiftC.tranpose(weights.value[safe: 0] ?? [],
+                                                                  size: (rows: outputSize.columns,
+                                                                         columns: inputSize.columns))
     
     var dotProducts = device.matmul(tensor, Tensor(weightsTransposed))
     

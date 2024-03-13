@@ -92,6 +92,7 @@ open class BaseOptimizer: Optimizer {
   public func step() {
     // override
     decayFunction?.step()
+    metricsReporter?.endTimer(metric: .optimizerRunTime)
   }
   
   public func reset() {
@@ -110,6 +111,7 @@ open class BaseOptimizer: Optimizer {
   }
   
   open func zeroGradients() {
+    metricsReporter?.startTimer(metric: .optimizerRunTime)
     gradientAccumulator.clear()
   }
   

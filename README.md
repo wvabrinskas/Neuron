@@ -21,6 +21,10 @@ Feel free to send me suggestions on how to improve this. I would be delighted to
 
 [Full Documentation](https://williamvabrinskas.com/Neuron/documentation/neuron/)
 
+# Important Developer Note!
+
+## When using Neuron it operates about 10X faster when you run with a `RELEASE` scheme. This is due to the compiler optimizations being set to the highest optimization value. If you find Neuron is running somewhat slowly this might be a reason why. 
+
 # Before you begin developing
 Run `./scripts/onboard.sh` to install the Xcode templates that `Neuron` provides to quickly generate layer code templates.
 

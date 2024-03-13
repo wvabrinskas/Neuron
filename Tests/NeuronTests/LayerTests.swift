@@ -10,7 +10,6 @@ import XCTest
 import NumSwift
 @testable import Neuron
 
-
 final class LayerTests: XCTestCase {
   
   // MARK: Sequential

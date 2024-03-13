@@ -88,7 +88,7 @@ public class Adam: BaseOptimizer {
     
     let flatBias = biasGradient.value.flatten()
 
-    var result: [[[Tensor.Scalar]]] = NumSwift.zerosLike((rows, columns, depth))
+    var result: [[[Tensor.Scalar]]] = []
     var biases: [Tensor.Scalar] = .init(repeating: 0, count: flatBias.count)
 
     if m[i].isEmpty || v[i].isEmpty {
@@ -102,8 +102,10 @@ public class Adam: BaseOptimizer {
         
     for d in 0..<gradientValue.count {
       let depthGradient = gradientValue[d]
+      var row: [[Float]] = []
       for r in 0..<depthGradient.count {
         let rowGradient = depthGradient[r]
+        var column: [Float] = []
         for c in 0..<rowGradient.count {
           m[i][d][r][c] = b1 * m[i][d][r][c] + (1 - b1) * gradientValue[d][r][c]
           v[i][d][r][c] = b2 * v[i][d][r][c] + (1 - b2) * pow(gradientValue[d][r][c], 2)
@@ -112,9 +114,12 @@ public class Adam: BaseOptimizer {
           let vHat = v[i][d][r][c] / (1 - pow(b2, Tensor.Scalar(t)))
           
           let delta = learningRate / (sqrt(vHat + eps)) * mHat
-          result[d][r][c] = delta
+          column.append(delta)
         }
+        row.append(column)
       }
+      
+      result.append(row)
     }
     
     for d in 0..<flatBias.count {
@@ -130,7 +135,7 @@ public class Adam: BaseOptimizer {
       
       biases[d] = deltaB
     }
-    
+        
     return (Tensor(result), Tensor(biases))
   }
   

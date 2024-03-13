@@ -51,7 +51,7 @@ public final class TransConv2d: Conv2d {
     var weightGradients: [[[Tensor.Scalar]]] = []
     var inputGradients: [[[Tensor.Scalar]]] = []
     
-    for i in 0..<deltas.count {
+    for i in 0..<filterCount {
       let delta = deltas[i]
       let workingDeltasForInputs = delta
 
@@ -67,19 +67,15 @@ public final class TransConv2d: Conv2d {
                                                                              inputSize: (outputSize.rows, outputSize.columns),
                                                                              outputSize: nil)
 
-        let currentGradientsForFilter = inputGradients[safe: f, NumSwift.zerosLike((inputSize.rows, inputSize.columns))]
-        let updatedGradientsForFilter = currentGradientsForFilter + gradientsForKernelIndex
-        
-        if let _ = inputGradients[safe: f] {
-          inputGradients[f] = updatedGradientsForFilter
+        if let currentGradientsForFilter = inputGradients[safe: f] {
+          inputGradients[f] = currentGradientsForFilter + gradientsForKernelIndex
         } else {
-          inputGradients.append(updatedGradientsForFilter)
+          inputGradients.append(gradientsForKernelIndex)
         }
       }
       
       if trainable {
         let filterGradients = calculateFilterGradients(input, delta, index: i)
-        //weightGradients.append(contentsOf: filterGradients)
         weightGradients.insert(contentsOf: filterGradients, at: 0)
       }
     }
@@ -90,10 +86,11 @@ public final class TransConv2d: Conv2d {
   }
   
   internal override func calculateFilterGradients(_ input: Tensor, _ delta: [[Tensor.Scalar]], index: Int) -> Tensor.Data {
-    let total = input.value.count
-    var newGradientsForFilters: Tensor.Data = Tensor.Data.init(repeating: [], count: total)
+    var newGradientsForFilters: Tensor.Data = []
     
-    for i in 0..<total {
+    var cachedSignalShape: [Int]?
+    
+    for i in 0..<inputSize.depth {
       var filter = input.value[i]
       var signal = delta
       
@@ -114,7 +111,14 @@ public final class TransConv2d: Conv2d {
       }
       
       let fShape = filter.shape
-      let sShape = signal.shape
+      let sShape: [Int]
+      
+      if let cachedSignalShape {
+        sShape = cachedSignalShape
+      } else {
+        sShape = signal.shape
+        cachedSignalShape = sShape
+      }
       
       let newFilterSize = (fShape[safe: 1] ?? 0, fShape[safe: 0] ?? 0)
       let inputSize = (sShape[safe: 1] ?? 0, sShape[safe: 0] ?? 0)
@@ -126,7 +130,8 @@ public final class TransConv2d: Conv2d {
                                  filterSize: newFilterSize,
                                  inputSize: inputSize,
                                  outputSize: nil)
-      newGradientsForFilters[i] = result
+      
+      newGradientsForFilters.append(result)
     }
     
     //all filter gradients will be mashed into one 3D array and then batched out later by num of filters
@@ -174,8 +179,11 @@ public final class TransConv2d: Conv2d {
                                                                              inputSize: (newRows, newColumns),
                                                                              outputSize: nil)
 
-        let currentGradientsForFilter = convolved[safe: f] ?? NumSwift.zerosLike((outputSize.rows, outputSize.columns))
-        var updatedGradientsForFilter = currentGradientsForFilter + gradientsForKernelIndex
+        var updatedGradientsForFilter = gradientsForKernelIndex
+        
+        if let currentGradientsForFilter = convolved[safe: f] {
+          updatedGradientsForFilter = gradientsForKernelIndex + currentGradientsForFilter
+        }
         
         if biasEnabled {
           updatedGradientsForFilter = updatedGradientsForFilter + flatBiases[f]
