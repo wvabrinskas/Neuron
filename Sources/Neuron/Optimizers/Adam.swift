@@ -57,7 +57,7 @@ public class Adam: BaseOptimizer {
       var adamGradient: Gradient = (gradient, biasGradient)
       
       // only apply optimizer gradient if the layer is trainable by the optimizer
-      if layer.trainable {
+      if layer.trainable, layer.usesOptimizer {
         adamGradient = run(gradient: gradient, biasGradient: biasGradient, index: i)
       }
       

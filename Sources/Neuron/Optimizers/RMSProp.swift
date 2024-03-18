@@ -48,7 +48,7 @@ public class RMSProp: BaseOptimizer {
 
       var adamGradient = (gradient, biasGradient)
       
-      if layer.trainable {
+      if layer.trainable, layer.usesOptimizer {
         adamGradient = run(gradient: gradient, biasGradient: biasGradient, index: i)
       }
       

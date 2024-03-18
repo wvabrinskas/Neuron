@@ -41,7 +41,7 @@ public class SGD: BaseOptimizer {
       
       var sgdGradient = (gradient, biasGradient)
       
-      if layer.trainable {
+      if layer.trainable, layer.usesOptimizer {
         sgdGradient = run(gradient: gradient, biasGradient: biasGradient, index: i)
       }
       

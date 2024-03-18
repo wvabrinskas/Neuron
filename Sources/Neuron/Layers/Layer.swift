@@ -58,6 +58,7 @@ public protocol Layer: AnyObject, Codable {
   var isTraining: Bool { get set }
   var initializer: Initializer? { get }
   var device: Device { get set }
+  var usesOptimizer: Bool { get set }
   func forward(tensor: Tensor) -> Tensor
   func apply(gradients: Optimizer.Gradient, learningRate: Float)
   func exportWeights() throws -> [Tensor]
@@ -99,6 +100,9 @@ open class BaseLayer: Layer {
   public var isTraining: Bool = true
   public var initializer: Initializer?
   public var device: Device = CPU()
+  // defines whether the gradients are run through the optimizer before being applied.
+  // this could be useful if a layer manages its own weight updates
+  public var usesOptimizer: Bool = true
   
   public init(inputSize: TensorSize? = nil,
               initializer: InitializerType? = nil,
