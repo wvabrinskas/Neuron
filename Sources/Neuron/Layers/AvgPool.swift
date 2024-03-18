@@ -10,7 +10,7 @@ import NumSwift
 /// Will decrease the size of the input tensor by half using a max pooling technique.
 public final class AvgPool: BaseLayer {
 
-  private let kernelSize: (Int, Int) = (rows: 2, columns: 2)
+  private let kernelSize: (rows: Int, columns: Int) = (rows: 2, columns: 2)
   
   /// Default initializer for max pooling.
   /// - Parameter inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
@@ -101,7 +101,7 @@ public final class AvgPool: BaseLayer {
   }
   
   override public func onInputSizeSet() {
-    outputSize = TensorSize(array: [inputSize.columns / 2, inputSize.rows / 2, inputSize.depth])
+    outputSize = TensorSize(array: [inputSize.columns / kernelSize.columns, inputSize.rows / kernelSize.rows, inputSize.depth])
   }
 
   
@@ -126,6 +126,8 @@ public final class AvgPool: BaseLayer {
         guard c < columns else {
           continue
         }
+        
+        // TODO: have this be auotmatic based on kernel size. Right now this is hardcoded to 2x2. same as MaxPool
         let current = input[r][c]
         let right = input[safe: r + 1]?[c] ?? 0
         let bottom = input[r][safe: c + 1] ?? 0
