@@ -28,6 +28,7 @@ public enum EncodingType: String, Codable {
        layerNormalize,
        lstm,
        embedding,
+       avgPool,
        none
 }
 
