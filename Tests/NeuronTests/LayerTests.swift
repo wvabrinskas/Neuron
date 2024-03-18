@@ -116,6 +116,64 @@ final class LayerTests: XCTestCase {
     }
   }
   
+  // MARK: AvgPool
+  func test_avgPool() {
+    let input: [[[Float]]] = [[[0.1, 0.2, 0.3, 0.4],
+                               [0.1, 0.2, 0.3, 0.4],
+                               [0.1, 0.2, 0.3, 0.4],
+                               [0.1, 0.2, 0.3, 0.4]],
+                              [[0.1, 0.2, 0.3, 0.4],
+                               [0.1, 0.2, 0.3, 0.4],
+                               [0.1, 0.2, 0.3, 0.4],
+                               [0.1, 0.2, 0.3, 0.4]],
+                              [[0.1, 0.2, 0.3, 0.4],
+                               [0.1, 0.2, 0.3, 0.4],
+                               [0.1, 0.2, 0.3, 0.4],
+                               [0.1, 0.2, 0.3, 0.4]]]
+    
+    let inputSize = input.shape
+
+    let layer = AvgPool(inputSize: TensorSize(array: inputSize))
+    let out = layer.forward(tensor: Tensor(input))
+    
+    XCTAssertEqual([2,2,3], out.shape)
+    
+    let expected: [[[Float]]] = [[[0.15, 0.35],
+                                  [0.15, 0.35]],
+                                 [[0.15, 0.35],
+                                  [0.15, 0.35]],
+                                 [[0.15, 0.35],
+                                  [0.15, 0.35]]]
+    
+    XCTAssertEqual(expected, out.value)
+    
+    let delta: [[[Float]]] = [[[0.1, 0.3],
+                               [0.2, 0.5]],
+                              [[0.1, 0.3],
+                               [0.2, 0.5]],
+                              [[0.1, 0.3],
+                               [0.2, 0.5]]]
+    
+    let gradients = out.gradients(delta: Tensor(delta))
+    
+    XCTAssertEqual(inputSize, gradients.input.first!.shape)
+    
+    let expectedGradients: [[[Float]]] = [[[0.025, 0.025, 0.075, 0.075],
+                                           [0.025, 0.025, 0.075, 0.075],
+                                           [0.05, 0.05, 0.125, 0.125],
+                                           [0.05, 0.05, 0.125, 0.125]],
+                                          [[0.025, 0.025, 0.075, 0.075],
+                                           [0.025, 0.025, 0.075, 0.075],
+                                           [0.05, 0.05, 0.125, 0.125],
+                                           [0.05, 0.05, 0.125, 0.125]],
+                                          [[0.025, 0.025, 0.075, 0.075],
+                                           [0.025, 0.025, 0.075, 0.075],
+                                           [0.05, 0.05, 0.125, 0.125],
+                                           [0.05, 0.05, 0.125, 0.125]]]
+
+    XCTAssertEqual(expectedGradients, gradients.input.first!.value)
+  }
+  
   // MARK: Dense
   func test_Dense_Parameters() {
     let dense = Dense(20,
@@ -333,4 +391,5 @@ final class LayerTests: XCTestCase {
     
     XCTAssertEqual(out.shape, [inputUnits, 1, batchLength])
   }
+
 }

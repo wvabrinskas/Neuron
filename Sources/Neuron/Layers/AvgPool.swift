@@ -9,22 +9,7 @@ import NumSwift
 
 /// Will decrease the size of the input tensor by half using a max pooling technique.
 public final class AvgPool: BaseLayer {
-  internal struct PoolingIndex: Hashable, Codable {
-    var r: Int
-    var c: Int
-  }
-  
-  internal struct PoolingGradient: Hashable, Codable {
-    static func == (lhs: AvgPool.PoolingGradient, rhs: AvgPool.PoolingGradient) -> Bool {
-      lhs.tensorId == rhs.tensorId
-    }
-    
-    var tensorId: UUID
-    var indicies: [[PoolingIndex]]
-  }
-  
-  internal var poolingGradients: [PoolingGradient] = []
-  private lazy var queue: OperationQueue = OperationQueue()
+
   private let kernelSize: (Int, Int) = (rows: 2, columns: 2)
   
   /// Default initializer for max pooling.
@@ -55,44 +40,42 @@ public final class AvgPool: BaseLayer {
   
   public override func forward(tensor: Tensor) -> Tensor {
     func backwards(input: Tensor, gradient: Tensor) -> (Tensor, Tensor, Tensor) {
-      let deltas = gradient.value
       var poolingGradients: [[[Tensor.Scalar]]] = []
       
       let rows = inputSize.rows
       let columns = inputSize.columns
                     
       for d in 0..<inputSize.depth {
-        let inputValue = input.value[d]
         var gradientR = 0
         
-        for r in stride(from: 0, through: rows, by: kernelSize.0) {
-          guard r < rows else {
-            continue
-          }
-          
+        var results: [[Float]] = []
+        for r in 0..<rows {
+          var rowResult: [Float] = []
+
           var gradientC = 0
           for c in stride(from: 0, through: columns, by: kernelSize.1) {
             guard c < columns else {
               continue
             }
             
-            let current = inputValue[r][c]
-            let right = inputValue[safe: r + 1]?[c] ?? 0
-            let bottom = inputValue[r][safe: c + 1] ?? 0
-            let diag = inputValue[safe: r + 1]?[safe: c + 1] ?? 0
-            
-            let indiciesToCheck = [current,
-                                   right,
-                                   bottom,
-                                   diag]
+            let avgPoolGradient = gradient.value[d][gradientR][gradientC]
+            let delta = avgPoolGradient / (Tensor.Scalar(kernelSize.0) * Tensor.Scalar(kernelSize.1))
+          
+            for _ in 0..<kernelSize.1 {
+              rowResult.append(delta)
+            }
             
             gradientC += 1
           }
           
-          gradientR += 1
-          
+          if (r + 1) % kernelSize.0 == 0 {
+            gradientR += 1
+          }
+        
+          results.append(rowResult)
         }
         
+        poolingGradients.append(results)
       }
 
       if poolingGradients.isEmpty {
@@ -102,20 +85,13 @@ public final class AvgPool: BaseLayer {
       return (Tensor(poolingGradients), Tensor(), Tensor())
     }
     
-    var currentIndicies: [[PoolingIndex]] = []
     var results: [[[Tensor.Scalar]]] = []
-    currentIndicies.reserveCapacity(inputSize.depth)
 
     tensor.value.forEach { input in
       let pool = pool(input: input)
-      currentIndicies.append(pool.1)
-      results.append(pool.0)
+      results.append(pool)
     }
 
-    queue.addBarrierBlock {
-      self.setGradients(indicies: currentIndicies, id: tensor.id)
-    }
-          
     let context = TensorContext(backpropagate: backwards)
     let out = Tensor(results, context: context)
     
@@ -127,19 +103,15 @@ public final class AvgPool: BaseLayer {
   override public func onInputSizeSet() {
     outputSize = TensorSize(array: [inputSize.columns / 2, inputSize.rows / 2, inputSize.depth])
   }
-  
-  private func setGradients(indicies: [[PoolingIndex]], id: UUID) {
-    self.poolingGradients.append(PoolingGradient(tensorId: id, indicies: indicies))
-  }
+
   
   public override func apply(gradients: Optimizer.Gradient, learningRate: Float) {
-    poolingGradients.removeAll(keepingCapacity: true)
+    //
   }
   
-  internal func pool(input: [[Tensor.Scalar]]) -> ([[Tensor.Scalar]], [PoolingIndex]) {
+  internal func pool(input: [[Tensor.Scalar]]) -> [[Tensor.Scalar]] {
     var rowResults: [Tensor.Scalar] = []
     var results: [[Tensor.Scalar]] = []
-    var pooledIndicies: [PoolingIndex] = []
         
     let rows = inputSize.rows
     let columns = inputSize.columns
@@ -171,6 +143,6 @@ public final class AvgPool: BaseLayer {
       results.append(rowResults)
     }
               
-    return (results, pooledIndicies)
+    return results
   }
 }
