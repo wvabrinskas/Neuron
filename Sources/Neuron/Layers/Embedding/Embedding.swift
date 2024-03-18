@@ -31,6 +31,7 @@ public final class Embedding: BaseLayer {
                                                 out: batchLength)
     
     self.weights = weights
+    // manages its own weight updates
     self.usesOptimizer = false
   }
   
@@ -124,7 +125,7 @@ public final class Embedding: BaseLayer {
   
   public override func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Float) {
     if trainable {
-      weights = weights - gradients.weights * learningRate // use Optimizer adjusted weights to adjust
+      weights = weights - learningRate * gradients.weights
     }
   }
 }
