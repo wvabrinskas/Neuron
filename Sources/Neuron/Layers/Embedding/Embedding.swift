@@ -87,7 +87,11 @@ public final class Embedding: BaseLayer {
         let gradientAtIndex = gradient.value[i]
         
         let embeddingError = Tensor(gradientAtIndex)
-        let inputsTransposed = Tensor(inputs.value[i].transpose())
+        
+        let inputsTransposed = Tensor(NumSwiftC.tranpose(inputs.value[i],
+                                                   size: (rows: self.inputSize.rows,
+                                                          columns: self.inputSize.columns)))
+        
         let dEmbedding = inputsTransposed.matmul(embeddingError)
         
         if wrtEmbeddings.isEmpty {
