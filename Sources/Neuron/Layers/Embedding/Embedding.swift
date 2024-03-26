@@ -32,7 +32,7 @@ public final class Embedding: BaseLayer {
     
     self.weights = weights
     // manages its own weight updates
-    self.usesOptimizer = false
+    self.usesOptimizer = true
   }
   
   enum CodingKeys: String, CodingKey {
@@ -125,7 +125,11 @@ public final class Embedding: BaseLayer {
   
   public override func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Float) {
     if trainable {
-      weights = weights - learningRate * gradients.weights
+      if usesOptimizer {
+        weights = weights - gradients.weights
+      } else {
+        weights = weights - learningRate * gradients.weights
+      }
     }
   }
 }
