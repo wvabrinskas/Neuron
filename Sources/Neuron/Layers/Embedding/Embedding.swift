@@ -32,7 +32,7 @@ public final class Embedding: BaseLayer {
     
     self.weights = weights
     // manages its own weight updates
-    self.usesOptimizer = true
+    self.usesOptimizer = false
   }
   
   enum CodingKeys: String, CodingKey {
