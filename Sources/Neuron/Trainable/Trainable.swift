@@ -9,7 +9,7 @@ import NumSwiftC
 ///
 /// Get debug data from the `Trainable` by calling `print(sequential)`, or using `lldb`: `po trainable`, where `sequential` is your `Trainable` object.
 ///
-public protocol Trainable: Codable, CustomDebugStringConvertible {
+public protocol Trainable: AnyObject, Codable, CustomDebugStringConvertible {
   
   /// Generic name of the trainable. Used when printing the network
   var name: String { get set }

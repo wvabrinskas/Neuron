@@ -17,14 +17,14 @@ public class SGD: BaseOptimizer {
               device: Device = CPU(),
               learningRate: Float,
               momentum: Float = 0.9,
-              l2Normalize: Bool = false) {
+              threadWorkers: Int = 16) {
     self.momentum = momentum
     
     trainable.compile()
     v = [[[[Tensor.Scalar]]]].init(repeating: [], count: trainable.layers.count)
     vb = [[Tensor.Scalar]].init(repeating: [], count: trainable.layers.count)
     
-    super.init(trainable: trainable, learningRate: learningRate, l2Normalize: l2Normalize)
+    super.init(trainable: trainable, learningRate: learningRate, l2Normalize: false, workers: threadWorkers)
   }
   
   public override func step() {
@@ -41,7 +41,7 @@ public class SGD: BaseOptimizer {
       
       var sgdGradient = (gradient, biasGradient)
       
-      if layer.trainable {
+      if layer.trainable, layer.usesOptimizer {
         sgdGradient = run(gradient: gradient, biasGradient: biasGradient, index: i)
       }
       

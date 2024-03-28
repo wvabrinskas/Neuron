@@ -86,6 +86,23 @@ final class FullModelTests: XCTestCase {
     
   }
   
+  func test_setttingPropertyOnTrainable_Doesnt_Reset() {
+    let network = Sequential {
+      [
+        Dense(1, inputs: 2)
+      ]
+    }
+    
+    let optim = Adam(network, learningRate: 0.01)
+    
+    network.isCompiled = false
+
+    // testing that when setting this it doesn't attempt to recompile the network
+    optim.isTraining = false
+    
+    XCTAssertEqual(network.isCompiled, false)
+  }
+  
   func testBasicClassification() {
     let network = Sequential {
       [

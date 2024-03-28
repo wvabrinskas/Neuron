@@ -1,26 +1,26 @@
 //
 //  File.swift
-//  
 //
-//  Created by William Vabrinskas on 5/2/22.
+//
+//  Created by William Vabrinskas on 4/29/22.
 //
 
 import Foundation
 import NumSwift
 
-/// Performs a tanh activation.
-public final class Tanh: BaseActivationLayer {
-  /// Default initializer for a Tanh activation.
-  /// - Parameter inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
-  public init(inputSize: TensorSize = TensorSize(array: [])) {
-    super.init(inputSize: inputSize,
-               type: .tanh,
-               encodingType: .tanh)
-  }
-  
+/// Performs a Selu activation.
+public final class SeLu: BaseActivationLayer {
   enum CodingKeys: String, CodingKey {
     case inputSize,
          type
+  }
+  
+  /// Default initializer for a Relu activation.
+  /// - Parameter inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
+  public init(inputSize: TensorSize = TensorSize(array: [])) {
+    super.init(inputSize: inputSize,
+               type: .seLu,
+               encodingType: .selu)
   }
   
   convenience required public init(from decoder: Decoder) throws {
@@ -33,9 +33,9 @@ public final class Tanh: BaseActivationLayer {
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
-    try container.encode(encodingType, forKey: .type)
+    try container.encode(type, forKey: .type)
   }
-
+  
   override public func onInputSizeSet() {
     outputSize = inputSize
   }

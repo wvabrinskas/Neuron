@@ -144,6 +144,7 @@ public final class MaxPool: BaseLayer {
         guard c < columns else {
           continue
         }
+        
         let current = input[r][c]
         let right = input[safe: r + 1]?[c] ?? 0
         let bottom = input[r][safe: c + 1] ?? 0

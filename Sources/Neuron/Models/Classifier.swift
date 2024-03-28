@@ -36,6 +36,7 @@ public class Classifier {
     self.epochs = epochs
     self.killOnAccuracy = killOnAccuracy
     self.log = log
+    self.optimizer.workers = threadWorkers
   }
   
   public func feed(_ data: [Tensor]) -> [Tensor] {

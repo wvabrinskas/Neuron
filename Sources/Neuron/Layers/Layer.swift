@@ -28,6 +28,8 @@ public enum EncodingType: String, Codable {
        layerNormalize,
        lstm,
        embedding,
+       avgPool,
+       selu,
        none
 }
 
@@ -58,6 +60,7 @@ public protocol Layer: AnyObject, Codable {
   var isTraining: Bool { get set }
   var initializer: Initializer? { get }
   var device: Device { get set }
+  var usesOptimizer: Bool { get set }
   func forward(tensor: Tensor) -> Tensor
   func apply(gradients: Optimizer.Gradient, learningRate: Float)
   func exportWeights() throws -> [Tensor]
@@ -99,6 +102,9 @@ open class BaseLayer: Layer {
   public var isTraining: Bool = true
   public var initializer: Initializer?
   public var device: Device = CPU()
+  // defines whether the gradients are run through the optimizer before being applied.
+  // this could be useful if a layer manages its own weight updates
+  public var usesOptimizer: Bool = true
   
   public init(inputSize: TensorSize? = nil,
               initializer: InitializerType? = nil,
@@ -289,6 +295,22 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
     self.init(inputSize: .init(),
               type: .none,
               encodingType: .none)
+  }
+  
+  public override func forward(tensor: Tensor) -> Tensor {
+    
+    let context = TensorContext { inputs, gradient in
+      let out = self.device.derivate(inputs, self.type).value * gradient.value
+      return (Tensor(out), Tensor(), Tensor())
+    }
+    
+    let result = device.activate(tensor, type)
+    let out = Tensor(result.value, context: context)
+    out.label = type.asString()
+
+    out.setGraph(tensor)
+
+    return out
   }
   
   override public func importWeights(_ weights: [Tensor]) throws {

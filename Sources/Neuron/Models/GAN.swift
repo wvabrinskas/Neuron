@@ -50,6 +50,9 @@ public class GAN {
     self.discriminatorNoiseFactor = discriminatorNoiseFactor
     self.validationFrequency = validationFrequency
     
+    self.generator.workers = threadWorkers
+    self.discriminator.workers = threadWorkers
+    
     self.noise = {
       var noise: [Tensor.Scalar] = []
       for _ in 0..<10 {

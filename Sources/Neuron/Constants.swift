@@ -8,5 +8,5 @@
 import Foundation
 
 public struct Constants {
-  public static let maxWorkers = 16
+  public static let maxWorkers = 32
 }
