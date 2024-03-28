@@ -116,6 +116,42 @@ final class LayerTests: XCTestCase {
     }
   }
   
+  // MARK: SeLu
+  func test_seLu() {
+    let input: [[[Float]]] = [[[0.0, 1.0, -1.0, 0.0],
+                               [0.0, 1.0, -1.0, 0.0]],
+                              [[0.0, 1.0, -1.0, 0.0],
+                               [0.0, 1.0, -1.0, 0.0]]]
+    
+    let inputSize = input.shape
+
+    let layer = SeLu(inputSize: TensorSize(array: inputSize))
+    let out = layer.forward(tensor: Tensor(input))
+    
+    XCTAssertEqual(inputSize, out.shape)
+    
+    let expected: [[[Float]]] = [[[0.0, 1.0507, -1.1113541, 0.0],
+                                 [0.0, 1.0507, -1.1113541, 0.0]],
+                                [[0.0, 1.0507, -1.1113541, 0.0],
+                                 [0.0, 1.0507, -1.1113541, 0.0]]]
+    
+    XCTAssertEqual(expected, out.value)
+    
+    let delta = Tensor([[[-1.0, 1.0, -1.0, 0.0],
+                         [-1.0, 1.0, -1.0, 0.0]],
+                        [[-1.0, 1.0, -1.0, 0.0],
+                         [-1.0, 1.0, -1.0, 0.0]]])
+    
+    let gradients = out.gradients(delta: delta)
+        
+    let expectedGradients: [[[Float]]] = [[[-1.7581363, 1.0507, -0.6467822, 0.0],
+                                           [-1.7581363, 1.0507, -0.6467822, 0.0]],
+                                          [[-1.7581363, 1.0507, -0.6467822, 0.0],
+                                           [-1.7581363, 1.0507, -0.6467822, 0.0]]]
+    
+    XCTAssertEqual(gradients.input.first!.value, expectedGradients)
+  }
+  
   // MARK: AvgPool
   func test_avgPool() {
     let input: [[[Float]]] = [[[0.1, 0.2, 0.3, 0.4],
