@@ -31,14 +31,15 @@ public class Adam: BaseOptimizer {
               b1: Float = 0.9,
               b2: Float = 0.999,
               eps: Float = 1e-8,
-              l2Normalize: Bool = false) {
+              threadWorkers: Int = 16) {
     self.b1 = b1
     self.b2 = b2
     self.eps = eps
         
     super.init(trainable: trainable, 
                learningRate: learningRate,
-               l2Normalize: l2Normalize)
+               l2Normalize: false,
+               workers: threadWorkers)
     build()
   }
   
