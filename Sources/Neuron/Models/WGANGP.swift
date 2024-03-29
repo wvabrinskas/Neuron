@@ -33,9 +33,6 @@ public class WGANGP: GAN {
     var avgCriticLoss: Tensor.Scalar = 0
     var avgRealLoss: Tensor.Scalar = 0
     var avgFakeLoss: Tensor.Scalar = 0
-    
-    let generated = self.getGenerated(.fake, detatch: true, count: batchSize)
-    let interpolated = self.interpolated(real: real, fake: generated.data)
 
     let workers = min(Constants.maxWorkers, max(max(4, threadWorkers), Int(ceil(batchSize.asTensorScalar / 4))))
     Array(0..<batchSize).concurrentForEach(workers: workers) { _, i in
@@ -43,11 +40,14 @@ public class WGANGP: GAN {
       let realSample = real[i]
       let realLabel = labels[i]
       
-      let fakeSample = generated.data[i]
-      let fakeLabel = generated.labels[i]
+      let generated = self.getGenerated(.fake, detatch: true, count: 1)
+      let interpolated = self.interpolated(real: [realSample], fake: generated.data)
       
-      let interSample = interpolated.data[i]
-      let interLabel = interpolated.labels[i]
+      let fakeSample = generated.data[safe: 0, Tensor()]
+      let fakeLabel = generated.labels[safe: 0, Tensor()]
+      
+      let interSample = interpolated.data[safe: 0, Tensor()]
+      let interLabel = interpolated.labels[safe: 0, Tensor()]
 
       // get real output
       let realOut = self.trainOn([realSample], labels: [realLabel], requiresGradients: true)

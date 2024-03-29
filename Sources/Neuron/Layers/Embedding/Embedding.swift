@@ -31,6 +31,8 @@ public final class Embedding: BaseLayer {
                                                 out: batchLength)
     
     self.weights = weights
+    // manages its own weight updates
+    self.usesOptimizer = false
   }
   
   enum CodingKeys: String, CodingKey {
@@ -87,7 +89,11 @@ public final class Embedding: BaseLayer {
         let gradientAtIndex = gradient.value[i]
         
         let embeddingError = Tensor(gradientAtIndex)
-        let inputsTransposed = Tensor(inputs.value[i].transpose())
+        
+        let inputsTransposed = Tensor(NumSwiftC.tranpose(inputs.value[i],
+                                                   size: (rows: self.inputSize.rows,
+                                                          columns: self.inputSize.columns)))
+        
         let dEmbedding = inputsTransposed.matmul(embeddingError)
         
         if wrtEmbeddings.isEmpty {
@@ -119,7 +125,11 @@ public final class Embedding: BaseLayer {
   
   public override func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Float) {
     if trainable {
-      weights = weights - gradients.weights // use Optimizer adjusted weights to adjust
+      if usesOptimizer {
+        weights = weights - gradients.weights
+      } else {
+        weights = weights - learningRate * gradients.weights
+      }
     }
   }
 }

@@ -19,7 +19,7 @@ public class RMSProp: BaseOptimizer {
               learningRate: Float,
               b: Float = 0.9,
               eps: Float = 1e-8,
-              l2Normalize: Bool = false) {
+              threadWorkers: Int = 16) {
     self.eps = eps
     self.b = b
 
@@ -30,7 +30,8 @@ public class RMSProp: BaseOptimizer {
     
     super.init(trainable: trainable,
                learningRate: learningRate,
-               l2Normalize: l2Normalize)
+               l2Normalize: false,
+               workers: threadWorkers)
   }
   
   public override func step() {
@@ -48,7 +49,7 @@ public class RMSProp: BaseOptimizer {
 
       var adamGradient = (gradient, biasGradient)
       
-      if layer.trainable {
+      if layer.trainable, layer.usesOptimizer {
         adamGradient = run(gradient: gradient, biasGradient: biasGradient, index: i)
       }
       

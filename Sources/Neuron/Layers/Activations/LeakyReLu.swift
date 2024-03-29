@@ -43,21 +43,6 @@ public final class LeakyReLu: BaseActivationLayer {
     try container.encode(limit, forKey: .limit)
   }
   
-  public override func forward(tensor: Tensor) -> Tensor {
-    
-    let context = TensorContext { inputs, gradient in
-      let out = self.device.derivate(inputs, self.type).value * gradient.value
-      return (Tensor(out), Tensor(), Tensor())
-    }
-    
-    let result = device.activate(tensor, type)
-    let out = Tensor(result.value, context: context)
-    out.label = type.asString()
-    
-    out.setGraph(tensor)
-    return out
-  }
-  
   override public func onInputSizeSet() {
     outputSize = inputSize
   }

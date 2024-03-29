@@ -20,6 +20,7 @@ public enum Metric: String {
   case valAccuracy
   case batchTime
   case optimizerRunTime
+  case batchConcurrency
 }
 
 public protocol MetricLogger: AnyObject {
