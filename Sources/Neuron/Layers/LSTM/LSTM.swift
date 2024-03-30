@@ -240,7 +240,7 @@ public final class LSTM: BaseLayer {
     var out = Tensor(context: context)
 
     let range = 0..<tensor.value.count
-    
+        
     // TODO: What happens to the prediction after we extend pass the batchLength
     for d in range {
       let index = isTraining ? d : max(self.cellCache.count - 1, 0)
@@ -266,6 +266,7 @@ public final class LSTM: BaseLayer {
                                     parameters: cellParameters,
                                     cache: cache)
       
+      // used mainly for prediction and shouldn't be used in back propogation unless there's a gradient associated with it
       let outputCell = OutputCell(device: device)
       let outputCellParameters = OutputCell.Parameters(hiddenOutputWeights: hiddenOutputWeights.detached(),
                                                        hiddenOutputBiases: hiddenOutputBiases.detached(),
@@ -379,7 +380,7 @@ public final class LSTM: BaseLayer {
       
       let outputCell = OutputCell(device: self.device)
 
-      let activationErrors = outputCell.backward(gradient: gradient.value[safe: index] ?? gradient.zerosLike().value[0],
+      let activationErrors = outputCell.backward(gradient: gradient.value[safe: index] ?? gradient.zerosLike().value[0], // if output cell didn't get used in the loss function we don't need its gradients
                                                  activations: cellCache[index].activation.value[0],
                                                  batchSize: 1,
                                                  hiddenOutputWeights: self.hiddenOutputWeights.detached())

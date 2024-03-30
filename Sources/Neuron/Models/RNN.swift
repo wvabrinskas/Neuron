@@ -233,6 +233,7 @@ public class RNN: Classifier {
     let lstm = LSTM(inputUnits: lstmParameters.inputUnits,
                     batchLength: wordLength,
                     returnSequence: returnSequence,
+                    biasEnabled: true,
                     initializer: lstmParameters.lstmInitializer,
                     hiddenUnits: lstmParameters.hiddenUnits,
                     vocabSize: vocabSize)
