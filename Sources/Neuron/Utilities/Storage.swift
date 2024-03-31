@@ -8,16 +8,22 @@
 import Foundation
 
 public final class ThreadStorage<T> {
-  @Atomic
-  public var storage: [Int: T] = [:]
+  private(set) var storage: [Int: T] = [:]
+  private let lock = NSLock()
   
   public func store(_ value: T, at index: Int) {
-    storage[index] = value
+    lock.with {
+      storage[index] = value
+    }
   }
   
-  public func value(at: Int) -> T {
+  public func value(at: Int) -> T? {
+    defer {
+      lock.unlock()
+    }
+    lock.lock()
     guard let val = storage[at] else {
-      fatalError("could not find object for thread id: \(at)")
+      return nil
     }
     
     return val

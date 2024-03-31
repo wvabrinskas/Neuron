@@ -229,15 +229,16 @@ public final class LSTM: BaseLayer {
   /// `(rows: 1, columns: vocabSize, depth: 1)`
   public override func forward(tensor: Tensor) -> Tensor {
   
-    let cellCacheToUse = cellCache.value(at: threadId)
+    let cellCacheToPredictWith = cellCache.value(at: threadId) ?? []
     
-    var cellCache: [Cache] = [setupInitialState()]
+    var localCellCache: [Cache] = [setupInitialState()]
     
     if isTraining == false {
-      cellCache = cellCacheToUse.isEmpty ? [setupInitialState()] : cellCacheToUse
+      // we want to use the previous cell cache when predicting
+      localCellCache = cellCacheToPredictWith.isEmpty ? [setupInitialState()] : cellCacheToPredictWith
     }
     
-    let context = TensorContext { self.backward(inputs: $0, gradient: $1, cellCache: cellCache) }
+    let context = TensorContext { self.backward(inputs: $0, gradient: $1, cellCache: localCellCache) }
     
     var out = Tensor(context: context)
 
@@ -245,8 +246,8 @@ public final class LSTM: BaseLayer {
         
     // TODO: What happens to the prediction after we extend pass the batchLength
     for d in range {
-      let index = isTraining ? d : max(cellCacheToUse.count - 1, 0)
-      guard let cache = cellCache[safe: index] else { break }
+      let index = isTraining ? d : max(cellCacheToPredictWith.count - 1, 0)
+      guard let cache = localCellCache[safe: index] else { break }
       
       // get embeddings from input
       let getEmbeddings = Tensor(tensor.value[safe: index] ?? tensor.value[0])
@@ -282,16 +283,14 @@ public final class LSTM: BaseLayer {
                                embedding: getEmbeddings.detached(),
                                output: outputCellOutput.detached())
       
-      cellCache.append(newCellCache)
+      localCellCache.append(newCellCache)
       
       let new = out.concat(outputCellOutput, axis: 2)
       out = new
     }
-
-    if isTraining == false {
-      self.cellCache.store(cellCacheToUse, at: threadId)
-    }
     
+    self.cellCache.store(localCellCache, at: threadId)
+
     if returnSequence == false, let last = out.value.last {
       out = Tensor(last, context: context)
     }
