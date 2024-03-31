@@ -11,6 +11,9 @@ import NumSwiftC
 ///
 public protocol Trainable: AnyObject, Codable, CustomDebugStringConvertible {
   
+  /// The id for the current thread
+  var threadId: Int { get set }
+  
   /// Generic name of the trainable. Used when printing the network
   var name: String { get set }
   
