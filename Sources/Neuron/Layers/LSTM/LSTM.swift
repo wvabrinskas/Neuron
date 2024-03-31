@@ -41,7 +41,7 @@ public final class LSTM: BaseLayer {
   private var batchLength: Int
   private let returnSequence: Bool
   
-  @Atomic private var cellCache: [Cache] = []
+  private var cellCache: ThreadStorage<[Cache]> = .init()
 
   public class LSTMActivations {
     let forgetGate: Tensor
@@ -228,11 +228,13 @@ public final class LSTM: BaseLayer {
   /// `(rows: 1, columns: vocabSize, depth: batchLength)` or just the last output of the sequence of size
   /// `(rows: 1, columns: vocabSize, depth: 1)`
   public override func forward(tensor: Tensor) -> Tensor {
+  
+    let cellCacheToUse = cellCache.value(at: threadId)
     
     var cellCache: [Cache] = [setupInitialState()]
     
     if isTraining == false {
-      cellCache = self.cellCache.isEmpty ? [setupInitialState()] : self.cellCache
+      cellCache = cellCacheToUse.isEmpty ? [setupInitialState()] : cellCacheToUse
     }
     
     let context = TensorContext { self.backward(inputs: $0, gradient: $1, cellCache: cellCache) }
@@ -243,7 +245,7 @@ public final class LSTM: BaseLayer {
         
     // TODO: What happens to the prediction after we extend pass the batchLength
     for d in range {
-      let index = isTraining ? d : max(self.cellCache.count - 1, 0)
+      let index = isTraining ? d : max(cellCacheToUse.count - 1, 0)
       guard let cache = cellCache[safe: index] else { break }
       
       // get embeddings from input
@@ -287,7 +289,7 @@ public final class LSTM: BaseLayer {
     }
 
     if isTraining == false {
-      self.cellCache = cellCache
+      self.cellCache.store(cellCacheToUse, at: threadId)
     }
     
     if returnSequence == false, let last = out.value.last {
@@ -467,7 +469,7 @@ public final class LSTM: BaseLayer {
   }
 
   private func reset() {
-    cellCache.removeAll()
+    cellCache.store([], at: threadId)
   }
 
   private func initializeWeights() {
