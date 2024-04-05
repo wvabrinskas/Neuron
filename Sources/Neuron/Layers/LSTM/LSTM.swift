@@ -223,11 +223,14 @@ public final class LSTM: BaseLayer {
   
   /// The forward path for the LSTM layer. Should be preceeded by an `Embedding` layer.
   /// Emdedding input size expected is `(rows: 1, columns: inputUnits, depth: batchLength)`
+  /// When `isTraining` is set to `false` the cell and hidden states will remain for each time step.
+  /// The model expects the next time step to be sent as a (vocab_size, 1, 1) tensor.
   /// - Parameter tensor: The `Embedding` input `Tensor`
   /// - Returns: Depending on the state of `returnSequence` it will either returng the whole sequence of size
   /// `(rows: 1, columns: vocabSize, depth: batchLength)` or just the last output of the sequence of size
   /// `(rows: 1, columns: vocabSize, depth: 1)`
   public override func forward(tensor: Tensor) -> Tensor {
+    // TODO: figure out why we have to store each time step when performing an inference. Why cant we just send the time steps as they are built.
   
     let cellCacheToPredictWith = cellCache.value(at: threadId) ?? []
     
