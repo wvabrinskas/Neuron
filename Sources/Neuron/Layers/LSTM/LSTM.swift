@@ -223,37 +223,28 @@ public final class LSTM: BaseLayer {
   
   /// The forward path for the LSTM layer. Should be preceeded by an `Embedding` layer.
   /// Emdedding input size expected is `(rows: 1, columns: inputUnits, depth: batchLength)`
-  /// When `isTraining` is set to `false` the cell and hidden states will remain for each time step.
-  /// The model expects the next time step to be sent as a (vocab_size, 1, 1) tensor.
   /// - Parameter tensor: The `Embedding` input `Tensor`
   /// - Returns: Depending on the state of `returnSequence` it will either returng the whole sequence of size
   /// `(rows: 1, columns: vocabSize, depth: batchLength)` or just the last output of the sequence of size
   /// `(rows: 1, columns: vocabSize, depth: 1)`
   public override func forward(tensor: Tensor) -> Tensor {
-    // TODO: figure out why we have to store each time step when performing an inference. Why cant we just send the time steps as they are built.
-  
     let cellCacheToPredictWith = cellCache.value(at: threadId) ?? []
     
     var localCellCache: [Cache] = [setupInitialState()]
-    
-    if isTraining == false {
-      // we want to use the previous cell cache when predicting
-      localCellCache = cellCacheToPredictWith.isEmpty ? [setupInitialState()] : cellCacheToPredictWith
-    }
     
     let context = TensorContext { self.backward(inputs: $0, gradient: $1, cellCache: localCellCache) }
     
     var out = Tensor(context: context)
 
-    let range = 0..<tensor.value.count
+    let range = 0..<batchLength
         
-    // TODO: What happens to the prediction after we extend pass the batchLength
-    for d in range {
-      let index = isTraining ? d : max(cellCacheToPredictWith.count - 1, 0)
+    /// What happens to the prediction after we extend pass the batchLength?
+    /// we need to truncate the input data if this happens to fit the expected window length
+    for index in range {
       guard let cache = localCellCache[safe: index] else { break }
       
       // get embeddings from input
-      let getEmbeddings = Tensor(tensor.value[safe: index] ?? tensor.value[0])
+      let getEmbeddings = Tensor(tensor.value[safe: index] ?? NumSwift.zerosLike((rows: 1, columns: vocabSize))) //use first vector
       
       let cell = LSTMCell(hidden: hiddenUnits,
                           input: inputUnits,

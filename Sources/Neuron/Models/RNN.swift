@@ -157,18 +157,20 @@ public class RNN: Classifier {
       var name: String = ""
       var runningChar: String = ""
           
-      var batch: [Float]
+      var batch: [[[Float]]]
       
       if let with {
         let oneHotWith = dataset.oneHot([with])
-        batch = oneHotWith.value.flatten()
+        batch = oneHotWith.value
         name += with
 
       } else {
-        batch = [Float](repeating: 0, count: vocabSize)
+        var localWord = [Float](repeating: 0, count: vocabSize)
         let index = Int.random(in: 0..<vocabSize)
         
-        batch[index] = 1.0
+        localWord[index] = 1.0
+        
+        batch = [[localWord]]
         
         // append random letter
         let unvec = dataset.getWord(for: Tensor(batch)).joined()
@@ -179,7 +181,8 @@ public class RNN: Classifier {
         
         let out = optimizer.predict([Tensor(batch)])
         
-        guard let flat = out[safe: 0]?.value[safe: 0]?[safe: 0] else {
+        // output: (col: vocabSize, rows: 1, depth: batchLength)
+        guard let flat = out[safe: 0]?.value[safe: batch.count]?.first else {
           break
         }
       
@@ -199,7 +202,7 @@ public class RNN: Classifier {
         runningChar = unvec
         name += unvec
         
-        batch = v
+        batch.append([v])
       }
       
       names.append(name)
