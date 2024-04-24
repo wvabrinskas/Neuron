@@ -110,6 +110,12 @@ public final class Embedding: BaseLayer {
     var out = Tensor(context: context)
 
     for d in 0..<batchLength {
+      if tensor.value.count < d {
+        let concatOut = out.concat(Tensor(NumSwift.zerosLike((rows: 1, columns: inputUnits))), axis: 2)
+        out = concatOut
+        continue
+      }
+      
       let word = Tensor(tensor.value[safe: d] ?? out.value[safe: d] ?? NumSwift.zerosLike((rows: 1, columns: vocabSize)))
       let getEmbeddings = device.matmul(word, weights.detached())
       

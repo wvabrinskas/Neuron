@@ -59,17 +59,20 @@ public class RNN: Classifier {
     let accuracyThreshold: Float
     let killOnAccuracy: Bool
     let threadWorkers: Int
+    let lossFunction: LossFunction
     
     public init(batchSize: Int,
                 epochs: Int,
                 accuracyThreshold: Float = 0.9,
                 killOnAccuracy: Bool = true,
-                threadWorkers: Int = 8) {
+                threadWorkers: Int = 8,
+                lossFunction: LossFunction = .binaryCrossEntropySoftmax) {
       self.batchSize = batchSize
       self.epochs = epochs
       self.accuracyThreshold = accuracyThreshold
       self.killOnAccuracy = killOnAccuracy
       self.threadWorkers = threadWorkers
+      self.lossFunction = lossFunction
     }
   }
   
@@ -121,7 +124,8 @@ public class RNN: Classifier {
                accuracyThreshold: classifierParameters.accuracyThreshold,
                killOnAccuracy: classifierParameters.killOnAccuracy,
                threadWorkers: classifierParameters.threadWorkers,
-               log: false)
+               log: false,
+               lossFunction: classifierParameters.lossFunction)
   }
   
   public func importFrom(url: URL?) async {
@@ -182,7 +186,7 @@ public class RNN: Classifier {
         let out = optimizer.predict([Tensor(batch)])
         
         // output: (col: vocabSize, rows: 1, depth: batchLength)
-        guard let flat = out[safe: 0]?.value[safe: batch.count]?.first else {
+        guard let flat = out[safe: 0]?.value[safe: batch.count - 1]?.first else {
           break
         }
       
