@@ -141,15 +141,15 @@ public class GAN {
   }
   
   @discardableResult
-  public func export(overrite: Bool = false) -> (discriminator: URL?, generator: URL?) {
+  public func export(overrite: Bool = false, compress: Bool = false) -> (discriminator: URL?, generator: URL?) {
     var urls: (URL?, URL?) = (nil, nil)
     if let generatorS = generator.trainable as? Sequential,
        let discS = discriminator.trainable as? Sequential {
       
       let additional = overrite == false ? "-\(Date().timeIntervalSince1970)" : ""
       
-      let dUrl = ExportHelper.getModel(filename: "discriminator\(additional)", model: discS)
-      let gUrl = ExportHelper.getModel(filename: "generator\(additional)", model: generatorS)
+      let dUrl = ExportHelper.getModel(filename: "discriminator\(additional)", compress: compress, model: discS)
+      let gUrl = ExportHelper.getModel(filename: "generator\(additional)", compress: compress, model: generatorS)
       
       urls = (dUrl, gUrl)
     }
