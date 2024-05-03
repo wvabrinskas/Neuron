@@ -120,11 +120,11 @@ public class Classifier {
   }
   
   @discardableResult
-  public func export(overrite: Bool = false) -> URL? {
+  public func export(overrite: Bool = false, compress: Bool = false) -> URL? {
     if let network = optimizer.trainable as? Sequential {
       let additional = overrite == false ? "-\(Date().timeIntervalSince1970)" : ""
       
-      let dUrl = ExportHelper.getModel(filename: "classifier\(additional)", model: network)
+      let dUrl = ExportHelper.getModel(filename: "classifier\(additional)", compress: compress, model: network)
       
       return dUrl
     }
