@@ -13,13 +13,13 @@ import NumSwift
 final class LayerTests: XCTestCase {
   
   // MARK: Sequential
-  func test_sequential_importExport() {
+  func test_sequential_importExport_Compressed() {
     
     let size = TensorSize(array: [64,64,3])
     
     let initializer: InitializerType = .heNormal
     
-    let firstLayerFilterCount = 32
+    let firstLayerFilterCount = 8
     let firstDenseLayerDepthCount = firstLayerFilterCount
     let denseLayerOutputSize = (size.columns / 4, size.rows / 4, firstLayerFilterCount)
     let denseLayerOutputCount = denseLayerOutputSize.0 * denseLayerOutputSize.1 * firstDenseLayerDepthCount
@@ -58,8 +58,64 @@ final class LayerTests: XCTestCase {
     
     n.compile()
 
-    guard let gUrl = ExportHelper.getModel(filename: "generator", model: n) else {
-      XCTAssert(true)
+    guard let gUrl = ExportHelper.getModel(filename: "generator", compress: true, model: n) else {
+      XCTFail("invalid URL")
+      return
+    }
+    
+    let newN = Sequential.import(gUrl)
+    newN.compile()
+    
+    XCTAssertEqual(newN.debugDescription, n.debugDescription)
+  }
+  
+  func test_sequential_importExport_not_Compressed() {
+    
+    let size = TensorSize(array: [64,64,3])
+    
+    let initializer: InitializerType = .heNormal
+    
+    let firstLayerFilterCount = 8
+    let firstDenseLayerDepthCount = firstLayerFilterCount
+    let denseLayerOutputSize = (size.columns / 4, size.rows / 4, firstLayerFilterCount)
+    let denseLayerOutputCount = denseLayerOutputSize.0 * denseLayerOutputSize.1 * firstDenseLayerDepthCount
+    
+    let n = Sequential {
+      [
+        Dense(denseLayerOutputCount,
+              inputs: 100,
+              initializer: initializer,
+              biasEnabled: false),
+        LeakyReLu(limit: 0.2),
+        Reshape(to: [size.columns / 4, size.rows / 4, firstDenseLayerDepthCount].tensorSize),
+        TransConv2d(filterCount: firstLayerFilterCount * 2, //14x14
+                    strides: (2,2),
+                    padding: .same,
+                    filterSize: (3,3),
+                    initializer: initializer,
+                    biasEnabled: false),
+        LeakyReLu(limit: 0.2),
+        TransConv2d(filterCount: firstLayerFilterCount, //28x28
+                    strides: (2,2),
+                    padding: .same,
+                    filterSize: (3,3),
+                    initializer: initializer,
+                    biasEnabled: false),
+        LeakyReLu(limit: 0.2),
+        Conv2d(filterCount: size.depth,
+               strides: (1,1),
+               padding: .same,
+               filterSize: (7,7),
+               initializer: initializer,
+               biasEnabled: false),
+        Tanh()
+      ]
+    }
+    
+    n.compile()
+
+    guard let gUrl = ExportHelper.getModel(filename: "generator", compress: false, model: n) else {
+      XCTFail("invalid URL")
       return
     }
     

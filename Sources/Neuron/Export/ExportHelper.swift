@@ -47,6 +47,7 @@ public struct ExportHelper: ModelBuilder {
     do {
       let encoder = JSONEncoder()
       encoder.outputFormatting = .prettyPrinted
+      
       let dict = try encoder.encode(model)
       let path = try fileManager.url(for: .documentDirectory, in: .allDomainsMask, appropriateFor: nil, create: false)
 
@@ -55,9 +56,10 @@ public struct ExportHelper: ModelBuilder {
           return nil
         }
         
+        // will remove all newlines and spaces
         minimized = minimized.replacingOccurrences(of: "\n", with: "").replacingOccurrences(of: " ", with: "")
         
-        let minFileName = "\(filename).smodelm"
+        let minFileName = "\(filename)_compressed.smodel"
         let minFileURL = path.appendingPathComponent(minFileName)
         
         try minimized.write(to: minFileURL, atomically: true, encoding: .utf8)
@@ -79,13 +81,11 @@ public struct ExportHelper: ModelBuilder {
       
     }
   }
-  
+
   internal static func buildModel<T: Trainable>(_ url: URL) -> Result<T, Error> {
-    let modelJsonResult: Result<[AnyHashable: Any]?, Error> = Self.getJSON(url)
-    
     do {
-      let modelJSON = try modelJsonResult.get()
-      let modelResult: Result<T?, Error> = self.build(modelJSON)
+      let data = try Data(contentsOf: url, options: .mappedIfSafe)
+      let modelResult: Result<T?, Error> = self.build(data)
       if let model = try modelResult.get() {
         return .success(model)
       }
