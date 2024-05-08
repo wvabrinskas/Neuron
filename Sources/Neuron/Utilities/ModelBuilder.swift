@@ -29,6 +29,20 @@ internal enum BuildError: Error {
 }
 
 internal extension ModelBuilder {
+  static func build<TViewModel: Decodable>(_ data: Data?) -> Result<TViewModel?, Error> {
+    guard let jsonData = data else {
+      return .failure(BuildError.emptyJson)
+    }
+    
+    do {
+      let model = try JSONDecoder().decode(TViewModel.self, from: jsonData)
+      return .success(model)
+    } catch {
+      print(error.localizedDescription)
+      return .failure(error)
+    }
+  }
+  
   static func build<TViewModel: Decodable>(_ json: [AnyHashable : Any]?) -> Result<TViewModel?, Error> {
     guard let jsonData = json else {
       return .failure(BuildError.emptyJson)
