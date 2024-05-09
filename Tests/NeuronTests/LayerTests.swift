@@ -15,8 +15,8 @@ final class LayerTests: XCTestCase {
   // MARK: Sequential
   func test_sequential_importExport_Compressed() {
     
-    let size = TensorSize(array: [64,64,3])
-    
+    let size = TensorSize(array: [28,28,1])
+
     let initializer: InitializerType = .heNormal
     
     let firstLayerFilterCount = 8
@@ -71,7 +71,7 @@ final class LayerTests: XCTestCase {
   
   func test_sequential_importExport_not_Compressed() {
     
-    let size = TensorSize(array: [64,64,3])
+    let size = TensorSize(array: [28,28,1])
     
     let initializer: InitializerType = .heNormal
     
