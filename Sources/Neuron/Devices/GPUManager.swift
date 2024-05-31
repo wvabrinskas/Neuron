@@ -3,6 +3,9 @@ import Metal
 import MetalPerformanceShaders
 import Accelerate
 
+
+// MARK: WIP - This is a work in progress and is not ready for use.
+
 extension MTLTexture {
   func getPixels<T> (_ region: MTLRegion? = nil, mipmapLevel: Int = 0) -> UnsafeMutablePointer<T> {
     let fromRegion  = region ?? MTLRegionMake2D(0, 0, self.width, self.height)
@@ -198,7 +201,7 @@ public class GPUManager {
     }
     
     let w = pipelineStrong.threadExecutionWidth
-    let h = pipelineStrong.maxTotalThreadsPerThreadgroup / w
+    let _ = pipelineStrong.maxTotalThreadsPerThreadgroup / w
     let threadsPerThreadgroup = MTLSizeMake(1, 1, 1)
     
     let threadgroupsPerGrid = MTLSize(width: 1,
