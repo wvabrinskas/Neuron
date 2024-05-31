@@ -13,7 +13,7 @@ public class Classifier {
   private let threadWorkers: Int
   private let epochs: Int
   private let log: Bool
-  private let lossFunction = LossFunction.crossEntropySoftmax
+  private let lossFunction: LossFunction
   private let accuracyThreshold: Float
   private let killOnAccuracy: Bool
   
@@ -28,7 +28,8 @@ public class Classifier {
               accuracyThreshold: Float = 0.8,
               killOnAccuracy: Bool = true,
               threadWorkers: Int = 16,
-              log: Bool = false) {
+              log: Bool = false,
+              lossFunction: LossFunction = .crossEntropySoftmax) {
     self.batchSize = batchSize
     self.accuracyThreshold = accuracyThreshold
     self.threadWorkers = threadWorkers
@@ -37,6 +38,7 @@ public class Classifier {
     self.killOnAccuracy = killOnAccuracy
     self.log = log
     self.optimizer.workers = threadWorkers
+    self.lossFunction = lossFunction
   }
   
   public func feed(_ data: [Tensor]) -> [Tensor] {
@@ -118,13 +120,9 @@ public class Classifier {
   }
   
   @discardableResult
-  public func export(overrite: Bool = false) -> URL? {
+  public func export(overrite: Bool = false, compress: Bool = true) -> URL? {
     if let network = optimizer.trainable as? Sequential {
-      let additional = overrite == false ? "-\(Date().timeIntervalSince1970)" : ""
-      
-      let dUrl = ExportHelper.getModel(filename: "classifier\(additional)", model: network)
-      
-      return dUrl
+      return network.export(overrite: overrite, compress: compress)
     }
     
     return nil

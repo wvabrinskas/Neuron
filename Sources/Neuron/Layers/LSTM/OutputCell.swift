@@ -32,11 +32,11 @@ class OutputCell {
                 activations: [[Tensor.Scalar]],
                 batchSize: Int,
                 hiddenOutputWeights: Tensor) -> (outputs: Tensor, weights: Tensor, biases: Tensor) {
-    let w = hiddenOutputWeights.value.transpose()
+    let w = hiddenOutputWeights.value.transpose2d()
     
     let wrtOutputs = Tensor(gradient).matmul(Tensor(w))
     
-    var wrtWeights = Tensor(activations.transpose()).matmul(Tensor(gradient))
+    var wrtWeights = Tensor(activations.transpose2d()).matmul(Tensor(gradient))
     
     let wrtBiases = Tensor(gradient).sum(axis: 1)
     

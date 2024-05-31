@@ -8,6 +8,11 @@
 import Foundation
 
 public final class Sequential: Trainable {
+  public var threadId: Int = 0 {
+    didSet {
+      layers.forEach { $0.threadId = threadId }
+    }
+  }
   public var name: String = "Sequential"
   public var device: Device = CPU() {
     didSet {

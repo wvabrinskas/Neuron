@@ -41,7 +41,7 @@ public final class LSTM: BaseLayer {
   private var batchLength: Int
   private let returnSequence: Bool
   
-  @Atomic private var cellCache: [Cache] = []
+  private var cellCache: ThreadStorage<[Cache]> = .init()
 
   public class LSTMActivations {
     let forgetGate: Tensor
@@ -228,26 +228,23 @@ public final class LSTM: BaseLayer {
   /// `(rows: 1, columns: vocabSize, depth: batchLength)` or just the last output of the sequence of size
   /// `(rows: 1, columns: vocabSize, depth: 1)`
   public override func forward(tensor: Tensor) -> Tensor {
+    let cellCacheToPredictWith = cellCache.value(at: threadId) ?? []
     
-    var cellCache: [Cache] = [setupInitialState()]
+    var localCellCache: [Cache] = [setupInitialState()]
     
-    if isTraining == false {
-      cellCache = self.cellCache.isEmpty ? [setupInitialState()] : self.cellCache
-    }
-    
-    let context = TensorContext { self.backward(inputs: $0, gradient: $1, cellCache: cellCache) }
+    let context = TensorContext { self.backward(inputs: $0, gradient: $1, cellCache: localCellCache) }
     
     var out = Tensor(context: context)
 
-    let range = 0..<tensor.value.count
-    
-    // TODO: What happens to the prediction after we extend pass the batchLength
-    for d in range {
-      let index = isTraining ? d : max(self.cellCache.count - 1, 0)
-      guard let cache = cellCache[safe: index] else { break }
+    let range = 0..<batchLength
+        
+    /// What happens to the prediction after we extend pass the batchLength?
+    /// we need to truncate the input data if this happens to fit the expected window length
+    for index in range {
+      guard let cache = localCellCache[safe: index] else { break }
       
       // get embeddings from input
-      let getEmbeddings = Tensor(tensor.value[safe: index] ?? tensor.value[0])
+      let getEmbeddings = Tensor(tensor.value[safe: index] ?? NumSwift.zerosLike((rows: 1, columns: vocabSize))) //use first vector
       
       let cell = LSTMCell(hidden: hiddenUnits,
                           input: inputUnits,
@@ -266,6 +263,7 @@ public final class LSTM: BaseLayer {
                                     parameters: cellParameters,
                                     cache: cache)
       
+      // used mainly for prediction and shouldn't be used in back propogation unless there's a gradient associated with it
       let outputCell = OutputCell(device: device)
       let outputCellParameters = OutputCell.Parameters(hiddenOutputWeights: hiddenOutputWeights.detached(),
                                                        hiddenOutputBiases: hiddenOutputBiases.detached(),
@@ -279,16 +277,14 @@ public final class LSTM: BaseLayer {
                                embedding: getEmbeddings.detached(),
                                output: outputCellOutput.detached())
       
-      cellCache.append(newCellCache)
+      localCellCache.append(newCellCache)
       
       let new = out.concat(outputCellOutput, axis: 2)
       out = new
     }
-
-    if isTraining == false {
-      self.cellCache = cellCache
-    }
     
+    self.cellCache.store(localCellCache, at: threadId)
+
     if returnSequence == false, let last = out.value.last {
       out = Tensor(last, context: context)
     }
@@ -379,7 +375,7 @@ public final class LSTM: BaseLayer {
       
       let outputCell = OutputCell(device: self.device)
 
-      let activationErrors = outputCell.backward(gradient: gradient.value[safe: index] ?? gradient.zerosLike().value[0],
+      let activationErrors = outputCell.backward(gradient: gradient.value[safe: index] ?? gradient.zerosLike().value[0], // if output cell didn't get used in the loss function we don't need its gradients
                                                  activations: cellCache[index].activation.value[0],
                                                  batchSize: 1,
                                                  hiddenOutputWeights: self.hiddenOutputWeights.detached())
@@ -466,7 +462,7 @@ public final class LSTM: BaseLayer {
   }
 
   private func reset() {
-    cellCache.removeAll()
+    cellCache.store([], at: threadId)
   }
 
   private func initializeWeights() {

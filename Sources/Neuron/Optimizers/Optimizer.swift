@@ -160,6 +160,7 @@ open class BaseOptimizer: Optimizer {
       let label: [Tensor.Scalar] = labels[index].value.flatten()
       let input = data[index]
       
+      self.trainable.threadId = index
       let out = self.trainable.predict(input)
       
       outputs[index] = out

@@ -32,7 +32,7 @@ public final class Embedding: BaseLayer {
     
     self.weights = weights
     // manages its own weight updates
-    self.usesOptimizer = false
+    self.usesOptimizer = true
   }
   
   enum CodingKeys: String, CodingKey {
@@ -110,7 +110,13 @@ public final class Embedding: BaseLayer {
     var out = Tensor(context: context)
 
     for d in 0..<batchLength {
-      let word = Tensor(tensor.value[safe: d] ?? out.value[safe: d] ?? tensor.value[0])
+      if tensor.value.count < d {
+        let concatOut = out.concat(Tensor(NumSwift.zerosLike((rows: 1, columns: inputUnits))), axis: 2)
+        out = concatOut
+        continue
+      }
+      
+      let word = Tensor(tensor.value[safe: d] ?? out.value[safe: d] ?? NumSwift.zerosLike((rows: 1, columns: vocabSize)))
       let getEmbeddings = device.matmul(word, weights.detached())
       
       let concatOut = out.concat(getEmbeddings, axis: 2)

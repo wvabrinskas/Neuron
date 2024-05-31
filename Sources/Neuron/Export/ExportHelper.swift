@@ -41,21 +41,38 @@ public struct ExportHelper: ModelBuilder {
 
   }
   
-  public static func getModel<T: Codable>(filename: String = "model", model: T) -> URL? {
+  public static func getModel<T: Codable>(filename: String = "model", compress: Bool, model: T) -> URL? {
     let fileManager = FileManager.default
 
     do {
       let encoder = JSONEncoder()
       encoder.outputFormatting = .prettyPrinted
-      let dict = try encoder.encode(model)
       
+      let dict = try encoder.encode(model)
       let path = try fileManager.url(for: .documentDirectory, in: .allDomainsMask, appropriateFor: nil, create: false)
+
+      guard compress == false else {
+        guard var minimized = String(data: dict, encoding: .utf8) else {
+          return nil
+        }
+        
+        // will remove all newlines and spaces
+        minimized = minimized.replacingOccurrences(of: "\n", with: "").replacingOccurrences(of: " ", with: "")
+        
+        let minFileName = "\(filename)_compressed.smodel"
+        let minFileURL = path.appendingPathComponent(minFileName)
+        
+        try minimized.write(to: minFileURL, atomically: true, encoding: .utf8)
+        
+        return minFileURL
+      }
+
       let fileName = "\(filename).smodel"
       
       let fileURL = path.appendingPathComponent(fileName)
       
       try dict.write(to: fileURL)
-      
+
       return fileURL
       
     } catch {
@@ -64,13 +81,11 @@ public struct ExportHelper: ModelBuilder {
       
     }
   }
-  
+
   internal static func buildModel<T: Trainable>(_ url: URL) -> Result<T, Error> {
-    let modelJsonResult: Result<[AnyHashable: Any]?, Error> = Self.getJSON(url)
-    
     do {
-      let modelJSON = try modelJsonResult.get()
-      let modelResult: Result<T?, Error> = self.build(modelJSON)
+      let data = try Data(contentsOf: url, options: .mappedIfSafe)
+      let modelResult: Result<T?, Error> = self.build(data)
       if let model = try modelResult.get() {
         return .success(model)
       }

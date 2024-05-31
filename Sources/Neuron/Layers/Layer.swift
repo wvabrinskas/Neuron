@@ -49,6 +49,7 @@ public protocol ConvolutionalLayer: Layer {
 
 /// The the object that perform ML operations
 public protocol Layer: AnyObject, Codable {
+  var threadId: Int { get set }
   var encodingType: EncodingType { get set }
   var extraEncodables: [String: Codable]? { get }
   var inputSize: TensorSize { get set }
@@ -88,6 +89,7 @@ extension Layer {
 }
 
 open class BaseLayer: Layer {
+  public var threadId: Int = 0
   public var encodingType: EncodingType
   public var inputSize: TensorSize = .init() {
     didSet {
