@@ -78,7 +78,7 @@ extension OperationQueue {
   }
 }
 
-public final class SynchronousOperationQueue: OperationQueue {
+public final class SynchronousOperationQueue: OperationQueue, @unchecked Sendable {
   
   public init(name: String? = nil) {
     super.init()
