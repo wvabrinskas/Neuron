@@ -126,7 +126,6 @@ public enum Activation: Codable, Equatable {
     case .leakyRelu(let limit):
       return input > 0 ? 1 : limit
     case .swish:
-      let e = Float(Darwin.M_E)
       let x = input
       return (exp(-x) * (x + 1) + 1) / pow((1 + exp(-x)), 2)
     case .tanh:

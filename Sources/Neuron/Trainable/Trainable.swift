@@ -63,7 +63,7 @@ public extension Trainable {
   }
   
   @discardableResult
-  public func export(name: String? = nil, overrite: Bool = false, compress: Bool = true) -> URL? {
+  func export(name: String? = nil, overrite: Bool = false, compress: Bool = true) -> URL? {
     let additional = overrite == false ? "-\(Date().timeIntervalSince1970)" : ""
     
     let filename = (name ?? "sequential") + additional

@@ -228,8 +228,6 @@ public final class LSTM: BaseLayer {
   /// `(rows: 1, columns: vocabSize, depth: batchLength)` or just the last output of the sequence of size
   /// `(rows: 1, columns: vocabSize, depth: 1)`
   public override func forward(tensor: Tensor) -> Tensor {
-    let cellCacheToPredictWith = cellCache.value(at: threadId) ?? []
-    
     var localCellCache: [Cache] = [setupInitialState()]
     
     let context = TensorContext { self.backward(inputs: $0, gradient: $1, cellCache: localCellCache) }

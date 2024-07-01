@@ -12,6 +12,45 @@ import NumSwift
 
 final class LayerTests: XCTestCase {
   
+  func test_encode_normal_initializer_type_keepsValue() {
+    let expectedStd: Float = 0.1
+    let rawInitializer: InitializerType = .normal(std: expectedStd)
+    let initializer = rawInitializer.build()
+    
+    let encoder = JSONEncoder()
+    let data = try? encoder.encode(initializer)
+    
+    XCTAssertNotNil(data)
+    
+    let decoder = JSONDecoder()
+    let newInitializer = try? decoder.decode(Initializer.self, from: data!)
+    
+    XCTAssertNotNil(newInitializer)
+    
+    switch newInitializer!.type {
+    case .normal(let std):
+      XCTAssertEqual(std, expectedStd, accuracy: 0.00001)
+    default:
+      XCTFail("Incorrect initializer decoded")
+    }
+  }
+  
+  func test_encode_initializers() {
+    let rawInitializer: InitializerType = .heNormal
+    let initializer = rawInitializer.build()
+    
+    let encoder = JSONEncoder()
+    let data = try? encoder.encode(initializer)
+    
+    XCTAssertNotNil(data)
+    
+    let decoder = JSONDecoder()
+    let newInitializer = try? decoder.decode(Initializer.self, from: data!)
+    
+    XCTAssertNotNil(newInitializer)
+    XCTAssertEqual(initializer.type, newInitializer!.type)
+  }
+  
   // MARK: Sequential
   func test_sequential_importExport_Compressed() {
     
