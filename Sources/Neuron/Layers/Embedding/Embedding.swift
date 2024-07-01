@@ -31,6 +31,8 @@ public final class Embedding: BaseLayer {
                                                 out: batchLength)
     
     self.weights = weights
+    // manages its own weight updates
+    self.usesOptimizer = true
   }
   
   enum CodingKeys: String, CodingKey {
@@ -87,7 +89,11 @@ public final class Embedding: BaseLayer {
         let gradientAtIndex = gradient.value[i]
         
         let embeddingError = Tensor(gradientAtIndex)
-        let inputsTransposed = Tensor(inputs.value[i].transpose())
+        
+        let inputsTransposed = Tensor(NumSwiftC.tranpose(inputs.value[i],
+                                                   size: (rows: self.inputSize.rows,
+                                                          columns: self.inputSize.columns)))
+        
         let dEmbedding = inputsTransposed.matmul(embeddingError)
         
         if wrtEmbeddings.isEmpty {
@@ -104,7 +110,13 @@ public final class Embedding: BaseLayer {
     var out = Tensor(context: context)
 
     for d in 0..<batchLength {
-      let word = Tensor(tensor.value[safe: d] ?? out.value[safe: d] ?? tensor.value[0])
+      if tensor.value.count < d {
+        let concatOut = out.concat(Tensor(NumSwift.zerosLike((rows: 1, columns: inputUnits))), axis: 2)
+        out = concatOut
+        continue
+      }
+      
+      let word = Tensor(tensor.value[safe: d] ?? out.value[safe: d] ?? NumSwift.zerosLike((rows: 1, columns: vocabSize)))
       let getEmbeddings = device.matmul(word, weights.detached())
       
       let concatOut = out.concat(getEmbeddings, axis: 2)
@@ -119,7 +131,11 @@ public final class Embedding: BaseLayer {
   
   public override func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Float) {
     if trainable {
-      weights = weights - gradients.weights // use Optimizer adjusted weights to adjust
+      if usesOptimizer {
+        weights = weights - gradients.weights
+      } else {
+        weights = weights - learningRate * gradients.weights
+      }
     }
   }
 }

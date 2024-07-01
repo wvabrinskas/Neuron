@@ -15,7 +15,7 @@ public class GAN {
 
   public var generator: Optimizer
   public var discriminator: Optimizer
-  public var noise: () -> [Tensor.Scalar]
+  public var noise: () -> Tensor
   public var onEpochCompleted: ((_ epoch: Int) -> ())? = nil
   public var validateGenerator: ((_ output: Tensor) -> ())? = nil
   public var onCompleted: (() -> ())? = nil
@@ -50,12 +50,15 @@ public class GAN {
     self.discriminatorNoiseFactor = discriminatorNoiseFactor
     self.validationFrequency = validationFrequency
     
+    self.generator.workers = threadWorkers
+    self.discriminator.workers = threadWorkers
+    
     self.noise = {
       var noise: [Tensor.Scalar] = []
       for _ in 0..<10 {
         noise.append(Tensor.Scalar.random(in: 0...1))
       }
-      return noise
+      return Tensor(noise)
     }
     
   }
@@ -128,7 +131,7 @@ public class GAN {
   
   public func generate() -> Tensor {
     self.generator.isTraining = false
-    let out = generator([Tensor(noise())])
+    let out = generator([noise()])
     return out.first?.detached() ?? Tensor()
   }
   
@@ -138,15 +141,15 @@ public class GAN {
   }
   
   @discardableResult
-  public func export(overrite: Bool = false) -> (discriminator: URL?, generator: URL?) {
+  public func export(overrite: Bool = false, compress: Bool = false) -> (discriminator: URL?, generator: URL?) {
     var urls: (URL?, URL?) = (nil, nil)
     if let generatorS = generator.trainable as? Sequential,
        let discS = discriminator.trainable as? Sequential {
       
       let additional = overrite == false ? "-\(Date().timeIntervalSince1970)" : ""
       
-      let dUrl = ExportHelper.getModel(filename: "discriminator\(additional)", model: discS)
-      let gUrl = ExportHelper.getModel(filename: "generator\(additional)", model: generatorS)
+      let dUrl = ExportHelper.getModel(filename: "discriminator\(additional)", compress: compress, model: discS)
+      let gUrl = ExportHelper.getModel(filename: "generator\(additional)", compress: compress, model: generatorS)
       
       urls = (dUrl, gUrl)
     }
@@ -207,7 +210,7 @@ public class GAN {
     var fakeLabels: [Tensor] = [Tensor](repeating: Tensor(), count: count)
 
     Array(0..<count).concurrentForEach(workers: min(Constants.maxWorkers, Int(ceil(Double(count) / Double(4))))) { _, index in
-      var sample = self.generator([Tensor(self.noise())])[safe: 0, Tensor()]
+      var sample = self.generator([self.noise()])[safe: 0, Tensor()]
       
       if detatch {
         sample = sample.detached()

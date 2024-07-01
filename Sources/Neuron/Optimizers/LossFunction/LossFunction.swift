@@ -13,6 +13,7 @@ public enum LossFunction {
   case crossEntropy
   case crossEntropySoftmax
   case binaryCrossEntropy
+  case binaryCrossEntropySoftmax
   case wasserstein
   case minimaxBinaryCrossEntropy
   
@@ -77,20 +78,22 @@ public enum LossFunction {
       return sum
       
     case .binaryCrossEntropy,
+         .binaryCrossEntropySoftmax,
          .minimaxBinaryCrossEntropy:
-      guard correct.count == 1 else {
-        return 0
-      }
-      
-      let y = correct[0]
-      let p = predicted[0]
-
       func clipped(_ value: Tensor.Scalar) -> Tensor.Scalar {
-        return max(1e-10, value)
+        return max(1e-9, value)
       }
       
-      let result = -1 * (y * log(clipped(p)) + (1 - y) * log(clipped(1 - p)))
-      return result
+      var sum: Tensor.Scalar = 0
+      
+      for i in 0..<predicted.count {
+
+        let y = correct[i]
+        let p = predicted[i]
+        sum += -1 * (y * log(clipped(p)) + (1 - y) * log(clipped(1 - p)))
+      }
+      
+      return sum
     }
 
   }
@@ -102,7 +105,8 @@ public enum LossFunction {
     case .crossEntropy:
       return predicted.map { -1 * (1 / $0) }
       
-    case .crossEntropySoftmax:
+    case .crossEntropySoftmax,
+         .binaryCrossEntropySoftmax:
       //only if Softmax is the modifier
       return predicted - correct
       
@@ -135,7 +139,8 @@ public enum LossFunction {
     case .crossEntropy:
       return predicted.map { -1 * (1 / $0) }
       
-    case .crossEntropySoftmax:
+    case .crossEntropySoftmax,
+         .binaryCrossEntropySoftmax:
       //only if Softmax is the modifier
       return predicted - correct
       

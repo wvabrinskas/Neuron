@@ -12,14 +12,53 @@ import NumSwift
 
 final class LayerTests: XCTestCase {
   
+  func test_encode_normal_initializer_type_keepsValue() {
+    let expectedStd: Float = 0.1
+    let rawInitializer: InitializerType = .normal(std: expectedStd)
+    let initializer = rawInitializer.build()
+    
+    let encoder = JSONEncoder()
+    let data = try? encoder.encode(initializer)
+    
+    XCTAssertNotNil(data)
+    
+    let decoder = JSONDecoder()
+    let newInitializer = try? decoder.decode(Initializer.self, from: data!)
+    
+    XCTAssertNotNil(newInitializer)
+    
+    switch newInitializer!.type {
+    case .normal(let std):
+      XCTAssertEqual(std, expectedStd, accuracy: 0.00001)
+    default:
+      XCTFail("Incorrect initializer decoded")
+    }
+  }
+  
+  func test_encode_initializers() {
+    let rawInitializer: InitializerType = .heNormal
+    let initializer = rawInitializer.build()
+    
+    let encoder = JSONEncoder()
+    let data = try? encoder.encode(initializer)
+    
+    XCTAssertNotNil(data)
+    
+    let decoder = JSONDecoder()
+    let newInitializer = try? decoder.decode(Initializer.self, from: data!)
+    
+    XCTAssertNotNil(newInitializer)
+    XCTAssertEqual(initializer.type, newInitializer!.type)
+  }
+  
   // MARK: Sequential
-  func test_sequential_importExport() {
+  func test_sequential_importExport_Compressed() {
     
-    let size = TensorSize(array: [64,64,3])
-    
+    let size = TensorSize(array: [28,28,1])
+
     let initializer: InitializerType = .heNormal
     
-    let firstLayerFilterCount = 32
+    let firstLayerFilterCount = 8
     let firstDenseLayerDepthCount = firstLayerFilterCount
     let denseLayerOutputSize = (size.columns / 4, size.rows / 4, firstLayerFilterCount)
     let denseLayerOutputCount = denseLayerOutputSize.0 * denseLayerOutputSize.1 * firstDenseLayerDepthCount
@@ -58,8 +97,64 @@ final class LayerTests: XCTestCase {
     
     n.compile()
 
-    guard let gUrl = ExportHelper.getModel(filename: "generator", model: n) else {
-      XCTAssert(true)
+    guard let gUrl = ExportHelper.getModel(filename: "generator", compress: true, model: n) else {
+      XCTFail("invalid URL")
+      return
+    }
+    
+    let newN = Sequential.import(gUrl)
+    newN.compile()
+    
+    XCTAssertEqual(newN.debugDescription, n.debugDescription)
+  }
+  
+  func test_sequential_importExport_not_Compressed() {
+    
+    let size = TensorSize(array: [28,28,1])
+    
+    let initializer: InitializerType = .heNormal
+    
+    let firstLayerFilterCount = 8
+    let firstDenseLayerDepthCount = firstLayerFilterCount
+    let denseLayerOutputSize = (size.columns / 4, size.rows / 4, firstLayerFilterCount)
+    let denseLayerOutputCount = denseLayerOutputSize.0 * denseLayerOutputSize.1 * firstDenseLayerDepthCount
+    
+    let n = Sequential {
+      [
+        Dense(denseLayerOutputCount,
+              inputs: 100,
+              initializer: initializer,
+              biasEnabled: false),
+        LeakyReLu(limit: 0.2),
+        Reshape(to: [size.columns / 4, size.rows / 4, firstDenseLayerDepthCount].tensorSize),
+        TransConv2d(filterCount: firstLayerFilterCount * 2, //14x14
+                    strides: (2,2),
+                    padding: .same,
+                    filterSize: (3,3),
+                    initializer: initializer,
+                    biasEnabled: false),
+        LeakyReLu(limit: 0.2),
+        TransConv2d(filterCount: firstLayerFilterCount, //28x28
+                    strides: (2,2),
+                    padding: .same,
+                    filterSize: (3,3),
+                    initializer: initializer,
+                    biasEnabled: false),
+        LeakyReLu(limit: 0.2),
+        Conv2d(filterCount: size.depth,
+               strides: (1,1),
+               padding: .same,
+               filterSize: (7,7),
+               initializer: initializer,
+               biasEnabled: false),
+        Tanh()
+      ]
+    }
+    
+    n.compile()
+
+    guard let gUrl = ExportHelper.getModel(filename: "generator", compress: false, model: n) else {
+      XCTFail("invalid URL")
       return
     }
     
@@ -114,6 +209,100 @@ final class LayerTests: XCTestCase {
     } catch {
       XCTAssertTrue(true)
     }
+  }
+  
+  // MARK: SeLu
+  func test_seLu() {
+    let input: [[[Float]]] = [[[0.0, 1.0, -1.0, 0.0],
+                               [0.0, 1.0, -1.0, 0.0]],
+                              [[0.0, 1.0, -1.0, 0.0],
+                               [0.0, 1.0, -1.0, 0.0]]]
+    
+    let inputSize = input.shape
+
+    let layer = SeLu(inputSize: TensorSize(array: inputSize))
+    let out = layer.forward(tensor: Tensor(input))
+    
+    XCTAssertEqual(inputSize, out.shape)
+    
+    let expected: [[[Float]]] = [[[0.0, 1.0507, -1.1113541, 0.0],
+                                 [0.0, 1.0507, -1.1113541, 0.0]],
+                                [[0.0, 1.0507, -1.1113541, 0.0],
+                                 [0.0, 1.0507, -1.1113541, 0.0]]]
+    
+    XCTAssertEqual(expected, out.value)
+    
+    let delta = Tensor([[[-1.0, 1.0, -1.0, 0.0],
+                         [-1.0, 1.0, -1.0, 0.0]],
+                        [[-1.0, 1.0, -1.0, 0.0],
+                         [-1.0, 1.0, -1.0, 0.0]]])
+    
+    let gradients = out.gradients(delta: delta)
+        
+    let expectedGradients: [[[Float]]] = [[[-1.7581363, 1.0507, -0.6467822, 0.0],
+                                           [-1.7581363, 1.0507, -0.6467822, 0.0]],
+                                          [[-1.7581363, 1.0507, -0.6467822, 0.0],
+                                           [-1.7581363, 1.0507, -0.6467822, 0.0]]]
+    
+    XCTAssertEqual(gradients.input.first!.value, expectedGradients)
+  }
+  
+  // MARK: AvgPool
+  func test_avgPool() {
+    let input: [[[Float]]] = [[[0.1, 0.2, 0.3, 0.4],
+                               [0.1, 0.2, 0.3, 0.4],
+                               [0.1, 0.2, 0.3, 0.4],
+                               [0.1, 0.2, 0.3, 0.4]],
+                              [[0.1, 0.2, 0.3, 0.4],
+                               [0.1, 0.2, 0.3, 0.4],
+                               [0.1, 0.2, 0.3, 0.4],
+                               [0.1, 0.2, 0.3, 0.4]],
+                              [[0.1, 0.2, 0.3, 0.4],
+                               [0.1, 0.2, 0.3, 0.4],
+                               [0.1, 0.2, 0.3, 0.4],
+                               [0.1, 0.2, 0.3, 0.4]]]
+    
+    let inputSize = input.shape
+
+    let layer = AvgPool(inputSize: TensorSize(array: inputSize))
+    let out = layer.forward(tensor: Tensor(input))
+    
+    XCTAssertEqual([2,2,3], out.shape)
+    
+    let expected: [[[Float]]] = [[[0.15, 0.35],
+                                  [0.15, 0.35]],
+                                 [[0.15, 0.35],
+                                  [0.15, 0.35]],
+                                 [[0.15, 0.35],
+                                  [0.15, 0.35]]]
+    
+    XCTAssertEqual(expected, out.value)
+    
+    let delta: [[[Float]]] = [[[0.1, 0.3],
+                               [0.2, 0.5]],
+                              [[0.1, 0.3],
+                               [0.2, 0.5]],
+                              [[0.1, 0.3],
+                               [0.2, 0.5]]]
+    
+    let gradients = out.gradients(delta: Tensor(delta))
+    
+    XCTAssertEqual(inputSize, gradients.input.first!.shape)
+    
+    let expectedGradients: [[[Float]]] = [[[0.025, 0.025, 0.075, 0.075],
+                                           [0.025, 0.025, 0.075, 0.075],
+                                           [0.05, 0.05, 0.125, 0.125],
+                                           [0.05, 0.05, 0.125, 0.125]],
+                                          [[0.025, 0.025, 0.075, 0.075],
+                                           [0.025, 0.025, 0.075, 0.075],
+                                           [0.05, 0.05, 0.125, 0.125],
+                                           [0.05, 0.05, 0.125, 0.125]],
+                                          [[0.025, 0.025, 0.075, 0.075],
+                                           [0.025, 0.025, 0.075, 0.075],
+                                           [0.05, 0.05, 0.125, 0.125],
+                                           [0.05, 0.05, 0.125, 0.125]]]
+
+    XCTAssertEqual(expectedGradients, gradients.input.first!.value)
   }
   
   // MARK: Dense
@@ -333,4 +522,5 @@ final class LayerTests: XCTestCase {
     
     XCTAssertEqual(out.shape, [inputUnits, 1, batchLength])
   }
+
 }

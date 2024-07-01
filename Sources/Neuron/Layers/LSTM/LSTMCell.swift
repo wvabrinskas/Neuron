@@ -125,7 +125,7 @@ class LSTMCell {
     let gaOut = Tanh().forward(tensor: ga)
     
     // output gate
-    let oa = device.matmul(concat, ogw) + parameters.outputGateBiases.asScalar()
+    let oa = device.matmul(concat, ogw) + parameters.outputGateBiases.asScalar() // Could be Dense layers
     let oaOut = Sigmoid().forward(tensor: oa)
     
     let cellMemoryMatrix = (faOut * previousCellMatrix) + (iaOut * gaOut)
@@ -192,10 +192,10 @@ class LSTMCell {
     let ogw = parameters.outputGateWeights
     let ggw = parameters.gateGateWeights
     
-    var embedActivationError = ef.matmul(Tensor(fgw.value.transpose()))
-    embedActivationError = embedActivationError + (ei.matmul(Tensor(igw.value.transpose())))
-    embedActivationError = embedActivationError + (eo.matmul(Tensor(ogw.value.transpose())))
-    embedActivationError = embedActivationError + (eg.matmul(Tensor(ggw.value.transpose())))
+    var embedActivationError = ef.matmul(Tensor(fgw.value.transpose2d()))
+    embedActivationError = embedActivationError + (ei.matmul(Tensor(igw.value.transpose2d())))
+    embedActivationError = embedActivationError + (eo.matmul(Tensor(ogw.value.transpose2d())))
+    embedActivationError = embedActivationError + (eg.matmul(Tensor(ggw.value.transpose2d())))
     
     let fgwShape = fgw.shape
     let inputHiddenUnits = fgwShape[safe: 1] ?? 0

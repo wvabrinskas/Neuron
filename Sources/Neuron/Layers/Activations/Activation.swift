@@ -14,6 +14,7 @@ public enum Activation: Codable, Equatable {
   case swish
   case tanh
   case softmax
+  case seLu
   case none
   
   public func index() -> Int {
@@ -24,7 +25,8 @@ public enum Activation: Codable, Equatable {
     case .swish: return 3
     case .tanh: return 4
     case .softmax: return 5
-    case .none: return 6
+    case .seLu: return 6
+    case .none: return 7
     }
   }
   
@@ -36,6 +38,7 @@ public enum Activation: Codable, Equatable {
     case .swish: return "swish"
     case .tanh: return "tanh"
     case .softmax: return "softmax"
+    case .seLu: return "seLu"
     case .none: return "none"
     }
   }
@@ -62,10 +65,18 @@ public enum Activation: Codable, Equatable {
   private func activate(input: Float) -> Float {
     var returnValue: Float = 0
     switch self {
+    case .seLu:
+      let lambda: Float = 1.0507
+      let alpha: Float = 1.6733
+      if input > 0 {
+        return lambda * input
+      } else {
+        return lambda * alpha * (exp(input) - 1)
+      }
     case .reLu:
       returnValue = max(0, input)
     case .sigmoid:
-      let out =  1.0 / (1.0 + pow(Float(Darwin.M_E), -input))
+      let out =  1.0 / (1.0 + exp(-input))
       returnValue = out
     case .leakyRelu(let limit):
       if input < 0 {
@@ -74,13 +85,12 @@ public enum Activation: Codable, Equatable {
         returnValue = input
       }
     case .swish:
-      let sigmoid =  1.0 / (1.0 + pow(Float(Darwin.M_E), -input))
+      let sigmoid =  1.0 / (1.0 + exp(-input))
       returnValue = input * sigmoid
     case .tanh:
-      let e = Float(Darwin.M_E)
       let x = input
-      let num = pow(e, x) - pow(e, -x)
-      let denom = pow(e, x) + pow(e, -x)
+      let num = exp(x) - exp(-x)
+      let denom = exp(x) + exp(-x)
 
       returnValue = num / (denom + 1e-9)
     case .none, .softmax:
@@ -100,6 +110,14 @@ public enum Activation: Codable, Equatable {
   /// - Returns: The result of the calculation
   private func derivative(input: Float) -> Float {
     switch self {
+    case .seLu:
+      let lambda: Float = 1.0507
+      let alpha: Float = 1.6733
+      if input > 0 {
+        return lambda
+      } else {
+        return lambda * alpha * exp(input)
+      }
     case .reLu:
       return input >= 0 ? 1 : 0
     case .sigmoid:
@@ -108,9 +126,8 @@ public enum Activation: Codable, Equatable {
     case .leakyRelu(let limit):
       return input > 0 ? 1 : limit
     case .swish:
-      let e = Float(Darwin.M_E)
       let x = input
-      return (pow(e, -x) * (x + 1) + 1) / pow((1 + pow(e, -x)), 2)
+      return (exp(-x) * (x + 1) + 1) / pow((1 + exp(-x)), 2)
     case .tanh:
       let tan = self.activate(input: input)
       return 1 - (pow(tan, 2))

@@ -152,11 +152,15 @@ open class BaseOptimizer: Optimizer {
     var accuracy: Tensor.Scalar = 0
     
     // TODO: Batch consolidation: https://github.com/wvabrinskas/Neuron/issues/36
+    let workersCount = min(Constants.maxWorkers, workers)
+    let concurrencySplit = Float(data.count) / Float(workersCount)
+    metricsReporter?.update(metric: .batchConcurrency, value: concurrencySplit)
   
-    data.concurrentForEach(workers: min(Constants.maxWorkers, workers), priority: device.qosPriority) { b, index in
+    data.concurrentForEach(workers: workersCount, priority: device.qosPriority) { b, index in
       let label: [Tensor.Scalar] = labels[index].value.flatten()
       let input = data[index]
       
+      self.trainable.threadId = index
       let out = self.trainable.predict(input)
       
       outputs[index] = out

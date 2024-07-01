@@ -9,7 +9,7 @@ import Foundation
 import GameplayKit
 
 /// Weight initializer methods
-public enum InitializerType: Codable {
+public enum InitializerType: Codable, Equatable {
   ///Generates weights based on a normal gaussian distribution. Mean = 0 sd = 1
   case xavierNormal
   ///Generates weights based on a uniform distribution
@@ -111,19 +111,19 @@ public struct Initializer {
 
 extension Initializer: Codable {
   public func encode(to encoder: Encoder) throws {
-    var container = encoder.container(keyedBy: Self.CodingKeys)
+    var container = encoder.container(keyedBy: Self.CodingKeys.self)
     
     switch self.type {
     case .xavierUniform:
       try container.encode(CodingKeys.xavierUniform.stringValue, forKey: .xavierUniform)
     case .xavierNormal:
-      try container.encode(CodingKeys.xavierNormal.stringValue, forKey: .xavierUniform)
+      try container.encode(CodingKeys.xavierNormal.stringValue, forKey: .xavierNormal)
     case .heUniform:
-      try container.encode(CodingKeys.heUniform.stringValue, forKey: .xavierUniform)
+      try container.encode(CodingKeys.heUniform.stringValue, forKey: .heUniform)
     case .heNormal:
-      try container.encode(CodingKeys.heNormal.stringValue, forKey: .xavierUniform)
+      try container.encode(CodingKeys.heNormal.stringValue, forKey: .heNormal)
     case .normal(let std):
-      try container.encode(CodingKeys.normal.stringValue + "-\(std)", forKey: .xavierUniform)
+      try container.encode(CodingKeys.normal.stringValue + "-\(std)", forKey: .normal)
     }
   }
   

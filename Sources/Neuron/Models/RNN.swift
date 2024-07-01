@@ -59,17 +59,20 @@ public class RNN: Classifier {
     let accuracyThreshold: Float
     let killOnAccuracy: Bool
     let threadWorkers: Int
+    let lossFunction: LossFunction
     
     public init(batchSize: Int,
                 epochs: Int,
                 accuracyThreshold: Float = 0.9,
                 killOnAccuracy: Bool = true,
-                threadWorkers: Int = 8) {
+                threadWorkers: Int = 8,
+                lossFunction: LossFunction = .binaryCrossEntropySoftmax) {
       self.batchSize = batchSize
       self.epochs = epochs
       self.accuracyThreshold = accuracyThreshold
       self.killOnAccuracy = killOnAccuracy
       self.threadWorkers = threadWorkers
+      self.lossFunction = lossFunction
     }
   }
   
@@ -111,7 +114,7 @@ public class RNN: Classifier {
                          b1: optimizerParameters.b1,
                          b2: optimizerParameters.b2,
                          eps: optimizerParameters.eps,
-                         l2Normalize: false)
+                         threadWorkers: classifierParameters.threadWorkers)
     
     optimizer.metricsReporter = optimizerParameters.metricsReporter
     
@@ -121,7 +124,8 @@ public class RNN: Classifier {
                accuracyThreshold: classifierParameters.accuracyThreshold,
                killOnAccuracy: classifierParameters.killOnAccuracy,
                threadWorkers: classifierParameters.threadWorkers,
-               log: false)
+               log: false,
+               lossFunction: classifierParameters.lossFunction)
   }
   
   public func importFrom(url: URL?) async {
@@ -157,18 +161,20 @@ public class RNN: Classifier {
       var name: String = ""
       var runningChar: String = ""
           
-      var batch: [Float]
+      var batch: [[[Float]]]
       
       if let with {
         let oneHotWith = dataset.oneHot([with])
-        batch = oneHotWith.value.flatten()
+        batch = oneHotWith.value
         name += with
 
       } else {
-        batch = [Float](repeating: 0, count: vocabSize)
+        var localWord = [Float](repeating: 0, count: vocabSize)
         let index = Int.random(in: 0..<vocabSize)
         
-        batch[index] = 1.0
+        localWord[index] = 1.0
+        
+        batch = [[localWord]]
         
         // append random letter
         let unvec = dataset.getWord(for: Tensor(batch)).joined()
@@ -179,7 +185,8 @@ public class RNN: Classifier {
         
         let out = optimizer.predict([Tensor(batch)])
         
-        guard let flat = out[safe: 0]?.value[safe: 0]?[safe: 0] else {
+        // output: (col: vocabSize, rows: 1, depth: batchLength)
+        guard let flat = out[safe: 0]?.value[safe: batch.count - 1]?.first else {
           break
         }
       
@@ -199,7 +206,7 @@ public class RNN: Classifier {
         runningChar = unvec
         name += unvec
         
-        batch = v
+        batch.append([v])
       }
       
       names.append(name)
@@ -233,6 +240,7 @@ public class RNN: Classifier {
     let lstm = LSTM(inputUnits: lstmParameters.inputUnits,
                     batchLength: wordLength,
                     returnSequence: returnSequence,
+                    biasEnabled: true,
                     initializer: lstmParameters.lstmInitializer,
                     hiddenUnits: lstmParameters.hiddenUnits,
                     vocabSize: vocabSize)

@@ -9,7 +9,10 @@ import NumSwiftC
 ///
 /// Get debug data from the `Trainable` by calling `print(sequential)`, or using `lldb`: `po trainable`, where `sequential` is your `Trainable` object.
 ///
-public protocol Trainable: Codable, CustomDebugStringConvertible {
+public protocol Trainable: AnyObject, Codable, CustomDebugStringConvertible {
+  
+  /// The id for the current thread
+  var threadId: Int { get set }
   
   /// Generic name of the trainable. Used when printing the network
   var name: String { get set }
@@ -44,6 +47,10 @@ public protocol Trainable: Codable, CustomDebugStringConvertible {
  
   /// Attempts to replace the weights in the network
   func importWeights(_ weights: [[Tensor]]) throws
+  
+  /// Exports network
+  @discardableResult
+  func export(name: String?, overrite: Bool, compress: Bool) -> URL?
 }
 
 public extension Trainable {
@@ -53,6 +60,17 @@ public extension Trainable {
     }
     let string = TrainablePrinter.build(self)
     return string
+  }
+  
+  @discardableResult
+  func export(name: String? = nil, overrite: Bool = false, compress: Bool = true) -> URL? {
+    let additional = overrite == false ? "-\(Date().timeIntervalSince1970)" : ""
+    
+    let filename = (name ?? "sequential") + additional
+    
+    let dUrl = ExportHelper.getModel(filename: filename, compress: compress, model: self)
+    
+    return dUrl
   }
 }
 
