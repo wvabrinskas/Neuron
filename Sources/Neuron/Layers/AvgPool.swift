@@ -48,9 +48,9 @@ public final class AvgPool: BaseLayer {
       for d in 0..<inputSize.depth {
         var gradientR = 0
         
-        var results: [[Float]] = []
+        var results: [[Tensor.Scalar]] = []
         for r in 0..<rows {
-          var rowResult: [Float] = []
+          var rowResult: [Tensor.Scalar] = []
 
           var gradientC = 0
           for c in stride(from: 0, through: columns, by: kernelSize.1) {
@@ -105,7 +105,7 @@ public final class AvgPool: BaseLayer {
   }
 
   
-  public override func apply(gradients: Optimizer.Gradient, learningRate: Float) {
+  public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     //
   }
   

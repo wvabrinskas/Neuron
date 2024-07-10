@@ -14,7 +14,7 @@ public class Classifier {
   private let epochs: Int
   private let log: Bool
   private let lossFunction: LossFunction
-  private let accuracyThreshold: Float
+  private let accuracyThreshold: Tensor.Scalar
   private let killOnAccuracy: Bool
   
   public var onAccuracyReached: (() -> ())? = nil
@@ -25,7 +25,7 @@ public class Classifier {
   public init(optimizer: Optimizer,
               epochs: Int = 100,
               batchSize: Int,
-              accuracyThreshold: Float = 0.8,
+              accuracyThreshold: Tensor.Scalar = 0.8,
               killOnAccuracy: Bool = true,
               threadWorkers: Int = 16,
               log: Bool = false,

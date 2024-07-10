@@ -34,16 +34,16 @@ public class RNN: Classifier {
   }
   
   public struct OptimizerParameters {
-    let learningRate: Float
-    let b1: Float
-    let b2: Float
-    let eps: Float
+    let learningRate: Tensor.Scalar
+    let b1: Tensor.Scalar
+    let b2: Tensor.Scalar
+    let eps: Tensor.Scalar
     let metricsReporter: MetricsReporter?
     
-    public init(learningRate: Float,
-                b1: Float = 0.9,
-                b2: Float = 0.999,
-                eps: Float = 1e-8,
+    public init(learningRate: Tensor.Scalar,
+                b1: Tensor.Scalar = 0.9,
+                b2: Tensor.Scalar = 0.999,
+                eps: Tensor.Scalar = 1e-8,
                 metricsReporter: MetricsReporter? = nil) {
       self.learningRate = learningRate
       self.b1 = b1
@@ -56,14 +56,14 @@ public class RNN: Classifier {
   public struct ClassifierParameters {
     let batchSize: Int
     let epochs: Int
-    let accuracyThreshold: Float
+    let accuracyThreshold: Tensor.Scalar
     let killOnAccuracy: Bool
     let threadWorkers: Int
     let lossFunction: LossFunction
     
     public init(batchSize: Int,
                 epochs: Int,
-                accuracyThreshold: Float = 0.9,
+                accuracyThreshold: Tensor.Scalar = 0.9,
                 killOnAccuracy: Bool = true,
                 threadWorkers: Int = 8,
                 lossFunction: LossFunction = .binaryCrossEntropySoftmax) {
@@ -161,7 +161,7 @@ public class RNN: Classifier {
       var name: String = ""
       var runningChar: String = ""
           
-      var batch: [[[Float]]]
+      var batch: [[[Tensor.Scalar]]]
       
       if let with {
         let oneHotWith = dataset.oneHot([with])
@@ -169,7 +169,7 @@ public class RNN: Classifier {
         name += with
 
       } else {
-        var localWord = [Float](repeating: 0, count: vocabSize)
+        var localWord = [Tensor.Scalar](repeating: 0, count: vocabSize)
         let index = Int.random(in: 0..<vocabSize)
         
         localWord[index] = 1.0
@@ -190,7 +190,7 @@ public class RNN: Classifier {
           break
         }
       
-        var v: [Float] = [Float](repeating: 0, count: flat.count)
+        var v: [Tensor.Scalar] = [Tensor.Scalar](repeating: 0, count: flat.count)
         
         let indexToChoose: Int
         if randomizeSelection {

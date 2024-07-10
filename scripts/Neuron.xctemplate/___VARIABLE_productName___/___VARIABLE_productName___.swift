@@ -56,7 +56,7 @@ public final class ___VARIABLE_productName___: Layer {
     return out
   }
   
-  public func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Float) {
+  public func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Tensor.Scalar) {
     
   }
 }

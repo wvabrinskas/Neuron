@@ -89,7 +89,7 @@ public final class Dense: BaseLayer {
       var weightsForNode: [Tensor.Scalar] = []
       for _ in 0..<inputs {
         let w = initializer?.calculate(input: inputs,
-                                       out: outputSizeCount) ?? Float.random(in: -1...1)
+                                       out: outputSizeCount) ?? Tensor.Scalar.random(in: -1...1)
         weightsForNode.append(w)
       }
       
@@ -136,7 +136,7 @@ public final class Dense: BaseLayer {
     return out
   }
   
-  public override func apply(gradients: Optimizer.Gradient, learningRate: Float) {
+  public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     weights.value = weights.value - gradients.weights.value
     
     if biasEnabled {

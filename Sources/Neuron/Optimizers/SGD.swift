@@ -9,14 +9,14 @@ import Foundation
 import NumSwift
 
 public class SGD: BaseOptimizer {
-  private let momentum: Float
+  private let momentum: Tensor.Scalar
   private var v: [Tensor.Data] = []
   private var vb: [[Tensor.Scalar]] = []
 
   public init(_ trainable: Trainable,
               device: Device = CPU(),
-              learningRate: Float,
-              momentum: Float = 0.9,
+              learningRate: Tensor.Scalar,
+              momentum: Tensor.Scalar = 0.9,
               threadWorkers: Int = 16) {
     self.momentum = momentum
     

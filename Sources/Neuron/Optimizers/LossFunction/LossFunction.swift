@@ -30,7 +30,7 @@ public enum LossFunction {
       for r in 0..<predicted.value[d].count {
         let p = predicted.value[d][r]
         let c = correct.value[d][r]
-        let loss = calculate(p, correct: c) / Float(depth)
+        let loss = calculate(p, correct: c) / Tensor.Scalar(depth)
         rowResult.append(loss)
       }
       depthResult.append(rowResult)
@@ -116,8 +116,8 @@ public enum LossFunction {
       let p = predicted
       
       let firstDivide = y / p
-      let ySubtract = Float(1) - y
-      let pSubtract = Float(1) - p
+      let ySubtract = Tensor.Scalar(1) - y
+      let pSubtract = Tensor.Scalar(1) - p
       
       let result = -1 * ((firstDivide) - ((ySubtract) / (pSubtract)))
       return result

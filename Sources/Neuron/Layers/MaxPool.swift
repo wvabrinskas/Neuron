@@ -122,7 +122,7 @@ public final class MaxPool: BaseLayer {
     self.poolingGradients.append(PoolingGradient(tensorId: id, indicies: indicies))
   }
   
-  public override func apply(gradients: Optimizer.Gradient, learningRate: Float) {
+  public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     poolingGradients.removeAll(keepingCapacity: true)
   }
   

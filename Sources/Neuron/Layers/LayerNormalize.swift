@@ -109,7 +109,7 @@ public final class LayerNormalize: BaseLayer {
 
     for i in 0..<inputs.count {
       let count = inputSize.rows * inputSize.columns
-      let total = Float(count)
+      let total = Tensor.Scalar(count)
       
       let mean = inputs[i].mean
       let inputsCentered = inputs[i] - mean
@@ -135,9 +135,9 @@ public final class LayerNormalize: BaseLayer {
     
     for i in 0..<inputs.count {
       let count = inputSize.rows * inputSize.columns
-      let total = Float(count)
+      let total = Tensor.Scalar(count)
       
-      let N = Float(gradient[i].count)
+      let N = Tensor.Scalar(gradient[i].count)
       
       let mean = inputs[i].mean
       let inputsCentered = inputs[i] - mean
@@ -172,7 +172,7 @@ public final class LayerNormalize: BaseLayer {
     return backward
   }
   
-  public override func apply(gradients: Optimizer.Gradient, learningRate: Float) {
+  public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     gamma = gamma - (dGamma / iterations.asTensorScalar)
     beta = beta - (dBeta / iterations.asTensorScalar)
     

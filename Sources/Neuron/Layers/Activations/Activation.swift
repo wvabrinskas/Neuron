@@ -10,7 +10,7 @@ import Foundation
 public enum Activation: Codable, Equatable {
   case reLu
   case sigmoid
-  case leakyRelu(limit: Float)
+  case leakyRelu(limit: Tensor.Scalar)
   case swish
   case tanh
   case softmax
@@ -62,12 +62,12 @@ public enum Activation: Codable, Equatable {
   /// Runs the activation function calculation based on the case of self.
   /// - Parameter input: Input value to run through the activation function
   /// - Returns: The result of the calculation
-  private func activate(input: Float) -> Float {
-    var returnValue: Float = 0
+  private func activate(input: Tensor.Scalar) -> Tensor.Scalar {
+    var returnValue: Tensor.Scalar = 0
     switch self {
     case .seLu:
-      let lambda: Float = 1.0507
-      let alpha: Float = 1.6733
+      let lambda: Tensor.Scalar = 1.0507
+      let alpha: Tensor.Scalar = 1.6733
       if input > 0 {
         return lambda * input
       } else {
@@ -108,11 +108,11 @@ public enum Activation: Codable, Equatable {
   /// Runs the derivative of the activation function based on the case of self.
   /// - Parameter input: Input into the calculation
   /// - Returns: The result of the calculation
-  private func derivative(input: Float) -> Float {
+  private func derivative(input: Tensor.Scalar) -> Tensor.Scalar {
     switch self {
     case .seLu:
-      let lambda: Float = 1.0507
-      let alpha: Float = 1.6733
+      let lambda: Tensor.Scalar = 1.0507
+      let alpha: Tensor.Scalar = 1.6733
       if input > 0 {
         return lambda
       } else {

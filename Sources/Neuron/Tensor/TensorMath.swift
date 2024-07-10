@@ -197,7 +197,7 @@ public extension Tensor {
     
     if axis == -1 {
       let total = self.shape.reduce(1, *)
-      let all = self.value.flatten().sum / Float(total)
+      let all = self.value.flatten().sum / Tensor.Scalar(total)
       return Tensor(all)
     }
     
@@ -282,7 +282,7 @@ public extension Tensor {
   }
   
   func l2Normalize() {
-    let flatValue: Float = value.sumOfSquares
+    let flatValue: Tensor.Scalar = value.sumOfSquares
     let normalized = value / sqrt(flatValue)
     self.value = normalized
   }

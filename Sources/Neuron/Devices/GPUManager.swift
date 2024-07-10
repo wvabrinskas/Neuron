@@ -109,7 +109,7 @@ public class GPUManager {
                                                           depth: inputSize.depth)),
                           mipmapLevel: 0,
                           withBytes: inputImageData,
-                          bytesPerRow: inputSize.columns * MemoryLayout<Float>.stride)
+                          bytesPerRow: inputSize.columns * MemoryLayout<Tensor.Scalar>.stride)
     
     guard let queue = device.makeCommandQueue(),
           let commandBuffer = queue.makeCommandBuffer() else {
@@ -130,15 +130,15 @@ public class GPUManager {
     
     //let r = Array(arrayLiteral: outImage.texture.buffer?.contents())
     
-    let pixels: UnsafeMutablePointer<Float> = image.texture.getPixels()
+    let pixels: UnsafeMutablePointer<Tensor.Scalar> = image.texture.getPixels()
     
     defer {
       pixels.deallocate()
     }
     
-    var result: [Float] = []
+    var result: [Tensor.Scalar] = []
     
-    let capacity = outputSize.columns * outputSize.rows * MemoryLayout<Float>.stride
+    let capacity = outputSize.columns * outputSize.rows * MemoryLayout<Tensor.Scalar>.stride
 
     for i in stride(from: 0, to: capacity, by: 4) {
       let l     = pixels[i + 0]
@@ -154,9 +154,9 @@ public class GPUManager {
     print(result)
   }
   
-  public func activate(_ num: [Float],
+  public func activate(_ num: [Tensor.Scalar],
                        _ activationType: Activation,
-                       derivate: Bool = false) -> [Float] {
+                       derivate: Bool = false) -> [Tensor.Scalar] {
     var data = num
     
     guard let device = self.device else {
@@ -168,10 +168,10 @@ public class GPUManager {
     let pipeline: MTLComputePipelineState? = self.pipelineIfExists(type: function) ?? self.addPipeline(for: function)
     
     guard let dataBuffer = device.makeBuffer(bytes: &data,
-                                             length: MemoryLayout<Float>.stride * data.count,
+                                             length: MemoryLayout<Tensor.Scalar>.stride * data.count,
                                              options: []),
           
-            let resultsBuffer = device.makeBuffer(length: MemoryLayout<Float>.stride * data.count,
+            let resultsBuffer = device.makeBuffer(length: MemoryLayout<Tensor.Scalar>.stride * data.count,
                                                   options: []) else {
       return num
     }
@@ -194,8 +194,8 @@ public class GPUManager {
     
     switch activationType {
     case .leakyRelu(let limit):
-      var limit = Float(limit)
-      encoder.setBytes(&limit, length: MemoryLayout<Float>.size, index: 3)
+      var limit = Tensor.Scalar(limit)
+      encoder.setBytes(&limit, length: MemoryLayout<Tensor.Scalar>.size, index: 3)
     default:
       break
     }
@@ -215,7 +215,7 @@ public class GPUManager {
     cmds?.commit()
     cmds?.waitUntilCompleted()
     
-    let dataArray = UnsafeMutableBufferPointer<Float>(start: resultsBuffer.contents().assumingMemoryBound(to: Float.self),
+    let dataArray = UnsafeMutableBufferPointer<Tensor.Scalar>(start: resultsBuffer.contents().assumingMemoryBound(to: Tensor.Scalar.self),
                                                       count: data.count)
     
     return Array(dataArray)

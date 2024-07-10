@@ -228,7 +228,7 @@ public class GAN {
         let max = max(localLabelValue, abs(localLabelValue - factor))
         
         training = sample
-        dataLabel = Tensor([Float.random(in: (min...max))])
+        dataLabel = Tensor([Tensor.Scalar.random(in: (min...max))])
       }
       
       fakeData[index] = training

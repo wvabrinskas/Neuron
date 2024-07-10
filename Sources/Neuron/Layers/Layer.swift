@@ -63,7 +63,7 @@ public protocol Layer: AnyObject, Codable {
   var device: Device { get set }
   var usesOptimizer: Bool { get set }
   func forward(tensor: Tensor) -> Tensor
-  func apply(gradients: Optimizer.Gradient, learningRate: Float)
+  func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar)
   func exportWeights() throws -> [Tensor]
   func importWeights(_ weights: [Tensor]) throws
 }
@@ -137,7 +137,7 @@ open class BaseLayer: Layer {
     .init()
   }
   
-  public func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Float) {
+  public func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Tensor.Scalar) {
     // override
   }
   
@@ -264,7 +264,7 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
           
           for _ in 0..<filterSize.1 {
             let weight = initializer?.calculate(input: inputSize.depth * filterSize.rows * filterSize.columns,
-                                                out: inputSize.depth * filterSize.rows * filterSize.columns) ?? Float.random(in: -1...1)
+                                                out: inputSize.depth * filterSize.rows * filterSize.columns) ?? Tensor.Scalar.random(in: -1...1)
             filterRow.append(weight)
           }
           
