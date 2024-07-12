@@ -16,8 +16,8 @@ let package = Package(
             targets: ["Neuron"]),
     ],
     dependencies: [
-      //.package(path: "../NumSwift"),
-      .package(url: "https://github.com/wvabrinskas/NumSwift.git", from: "2.0.11"),
+      .package(path: "../NumSwift"),
+      //.package(url: "https://github.com/wvabrinskas/NumSwift.git", from: "2.0.11"),
       .package(url: "https://github.com/wvabrinskas/Logger.git", from: "1.0.6")
       //.package(url: "https://github.com/apple/swift-docc-plugin", branch: "main")
     ],
