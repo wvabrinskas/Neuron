@@ -42,7 +42,5 @@ public protocol Device {
 
   func activate(_ input: Tensor, _ type: Activation) -> Tensor
   func derivate(_ input: Tensor, _ type: Activation) -> Tensor
-  @available(*, deprecated, renamed: "matmul", message: "This function has been replaced with `matmul`. It will be removed soon")
-  func matrixMultiply(_ a: Tensor, _ b: Tensor, columns: Int, rows: Int, dimensions: Int) -> Tensor
   func matmul(_ a: Tensor, _ b: Tensor) -> Tensor
 }
