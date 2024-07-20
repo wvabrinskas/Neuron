@@ -18,7 +18,8 @@ let package = Package(
     dependencies: [
       .package(path: "../NumSwift"),
       //.package(url: "https://github.com/wvabrinskas/NumSwift.git", from: "2.0.11"),
-      .package(url: "https://github.com/wvabrinskas/Logger.git", from: "1.0.6")
+      .package(url: "https://github.com/wvabrinskas/Logger.git", from: "1.0.6"),
+      .package(url: "https://github.com/apple/swift-numerics", from: "1.0.0"),
       //.package(url: "https://github.com/apple/swift-docc-plugin", branch: "main")
     ],
     targets: [
@@ -28,7 +29,8 @@ let package = Package(
             name: "Neuron",
             dependencies: [
               "NumSwift",
-              "Logger"
+              "Logger",
+              .product(name: "Numerics", package: "swift-numerics"),
             ],
             resources: [ .process("Resources") ]),
         .testTarget(

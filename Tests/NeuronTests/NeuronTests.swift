@@ -87,7 +87,7 @@ final class NeuronTests: XCTestCase {
     
     XCTAssert(outputShape == out.shape)
     
-    let gradients = NumSwift.onesLike((outputShape[safe: 1, 0], outputShape[safe: 0, 0], filterCount))
+    let gradients: [[[Tensor.Scalar]]] = NumSwift.onesLike((outputShape[safe: 1, 0], outputShape[safe: 0, 0], filterCount))
     let backward = out.gradients(delta: Tensor(gradients))
     
     let expectedGradient: [[[Tensor.Scalar]]] = [[[3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
@@ -225,7 +225,7 @@ final class NeuronTests: XCTestCase {
 
     XCTAssert(outputShape == out.value.shape)
     
-    let gradients = NumSwift.onesLike((out.shape[safe: 1, 0], out.shape[safe: 0, 0], filterCount))
+    let gradients: [[[Tensor.Scalar]]] = NumSwift.onesLike((out.shape[safe: 1, 0], out.shape[safe: 0, 0], filterCount))
     let backward = out.gradients(delta: Tensor(gradients))
     
     XCTAssert(backward.input.first?.shape == [inputSize.0,inputSize.1,inputSize.2])

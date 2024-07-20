@@ -155,7 +155,7 @@ public final class LayerNormalize: BaseLayer {
       let part2 = (1/std * ((N * gradient[i])))
       
       let result = part1 * part2 -
-                   gradientSum - ((scaledX) * pow(ivar, 2) *
+      gradientSum - ((scaledX) * Tensor.Scalar.pow(ivar, 2) *
                    (gradient[i] * scaledX).sum)
       
       backward.append(result)

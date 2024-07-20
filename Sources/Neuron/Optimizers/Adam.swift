@@ -109,10 +109,10 @@ public class Adam: BaseOptimizer {
         var column: [Tensor.Scalar] = []
         for c in 0..<rowGradient.count {
           m[i][d][r][c] = b1 * m[i][d][r][c] + (1 - b1) * gradientValue[d][r][c]
-          v[i][d][r][c] = b2 * v[i][d][r][c] + (1 - b2) * pow(gradientValue[d][r][c], 2)
+          v[i][d][r][c] = b2 * v[i][d][r][c] + (1 - b2) * Tensor.Scalar.pow(gradientValue[d][r][c], 2)
           
-          let mHat = m[i][d][r][c] / (1 - pow(b1, Tensor.Scalar(t)))
-          let vHat = v[i][d][r][c] / (1 - pow(b2, Tensor.Scalar(t)))
+          let mHat = m[i][d][r][c] / (1 - Tensor.Scalar.pow(b1, Tensor.Scalar(t)))
+          let vHat = v[i][d][r][c] / (1 - Tensor.Scalar.pow(b2, Tensor.Scalar(t)))
           
           let delta = learningRate / (sqrt(vHat + eps)) * mHat
           column.append(delta)
@@ -127,10 +127,10 @@ public class Adam: BaseOptimizer {
       // bias gradients are performed at a depth level
       let gradientSum = flatBias[d]
       mb[i][d] = b1 * mb[i][d] + (1 - b1) * gradientSum
-      vb[i][d] = b2 * vb[i][d] + (1 - b2) * pow(gradientSum, 2)
+      vb[i][d] = b2 * vb[i][d] + (1 - b2) * Tensor.Scalar.pow(gradientSum, 2)
       
-      let mHat = mb[i][d] / (1 - pow(b1, Tensor.Scalar(t)))
-      let vHat = vb[i][d] / (1 - pow(b2, Tensor.Scalar(t)))
+      let mHat = mb[i][d] / (1 - Tensor.Scalar.pow(b1, Tensor.Scalar(t)))
+      let vHat = vb[i][d] / (1 - Tensor.Scalar.pow(b2, Tensor.Scalar(t)))
       
       let deltaB = learningRate / (sqrt(vHat + eps)) * mHat
       

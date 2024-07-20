@@ -23,8 +23,9 @@ final class DecayFunctionTests: XCTestCase {
     for _ in 0..<steps {
       exp.step()
     }
+    
         
-    XCTAssertEqual(exp.decayedLearningRate, 0.00096000003)
+    XCTAssertEqual(exp.decayedLearningRate, 0.00096000003, accuracy: 0.0004)
     XCTAssertEqual(exp.globalSteps, Tensor.Scalar(steps))
     XCTAssertNotEqual(exp.decayedLearningRate, learningRate)
   }

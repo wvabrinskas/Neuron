@@ -60,7 +60,7 @@ public enum LossFunction {
       for i in 0..<predicted.count {
         let predicted = predicted[i]
         let correct = correct[i]
-        let sq = pow(predicted - correct, 2)
+        let sq = Tensor.Scalar.pow(predicted - correct, 2)
         sum += sq
       }
       
@@ -72,7 +72,7 @@ public enum LossFunction {
       for i in 0..<predicted.count {
         let predicted = predicted[i]
         let correct = correct[i]
-        sum += -1 * (correct * log(predicted + 1e-10))
+        sum += -1 * (correct * Tensor.Scalar.log(predicted + 1e-10))
       }
       
       return sum
@@ -90,7 +90,7 @@ public enum LossFunction {
 
         let y = correct[i]
         let p = predicted[i]
-        sum += -1 * (y * log(clipped(p)) + (1 - y) * log(clipped(1 - p)))
+        sum += -1 * (y * Tensor.Scalar.log(clipped(p)) + (1 - y) * Tensor.Scalar.log(clipped(1 - p)))
       }
       
       return sum

@@ -89,7 +89,7 @@ public class RMSProp: BaseOptimizer {
       for r in 0..<depthGradient.count {
         let rowGradient = depthGradient[r]
         for c in 0..<rowGradient.count {
-          v[i][d][r][c] = b * v[i][d][r][c] + (1 - b) * pow(gradientValue[d][r][c], 2)
+          v[i][d][r][c] = b * v[i][d][r][c] + (1 - b) * Tensor.Scalar.pow(gradientValue[d][r][c], 2)
           
           let vdw = v[i][d][r][c]
           let alpha = learningRate
@@ -106,7 +106,7 @@ public class RMSProp: BaseOptimizer {
     for d in 0..<flatBias.count {
       // bias gradients are performed at a depth level
       let biasGradient = flatBias[d]
-      vb[i][d] = b * vb[i][d] + (1 - b) * pow(biasGradient, 2)
+      vb[i][d] = b * vb[i][d] + (1 - b) * Tensor.Scalar.pow(biasGradient, 2)
       let vdb = vb[i][d]
       let alpha = learningRate
       let db = biasGradient
