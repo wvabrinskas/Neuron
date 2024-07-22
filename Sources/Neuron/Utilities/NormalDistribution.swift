@@ -21,7 +21,7 @@ public struct NormalDistribution {
     self.deviation = deviation
   }
   
-  public func nextFloat() -> Tensor.Scalar {
+  public func nextScalar() -> Tensor.Scalar {
     guard deviation > 0 else { return mean }
     
     let x1 = Tensor.Scalar(randomSource.nextUniform())
