@@ -16,7 +16,7 @@ public final class ___VARIABLE_productName___: BaseLayer {
     super.init(inputSize: inputSize,
                initializer: nil,
                biasEnabled: false,
-               encodingType: ) // TODO: Add encoding type
+               encodingType: .___VARIABLE_encodingType___)
   }
   
   enum CodingKeys: String, CodingKey {

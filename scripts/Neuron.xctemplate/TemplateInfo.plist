@@ -25,6 +25,20 @@
 			<key>Default</key>
 			<string>SomeLayer</string>
 		</dict>
+		<dict>
+			<key>Identifier</key>
+			<string>encodingType</string>
+			<key>Required</key>
+			<true/>
+			<key>Name</key>
+			<string>Encoding type</string>
+			<key>Description</key>
+			<string>the EncodingType of the layer. [Add to the enum first before generating]</string>
+			<key>Type</key>
+			<string>text</string>
+			<key>Default</key>
+			<string>layer</string>
+		</dict>
 	</array>
 	<key>SupportsSwiftPackage</key>
 	<true/>
