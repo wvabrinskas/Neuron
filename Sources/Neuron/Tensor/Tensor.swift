@@ -21,7 +21,7 @@ public class Tensor: Equatable, Codable {
     lhs.id == rhs.id
   }
   
-  public typealias Scalar = Float16
+  public typealias Scalar = Float
   public typealias Data = [[[Scalar]]]
   
   /// Gradient object returned from `gradient` calculation on the Tensor. Contains gradients w.r.t to the `input`, w.r.t to the `weights`, and w.r.t to the `biases`
