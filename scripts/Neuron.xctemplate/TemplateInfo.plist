@@ -33,7 +33,7 @@
 			<key>Name</key>
 			<string>Encoding type</string>
 			<key>Description</key>
-			<string>the EncodingType of the layer. [Add to the enum first before generating]</string>
+			<string>the EncodingType of the layer.</string>
 			<key>Type</key>
 			<string>text</string>
 			<key>Default</key>
