@@ -6,11 +6,12 @@
 //
 
 import Foundation
+import Numerics
 
 public enum Activation: Codable, Equatable {
   case reLu
   case sigmoid
-  case leakyRelu(limit: Float)
+  case leakyRelu(limit: Tensor.Scalar)
   case swish
   case tanh
   case softmax
@@ -62,21 +63,21 @@ public enum Activation: Codable, Equatable {
   /// Runs the activation function calculation based on the case of self.
   /// - Parameter input: Input value to run through the activation function
   /// - Returns: The result of the calculation
-  private func activate(input: Float) -> Float {
-    var returnValue: Float = 0
+  private func activate(input: Tensor.Scalar) -> Tensor.Scalar {
+    var returnValue: Tensor.Scalar = 0
     switch self {
     case .seLu:
-      let lambda: Float = 1.0507
-      let alpha: Float = 1.6733
+      let lambda: Tensor.Scalar = 1.0507
+      let alpha: Tensor.Scalar = 1.6733
       if input > 0 {
         return lambda * input
       } else {
-        return lambda * alpha * (exp(input) - 1)
+        return lambda * alpha * (Tensor.Scalar.exp(input) - 1)
       }
     case .reLu:
       returnValue = max(0, input)
     case .sigmoid:
-      let out =  1.0 / (1.0 + exp(-input))
+      let out =  1.0 / (1.0 + Tensor.Scalar.exp(-input))
       returnValue = out
     case .leakyRelu(let limit):
       if input < 0 {
@@ -85,12 +86,12 @@ public enum Activation: Codable, Equatable {
         returnValue = input
       }
     case .swish:
-      let sigmoid =  1.0 / (1.0 + exp(-input))
+      let sigmoid =  1.0 / (1.0 + Tensor.Scalar.exp(-input))
       returnValue = input * sigmoid
     case .tanh:
       let x = input
-      let num = exp(x) - exp(-x)
-      let denom = exp(x) + exp(-x)
+      let num = Tensor.Scalar.exp(x) - Tensor.Scalar.exp(-x)
+      let denom = Tensor.Scalar.exp(x) + Tensor.Scalar.exp(-x)
 
       returnValue = num / (denom + 1e-9)
     case .none, .softmax:
@@ -108,15 +109,15 @@ public enum Activation: Codable, Equatable {
   /// Runs the derivative of the activation function based on the case of self.
   /// - Parameter input: Input into the calculation
   /// - Returns: The result of the calculation
-  private func derivative(input: Float) -> Float {
+  private func derivative(input: Tensor.Scalar) -> Tensor.Scalar {
     switch self {
     case .seLu:
-      let lambda: Float = 1.0507
-      let alpha: Float = 1.6733
+      let lambda: Tensor.Scalar = 1.0507
+      let alpha: Tensor.Scalar = 1.6733
       if input > 0 {
         return lambda
       } else {
-        return lambda * alpha * exp(input)
+        return lambda * alpha * Tensor.Scalar.exp(input)
       }
     case .reLu:
       return input >= 0 ? 1 : 0
@@ -127,10 +128,10 @@ public enum Activation: Codable, Equatable {
       return input > 0 ? 1 : limit
     case .swish:
       let x = input
-      return (exp(-x) * (x + 1) + 1) / pow((1 + exp(-x)), 2)
+      return (Tensor.Scalar.exp(-x) * (x + 1) + 1) / Tensor.Scalar.pow((1 + Tensor.Scalar.exp(-x)), 2)
     case .tanh:
       let tan = self.activate(input: input)
-      return 1 - (pow(tan, 2))
+      return 1 - (Tensor.Scalar.pow(tan, 2))
     case .none, .softmax:
       return 1
     }

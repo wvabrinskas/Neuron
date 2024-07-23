@@ -65,7 +65,7 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
     var result: Tensor.Data = []
     
     for i in 0..<items.count {
-      var vectorized: [Tensor.Scalar] = [Float](repeating: 0, count: maxIndex - 2)
+      var vectorized: [Tensor.Scalar] = [Tensor.Scalar](repeating: 0, count: maxIndex - 2)
       
       let item = formatItem(item: items[i])
       

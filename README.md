@@ -120,7 +120,7 @@ The first parameter here is the network we defined above. `learningRate` is the 
 An `Optimizer` has an optional property for setting a learning rate decay function. 
 ```
 public protocol DecayFunction {
-  var decayedLearningRate: Float { get }
+  var decayedLearningRate: Tensor.Scalar { get }
   func reset()
   func step()
 }

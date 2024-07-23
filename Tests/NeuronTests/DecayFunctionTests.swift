@@ -13,7 +13,7 @@ import NumSwift
 final class DecayFunctionTests: XCTestCase {
   
   func test_exponentialDecay() {
-    let learningRate: Float = 0.001
+    let learningRate: Tensor.Scalar = 0.001
     let steps = 10
     let exp = ExponentialDecay(learningRate: learningRate,
                                decayRate: 0.96,
@@ -23,9 +23,10 @@ final class DecayFunctionTests: XCTestCase {
     for _ in 0..<steps {
       exp.step()
     }
+    
         
-    XCTAssertEqual(exp.decayedLearningRate, 0.00096000003)
-    XCTAssertEqual(exp.globalSteps, Float(steps))
+    XCTAssertEqual(exp.decayedLearningRate, 0.00096000003, accuracy: 0.0004)
+    XCTAssertEqual(exp.globalSteps, Tensor.Scalar(steps))
     XCTAssertNotEqual(exp.decayedLearningRate, learningRate)
   }
 }

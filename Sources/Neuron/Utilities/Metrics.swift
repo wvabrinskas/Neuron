@@ -25,13 +25,13 @@ public enum Metric: String {
 
 public protocol MetricLogger: AnyObject {
   var metricsToGather: Set<Metric> { get set }
-  var metrics: [Metric: Float] { get set }
+  var metrics: [Metric: Tensor.Scalar] { get set }
   var lock: NSLock { get }
-  func addMetric(value: Float, key: Metric)
+  func addMetric(value: Tensor.Scalar, key: Metric)
 }
 
 public extension MetricLogger {
-  func addMetric(value: Float, key: Metric) {
+  func addMetric(value: Tensor.Scalar, key: Metric) {
     if metricsToGather.contains(key) {
       lock.with {
         metrics[key] = value
@@ -46,18 +46,18 @@ internal protocol MetricCalculator: MetricLogger {
   var totalValCorrectGuesses: Int { get set }
   var totalValGuesses: Int { get set }
 
-  func calculateAccuracy(_ guess: Tensor, label: Tensor, binary: Bool, running: Bool) -> Float
-  func calculateValAccuracy(_ guess: Tensor, label: Tensor, binary: Bool,  running: Bool) -> Float
+  func calculateAccuracy(_ guess: Tensor, label: Tensor, binary: Bool, running: Bool) -> Tensor.Scalar
+  func calculateValAccuracy(_ guess: Tensor, label: Tensor, binary: Bool,  running: Bool) -> Tensor.Scalar
   func startTimer(metric: Metric)
   func endTimer(metric: Metric)
 }
 
 internal extension MetricCalculator {
-  func calculateValAccuracy(_ guess: Tensor, label: Tensor, binary: Bool, running: Bool = false) -> Float {
+  func calculateValAccuracy(_ guess: Tensor, label: Tensor, binary: Bool, running: Bool = false) -> Tensor.Scalar {
     var totalCorrect = 0
     var totalGuess = 0
     
-    typealias Max = (UInt, Float)
+    typealias Max = (UInt, Tensor.Scalar)
     
     func perform(max: Max, guessMax: Max) -> Int {
       if binary {
@@ -83,17 +83,17 @@ internal extension MetricCalculator {
       }
     }
     
-    let runningAccuracy = Float(totalValCorrectGuesses) / Float(totalValGuesses) * 100.0
-    let accuracy = Float(totalCorrect) / Float(totalGuess) * 100.0
+    let runningAccuracy = Tensor.Scalar(totalValCorrectGuesses) / Tensor.Scalar(totalValGuesses) * 100.0
+    let accuracy = Tensor.Scalar(totalCorrect) / Tensor.Scalar(totalGuess) * 100.0
     return running ? runningAccuracy : accuracy
   }
   
-  func calculateAccuracy(_ guess: Tensor, label: Tensor, binary: Bool, running: Bool = false) -> Float {
+  func calculateAccuracy(_ guess: Tensor, label: Tensor, binary: Bool, running: Bool = false) -> Tensor.Scalar {
     
     var totalCorrect = 0
     var totalGuess = 0
     
-    typealias Max = (UInt, Float)
+    typealias Max = (UInt, Tensor.Scalar)
     
     func perform(max: Max, guessMax: Max) -> Int {
       if binary {
@@ -119,8 +119,8 @@ internal extension MetricCalculator {
       }
     }
     
-    let runningAccuracy = Float(totalCorrectGuesses) / Float(totalGuesses) * 100.0
-    let accuracy = Float(totalCorrect) / Float(totalGuess) * 100.0
+    let runningAccuracy = Tensor.Scalar(totalCorrectGuesses) / Tensor.Scalar(totalGuesses) * 100.0
+    let accuracy = Tensor.Scalar(totalCorrect) / Tensor.Scalar(totalGuess) * 100.0
     return running ? runningAccuracy : accuracy
   }
 }
@@ -141,14 +141,14 @@ public class MetricsReporter: MetricCalculator {
   private var timerQueue = SynchronousOperationQueue(name: "metrics_reporter")
   
   public var metricsToGather: Set<Metric>
-  public var metrics: [Metric : Float] = [:]
-  public var receive: ((_ metrics: [Metric: Float]) -> ())? = nil
+  public var metrics: [Metric : Tensor.Scalar] = [:]
+  public var receive: ((_ metrics: [Metric: Tensor.Scalar]) -> ())? = nil
   
   deinit {
     timerQueue.cancelAllOperations()
   }
   
-  public subscript(dynamicMember member: String) -> Float? {
+  public subscript(dynamicMember member: String) -> Tensor.Scalar? {
     guard let metric = Metric(rawValue: member) else { return nil }
     return metrics[metric]
   }
@@ -178,7 +178,7 @@ public class MetricsReporter: MetricCalculator {
       guard let self = self else { return }
       
       if let timer = self.timers[metric] {
-        let result = timer.map { Float(Date().timeIntervalSince1970 - $0.timeIntervalSince1970) }
+        let result = timer.map { Tensor.Scalar(Date().timeIntervalSince1970 - $0.timeIntervalSince1970) }
         let average = result.average
         self.addMetric(value: average,
                        key: metric)
@@ -187,7 +187,7 @@ public class MetricsReporter: MetricCalculator {
     }
   }
   
-  internal func update(metric: Metric, value: Float) {
+  internal func update(metric: Metric, value: Tensor.Scalar) {
     addMetric(value: value, key: metric)
   }
   

@@ -10,16 +10,16 @@ import NumSwift
 
 public protocol Optimizer: AnyObject {
   typealias Gradient = (weights: Tensor, biases: Tensor)
-  typealias Output = (outputs: [Tensor], gradients: Tensor.Gradient, loss: Float, accuracy: Float)
+  typealias Output = (outputs: [Tensor], gradients: Tensor.Gradient, loss: Tensor.Scalar, accuracy: Tensor.Scalar)
   
   var trainable: Trainable { get set }
-  var learningRate: Float { get }
+  var learningRate: Tensor.Scalar { get }
   var isTraining: Bool { get set }
   var device: Device { get set }
   var l2Normalize: Bool { get }
   var workers: Int { get set }
   var metricsReporter: MetricsReporter? { get set }
-  var clip: Float? { get set }
+  var clip: Tensor.Scalar? { get set }
   var gradientAccumulator: GradientAccumulator { get }
   var decayFunction: DecayFunction? { get set }
 
@@ -40,7 +40,7 @@ public protocol Optimizer: AnyObject {
 open class BaseOptimizer: Optimizer {
   public var decayFunction: DecayFunction?
   public var trainable: Trainable
-  public var learningRate: Float {
+  public var learningRate: Tensor.Scalar {
     get {
       if let decayFunction {
         return decayFunction.decayedLearningRate
@@ -71,15 +71,15 @@ open class BaseOptimizer: Optimizer {
   public var workers: Int
   public var metricsReporter: MetricsReporter?
   public var gradientAccumulator: GradientAccumulator = .init()
-  public var clip: Float?
-  private var localLearningRate: Float
+  public var clip: Tensor.Scalar?
+  private var localLearningRate: Tensor.Scalar
   
   public init(trainable: Trainable,
-              learningRate: Float,
+              learningRate: Tensor.Scalar,
               l2Normalize: Bool,
               workers: Int = 8,
               metricsReporter: MetricsReporter? = nil,
-              clip: Float? = nil) {
+              clip: Tensor.Scalar? = nil) {
     self.trainable = trainable
     self.l2Normalize = l2Normalize
     self.workers = workers
@@ -153,7 +153,7 @@ open class BaseOptimizer: Optimizer {
     
     // TODO: Batch consolidation: https://github.com/wvabrinskas/Neuron/issues/36
     let workersCount = min(Constants.maxWorkers, workers)
-    let concurrencySplit = Float(data.count) / Float(workersCount)
+    let concurrencySplit = Tensor.Scalar(data.count) / Tensor.Scalar(workersCount)
     metricsReporter?.update(metric: .batchConcurrency, value: concurrencySplit)
   
     data.concurrentForEach(workers: workersCount, priority: device.qosPriority) { b, index in

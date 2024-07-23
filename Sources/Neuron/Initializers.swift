@@ -17,7 +17,7 @@ public enum InitializerType: Codable, Equatable {
   
   case heNormal
   case heUniform
-  case normal(std: Float)
+  case normal(std: Tensor.Scalar)
   
   public func build() -> Initializer {
     Initializer(type: self)
@@ -61,29 +61,29 @@ public struct Initializer {
     }
   }
   
-  public func calculate(input: Int, out: Int = 0) -> Float {
+  public func calculate(input: Int, out: Int = 0) -> Tensor.Scalar {
     switch type {
       
     case .xavierUniform:
-      let min = -Float(sqrt(6) / sqrt((Double(input) + Double(out))))
-      let max = Float(sqrt(6) / sqrt((Double(input) + Double(out))))
+      let min = -Tensor.Scalar(sqrt(6) / sqrt((Double(input) + Double(out))))
+      let max = Tensor.Scalar(sqrt(6) / sqrt((Double(input) + Double(out))))
       
-      return Float.random(in: min...max)
+      return Tensor.Scalar.random(in: min...max)
       
     case .xavierNormal:
-      return Float(dist.gaussRand) * Float(sqrt(2 / (Double(input) + Double(out))))
+      return Tensor.Scalar(dist.gaussRand) * Tensor.Scalar(sqrt(2 / (Double(input) + Double(out))))
       
     case .heUniform:
-      let min = -Float(sqrt(6) / sqrt((Double(input))))
-      let max = Float(sqrt(6) / sqrt((Double(input))))
+      let min = -Tensor.Scalar(sqrt(6) / sqrt((Double(input))))
+      let max = Tensor.Scalar(sqrt(6) / sqrt((Double(input))))
       
-      return Float.random(in: min...max)
+      return Tensor.Scalar.random(in: min...max)
       
     case .heNormal:
-      return Float(dist.gaussRand) * Float(sqrt(2 / (Double(input))))
+      return Tensor.Scalar(dist.gaussRand) * Tensor.Scalar(sqrt(2 / (Double(input))))
       
     case .normal:
-      return Float(dist.gaussRand)
+      return Tensor.Scalar(dist.gaussRand)
     }
   }
   
@@ -135,7 +135,7 @@ extension Initializer: Codable {
       if k == .normal {
         if let val = try values.decodeIfPresent(String.self, forKey: .normal) {
           let split = val.split(separator: "-")[safe: 1, ""]
-          if let std = Float(split) {
+          if let std = Tensor.Scalar(split) {
             self = .init(type: .normal(std: std))
           } else {
             self = .init(type: .normal(std: 1))
