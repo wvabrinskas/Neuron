@@ -38,18 +38,21 @@ public class RNN: Classifier {
     let b1: Tensor.Scalar
     let b2: Tensor.Scalar
     let eps: Tensor.Scalar
+    let weightDecay: Adam.WeightDecay
     let metricsReporter: MetricsReporter?
     
     public init(learningRate: Tensor.Scalar,
                 b1: Tensor.Scalar = 0.9,
                 b2: Tensor.Scalar = 0.999,
                 eps: Tensor.Scalar = .stabilityFactor,
+                weightDecay: Adam.WeightDecay = .none,
                 metricsReporter: MetricsReporter? = nil) {
       self.learningRate = learningRate
       self.b1 = b1
       self.b2 = b2
       self.eps = eps
       self.metricsReporter = metricsReporter
+      self.weightDecay = weightDecay
     }
   }
   
@@ -114,6 +117,7 @@ public class RNN: Classifier {
                          b1: optimizerParameters.b1,
                          b2: optimizerParameters.b2,
                          eps: optimizerParameters.eps,
+                         weightDecay: optimizerParameters.weightDecay,
                          threadWorkers: classifierParameters.threadWorkers)
     
     optimizer.metricsReporter = optimizerParameters.metricsReporter
