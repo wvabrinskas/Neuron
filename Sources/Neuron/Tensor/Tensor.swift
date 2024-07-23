@@ -20,7 +20,7 @@ public class Tensor: Equatable, Codable {
   public static func == (lhs: Tensor, rhs: Tensor) -> Bool {
     lhs.id == rhs.id
   }
-  
+
   public typealias Scalar = Float
   public typealias Data = [[[Scalar]]]
   

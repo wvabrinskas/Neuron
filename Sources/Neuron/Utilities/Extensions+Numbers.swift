@@ -13,16 +13,16 @@ public extension Int {
   }
 }
 
-public extension Array where Element == [[Float]] {
+public extension Array where Element == [[Tensor.Scalar]] {
   subscript(_ colRange: some RangeExpression<Int>,
             _ rowRange: some RangeExpression<Int>,
-            _ depthRange: some RangeExpression<Int>) -> [[[Float]]] {
-    var data: [[[Float]]] = []
+            _ depthRange: some RangeExpression<Int>) -> [[[Tensor.Scalar]]] {
+    var data: [[[Tensor.Scalar]]] = []
     
     for d in depthRange.relative(to: self) {
-      var rows: [[Float]] = []
+      var rows: [[Tensor.Scalar]] = []
       for r in rowRange.relative(to: self[d]) {
-        var row: [Float] = []
+        var row: [Tensor.Scalar] = []
         for c in colRange.relative(to: self[d][r]) {
           row.append(self[d][r][c])
         }

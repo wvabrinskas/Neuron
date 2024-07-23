@@ -13,7 +13,7 @@ import NumSwift
 final class LayerTests: XCTestCase {
   
   func test_encode_normal_initializer_type_keepsValue() {
-    let expectedStd: Float = 0.1
+    let expectedStd: Tensor.Scalar = 0.1
     let rawInitializer: InitializerType = .normal(std: expectedStd)
     let initializer = rawInitializer.build()
     
@@ -213,7 +213,7 @@ final class LayerTests: XCTestCase {
   
   // MARK: SeLu
   func test_seLu() {
-    let input: [[[Float]]] = [[[0.0, 1.0, -1.0, 0.0],
+    let input: [[[Tensor.Scalar]]] = [[[0.0, 1.0, -1.0, 0.0],
                                [0.0, 1.0, -1.0, 0.0]],
                               [[0.0, 1.0, -1.0, 0.0],
                                [0.0, 1.0, -1.0, 0.0]]]
@@ -225,7 +225,7 @@ final class LayerTests: XCTestCase {
     
     XCTAssertEqual(inputSize, out.shape)
     
-    let expected: [[[Float]]] = [[[0.0, 1.0507, -1.1113541, 0.0],
+    let expected: [[[Tensor.Scalar]]] = [[[0.0, 1.0507, -1.1113541, 0.0],
                                  [0.0, 1.0507, -1.1113541, 0.0]],
                                 [[0.0, 1.0507, -1.1113541, 0.0],
                                  [0.0, 1.0507, -1.1113541, 0.0]]]
@@ -239,7 +239,7 @@ final class LayerTests: XCTestCase {
     
     let gradients = out.gradients(delta: delta)
         
-    let expectedGradients: [[[Float]]] = [[[-1.7581363, 1.0507, -0.6467822, 0.0],
+    let expectedGradients: [[[Tensor.Scalar]]] = [[[-1.7581363, 1.0507, -0.6467822, 0.0],
                                            [-1.7581363, 1.0507, -0.6467822, 0.0]],
                                           [[-1.7581363, 1.0507, -0.6467822, 0.0],
                                            [-1.7581363, 1.0507, -0.6467822, 0.0]]]
@@ -249,7 +249,7 @@ final class LayerTests: XCTestCase {
   
   // MARK: AvgPool
   func test_avgPool() {
-    let input: [[[Float]]] = [[[0.1, 0.2, 0.3, 0.4],
+    let input: [[[Tensor.Scalar]]] = [[[0.1, 0.2, 0.3, 0.4],
                                [0.1, 0.2, 0.3, 0.4],
                                [0.1, 0.2, 0.3, 0.4],
                                [0.1, 0.2, 0.3, 0.4]],
@@ -269,7 +269,7 @@ final class LayerTests: XCTestCase {
     
     XCTAssertEqual([2,2,3], out.shape)
     
-    let expected: [[[Float]]] = [[[0.15, 0.35],
+    let expected: [[[Tensor.Scalar]]] = [[[0.15, 0.35],
                                   [0.15, 0.35]],
                                  [[0.15, 0.35],
                                   [0.15, 0.35]],
@@ -278,7 +278,7 @@ final class LayerTests: XCTestCase {
     
     XCTAssertEqual(expected, out.value)
     
-    let delta: [[[Float]]] = [[[0.1, 0.3],
+    let delta: [[[Tensor.Scalar]]] = [[[0.1, 0.3],
                                [0.2, 0.5]],
                               [[0.1, 0.3],
                                [0.2, 0.5]],
@@ -289,7 +289,7 @@ final class LayerTests: XCTestCase {
     
     XCTAssertEqual(inputSize, gradients.input.first!.shape)
     
-    let expectedGradients: [[[Float]]] = [[[0.025, 0.025, 0.075, 0.075],
+    let expectedGradients: [[[Tensor.Scalar]]] = [[[0.025, 0.025, 0.075, 0.075],
                                            [0.025, 0.025, 0.075, 0.075],
                                            [0.05, 0.05, 0.125, 0.125],
                                            [0.05, 0.05, 0.125, 0.125]],

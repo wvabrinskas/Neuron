@@ -245,7 +245,7 @@ class LSTMCell {
                                    activation: Tensor,
                                    batchSize: Int) -> ParameterDerivatives {
     
-    let transposed = embedding.concat(activation).value.transpose()
+    let transposed = embedding.concat(activation).value.transpose2d()
     
     let concat = Tensor(transposed)
     

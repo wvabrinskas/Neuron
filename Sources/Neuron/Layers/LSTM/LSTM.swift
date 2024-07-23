@@ -294,7 +294,7 @@ public final class LSTM: BaseLayer {
   }
   
   
-  public override func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Float) {
+  public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     /*
      order of weights in tensor...
      

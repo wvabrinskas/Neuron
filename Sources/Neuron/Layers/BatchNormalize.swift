@@ -27,7 +27,7 @@ public final class BatchNormalize: BaseLayer {
     set {}
   }
 
-  private let e: Float = 1e-5 //this is a standard smoothing term
+  private let e: Tensor.Scalar = 1e-5 //this is a standard smoothing term
   private var dGamma: [Tensor.Scalar] = []
   private var dBeta: [Tensor.Scalar] = []
   @Atomic private var iterations: Int = 0
@@ -105,7 +105,7 @@ public final class BatchNormalize: BaseLayer {
     return out
   }
   
-  public override func apply(gradients: Optimizer.Gradient, learningRate: Float) {
+  public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     gamma = gamma - (dGamma / iterations.asTensorScalar)
     beta = beta - (dBeta / iterations.asTensorScalar)
     
@@ -150,7 +150,7 @@ public final class BatchNormalize: BaseLayer {
 
     for i in 0..<inputs.count {
       let count = inputSize.rows * inputSize.columns
-      let total = Float(count)
+      let total = Tensor.Scalar(count)
       
       let mean = isTraining == true ? inputs[i].sum / total : movingMean[i]
       
@@ -190,9 +190,9 @@ public final class BatchNormalize: BaseLayer {
     
     for i in 0..<inputs.count {
       let count = inputSize.rows * inputSize.columns
-      let total = Float(count)
+      let total = Tensor.Scalar(count)
 
-      let N = Float(gradient[i].count)
+      let N = Tensor.Scalar(gradient[i].count)
       
       let mean = inputs[i].sum / total
       

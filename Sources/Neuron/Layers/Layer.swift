@@ -63,7 +63,7 @@ public protocol Layer: AnyObject, Codable {
   var device: Device { get set }
   var usesOptimizer: Bool { get set }
   func forward(tensor: Tensor) -> Tensor
-  func apply(gradients: Optimizer.Gradient, learningRate: Float)
+  func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar)
   func exportWeights() throws -> [Tensor]
   func importWeights(_ weights: [Tensor]) throws
 }
@@ -137,7 +137,7 @@ open class BaseLayer: Layer {
     .init()
   }
   
-  public func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Float) {
+  public func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     // override
   }
   
@@ -179,6 +179,19 @@ open class BaseLayer: Layer {
 }
 
 open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
+  public override var weights: Tensor {
+    get {
+      var reduce = filters
+      let first = reduce.removeFirst()
+      
+      return reduce.reduce(first) { partialResult, new in
+        partialResult.concat(new, axis: 2)
+      }
+    }
+    set {
+      fatalError("Please use the `filters` property instead to manage weights on Convolutional layers")
+    }
+  }
   public var filterCount: Int
   public var filters: [Tensor] = []
   public var filterSize: (rows: Int, columns: Int)
@@ -264,7 +277,7 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
           
           for _ in 0..<filterSize.1 {
             let weight = initializer?.calculate(input: inputSize.depth * filterSize.rows * filterSize.columns,
-                                                out: inputSize.depth * filterSize.rows * filterSize.columns) ?? Float.random(in: -1...1)
+                                                out: inputSize.depth * filterSize.rows * filterSize.columns) ?? Tensor.Scalar.random(in: -1...1)
             filterRow.append(weight)
           }
           
@@ -291,6 +304,8 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
                initializer: nil,
                biasEnabled: false,
                encodingType: encodingType)
+    
+    self.usesOptimizer = false
   }
   
   required convenience public init(from decoder: Decoder) throws {

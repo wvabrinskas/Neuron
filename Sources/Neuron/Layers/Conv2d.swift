@@ -239,7 +239,7 @@ public class Conv2d: BaseConvolutionalLayer {
     return newGradientsForFilters
   }
   
-  public override func apply(gradients: Optimizer.Gradient, learningRate: Float) {
+  public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
       
     //batch out gradients by number of filters
     var weightGradientsBatched = [gradients.weights.value]

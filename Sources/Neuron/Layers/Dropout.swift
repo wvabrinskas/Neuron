@@ -11,13 +11,13 @@ import NumSwift
 /// Performs a dropout operation on the inputs based on the chance percentage. The mask changes on every `apply` called.
 public final class Dropout: BaseLayer {
   internal var mask: Tensor = Tensor()
-  private var chance: Float
+  private var chance: Tensor.Scalar
   
   /// Default initializer for Dropout layer
   /// - Parameters:
   ///   - chance: Percent change between 0 and 1 of an input node dropping out
   ///   - inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
-  public init(_ chance: Float, inputSize: TensorSize = TensorSize(array: [])) {
+  public init(_ chance: Tensor.Scalar, inputSize: TensorSize = TensorSize(array: [])) {
     self.chance = max(min(chance, 1.0), 0.0)
     
     super.init(inputSize: inputSize,
@@ -39,7 +39,7 @@ public final class Dropout: BaseLayer {
     self.init(0)
     let container = try decoder.container(keyedBy: CodingKeys.self)
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
-    self.chance = try container.decodeIfPresent(Float.self, forKey: .chance) ?? 0
+    self.chance = try container.decodeIfPresent(Tensor.Scalar.self, forKey: .chance) ?? 0
     self.outputSize = inputSize
     self.mask = try container.decodeIfPresent(Tensor.self, forKey: .mask) ?? Tensor()
   }
@@ -74,7 +74,7 @@ public final class Dropout: BaseLayer {
     return out
   }
   
-  public override func apply(gradients: Optimizer.Gradient, learningRate: Float) {
+  public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     mask = Tensor()
     generateMask()
   }
@@ -97,8 +97,8 @@ public final class Dropout: BaseLayer {
         var col: [Tensor.Scalar] = []
 
         for _ in 0..<inputSize.columns {
-          let random = Float.random(in: 0...1)
-          let item: Float = random <= chance ? 0 : (1 / (1 - chance))
+          let random = Tensor.Scalar.random(in: 0...1)
+          let item: Tensor.Scalar = random <= chance ? 0 : (1 / (1 - chance))
           col.append(item)
         
         }

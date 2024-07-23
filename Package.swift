@@ -5,9 +5,9 @@ import PackageDescription
 
 let package = Package(
     name: "Neuron",
-    platforms: [ .iOS(.v13),
-                 .tvOS(.v13),
-                 .watchOS(.v6),
+    platforms: [ .iOS(.v14),
+                 .tvOS(.v14),
+                 .watchOS(.v7),
                  .macOS(.v11)],
     products: [
         // Products define the executables and libraries a package produces, and make them visible to other packages.
@@ -17,8 +17,9 @@ let package = Package(
     ],
     dependencies: [
       //.package(path: "../NumSwift"),
-      .package(url: "https://github.com/wvabrinskas/NumSwift.git", from: "2.0.11"),
-      .package(url: "https://github.com/wvabrinskas/Logger.git", from: "1.0.6")
+      .package(url: "https://github.com/wvabrinskas/NumSwift.git", from: "2.0.12"),
+      .package(url: "https://github.com/wvabrinskas/Logger.git", from: "1.0.6"),
+      .package(url: "https://github.com/apple/swift-numerics", from: "1.0.0"),
       //.package(url: "https://github.com/apple/swift-docc-plugin", branch: "main")
     ],
     targets: [
@@ -28,7 +29,8 @@ let package = Package(
             name: "Neuron",
             dependencies: [
               "NumSwift",
-              "Logger"
+              "Logger",
+              .product(name: "Numerics", package: "swift-numerics"),
             ],
             resources: [ .process("Resources") ]),
         .testTarget(

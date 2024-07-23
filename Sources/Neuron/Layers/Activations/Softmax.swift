@@ -7,6 +7,7 @@
 
 import Foundation
 import NumSwift
+import Numerics
 
 /// Performs a Softmax activation.
 public final class Softmax: BaseActivationLayer {
@@ -65,12 +66,12 @@ public final class Softmax: BaseActivationLayer {
   
   private func calculate(index: Int, outputs: [Tensor.Scalar]) -> Tensor.Scalar {
     let max = outputs.max() ?? 1
-    var sum: Float = 0
+    var sum: Tensor.Scalar = 0
     outputs.forEach { (output) in
-      sum += pow(Float(Darwin.M_E), output - max)
+      sum += Tensor.Scalar.pow(Tensor.Scalar(Darwin.M_E), output - max)
     }
     
-    return pow(Float(Darwin.M_E), outputs[index] - max) / sum
+    return Tensor.Scalar.pow(Tensor.Scalar(Darwin.M_E), outputs[index] - max) / sum
   }
   
   override public func onInputSizeSet() {

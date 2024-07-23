@@ -14,7 +14,7 @@ extension XCTestCase {
 final class NeuronTests: XCTestCase {
   
   func test_tensor_Subscript() {
-    let input: [[Float]] = [[ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    let input: [[Tensor.Scalar]] = [[ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
                               0,  0,  0,  0,  0,  0,  0,  0,  1],
                             [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
                               0,  0,  0,  0,  0,  0,  1,  0,  0],
@@ -64,7 +64,7 @@ final class NeuronTests: XCTestCase {
     
     let filterCount = 1
     
-    let input: [[Float]] = [0,0,1,0,0,0,0,1,0,0].as2D()
+    let input: [[Tensor.Scalar]] = [0,0,1,0,0,0,0,1,0,0].as2D()
     let outputShape = [20, 20, filterCount]
     
     
@@ -87,10 +87,10 @@ final class NeuronTests: XCTestCase {
     
     XCTAssert(outputShape == out.shape)
     
-    let gradients = NumSwift.onesLike((outputShape[safe: 1, 0], outputShape[safe: 0, 0], filterCount))
+    let gradients: [[[Tensor.Scalar]]] = NumSwift.onesLike((outputShape[safe: 1, 0], outputShape[safe: 0, 0], filterCount))
     let backward = out.gradients(delta: Tensor(gradients))
     
-    let expectedGradient: [[[Float]]] = [[[3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
+    let expectedGradient: [[[Tensor.Scalar]]] = [[[3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
                                           [3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
                                           [3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
                                           [3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
@@ -106,7 +106,7 @@ final class NeuronTests: XCTestCase {
   }
   
   func testFlatten() {
-    let r: [[[Float]]] = [[[1.1,1.2,1.3],
+    let r: [[[Tensor.Scalar]]] = [[[1.1,1.2,1.3],
                            [1.4,1.5,1.6]],
                           [[2.1,2.2,2.3],
                            [2.4,2.5,2.6]],
@@ -121,14 +121,14 @@ final class NeuronTests: XCTestCase {
     let out = layer.forward(tensor: testData)
     out.setGraph(testData)
     
-    let rFlat: [Float] = r.flatten()
+    let rFlat: [Tensor.Scalar] = r.flatten()
     let backward = out.gradients(delta: Tensor(rFlat))
     
     XCTAssert(backward.input.first?.value.shape == r.shape)
   }
   
   func testReshape() {
-    let r: [Float] = [1.1,1.2,1.3,
+    let r: [Tensor.Scalar] = [1.1,1.2,1.3,
                       1.4,1.5,1.6,
                       1.4,1.5,1.6,
                       2.1,2.2,2.3,
@@ -156,7 +156,7 @@ final class NeuronTests: XCTestCase {
   }
   
   func testMaxPool() {
-    let r: [[[Float]]] = [[[0,1,0],
+    let r: [[[Tensor.Scalar]]] = [[[0,1,0],
                            [0,2,0],
                            [0,0,0]],
                           [[0,1,0],
@@ -176,7 +176,7 @@ final class NeuronTests: XCTestCase {
     let out = maxPool.forward(tensor: data)
     out.setGraph(data)
     
-    let gradients: [[[Float]]] = [[[1.0, 0.0],
+    let gradients: [[[Tensor.Scalar]]] = [[[1.0, 0.0],
                                    [0.0, 0.0]],
                                   [[1.0, 0.0],
                                    [0.0, 0.0]],
@@ -204,7 +204,7 @@ final class NeuronTests: XCTestCase {
     let filterCount = 1
     let outputShape = [5,5,filterCount]
     
-    let input: [[Float]] = [0,0,1,0,0,0,0,1,0,0].as2D()
+    let input: [[Tensor.Scalar]] = [0,0,1,0,0,0,0,1,0,0].as2D()
     
     let conv = Conv2d(filterCount: filterCount,
                       inputSize: [inputSize.0, inputSize.1, inputSize.2].tensorSize,
@@ -225,16 +225,16 @@ final class NeuronTests: XCTestCase {
 
     XCTAssert(outputShape == out.value.shape)
     
-    let gradients = NumSwift.onesLike((out.shape[safe: 1, 0], out.shape[safe: 0, 0], filterCount))
+    let gradients: [[[Tensor.Scalar]]] = NumSwift.onesLike((out.shape[safe: 1, 0], out.shape[safe: 0, 0], filterCount))
     let backward = out.gradients(delta: Tensor(gradients))
     
     XCTAssert(backward.input.first?.shape == [inputSize.0,inputSize.1,inputSize.2])
   }
   
   func testUpsample7x7to28x28() {
-    var random: [Float] = []
+    var random: [Tensor.Scalar] = []
     for _ in 0..<100 {
-      random.append(Float.random(in: 0...1))
+      random.append(Tensor.Scalar.random(in: 0...1))
     }
     
     let n = Sequential {
