@@ -8,6 +8,18 @@
 import Foundation
 import NumSwift
 
+public extension Float {
+  static var stabilityFactor: Self {
+    1e-12
+  }
+}
+
+public extension Float16 {
+  static var stabilityFactor: Self {
+    1e-4
+  }
+}
+
 public extension Tensor {
   typealias MathBlock = (_ feature: [Scalar]) -> Scalar
 
@@ -279,6 +291,12 @@ public extension Tensor {
     }
 
     return Tensor(new, context: context)
+  }
+  
+  func l2Normalized() -> Tensor {
+    let flatValue: Tensor.Scalar = value.sumOfSquares
+    let normalized = value / sqrt(flatValue)
+    return Tensor(normalized, context: context)
   }
   
   func l2Normalize() {

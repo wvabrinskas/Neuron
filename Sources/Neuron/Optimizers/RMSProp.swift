@@ -12,13 +12,13 @@ public class RMSProp: BaseOptimizer {
   private var b: Tensor.Scalar = 0.9
   private var v: [Tensor.Data] = []
   private var vb: [[Tensor.Scalar]] = []
-  private var eps: Tensor.Scalar = 1e-8
+  private var eps: Tensor.Scalar = .stabilityFactor
 
   public init(_ trainable: Trainable,
               device: Device = CPU(),
               learningRate: Tensor.Scalar,
               b: Tensor.Scalar = 0.9,
-              eps: Tensor.Scalar = 1e-8,
+              eps: Tensor.Scalar = .stabilityFactor,
               threadWorkers: Int = 16) {
     self.eps = eps
     self.b = b

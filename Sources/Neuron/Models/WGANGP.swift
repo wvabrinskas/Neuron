@@ -16,7 +16,7 @@ public class WGANGP: GAN {
 
   private struct GradientPenalty {
     static func calculate(gradient: Tensor) -> Tensor {
-      let norm = sqrt(gradient.value.sumOfSquares + 1e-12) - 1
+      let norm = sqrt(gradient.value.sumOfSquares + .stabilityFactor) - 1
       return Tensor(Tensor.Scalar.pow(norm, 2))
     }
     
