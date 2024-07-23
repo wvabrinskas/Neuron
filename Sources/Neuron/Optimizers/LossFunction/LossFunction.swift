@@ -72,7 +72,7 @@ public enum LossFunction {
       for i in 0..<predicted.count {
         let predicted = predicted[i]
         let correct = correct[i]
-        sum += -1 * (correct * Tensor.Scalar.log(predicted + 1e-10))
+        sum += -1 * (correct * Tensor.Scalar.log(predicted + .stabilityFactor))
       }
       
       return sum
@@ -81,7 +81,7 @@ public enum LossFunction {
          .binaryCrossEntropySoftmax,
          .minimaxBinaryCrossEntropy:
       func clipped(_ value: Tensor.Scalar) -> Tensor.Scalar {
-        return max(1e-9, value)
+        return max(.stabilityFactor, value)
       }
       
       var sum: Tensor.Scalar = 0

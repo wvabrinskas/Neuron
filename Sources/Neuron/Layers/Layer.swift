@@ -137,7 +137,7 @@ open class BaseLayer: Layer {
     .init()
   }
   
-  public func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Tensor.Scalar) {
+  public func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     // override
   }
   
@@ -179,6 +179,19 @@ open class BaseLayer: Layer {
 }
 
 open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
+  public override var weights: Tensor {
+    get {
+      var reduce = filters
+      let first = reduce.removeFirst()
+      
+      return reduce.reduce(first) { partialResult, new in
+        partialResult.concat(new, axis: 2)
+      }
+    }
+    set {
+      fatalError("Please use the `filters` property instead to manage weights on Convolutional layers")
+    }
+  }
   public var filterCount: Int
   public var filters: [Tensor] = []
   public var filterSize: (rows: Int, columns: Int)
@@ -291,6 +304,8 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
                initializer: nil,
                biasEnabled: false,
                encodingType: encodingType)
+    
+    self.usesOptimizer = false
   }
   
   required convenience public init(from decoder: Decoder) throws {

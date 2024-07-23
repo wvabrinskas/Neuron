@@ -8,7 +8,33 @@
 import Foundation
 import NumSwift
 
+/// Convienence class for Adam with weight decay as default to `0.004`
+public final class AdamW: Adam {
+  public init(_ trainable: Trainable,
+              device: Device = CPU(),
+              learningRate: Tensor.Scalar,
+              b1: Tensor.Scalar = 0.9,
+              b2: Tensor.Scalar = 0.999,
+              eps: Tensor.Scalar = .stabilityFactor,
+              weightDecayValue: Tensor.Scalar = 0.004,
+              threadWorkers: Int = 16) {
+    super.init(trainable,
+               device: device,
+               learningRate: learningRate,
+               b1: b1,
+               b2: b2,
+               eps: eps,
+               weightDecay: .decay(weightDecayValue),
+               threadWorkers: threadWorkers)
+  }
+}
+
 public class Adam: BaseOptimizer {
+  public enum WeightDecay {
+    case none
+    case decay(Tensor.Scalar)
+  }
+  
   public override var trainable: Trainable {
     didSet {
       build()
@@ -17,26 +43,28 @@ public class Adam: BaseOptimizer {
   
   private var b1: Tensor.Scalar = 0.9
   private var b2: Tensor.Scalar = 0.999
-  private var eps: Tensor.Scalar = 1e-8
+  private var eps: Tensor.Scalar = .stabilityFactor
   
   private var m: [Tensor.Data] = []
   private var v: [Tensor.Data] = []
   private var vb: [[Tensor.Scalar]] = []
   private var mb: [[Tensor.Scalar]] = []
   private var t: Tensor.Scalar = 1
-   
+  private let weightDecay: WeightDecay
+  
   public init(_ trainable: Trainable,
               device: Device = CPU(),
               learningRate: Tensor.Scalar,
               b1: Tensor.Scalar = 0.9,
               b2: Tensor.Scalar = 0.999,
-              eps: Tensor.Scalar = 1e-8,
+              eps: Tensor.Scalar = .stabilityFactor,
+              weightDecay: WeightDecay = .none,
               threadWorkers: Int = 16) {
     self.b1 = b1
     self.b2 = b2
     self.eps = eps
-        
-    super.init(trainable: trainable, 
+    self.weightDecay = weightDecay
+    super.init(trainable: trainable,
                learningRate: learningRate,
                l2Normalize: false,
                workers: threadWorkers)
@@ -59,7 +87,7 @@ public class Adam: BaseOptimizer {
       
       // only apply optimizer gradient if the layer is trainable by the optimizer
       if layer.trainable, layer.usesOptimizer {
-        adamGradient = run(gradient: gradient, biasGradient: biasGradient, index: i)
+        adamGradient = run(gradient: gradient, biasGradient: biasGradient, index: i, weights: layer.weights)
       }
       
       layer.apply(gradients: adamGradient, learningRate: learningRate)
@@ -80,7 +108,7 @@ public class Adam: BaseOptimizer {
     trainable.compile()
   }
   
-  private func run(gradient: Tensor, biasGradient: Tensor, index: Int) -> Optimizer.Gradient {
+  private func run(gradient: Tensor, biasGradient: Tensor, index: Int, weights: Tensor) -> Optimizer.Gradient {
     let shape = gradient.shape
     let rows = shape[safe: 1] ?? 0
     let columns = shape[safe: 0] ?? 0
@@ -114,7 +142,13 @@ public class Adam: BaseOptimizer {
           let mHat = m[i][d][r][c] / (1 - Tensor.Scalar.pow(b1, Tensor.Scalar(t)))
           let vHat = v[i][d][r][c] / (1 - Tensor.Scalar.pow(b2, Tensor.Scalar(t)))
           
-          let delta = learningRate / (sqrt(vHat + eps)) * mHat
+          var delta = learningRate * (mHat / (sqrt(vHat + eps)))
+          
+          if case .decay(let decay) = weightDecay {
+            let decay = learningRate * decay * weights.value[safe: d, [[]]][safe: r, []][safe: c, 1]
+            delta -= decay
+          }
+          
           column.append(delta)
         }
         row.append(column)
@@ -132,7 +166,7 @@ public class Adam: BaseOptimizer {
       let mHat = mb[i][d] / (1 - Tensor.Scalar.pow(b1, Tensor.Scalar(t)))
       let vHat = vb[i][d] / (1 - Tensor.Scalar.pow(b2, Tensor.Scalar(t)))
       
-      let deltaB = learningRate / (sqrt(vHat + eps)) * mHat
+      let deltaB = learningRate * (mHat / (sqrt(vHat + eps)))
       
       biases[d] = deltaB
     }

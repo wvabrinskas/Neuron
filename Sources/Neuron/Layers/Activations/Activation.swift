@@ -93,7 +93,7 @@ public enum Activation: Codable, Equatable {
       let num = Tensor.Scalar.exp(x) - Tensor.Scalar.exp(-x)
       let denom = Tensor.Scalar.exp(x) + Tensor.Scalar.exp(-x)
 
-      returnValue = num / (denom + 1e-9)
+      returnValue = num / (denom + Tensor.Scalar.stabilityFactor)
     case .none, .softmax:
       returnValue = input
     }

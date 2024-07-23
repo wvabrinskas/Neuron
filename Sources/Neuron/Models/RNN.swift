@@ -43,7 +43,7 @@ public class RNN: Classifier {
     public init(learningRate: Tensor.Scalar,
                 b1: Tensor.Scalar = 0.9,
                 b2: Tensor.Scalar = 0.999,
-                eps: Tensor.Scalar = 1e-8,
+                eps: Tensor.Scalar = .stabilityFactor,
                 metricsReporter: MetricsReporter? = nil) {
       self.learningRate = learningRate
       self.b1 = b1

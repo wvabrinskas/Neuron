@@ -37,7 +37,7 @@ public final class LayerNormalize: BaseLayer {
   ///   - gamma: Gamme value for normalization
   ///   - beta: Beta value for normalization
   ///   - inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
-  public init(epsilon: Tensor.Scalar = 1e-10,
+  public init(epsilon: Tensor.Scalar = .stabilityFactor,
               gamma: [Tensor.Scalar] = [],
               beta: [Tensor.Scalar] = [],
               inputSize: TensorSize = TensorSize(array: [])) {
@@ -60,7 +60,7 @@ public final class LayerNormalize: BaseLayer {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let gamma = try container.decodeIfPresent([Tensor.Scalar].self, forKey: .gamma) ?? []
     let beta = try container.decodeIfPresent([Tensor.Scalar].self, forKey: .beta) ?? []
-    let epsilon = try container.decodeIfPresent(Tensor.Scalar.self, forKey: .epsilon) ?? 1e-10
+    let epsilon = try container.decodeIfPresent(Tensor.Scalar.self, forKey: .epsilon) ?? .stabilityFactor
 
     self.init(epsilon: epsilon,
               gamma: gamma,
