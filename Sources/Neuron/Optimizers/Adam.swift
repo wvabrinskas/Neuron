@@ -16,16 +16,14 @@ public final class AdamW: Adam {
               b1: Tensor.Scalar = 0.9,
               b2: Tensor.Scalar = 0.999,
               eps: Tensor.Scalar = .stabilityFactor,
-              weightDecayValue: Tensor.Scalar = 0.004,
-              threadWorkers: Int = 16) {
+              weightDecayValue: Tensor.Scalar = 0.004) {
     super.init(trainable,
                device: device,
                learningRate: learningRate,
                b1: b1,
                b2: b2,
                eps: eps,
-               weightDecay: .decay(weightDecayValue),
-               threadWorkers: threadWorkers)
+               weightDecay: .decay(weightDecayValue))
   }
 }
 
@@ -58,8 +56,7 @@ public class Adam: BaseOptimizer {
               b1: Tensor.Scalar = 0.9,
               b2: Tensor.Scalar = 0.999,
               eps: Tensor.Scalar = .stabilityFactor,
-              weightDecay: WeightDecay = .none,
-              threadWorkers: Int = 16) {
+              weightDecay: WeightDecay = .none) {
     self.b1 = b1
     self.b2 = b2
     self.eps = eps
@@ -67,7 +64,7 @@ public class Adam: BaseOptimizer {
     super.init(trainable: trainable,
                learningRate: learningRate,
                l2Normalize: false,
-               workers: threadWorkers)
+               workers: 8) // limit to 8 because anything higher causes an extra second of runtime for some reason??
     build()
   }
   
