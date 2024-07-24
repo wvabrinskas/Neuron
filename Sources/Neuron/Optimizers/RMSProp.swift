@@ -18,8 +18,7 @@ public class RMSProp: BaseOptimizer {
               device: Device = CPU(),
               learningRate: Tensor.Scalar,
               b: Tensor.Scalar = 0.9,
-              eps: Tensor.Scalar = .stabilityFactor,
-              threadWorkers: Int = 16) {
+              eps: Tensor.Scalar = .stabilityFactor) {
     self.eps = eps
     self.b = b
 
@@ -31,7 +30,7 @@ public class RMSProp: BaseOptimizer {
     super.init(trainable: trainable,
                learningRate: learningRate,
                l2Normalize: false,
-               workers: threadWorkers)
+               workers: 8)
   }
   
   public override func step() {

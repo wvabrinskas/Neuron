@@ -16,15 +16,14 @@ public class SGD: BaseOptimizer {
   public init(_ trainable: Trainable,
               device: Device = CPU(),
               learningRate: Tensor.Scalar,
-              momentum: Tensor.Scalar = 0.9,
-              threadWorkers: Int = 16) {
+              momentum: Tensor.Scalar = 0.9) {
     self.momentum = momentum
     
     trainable.compile()
     v = [[[[Tensor.Scalar]]]].init(repeating: [], count: trainable.layers.count)
     vb = [[Tensor.Scalar]].init(repeating: [], count: trainable.layers.count)
     
-    super.init(trainable: trainable, learningRate: learningRate, l2Normalize: false, workers: threadWorkers)
+    super.init(trainable: trainable, learningRate: learningRate, l2Normalize: false, workers: 8)
   }
   
   public override func step() {

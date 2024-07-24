@@ -37,7 +37,6 @@ public class Classifier {
     self.epochs = epochs
     self.killOnAccuracy = killOnAccuracy
     self.log = log
-    self.optimizer.workers = threadWorkers
     self.lossFunction = lossFunction
   }
   
