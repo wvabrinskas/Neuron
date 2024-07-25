@@ -14,11 +14,13 @@ public extension Float {
   }
 }
 
+#if arch(arm64)
 public extension Float16 {
   static var stabilityFactor: Self {
     1e-4
   }
 }
+#endif
 
 public extension Tensor {
   typealias MathBlock = (_ feature: [Scalar]) -> Scalar
