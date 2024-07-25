@@ -17,7 +17,7 @@ let package = Package(
     ],
     dependencies: [
       //.package(path: "../NumSwift"),
-      .package(url: "https://github.com/wvabrinskas/NumSwift.git", from: "2.0.12"),
+      .package(url: "https://github.com/wvabrinskas/NumSwift.git", from: "2.0.13"),
       .package(url: "https://github.com/wvabrinskas/Logger.git", from: "1.0.6"),
       .package(url: "https://github.com/apple/swift-numerics", from: "1.0.0"),
       //.package(url: "https://github.com/apple/swift-docc-plugin", branch: "main")
