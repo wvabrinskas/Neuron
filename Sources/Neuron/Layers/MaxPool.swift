@@ -53,10 +53,10 @@ public final class MaxPool<N: TensorNumeric>: BaseLayer<N> {
     try container.encode(encodingType, forKey: .type)
   }
   
-  public override func forward(tensor: Tensor) -> Tensor {
-    func backwards(input: Tensor, gradient: Tensor) -> (Tensor, Tensor, Tensor) {
+  public override func forward(tensor: Tensor<N>) -> Tensor<N> {
+    func backwards(input: Tensor<N>, gradient: Tensor<N>) -> (Tensor<N>, Tensor<N>, Tensor<N>) {
       let deltas = gradient.value
-      var poolingGradients: [[[Tensor.Scalar]]] = []
+      var poolingGradients: [[[Tensor<N>.Scalar]]] = []
       
       // operation is performed first then returned
       queue.addSynchronousOperation { [weak self] in
@@ -69,10 +69,10 @@ public final class MaxPool<N: TensorNumeric>: BaseLayer<N> {
         }
         
         for i in 0..<sSelf.inputSize.depth {
-          let delta: [Tensor.Scalar] = deltas[i].flatten()
+          let delta: [Tensor<N>.Scalar] = deltas[i].flatten()
           var modifiableDeltas = delta
           
-          var pooledGradients = [Tensor.Scalar].init(repeating: 0,
+          var pooledGradients = [Tensor<N>.Scalar].init(repeating: 0,
                                                      count: sSelf.inputSize.rows * sSelf.inputSize.columns).reshape(columns: sSelf.inputSize.columns)
               
           let indicies = forwardPooledMaxIndicies[i]
@@ -86,14 +86,14 @@ public final class MaxPool<N: TensorNumeric>: BaseLayer<N> {
       }
       
       if poolingGradients.isEmpty {
-        return (gradient, Tensor(), Tensor())
+        return (gradient, Tensor<N>(), Tensor<N>())
       }
       
-      return (Tensor(poolingGradients), Tensor(), Tensor())
+      return (Tensor<N>(poolingGradients), Tensor<N>(), Tensor<N>())
     }
     
     var currentIndicies: [[PoolingIndex]] = []
-    var results: [[[Tensor.Scalar]]] = []
+    var results: [[[Tensor<N>.Scalar]]] = []
     currentIndicies.reserveCapacity(inputSize.depth)
 
     tensor.value.forEach { input in
@@ -106,8 +106,8 @@ public final class MaxPool<N: TensorNumeric>: BaseLayer<N> {
       self.setGradients(indicies: currentIndicies, id: tensor.id)
     }
           
-    let context = TensorContext(backpropagate: backwards)
-    let out = Tensor(results, context: context)
+    let context = TensorContext<N>(backpropagate: backwards)
+    let out = Tensor<N>(results, context: context)
     
     out.setGraph(tensor)
     
@@ -122,13 +122,13 @@ public final class MaxPool<N: TensorNumeric>: BaseLayer<N> {
     self.poolingGradients.append(PoolingGradient(tensorId: id, indicies: indicies))
   }
   
-  public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
+  public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor<N>.Scalar) {
     poolingGradients.removeAll(keepingCapacity: true)
   }
   
-  internal func pool(input: [[Tensor.Scalar]]) -> ([[Tensor.Scalar]], [PoolingIndex]) {
-    var rowResults: [Tensor.Scalar] = []
-    var results: [[Tensor.Scalar]] = []
+  internal func pool(input: [[Tensor<N>.Scalar]]) -> ([[Tensor<N>.Scalar]], [PoolingIndex]) {
+    var rowResults: [Tensor<N>.Scalar] = []
+    var results: [[Tensor<N>.Scalar]] = []
     var pooledIndicies: [PoolingIndex] = []
         
     let rows = inputSize.rows

@@ -53,8 +53,8 @@ public final class Dense<N: TensorNumeric>: BaseLayer<N> {
     let inputs = outputSize.columns
     self.init(inputs)
     
-    self.weights = try container.decodeIfPresent(Tensor.self, forKey: .weights) ?? Tensor()
-    self.biases = try container.decodeIfPresent(Tensor.self, forKey: .biases) ?? Tensor()
+    self.weights = try container.decodeIfPresent(Tensor<N>.self, forKey: .weights) ?? Tensor<N>()
+    self.biases = try container.decodeIfPresent(Tensor<N>.self, forKey: .biases) ?? Tensor<N>()
     self.biasEnabled = try container.decodeIfPresent(Bool.self, forKey: .biasEnabled) ?? false
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
   }
@@ -71,10 +71,10 @@ public final class Dense<N: TensorNumeric>: BaseLayer<N> {
   }
   
   override public func onInputSizeSet() {
-    precondition(inputSize.rows == 1 && inputSize.depth == 1, "Dense expects Tensor dimensions of Nx1x1 where N is the columns, got: \(inputSize)")
+    precondition(inputSize.rows == 1 && inputSize.depth == 1, "Dense expects Tensor<N> dimensions of Nx1x1 where N is the columns, got: \(inputSize)")
     
     initializeWeights(inputs: inputSize.columns)
-    self.biases = Tensor([Tensor.Scalar](repeating: 0, count: outputSize.depth))
+    self.biases = Tensor<N>([Tensor<N>.Scalar](repeating: 0, count: outputSize.depth))
   }
   
   private func initializeWeights(inputs: Int) {
@@ -82,53 +82,53 @@ public final class Dense<N: TensorNumeric>: BaseLayer<N> {
       return
     }
     
-    var newWeights: [[Tensor.Scalar]] = []
+    var newWeights: [[Tensor<N>.Scalar]] = []
     let outputSizeCount = outputSize.columns
     
     for _ in 0..<outputSizeCount {
-      var weightsForNode: [Tensor.Scalar] = []
+      var weightsForNode: [Tensor<N>.Scalar] = []
       for _ in 0..<inputs {
         let w = initializer?.calculate(input: inputs,
-                                       out: outputSizeCount) ?? Tensor.Scalar.random(in: -1...1)
+                                       out: outputSizeCount) ?? Tensor<N>.Scalar.random(in: -1...1)
         weightsForNode.append(w)
       }
       
       newWeights.append(weightsForNode)
     }
     
-    weights = Tensor(newWeights)
+    weights = Tensor<N>(newWeights)
   }
   
-  public override func forward(tensor: Tensor) -> Tensor {
+  public override func forward(tensor: Tensor<N>) -> Tensor<N> {
     
-    let tensorContext = TensorContext { inputs, gradients in
-      let gradientsFlat: [Tensor.Scalar] = gradients.value.flatten()
+    let tensorContext = TensorContext<N> { inputs, gradients in
+      let gradientsFlat: [Tensor<N>.Scalar] = gradients.value.flatten()
       
       let deltas = self.device.matmul(gradients, self.weights.detached())
       
       let inputsFlat = inputs.value[safe: 0]?[safe: 0] ?? []
-      var weightGradients: [[Tensor.Scalar]] = []
+      var weightGradients: [[Tensor<N>.Scalar]] = []
       
       for i in 0..<self.nodes {
         let delta = gradientsFlat[i]
         weightGradients.append(inputsFlat * delta)
       }
 
-      return (deltas, Tensor(weightGradients), gradients.sum(axis: -1))
+      return (deltas, Tensor<N>(weightGradients), gradients.sum(axis: -1))
     }
     
     //THIS WAS A MAJOR BUG POINT. DO NOT SWITCH ROWS AND COLUMNS HERE BY ACCIDENT - Billy 05-20-2022
-    let weightsTransposed: [[Tensor.Scalar]] = NumSwiftC.tranpose(weights.value[safe: 0] ?? [],
+    let weightsTransposed: [[Tensor<N>.Scalar]] = NumSwiftC.tranpose(weights.value[safe: 0] ?? [],
                                                                   size: (rows: outputSize.columns,
                                                                          columns: inputSize.columns))
     
-    var dotProducts = device.matmul(tensor, Tensor(weightsTransposed))
+    var dotProducts = device.matmul(tensor, Tensor<N>(weightsTransposed))
     
     if biasEnabled {
       dotProducts = dotProducts + biases.asScalar()
     }
     
-    let out = Tensor(dotProducts.value, context: tensorContext)
+    let out = Tensor<N>(dotProducts.value, context: tensorContext)
     out.label = "Dense"
     
     out.setGraph(tensor)
@@ -136,7 +136,7 @@ public final class Dense<N: TensorNumeric>: BaseLayer<N> {
     return out
   }
   
-  public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
+  public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor<N>.Scalar) {
     weights.value = weights.value - gradients.weights.value
     
     if biasEnabled {

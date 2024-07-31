@@ -41,7 +41,7 @@ public protocol ActivationLayer: Layer {
 /// A layer that performs a convolution operation
 public protocol ConvolutionalLayer: Layer {
   var filterCount: Int { get }
-  var filters: [Tensor] { get }
+  var filters: [Tensor<Number>] { get }
   var filterSize: (rows: Int, columns: Int) { get }
   var strides: (rows: Int, columns: Int) { get }
   var padding: NumSwift.ConvPadding { get }
@@ -56,18 +56,18 @@ public protocol Layer: AnyObject, Codable {
   var extraEncodables: [String: Codable]? { get }
   var inputSize: TensorSize { get set }
   var outputSize: TensorSize { get }
-  var weights: Tensor { get }
-  var biases: Tensor { get }
+  var weights: Tensor<Number> { get }
+  var biases: Tensor<Number> { get }
   var biasEnabled: Bool { get set }
   var trainable: Bool { get set }
   var isTraining: Bool { get set }
   var initializer: Initializer? { get }
-  var device: Device { get set }
+  var device: BaseDevice<Number> { get set }
   var usesOptimizer: Bool { get set }
-  func forward(tensor: Tensor) -> Tensor
-  func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar)
-  func exportWeights() throws -> [Tensor]
-  func importWeights(_ weights: [Tensor]) throws
+  func forward(tensor: Tensor<Number>) -> Tensor<Number>
+  func apply(gradients: BaseOptimizer<Number>.Gradient, learningRate: Tensor<Number>.Scalar)
+  func exportWeights() throws -> [Tensor<Number>]
+  func importWeights(_ weights: [Tensor<Number>]) throws
 }
 
 public enum LayerErrors: Error, LocalizedError {
@@ -101,13 +101,13 @@ open class BaseLayer<N: TensorNumeric>: Layer {
     }
   }
   public var outputSize: TensorSize = .init()
-  public var weights: Tensor = .init()
-  public var biases: Tensor = .init()
+  public var weights: Tensor<N> = .init()
+  public var biases: Tensor<N> = .init()
   public var biasEnabled: Bool = false
   public var trainable: Bool = true
   public var isTraining: Bool = true
   public var initializer: Initializer?
-  public var device: Device = CPU()
+  public var device: BaseDevice<N> = CPU<N>()
   // defines whether the gradients are run through the optimizer before being applied.
   // this could be useful if a layer manages its own weight updates
   public var usesOptimizer: Bool = true
@@ -136,12 +136,12 @@ open class BaseLayer<N: TensorNumeric>: Layer {
   }
   
   
-  public func forward(tensor: Tensor) -> Tensor {
+  public func forward(tensor: Tensor<N>) -> Tensor<N> {
     // override
     .init()
   }
   
-  public func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
+  public func apply(gradients: BaseOptimizer<N>.Gradient, learningRate: Tensor<N>.Scalar) {
     // override
   }
   
@@ -150,7 +150,7 @@ open class BaseLayer<N: TensorNumeric>: Layer {
     // override
   }
   
-  public func exportWeights() throws -> [Tensor] {
+  public func exportWeights() throws -> [Tensor<N>] {
     guard self.weights.isEmpty == false else {
       throw LayerErrors.generic(error: "\(encodingType.rawValue.capitalized) weights have not been initialized.")
     }
@@ -158,13 +158,13 @@ open class BaseLayer<N: TensorNumeric>: Layer {
     return [weights]
   }
   
-  public func importWeights(_ weights: [Tensor]) throws {
+  public func importWeights(_ weights: [Tensor<N>]) throws {
     guard self.weights.isEmpty == false else {
       throw LayerErrors.generic(error: "\(encodingType.rawValue.capitalized) weights have not been initialized.")
     }
     
     guard weights.count == 1, let weight = weights[safe: 0] else {
-      throw(LayerErrors.generic(error: "\(encodingType.rawValue.capitalized) expects only one Tensor in the array. Got: \(weights.count)"))
+      throw(LayerErrors.generic(error: "\(encodingType.rawValue.capitalized) expects only one Tensor<N> in the array. Got: \(weights.count)"))
     }
     
     try validateWeight(weight, against: self.weights)
@@ -172,7 +172,7 @@ open class BaseLayer<N: TensorNumeric>: Layer {
     self.weights = weight
   }
 
-  func validateWeight(_ weight: Tensor, against: Tensor) throws {
+  func validateWeight(_ weight: Tensor<N>, against: Tensor<N>) throws {
     let incomingShape = weight.shape
     let currentShape = against.shape
     
@@ -183,7 +183,7 @@ open class BaseLayer<N: TensorNumeric>: Layer {
 }
 
 open class BaseConvolutionalLayer<N: TensorNumeric>: BaseLayer<N>, ConvolutionalLayer {
-  public override var weights: Tensor {
+  public override var weights: Tensor<N> {
     get {
       var reduce = filters
       let first = reduce.removeFirst()
@@ -197,7 +197,7 @@ open class BaseConvolutionalLayer<N: TensorNumeric>: BaseLayer<N>, Convolutional
     }
   }
   public var filterCount: Int
-  public var filters: [Tensor] = []
+  public var filters: [Tensor<N>] = []
   public var filterSize: (rows: Int, columns: Int)
   public var strides: (rows: Int, columns: Int)
   public var padding: NumSwift.ConvPadding
@@ -231,7 +231,7 @@ open class BaseConvolutionalLayer<N: TensorNumeric>: BaseLayer<N>, Convolutional
                encodingType: encodingType)
     
     if biasEnabled {
-      biases = Tensor([Tensor.Scalar](repeating: 0, count: filterCount))
+      biases = Tensor<N>([Tensor<N>.Scalar](repeating: 0, count: filterCount))
     }
   }
   
@@ -244,7 +244,7 @@ open class BaseConvolutionalLayer<N: TensorNumeric>: BaseLayer<N>, Convolutional
     initializeFilters()
   }
   
-  public override func exportWeights() throws -> [Tensor] {
+  public override func exportWeights() throws -> [Tensor<N>] {
     guard filters.isEmpty == false else {
       throw LayerErrors.generic(error: "\(encodingType.rawValue.capitalized) weights have not been initialized.")
     }
@@ -252,7 +252,7 @@ open class BaseConvolutionalLayer<N: TensorNumeric>: BaseLayer<N>, Convolutional
     return filters
   }
   
-  public override func importWeights(_ weights: [Tensor]) throws {
+  public override func importWeights(_ weights: [Tensor<N>]) throws {
     guard filters.isEmpty == false else {
       throw LayerErrors.generic(error: "\(encodingType.rawValue.capitalized) weights have not been initialized.")
     }
@@ -272,16 +272,16 @@ open class BaseConvolutionalLayer<N: TensorNumeric>: BaseLayer<N>, Convolutional
     }
     
     for _ in 0..<filterCount {
-      var kernels: [[[Tensor.Scalar]]] = []
+      var kernels: [[[Tensor<N>.Scalar]]] = []
       for _ in 0..<inputSize.depth {
-        var kernel: [[Tensor.Scalar]] = []
+        var kernel: [[Tensor<N>.Scalar]] = []
         
         for _ in 0..<filterSize.0 {
-          var filterRow: [Tensor.Scalar] = []
+          var filterRow: [Tensor<N>.Scalar] = []
           
           for _ in 0..<filterSize.1 {
             let weight = initializer?.calculate(input: inputSize.depth * filterSize.rows * filterSize.columns,
-                                                out: inputSize.depth * filterSize.rows * filterSize.columns) ?? Tensor.Scalar.random(in: -1...1)
+                                                out: inputSize.depth * filterSize.rows * filterSize.columns) ?? Tensor<N>.Scalar.random(in: -1...1)
             filterRow.append(weight)
           }
           
@@ -291,7 +291,7 @@ open class BaseConvolutionalLayer<N: TensorNumeric>: BaseLayer<N>, Convolutional
         kernels.append(kernel)
       }
       
-      let filter = Tensor(kernels)
+      let filter = Tensor<N>(kernels)
       filters.append(filter)
     }
   }
@@ -318,15 +318,15 @@ open class BaseActivationLayer<N: TensorNumeric>: BaseLayer<N>, ActivationLayer 
               encodingType: .none)
   }
   
-  public override func forward(tensor: Tensor) -> Tensor {
+  public override func forward(tensor: Tensor<N>) -> Tensor<N> {
     
-    let context = TensorContext { inputs, gradient in
+    let context = TensorContext<N> { inputs, gradient in
       let out = self.device.derivate(inputs, self.type).value * gradient.value
-      return (Tensor(out), Tensor(), Tensor())
+      return (Tensor<N>(out), Tensor<N>(), Tensor<N>())
     }
     
     let result = device.activate(tensor, type)
-    let out = Tensor(result.value, context: context)
+    let out = Tensor<N>(result.value, context: context)
     out.label = type.asString()
 
     out.setGraph(tensor)
@@ -334,11 +334,11 @@ open class BaseActivationLayer<N: TensorNumeric>: BaseLayer<N>, ActivationLayer 
     return out
   }
   
-  override public func importWeights(_ weights: [Tensor]) throws {
+  override public func importWeights(_ weights: [Tensor<N>]) throws {
     // no op
   }
   
-  override public func exportWeights() throws -> [Tensor] {
-    [Tensor()]
+  override public func exportWeights() throws -> [Tensor<N>] {
+    [Tensor<N>()]
   }
 }

@@ -9,24 +9,24 @@ import Foundation
 import GameplayKit
 import Numerics
 
-public struct NormalDistribution {
+public struct NormalDistribution<N: TensorNumeric> {
   private let randomSource: GKRandomSource
-  public let mean: Tensor.Scalar
-  public let deviation: Tensor.Scalar
+  public let mean: Tensor<N>.Scalar
+  public let deviation: Tensor<N>.Scalar
   
-  public init(randomSource: GKRandomSource = GKRandomSource(), mean: Tensor.Scalar = 0, deviation: Tensor.Scalar = 0.01) {
+  public init(randomSource: GKRandomSource = GKRandomSource(), mean: Tensor<N>.Scalar = 0, deviation: Tensor<N>.Scalar = 0.01) {
     precondition(deviation >= 0)
     self.randomSource = randomSource
     self.mean = mean
     self.deviation = deviation
   }
   
-  public func nextScalar() -> Tensor.Scalar {
+  public func nextScalar() -> Tensor<N>.Scalar {
     guard deviation > 0 else { return mean }
     
-    let x1 = Tensor.Scalar(randomSource.nextUniform())
-    let x2 = Tensor.Scalar(randomSource.nextUniform())
-    let z1 = Tensor.Scalar.sqrt(-2 * Tensor.Scalar.log(x1)) * Tensor.Scalar.cos(2 * Tensor.Scalar.pi * x2)
+    let x1 = Tensor<N>.Scalar(randomSource.nextUniform())
+    let x2 = Tensor<N>.Scalar(randomSource.nextUniform())
+    let z1 = Tensor<N>.Scalar.sqrt(-2 * Tensor<N>.Scalar.log(x1)) * Tensor<N>.Scalar.cos(2 * Tensor<N>.Scalar.pi * x2)
     
     return z1 * deviation + mean
   }

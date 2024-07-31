@@ -10,7 +10,7 @@ import Foundation
 public final class Sequential<N: TensorNumeric>: BaseTrainable<N> {
   public override var name: String { get { "Sequential" } set {}}
 
-  public override func predict(_ data: Tensor) -> Tensor {
+  public override func predict(_ data: Tensor<N>) -> Tensor<N> {
     precondition(isCompiled, "Please call compile() on the \(self) before attempting to fit")
     
     var outputTensor = data
@@ -45,7 +45,7 @@ public final class Sequential<N: TensorNumeric>: BaseTrainable<N> {
     isCompiled = true
   }
   
-  public override func exportWeights() throws -> [[Tensor]] {
+  public override func exportWeights() throws -> [[Tensor<N>]] {
     guard isCompiled else {
       throw LayerErrors.generic(error: "Please compile the trainable first before attempting to export weights.")
     }
@@ -53,7 +53,7 @@ public final class Sequential<N: TensorNumeric>: BaseTrainable<N> {
     return try layers.map { try $0.exportWeights() }
   }
   
-  public override func importWeights(_ weights: [[Tensor]]) throws {
+  public override func importWeights(_ weights: [[Tensor<N>]]) throws {
     guard isCompiled else {
       throw LayerErrors.generic(error: "Please compile the trainable first before attempting to import weights.")
     }

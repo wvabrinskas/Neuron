@@ -59,8 +59,8 @@ public final class Embedding<N: TensorNumeric>: BaseLayer<N> {
               batchLength: batchLength)
     
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
-    self.weights = try container.decodeIfPresent(Tensor.self, forKey: .weights) ?? Tensor()
-    self.biases = try container.decodeIfPresent(Tensor.self, forKey: .biases) ?? Tensor()
+    self.weights = try container.decodeIfPresent(Tensor<N>.self, forKey: .weights) ?? Tensor<N>()
+    self.biases = try container.decodeIfPresent(Tensor<N>.self, forKey: .biases) ?? Tensor<N>()
     self.biasEnabled = try container.decodeIfPresent(Bool.self, forKey: .biasEnabled) ?? false
     self.outputSize = try container.decodeIfPresent(TensorSize.self, forKey: .outputSize) ?? TensorSize(array: [])
   }
@@ -81,16 +81,16 @@ public final class Embedding<N: TensorNumeric>: BaseLayer<N> {
   /// Forward path for the layer
   /// - Parameter tensor: Input word as a 3D tensor with size `rows: 1, columns: vocabSize, depth: batchLength`
   /// - Returns: An output 3D tensor of shape `rows: 1, columns: inputUnits, depth: batchLength`
-  public override func forward(tensor: Tensor) -> Tensor {
-    let context = TensorContext { inputs, gradient in
-      var wrtEmbeddings: Tensor = Tensor()
+  public override func forward(tensor: Tensor<N>) -> Tensor<N> {
+    let context = TensorContext<N> { inputs, gradient in
+      var wrtEmbeddings: Tensor<N> = Tensor<N>()
 
       for i in 0..<gradient.value.count {
         let gradientAtIndex = gradient.value[i]
         
-        let embeddingError = Tensor(gradientAtIndex)
+        let embeddingError = Tensor<N>(gradientAtIndex)
         
-        let inputsTransposed = Tensor(NumSwiftC.tranpose(inputs.value[i],
+        let inputsTransposed = Tensor<N>(NumSwiftC.tranpose(inputs.value[i],
                                                    size: (rows: self.inputSize.rows,
                                                           columns: self.inputSize.columns)))
         
@@ -104,19 +104,19 @@ public final class Embedding<N: TensorNumeric>: BaseLayer<N> {
         }
       }
 
-      return (Tensor(), wrtEmbeddings, Tensor())
+      return (Tensor<N>(), wrtEmbeddings, Tensor<N>())
     }
     
-    var out = Tensor(context: context)
+    var out = Tensor<N>(context: context)
 
     for d in 0..<batchLength {
       if tensor.value.count < d {
-        let concatOut = out.concat(Tensor(NumSwift.zerosLike((rows: 1, columns: inputUnits))), axis: 2)
+        let concatOut = out.concat(Tensor<N>(NumSwift.zerosLike((rows: 1, columns: inputUnits))), axis: 2)
         out = concatOut
         continue
       }
       
-      let word = Tensor(tensor.value[safe: d] ?? out.value[safe: d] ?? NumSwift.zerosLike((rows: 1, columns: vocabSize)))
+      let word = Tensor<N>(tensor.value[safe: d] ?? out.value[safe: d] ?? NumSwift.zerosLike((rows: 1, columns: vocabSize)))
       let getEmbeddings = device.matmul(word, weights.detached())
       
       let concatOut = out.concat(getEmbeddings, axis: 2)
@@ -129,7 +129,7 @@ public final class Embedding<N: TensorNumeric>: BaseLayer<N> {
     return out
   }
   
-  public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
+  public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor<N>.Scalar) {
     if trainable {
       if usesOptimizer {
         weights = weights - gradients.weights

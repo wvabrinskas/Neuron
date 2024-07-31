@@ -13,14 +13,14 @@ open class BaseTrainable<N: TensorNumeric>: Trainable {
       layers.forEach { $0.threadId = threadId }
     }
   }
-  open var device: Device = CPU() {
+  open var device: BaseDevice<N> = CPU<N>() {
     didSet {
       layers.forEach { layer in
         switch device.type {
         case .cpu:
-          layer.device = CPU()
+          layer.device = CPU<N>()
         case .gpu:
-          layer.device = GPU()
+          layer.device = GPU<N>()
         }
       }
     }
@@ -70,7 +70,7 @@ open class BaseTrainable<N: TensorNumeric>: Trainable {
     }
   }
   
-  public func callAsFunction(_ data: Tensor) -> Tensor {
+  public func callAsFunction(_ data: Tensor<N>) -> Tensor<N> {
     predict(data)
   }
   
@@ -79,7 +79,7 @@ open class BaseTrainable<N: TensorNumeric>: Trainable {
     try container.encode(layers.map { LayerModel(layer: $0) }, forKey: .layers)
   }
   
-  open func predict(_ data: Tensor) -> Tensor {
+  open func predict(_ data: Tensor<N>) -> Tensor<N> {
     .init()
   }
   
@@ -87,7 +87,7 @@ open class BaseTrainable<N: TensorNumeric>: Trainable {
     isCompiled = true
   }
   
-  open func exportWeights() throws -> [[Tensor]] {
+  open func exportWeights() throws -> [[Tensor<N>]] {
     guard isCompiled else {
       throw LayerErrors.generic(error: "Please compile the trainable first before attempting to export weights.")
     }
@@ -95,7 +95,7 @@ open class BaseTrainable<N: TensorNumeric>: Trainable {
     return try layers.map { try $0.exportWeights() }
   }
   
-  open func importWeights(_ weights: [[Tensor]]) throws {
+  open func importWeights(_ weights: [[Tensor<N>]]) throws {
     guard isCompiled else {
       throw LayerErrors.generic(error: "Please compile the trainable first before attempting to import weights.")
     }

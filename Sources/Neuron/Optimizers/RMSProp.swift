@@ -9,21 +9,21 @@ import Foundation
 import NumSwift
 
 public class RMSProp<N: TensorNumeric>: BaseOptimizer<N> {
-  private var b: Tensor.Scalar = 0.9
-  private var v: [Tensor.Data] = []
-  private var vb: [[Tensor.Scalar]] = []
-  private var eps: Tensor.Scalar = .stabilityFactor
+  private var b: Tensor<N>.Scalar = N(0.9)
+  private var v: [Tensor<N>.Data] = []
+  private var vb: [[Tensor<N>.Scalar]] = []
+  private var eps: Tensor<N>.Scalar = .stabilityFactor
 
   public init(_ trainable: BaseTrainable<N>,
               device: Device = CPU(),
-              learningRate: Tensor.Scalar,
-              b: Tensor.Scalar = 0.9,
-              eps: Tensor.Scalar = .stabilityFactor) {
+              learningRate: Tensor<N>.Scalar,
+              b: Tensor<N>.Scalar = 0.9,
+              eps: Tensor<N>.Scalar = .stabilityFactor) {
     self.eps = eps
     self.b = b
 
-    v = [[[[Tensor.Scalar]]]].init(repeating: [], count: trainable.layers.count)
-    vb = [[Tensor.Scalar]].init(repeating: [], count: trainable.layers.count)
+    v = [[[[Tensor<N>.Scalar]]]].init(repeating: [], count: trainable.layers.count)
+    vb = [[Tensor<N>.Scalar]].init(repeating: [], count: trainable.layers.count)
     
     trainable.compile()
     
@@ -64,7 +64,7 @@ public class RMSProp<N: TensorNumeric>: BaseOptimizer<N> {
     super.reset()
   }
 
-  private func run(gradient: Tensor, biasGradient: Tensor, index: Int) -> Optimizer.Gradient {
+  private func run(gradient: Tensor<N>, biasGradient: Tensor<N>, index: Int) -> Optimizer.Gradient {
     let shape = gradient.shape
     let rows = shape[safe: 1] ?? 0
     let columns = shape[safe: 0] ?? 0
@@ -73,12 +73,12 @@ public class RMSProp<N: TensorNumeric>: BaseOptimizer<N> {
     
     let flatBias = biasGradient.value.flatten()
 
-    var result: [[[Tensor.Scalar]]] = NumSwift.zerosLike((rows, columns, depth))
-    var biases: [Tensor.Scalar] = .init(repeating: 0, count: flatBias.count)
+    var result: [[[Tensor<N>.Scalar]]] = NumSwift.zerosLike((rows, columns, depth))
+    var biases: [Tensor<N>.Scalar] = .init(repeating: 0, count: flatBias.count)
     
     if vb[i].isEmpty || v[i].isEmpty {
       v[i] = NumSwift.zerosLike((rows, columns, depth))
-      vb[i] = [Tensor.Scalar].init(repeating: 0, count: flatBias.count)
+      vb[i] = [Tensor<N>.Scalar].init(repeating: 0, count: flatBias.count)
     }
     
     let gradientValue = gradient.value
@@ -88,7 +88,7 @@ public class RMSProp<N: TensorNumeric>: BaseOptimizer<N> {
       for r in 0..<depthGradient.count {
         let rowGradient = depthGradient[r]
         for c in 0..<rowGradient.count {
-          v[i][d][r][c] = b * v[i][d][r][c] + (1 - b) * Tensor.Scalar.pow(gradientValue[d][r][c], 2)
+          v[i][d][r][c] = b * v[i][d][r][c] + (1 - b) * Tensor<N>.Scalar.pow(gradientValue[d][r][c], 2)
           
           let vdw = v[i][d][r][c]
           let alpha = learningRate
@@ -105,7 +105,7 @@ public class RMSProp<N: TensorNumeric>: BaseOptimizer<N> {
     for d in 0..<flatBias.count {
       // bias gradients are performed at a depth level
       let biasGradient = flatBias[d]
-      vb[i][d] = b * vb[i][d] + (1 - b) * Tensor.Scalar.pow(biasGradient, 2)
+      vb[i][d] = b * vb[i][d] + (1 - b) * Tensor<N>.Scalar.pow(biasGradient, 2)
       let vdb = vb[i][d]
       let alpha = learningRate
       let db = biasGradient
@@ -114,6 +114,6 @@ public class RMSProp<N: TensorNumeric>: BaseOptimizer<N> {
       biases[d] = deltaB
     }
     
-    return (Tensor(result), Tensor(biases))
+    return (Tensor<N>(result), Tensor<N>(biases))
   }
 }

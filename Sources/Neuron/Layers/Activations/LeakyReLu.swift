@@ -10,11 +10,11 @@ import NumSwift
 
 /// Performs a LeakyRelu activation.
 public final class LeakyReLu<N: TensorNumeric>: BaseActivationLayer<N> {
-  private var limit: Tensor.Scalar
+  private var limit: Tensor<N>.Scalar
   
   /// Default initializer for a leaky relu activation function.
   /// - Parameter limit: The alpha limit value for leaky relu.
-  public init(limit: Tensor.Scalar = 0.01) {
+  public init(limit: Tensor<N>.Scalar = 0.01) {
     self.limit = limit
     
     super.init(type: .leakyRelu(limit: limit),
@@ -29,7 +29,7 @@ public final class LeakyReLu<N: TensorNumeric>: BaseActivationLayer<N> {
   
   convenience public required init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
-    let limit = try container.decodeIfPresent(Tensor.Scalar.self, forKey: .limit) ?? 0.01
+    let limit = try container.decodeIfPresent(Tensor<N>.Scalar.self, forKey: .limit) ?? 0.01
     self.init(limit: limit)
     
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])

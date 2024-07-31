@@ -1,6 +1,7 @@
+
 //
 //  File.swift
-//  
+//
 //
 //  Created by William Vabrinskas on 6/27/22.
 //
@@ -14,15 +15,7 @@ public extension Float {
   }
 }
 
-#if arch(arm64)
-public extension Float16 {
-  static var stabilityFactor: Self {
-    1e-4
-  }
-}
-#endif
-
-public extension Tensor {
+public extension Tensor where N == Float {
   typealias MathBlock = (_ feature: [Scalar]) -> Scalar
 
   /*
@@ -35,15 +28,15 @@ public extension Tensor {
     |        | /
     |        |/
     +--------+
-    Along axis 0 the Tensor of shape AxBxC, where A is the columns, B is the rows, and C is the depth, would perform a mathematical function along the Y axis returning a (Ax1xC) Tensor
+    Along axis 0 the Tensor<N> of shape AxBxC, where A is the columns, B is the rows, and C is the depth, would perform a mathematical function along the Y axis returning a (Ax1xC) Tensor<N>
 
-    Along axis 1 the Tensor of shape AxBxC, where A is the columns, B is the rows, and C is the depth, would perform a mathematical function along the X axis returning a (1xBxC) Tensor
+    Along axis 1 the Tensor<N> of shape AxBxC, where A is the columns, B is the rows, and C is the depth, would perform a mathematical function along the X axis returning a (1xBxC) Tensor<N>
 
-    Along axis 2 the Tensor of shape AxBxC, where A is the columns, B is the rows, and C is the depth, would perform a mathematical function along the Z axis returning a (AxBx1) Tensor
+    Along axis 2 the Tensor<N> of shape AxBxC, where A is the columns, B is the rows, and C is the depth, would perform a mathematical function along the Z axis returning a (AxBx1) Tensor<N>
 
-    Along axis -1 the Tensor of shape AxBxC, where A is the columns, B is the rows, and C is the depth, would perform a mathematical function along the Z axis returning a (1x1x1) Tensor Scalar
+    Along axis -1 the Tensor<N> of shape AxBxC, where A is the columns, B is the rows, and C is the depth, would perform a mathematical function along the Z axis returning a (1x1x1) Tensor<N> Scalar
    */
-  func apply(axis: Int, _ block: MathBlock) -> Tensor {
+  func apply(axis: Int, _ block: MathBlock) -> Tensor<N> {
     let shape = shape
     let rows = shape[safe: 1, 0]
     let columns = shape[safe: 0, 0]
@@ -106,7 +99,7 @@ public extension Tensor {
       result.append(featureResults)
     }
     
-    return Tensor(result)
+    return Tensor<N>(result)
   }
   
   func clip(_ val: Scalar = 0.01) {
@@ -137,56 +130,56 @@ public extension Tensor {
     }
   }
   
-  func matmul(_ with: Tensor) -> Tensor {
+  func matmul(_ with: Tensor<N>) -> Tensor<N> {
     // TODO: maybe do auto grad here?
     let A = value
     let B = with.value
-    return Tensor(A.matmul(B))
+    return Tensor<N>(A.matmul(B))
   }
   
-  func sumOfSquares(axis: Int = -1) -> Tensor {
+  func sumOfSquares(axis: Int = -1) -> Tensor<N> {
     let block: MathBlock = { feature in
       feature.sumOfSquares
     }
     
     if axis == -1 {
-      return Tensor(self.value.sumOfSquares)
+      return Tensor<N>(self.value.sumOfSquares)
     }
     
     return apply(axis: axis, block)
   }
   
-  func split(into: Int, axis: Int = 2) -> [Tensor] {    
+  func split(into: Int, axis: Int = 2) -> [Tensor<N>] {
     if axis == 2 { // along depth
-      return self.value.batched(into: into).map { Tensor($0) }
+      return self.value.batched(into: into).map { Tensor<N>($0) }
     }
     
     let shape = shape
     let rows = shape[safe: 1, 0]
     
     if axis == 0 {
-      var row: [Tensor] = []
+      var row: [Tensor<N>] = []
       for d in 0..<value.count {
         let feature = value[d]
         if row.isEmpty {
-          row = feature.batched(into: into).map { Tensor($0) }
+          row = feature.batched(into: into).map { Tensor<N>($0) }
         } else {
-          let current = feature.batched(into: into).map { Tensor($0) }
+          let current = feature.batched(into: into).map { Tensor<N>($0) }
           row = zip(row, current).map { $0.0.concat($0.1, axis: 2) }
         }
       }
       return row
     } else if axis == 1 {
-      var result: [Tensor] = []
+      var result: [Tensor<N>] = []
       for d in 0..<value.count {
-        var row: [Tensor] = []
+        var row: [Tensor<N>] = []
 
         for r in 0..<rows {
           if row.isEmpty {
-            let col = value[d][r].batched(into: into).map { Tensor($0) }
+            let col = value[d][r].batched(into: into).map { Tensor<N>($0) }
             row = col
           } else {
-            let col = value[d][r].batched(into: into).map { Tensor($0) }
+            let col = value[d][r].batched(into: into).map { Tensor<N>($0) }
             row = zip(row, col).map { $0.0.concat($0.1, axis: 0)}
           }
         }
@@ -204,23 +197,23 @@ public extension Tensor {
     }
   }
   
-  func mean(axis: Int = -1) -> Tensor {
+  func mean(axis: Int = -1) -> Tensor<N> {
     let block: MathBlock = { feature in
       feature.average
     }
     
     if axis == -1 {
       let total = self.shape.reduce(1, *)
-      let all = self.value.flatten().sum / Tensor.Scalar(total)
-      return Tensor(all)
+      let all = self.value.flatten().sum / Tensor<N>.Scalar(total)
+      return Tensor<N>(all)
     }
     
     return apply(axis: axis, block)
   }
   
-  func sum(axis: Int = -1) -> Tensor {
+  func sum(axis: Int = -1) -> Tensor<N> {
     if axis == -1 {
-      return Tensor(value.sum)
+      return Tensor<N>(value.sum)
     } else {
       return apply(axis: axis) { feature in
         feature.sum
@@ -228,9 +221,9 @@ public extension Tensor {
     }
   }
   
-  func subtract(axis: Int = -1) -> Tensor {
+  func subtract(axis: Int = -1) -> Tensor<N> {
     if axis == -1 {
-      return Tensor(value.flatten().reduce(0, -))
+      return Tensor<N>(value.flatten().reduce(0, -))
     } else {
       return apply(axis: axis) { feature in
         var feature = feature
@@ -241,9 +234,9 @@ public extension Tensor {
     }
   }
   
-  func multiply(axis: Int = -1) -> Tensor {
+  func multiply(axis: Int = -1) -> Tensor<N> {
     if axis == -1 {
-      return Tensor(value.flatten().reduce(1, *))
+      return Tensor<N>(value.flatten().reduce(1, *))
     } else {
       return apply(axis: axis) { feature in
         feature.reduce(1, *)
@@ -251,20 +244,20 @@ public extension Tensor {
     }
   }
   
-  func norm(axis: Int = -1) -> Tensor {
+  func norm(axis: Int = -1) -> Tensor<N> {
     let block: MathBlock = { feature in
       sqrt(feature.sumOfSquares)
     }
     
     if axis == -1 {
-      return Tensor(sqrt(self.value.sumOfSquares))
+      return Tensor<N>(sqrt(self.value.sumOfSquares))
     }
     
     return apply(axis: axis, block)
   }
   
   @discardableResult
-  func concat(_ tensor: Tensor, axis: Int = 1) -> Tensor {
+  func concat(_ tensor: Tensor<N>, axis: Int = 1) -> Tensor<N> {
     let shape = shape
     let rows = shape[safe: 1, 0]
     let depth = shape[safe: 2, 0]
@@ -274,7 +267,7 @@ public extension Tensor {
     if axis == -1 {
       var flatSelf = value.flatten()
       flatSelf.append(contentsOf: tensor.value.flatten())
-      return Tensor(flatSelf, context: context)
+      return Tensor<N>(flatSelf, context: context)
     }
     
     if axis == 2 {
@@ -292,133 +285,134 @@ public extension Tensor {
       }
     }
 
-    return Tensor(new, context: context)
+    return Tensor<N>(new, context: context)
   }
   
-  func l2Normalized() -> Tensor {
-    let flatValue: Tensor.Scalar = value.sumOfSquares
+  func l2Normalized() -> Tensor<N> {
+    let flatValue: Tensor<N>.Scalar = value.sumOfSquares
     let normalized = value / sqrt(flatValue)
-    return Tensor(normalized, context: context)
+    return Tensor<N>(normalized, context: context)
   }
   
   func l2Normalize() {
-    let flatValue: Tensor.Scalar = value.sumOfSquares
+    let flatValue: Tensor<N>.Scalar = value.sumOfSquares
     let normalized = value / sqrt(flatValue)
     self.value = normalized
   }
   
-  func map(_ transform: (Tensor.Scalar) -> Tensor.Scalar) -> Tensor {
-    var result: Tensor.Data = []
+  func map(_ transform: (Tensor<N>.Scalar) -> Tensor<N>.Scalar) -> Tensor<N> {
+    var result: Tensor<N>.Data = []
     
     self.value.forEach { d in
-      var row: [[Tensor.Scalar]] = []
+      var row: [[Tensor<N>.Scalar]] = []
       d.forEach { r in
         row.append(r.map(transform))
       }
       result.append(row)
     }
     
-    return Tensor(result, context: context)
+    return Tensor<N>(result, context: context)
   }
 
-  static func /(lhs: Scalar, rhs: Tensor) -> Tensor {
+  static func /(lhs: Scalar, rhs: Tensor<N>) -> Tensor<N> {
     let newTensorValue = lhs / rhs.value
-    return Tensor(newTensorValue, context: rhs.context)
+    return Tensor<N>(newTensorValue, context: rhs.context)
   }
   
-  static func *(lhs: Scalar, rhs: Tensor) -> Tensor {
+  static func *(lhs: Scalar, rhs: Tensor<N>) -> Tensor<N> {
     let newTensorValue = lhs * rhs.value
-    return Tensor(newTensorValue, context: rhs.context)
+    return Tensor<N>(newTensorValue, context: rhs.context)
   }
   
-  static func -(lhs: Scalar, rhs: Tensor) -> Tensor {
+  static func -(lhs: Scalar, rhs: Tensor<N>) -> Tensor<N> {
     let newTensorValue = lhs - rhs.value
-    return Tensor(newTensorValue, context: rhs.context)
+    return Tensor<N>(newTensorValue, context: rhs.context)
   }
   
-  static func /(lhs: Tensor, rhs: Scalar) -> Tensor {
+  static func /(lhs: Tensor<N>, rhs: Scalar) -> Tensor<N> {
     let left = lhs.value
     
     let newTensorValue = left / rhs
-    return Tensor(newTensorValue, context: lhs.context)
+    return Tensor<N>(newTensorValue, context: lhs.context)
   }
   
-  static func *(lhs: Tensor, rhs: Scalar) -> Tensor {
+  static func *(lhs: Tensor<N>, rhs: Scalar) -> Tensor<N> {
     let left = lhs.value
     
     let newTensorValue = left * rhs
-    return Tensor(newTensorValue, context: lhs.context)
+    return Tensor<N>(newTensorValue, context: lhs.context)
   }
   
-  static func -(lhs: Tensor, rhs: Scalar) -> Tensor {
+  static func -(lhs: Tensor<N>, rhs: Scalar) -> Tensor<N> {
     let left = lhs.value
     
     let newTensorValue = left - rhs
-    return Tensor(newTensorValue, context: lhs.context)
+    return Tensor<N>(newTensorValue, context: lhs.context)
   }
   
-  static func +(lhs: Tensor, rhs: Scalar) -> Tensor {
+  static func +(lhs: Tensor<N>, rhs: Scalar) -> Tensor<N> {
     let left = lhs.value
     
     let newTensorValue = left + rhs
-    return Tensor(newTensorValue, context: lhs.context)
+    return Tensor<N>(newTensorValue, context: lhs.context)
   }
   
-  static func +(lhs: Tensor, rhs: Tensor) -> Tensor {
+  static func +(lhs: Tensor<N>, rhs: Tensor<N>) -> Tensor<N> {
     let left = lhs.value
     let right = rhs.value
     
     let newTensor = left + right
-    return Tensor(newTensor, context: lhs.context)
+    return Tensor<N>(newTensor, context: lhs.context)
   }
   
-  static func -(lhs: Tensor, rhs: Tensor) -> Tensor {
+  static func -(lhs: Tensor<N>, rhs: Tensor<N>) -> Tensor<N> {
     let left = lhs.value
     let right = rhs.value
     
     let newTensor = left - right
-    return Tensor(newTensor, context: lhs.context)
+    return Tensor<N>(newTensor, context: lhs.context)
   }
   
-  static func *(lhs: Tensor, rhs: Tensor) -> Tensor {
+  static func *(lhs: Tensor<N>, rhs: Tensor<N>) -> Tensor<N> {
     let left = lhs.value
     let right = rhs.value
     
     let newTensor = left * right
-    return Tensor(newTensor, context: lhs.context)
+    return Tensor<N>(newTensor, context: lhs.context)
   }
   
-  static func /(lhs: Tensor, rhs: Tensor) -> Tensor {
+  static func /(lhs: Tensor<N>, rhs: Tensor<N>) -> Tensor<N> {
     let left = lhs.value
     let right = rhs.value
     
     let newTensor = left / right
-    return Tensor(newTensor, context: lhs.context)
+    return Tensor<N>(newTensor, context: lhs.context)
   }
   
-  func zerosLike() -> Tensor {
+  func zerosLike() -> Tensor<N> {
     let shape = shape
     let rows = shape[safe: 1, 0]
     let columns = shape[safe: 0, 0]
     let depth = shape[safe: 2, 0]
     
-    return Tensor(NumSwift.zerosLike((rows, columns, depth)))
+    return Tensor<N>(NumSwift.zerosLike((rows, columns, depth)))
   }
 
-  func onesLike() -> Tensor {
+  func onesLike() -> Tensor<N> {
     let shape = shape
     let rows = shape[safe: 1, 0]
     let columns = shape[safe: 0, 0]
     let depth = shape[safe: 2, 0]
     
-    return Tensor(NumSwift.onesLike((rows, columns, depth)))
+    return Tensor<N>(NumSwift.onesLike((rows, columns, depth)))
   }
 }
+
 
 extension Tensor: CustomDebugStringConvertible {
   public var debugDescription: String {
     var string = """
-                 <Tensor \n
+                 <Tensor<Float> \n
                  """
     
     let shape = shape
@@ -436,17 +430,17 @@ extension Tensor: CustomDebugStringConvertible {
   }
 }
 
-extension Array where Element == Tensor {
+extension Array where Element == Tensor<Float> {
   
-  var mean: Tensor {
+  var mean: Tensor<Float> {
     var mutableSelf = self
     let first = mutableSelf.removeFirst()
-    let mean = mutableSelf.reduce(first, +) / count.asTensorScalar
+    let mean = mutableSelf.reduce(first, +) / count.asTensorScalar()
     return mean
   }
   
-  func gradients(_ deltas: [Tensor]) -> [Tensor.Gradient] {
-    var result = [Tensor.Gradient](repeating: .init(),
+  func gradients(_ deltas: [Tensor<Float>]) -> [Tensor<Float>.Gradient] {
+    var result = [Tensor<Float>.Gradient](repeating: .init(),
                                       count: deltas.count)
     
     let workerCount = Swift.min(Constants.maxWorkers, Int(ceil(Double(deltas.count) / 4)))
@@ -459,8 +453,8 @@ extension Array where Element == Tensor {
     return result
   }
   
-  static func +(lhs: [Tensor], rhs: [Tensor]) -> Self {
-    var result: [Tensor] = []
+  static func +(lhs: [Tensor<Float>], rhs: [Tensor<Float>]) -> Self {
+    var result: [Tensor<Float>] = []
     
     for i in 0..<lhs.count {
       let left = lhs[i]
@@ -471,8 +465,8 @@ extension Array where Element == Tensor {
     return result
   }
   
-  static func -(lhs: [Tensor], rhs: [Tensor]) -> Self {
-    var result: [Tensor] = []
+  static func -(lhs: [Tensor<Float>], rhs: [Tensor<Float>]) -> Self {
+    var result: [Tensor<Float>] = []
     
     for i in 0..<lhs.count {
       let left = lhs[i]
@@ -483,8 +477,8 @@ extension Array where Element == Tensor {
     return result
   }
   
-  static func *(lhs: [Tensor], rhs: [Tensor]) -> Self {
-    var result: [Tensor] = []
+  static func *(lhs: [Tensor<Float>], rhs: [Tensor<Float>]) -> Self {
+    var result: [Tensor<Float>] = []
     
     for i in 0..<lhs.count {
       let left = lhs[i]
@@ -495,8 +489,8 @@ extension Array where Element == Tensor {
     return result
   }
   
-  static func /(lhs: [Tensor], rhs: [Tensor]) -> Self {
-    var result: [Tensor] = []
+  static func /(lhs: [Tensor<Float>], rhs: [Tensor<Float>]) -> Self {
+    var result: [Tensor<Float>] = []
     
     for i in 0..<lhs.count {
       let left = lhs[i]
@@ -507,8 +501,8 @@ extension Array where Element == Tensor {
     return result
   }
   
-  static func *(lhs: [Tensor], rhs: Tensor.Scalar) -> Self {
-    var result: [Tensor] = []
+  static func *(lhs: [Tensor<Float>], rhs: Tensor<Float>.Scalar) -> Self {
+    var result: [Tensor<Float>] = []
     
     for i in 0..<lhs.count {
       let left = lhs[i]
@@ -518,8 +512,8 @@ extension Array where Element == Tensor {
     return result
   }
   
-  static func -(lhs: [Tensor], rhs: Tensor.Scalar) -> Self {
-    var result: [Tensor] = []
+  static func -(lhs: [Tensor<Float>], rhs: Tensor<Float>.Scalar) -> Self {
+    var result: [Tensor<Float>] = []
     
     for i in 0..<lhs.count {
       let left = lhs[i]
@@ -529,8 +523,8 @@ extension Array where Element == Tensor {
     return result
   }
   
-  static func /(lhs: [Tensor], rhs: Tensor.Scalar) -> Self {
-    var result: [Tensor] = []
+  static func /(lhs: [Tensor<Float>], rhs: Tensor<Float>.Scalar) -> Self {
+    var result: [Tensor<Float>] = []
     
     for i in 0..<lhs.count {
       let left = lhs[i]
@@ -540,8 +534,8 @@ extension Array where Element == Tensor {
     return result
   }
   
-  static func +(lhs: [Tensor], rhs: Tensor.Scalar) -> Self {
-    var result: [Tensor] = []
+  static func +(lhs: [Tensor<Float>], rhs: Tensor<Float>.Scalar) -> Self {
+    var result: [Tensor<Float>] = []
     
     for i in 0..<lhs.count {
       let left = lhs[i]
@@ -568,71 +562,71 @@ public extension Tensor {
   }
 }
 
-public extension Tensor.Gradient {
-  static func applyMultiple(lhs: Tensor.Gradient,
-                            rhs: Tensor.Gradient,
-                            block: (_ lhs: [Tensor], _ rhs: [Tensor]) -> [Tensor]) -> Tensor.Gradient {
-    //(input: [Tensor], weights: [Tensor], biases: [Tensor])
+public extension Tensor<Float>.Gradient {
+  static func applyMultiple(lhs: Tensor<Float>.Gradient,
+                            rhs: Tensor<Float>.Gradient,
+                            block: (_ lhs: [Tensor<Float>], _ rhs: [Tensor<Float>]) -> [Tensor<Float>]) -> Tensor<Float>.Gradient {
+    //(input: [Tensor<Float>], weights: [Tensor<Float>], biases: [Tensor<Float>])
     let input = block(lhs.input, rhs.input)
     let weight = block(lhs.weights, rhs.weights)
     let bias = block(lhs.biases, rhs.biases)
-    return Tensor.Gradient(input: input, weights: weight, biases: bias)
+    return Tensor<Float>.Gradient(input: input, weights: weight, biases: bias)
   }
   
-  static func applyScalar(lhs: Tensor.Gradient,
-                          rhs: Tensor.Scalar,
-                          block: (_ lhs: [Tensor], _ rhs: Tensor.Scalar) -> [Tensor]) -> Tensor.Gradient {
-    //(input: [Tensor], weights: [Tensor], biases: [Tensor])
+  static func applyScalar(lhs: Tensor<Float>.Gradient,
+                          rhs: Tensor<Float>.Scalar,
+                          block: (_ lhs: [Tensor<Float>], _ rhs: Tensor<Float>.Scalar) -> [Tensor<Float>]) -> Tensor<Float>.Gradient {
+    //(input: [Tensor<Float>], weights: [Tensor<Float>], biases: [Tensor<Float>])
     let input = block(lhs.input, rhs)
     let weight = block(lhs.weights, rhs)
     let bias = block(lhs.biases, rhs)
-    return Tensor.Gradient(input: input, weights: weight, biases: bias)
+    return Tensor<Float>.Gradient(input: input, weights: weight, biases: bias)
   }
   
   
-  static func /(lhs: Tensor.Gradient, rhs: Tensor.Gradient) -> Tensor.Gradient {
+  static func /(lhs: Tensor<Float>.Gradient, rhs: Tensor<Float>.Gradient) -> Tensor<Float>.Gradient {
     applyMultiple(lhs: lhs, rhs: rhs) { lhs, rhs in
       lhs / rhs
     }
   }
   
-  static func *(lhs: Tensor.Gradient, rhs: Tensor.Gradient) -> Tensor.Gradient {
+  static func *(lhs: Tensor<Float>.Gradient, rhs: Tensor<Float>.Gradient) -> Tensor<Float>.Gradient {
     applyMultiple(lhs: lhs, rhs: rhs) { lhs, rhs in
       lhs * rhs
     }
   }
   
-  static func -(lhs: Tensor.Gradient, rhs: Tensor.Gradient) -> Tensor.Gradient {
+  static func -(lhs: Tensor<Float>.Gradient, rhs: Tensor<Float>.Gradient) -> Tensor<Float>.Gradient {
     applyMultiple(lhs: lhs, rhs: rhs) { lhs, rhs in
       lhs - rhs
     }
   }
   
-  static func +(lhs: Tensor.Gradient, rhs: Tensor.Gradient) -> Tensor.Gradient {
+  static func +(lhs: Tensor<Float>.Gradient, rhs: Tensor<Float>.Gradient) -> Tensor<Float>.Gradient {
     applyMultiple(lhs: lhs, rhs: rhs) { lhs, rhs in
       lhs + rhs
     }
   }
   
-  static func +(lhs: Tensor.Gradient, rhs: Tensor.Scalar) -> Tensor.Gradient {
+  static func +(lhs: Tensor<Float>.Gradient, rhs: Tensor<Float>.Scalar) -> Tensor<Float>.Gradient {
     applyScalar(lhs: lhs, rhs: rhs) { lhs, rhs in
       lhs + rhs
     }
   }
   
-  static func -(lhs: Tensor.Gradient, rhs: Tensor.Scalar) -> Tensor.Gradient {
+  static func -(lhs: Tensor<Float>.Gradient, rhs: Tensor<Float>.Scalar) -> Tensor<Float>.Gradient {
     applyScalar(lhs: lhs, rhs: rhs) { lhs, rhs in
       lhs - rhs
     }
   }
   
-  static func /(lhs: Tensor.Gradient, rhs: Tensor.Scalar) -> Tensor.Gradient {
+  static func /(lhs: Tensor<Float>.Gradient, rhs: Tensor<Float>.Scalar) -> Tensor<Float>.Gradient {
     applyScalar(lhs: lhs, rhs: rhs) { lhs, rhs in
       lhs / rhs
     }
   }
   
-  static func *(lhs: Tensor.Gradient, rhs: Tensor.Scalar) -> Tensor.Gradient {
+  static func *(lhs: Tensor<Float>.Gradient, rhs: Tensor<Float>.Scalar) -> Tensor<Float>.Gradient {
     applyScalar(lhs: lhs, rhs: rhs) { lhs, rhs in
       lhs * rhs
     }

@@ -37,17 +37,17 @@ public final class Softmax<N: TensorNumeric>: BaseActivationLayer<N> {
                encodingType: .softmax)
   }
   
-  public override func forward(tensor: Tensor) -> Tensor {
-    let context = TensorContext { inputs, gradient in
-      return (Tensor(gradient.value), Tensor(), Tensor())
+  public override func forward(tensor: Tensor<N>) -> Tensor<N> {
+    let context = TensorContext<N> { inputs, gradient in
+      return (Tensor<N>(gradient.value), Tensor<N>(), Tensor<N>())
     }
     
-    var activationResult: [[[Tensor.Scalar]]] = []
+    var activationResult: [[[Tensor<N>.Scalar]]] = []
     
     tensor.value.forEach { d in
-      var row: [[Tensor.Scalar]] = []
+      var row: [[Tensor<N>.Scalar]] = []
       d.forEach { r in
-        var column: [Tensor.Scalar] = []
+        var column: [Tensor<N>.Scalar] = []
         for i in 0..<r.count {
           column.append(calculate(index: i, outputs: r))
         }
@@ -56,7 +56,7 @@ public final class Softmax<N: TensorNumeric>: BaseActivationLayer<N> {
       activationResult.append(row)
     }
     
-    let out = Tensor(activationResult, context: context)
+    let out = Tensor<N>(activationResult, context: context)
     out.label = type.asString()
     
     out.setGraph(tensor)
@@ -64,14 +64,14 @@ public final class Softmax<N: TensorNumeric>: BaseActivationLayer<N> {
     return out
   }
   
-  private func calculate(index: Int, outputs: [Tensor.Scalar]) -> Tensor.Scalar {
+  private func calculate(index: Int, outputs: [Tensor<N>.Scalar]) -> Tensor<N>.Scalar {
     let max = outputs.max() ?? 1
-    var sum: Tensor.Scalar = 0
+    var sum: Tensor<N>.Scalar = 0
     outputs.forEach { (output) in
-      sum += Tensor.Scalar.pow(Tensor.Scalar(Darwin.M_E), output - max)
+      sum += Tensor<N>.Scalar.pow(Tensor<N>.Scalar(Darwin.M_E), output - max)
     }
     
-    return Tensor.Scalar.pow(Tensor.Scalar(Darwin.M_E), outputs[index] - max) / sum
+    return Tensor<N>.Scalar.pow(Tensor<N>.Scalar(Darwin.M_E), outputs[index] - max) / sum
   }
   
   override public func onInputSizeSet() {

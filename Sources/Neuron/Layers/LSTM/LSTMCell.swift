@@ -15,21 +15,21 @@ class LSTMCell<N: TensorNumeric> {
   let device: Device
   
   struct Parameters {
-    var forgetGateWeights: Tensor
-    var inputGateWeights: Tensor
-    var gateGateWeights: Tensor
-    var outputGateWeights: Tensor
-    var forgetGateBiases: Tensor
-    var inputGateBiases: Tensor
-    var gateGateBiases: Tensor
-    var outputGateBiases: Tensor
+    var forgetGateWeights: Tensor<N>
+    var inputGateWeights: Tensor<N>
+    var gateGateWeights: Tensor<N>
+    var outputGateWeights: Tensor<N>
+    var forgetGateBiases: Tensor<N>
+    var inputGateBiases: Tensor<N>
+    var gateGateBiases: Tensor<N>
+    var outputGateBiases: Tensor<N>
   }
   
   struct ParameterDerivatives {
-    var dForgetGate: Tensor
-    var dInputGate: Tensor
-    var dGateGate: Tensor
-    var dOutputGate: Tensor
+    var dForgetGate: Tensor<N>
+    var dInputGate: Tensor<N>
+    var dGateGate: Tensor<N>
+    var dOutputGate: Tensor<N>
 
     var isEmpty: Bool {
       dForgetGate.isEmpty &&
@@ -38,10 +38,10 @@ class LSTMCell<N: TensorNumeric> {
       dOutputGate.isEmpty
     }
     
-    init(dForgetGate: Tensor = .init(),
-         dInputGate: Tensor = .init(),
-         dGateGate: Tensor = .init(),
-         dOutputGate: Tensor = .init()) {
+    init(dForgetGate: Tensor<N> = .init(),
+         dInputGate: Tensor<N> = .init(),
+         dGateGate: Tensor<N> = .init(),
+         dOutputGate: Tensor<N> = .init()) {
       self.dForgetGate = dForgetGate
       self.dInputGate = dInputGate
       self.dGateGate = dGateGate
@@ -59,7 +59,7 @@ class LSTMCell<N: TensorNumeric> {
                    dOutputGate: newDOG)
     }
     
-    func concat() -> Tensor {
+    func concat() -> Tensor<N> {
       dForgetGate.concat(dInputGate, axis: 2)
         .concat(dGateGate, axis: 2)
         .concat(dOutputGate, axis: 2)
@@ -67,25 +67,25 @@ class LSTMCell<N: TensorNumeric> {
   }
   
   struct Activations {
-    var fa: Tensor
-    var ia: Tensor
-    var oa: Tensor
-    var ga: Tensor
-    var activationMatrix: Tensor
-    var cellMemoryMatrix: Tensor
+    var fa: Tensor<N>
+    var ia: Tensor<N>
+    var oa: Tensor<N>
+    var ga: Tensor<N>
+    var activationMatrix: Tensor<N>
+    var cellMemoryMatrix: Tensor<N>
   }
   
   struct Errors {
     struct LSTMError {
-      var ef: Tensor // error forget
-      var ei: Tensor // error input
-      var eo: Tensor // error output
-      var eg: Tensor // error gate
+      var ef: Tensor<N> // error forget
+      var ei: Tensor<N> // error input
+      var eo: Tensor<N> // error output
+      var eg: Tensor<N> // error gate
     }
     
-    var previousActivationError: Tensor
-    var previousCellError: Tensor
-    var embeddingError: Tensor
+    var previousActivationError: Tensor<N>
+    var previousCellError: Tensor<N>
+    var embeddingError: Tensor<N>
   }
   
   init(hidden: Int,
@@ -98,7 +98,7 @@ class LSTMCell<N: TensorNumeric> {
     self.vocabSize = vocabSize
   }
   
-  func forward(tensor: Tensor,
+  func forward(tensor: Tensor<N>,
                parameters: Parameters,
                cache: LSTM<N>.Cache) -> Activations {
     
@@ -145,9 +145,9 @@ class LSTMCell<N: TensorNumeric> {
   
   func backward(cache: LSTM<N>.Cache,
                 previousCache: LSTM<N>.Cache?,
-                activationOutputError: [[Tensor.Scalar]],
-                nextActivationError: [[Tensor.Scalar]],
-                nextCellError: [[Tensor.Scalar]],
+                activationOutputError: [[Tensor<N>.Scalar]],
+                nextActivationError: [[Tensor<N>.Scalar]],
+                nextCellError: [[Tensor<N>.Scalar]],
                 batchSize: Int,
                 parameters: Parameters) -> (inputs: Errors, weights: ParameterDerivatives, biases: ParameterDerivatives) {
 
@@ -161,13 +161,13 @@ class LSTMCell<N: TensorNumeric> {
     
     // output gate error
     let oa = lstm.outputGate
-    var eo = Tensor(activationError) * tanActivationOfCellActivation
+    var eo = Tensor<N>(activationError) * tanActivationOfCellActivation
     eo = (eo * oa) * (1 - oa)
     
     // cell activation error
-    var cellError = Tensor(activationError) * oa
+    var cellError = Tensor<N>(activationError) * oa
     cellError = cellError * self.device.derivate(tanActivationOfCellActivation, .tanh)
-    cellError = cellError + Tensor(nextCellError)
+    cellError = cellError + Tensor<N>(nextCellError)
     
     // input gate error
     let ia = lstm.inputGate
@@ -192,10 +192,10 @@ class LSTMCell<N: TensorNumeric> {
     let ogw = parameters.outputGateWeights
     let ggw = parameters.gateGateWeights
     
-    var embedActivationError = ef.matmul(Tensor(fgw.value.transpose2d()))
-    embedActivationError = embedActivationError + (ei.matmul(Tensor(igw.value.transpose2d())))
-    embedActivationError = embedActivationError + (eo.matmul(Tensor(ogw.value.transpose2d())))
-    embedActivationError = embedActivationError + (eg.matmul(Tensor(ggw.value.transpose2d())))
+    var embedActivationError = ef.matmul(Tensor<N>(fgw.value.transpose2d()))
+    embedActivationError = embedActivationError + (ei.matmul(Tensor<N>(igw.value.transpose2d())))
+    embedActivationError = embedActivationError + (eo.matmul(Tensor<N>(ogw.value.transpose2d())))
+    embedActivationError = embedActivationError + (eg.matmul(Tensor<N>(ggw.value.transpose2d())))
     
     let fgwShape = fgw.shape
     let inputHiddenUnits = fgwShape[safe: 1] ?? 0
@@ -241,13 +241,13 @@ class LSTMCell<N: TensorNumeric> {
   }
   
   private func backwardsWRTWeights(lstmError: Errors.LSTMError,
-                                   embedding: Tensor,
-                                   activation: Tensor,
+                                   embedding: Tensor<N>,
+                                   activation: Tensor<N>,
                                    batchSize: Int) -> ParameterDerivatives {
     
     let transposed = embedding.concat(activation).value.transpose2d()
     
-    let concat = Tensor(transposed)
+    let concat = Tensor<N>(transposed)
     
     let ef = lstmError.ef
     let ei = lstmError.ei
@@ -260,10 +260,10 @@ class LSTMCell<N: TensorNumeric> {
     var dggw = concat.matmul(eg)
 
     if batchSize > 1 {
-      dfgw = dfgw / Tensor.Scalar(batchSize)
-      digw = digw / Tensor.Scalar(batchSize)
-      dogw = dogw / Tensor.Scalar(batchSize)
-      dggw = dggw / Tensor.Scalar(batchSize)
+      dfgw = dfgw / Tensor<N>.Scalar(batchSize)
+      digw = digw / Tensor<N>.Scalar(batchSize)
+      dogw = dogw / Tensor<N>.Scalar(batchSize)
+      dggw = dggw / Tensor<N>.Scalar(batchSize)
     }
 
     return .init(dForgetGate: dfgw,

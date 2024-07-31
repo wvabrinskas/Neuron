@@ -10,38 +10,38 @@ import NumSwift
 
 public protocol Optimizer: AnyObject {
   associatedtype N: TensorNumeric
-  typealias Gradient = (weights: Tensor, biases: Tensor)
-  typealias Output = (outputs: [Tensor], gradients: Tensor.Gradient, loss: Tensor.Scalar, accuracy: Tensor.Scalar)
+  typealias Gradient = (weights: Tensor<N>, biases: Tensor<N>)
+  typealias Output = (outputs: [Tensor<N>], gradients: Tensor<N>.Gradient, loss: Tensor<N>.Scalar, accuracy: Tensor<N>.Scalar)
   
   var trainable: BaseTrainable<N> { get set }
-  var learningRate: Tensor.Scalar { get }
+  var learningRate: Tensor<N>.Scalar { get }
   var isTraining: Bool { get set }
-  var device: Device { get set }
+  var device: BaseDevice<N> { get set }
   var l2Normalize: Bool { get }
   var workers: Int { get set }
-  var metricsReporter: MetricsReporter? { get set }
-  var clip: Tensor.Scalar? { get set }
-  var gradientAccumulator: GradientAccumulator { get }
-  var decayFunction: DecayFunction? { get set }
+  var metricsReporter: MetricsReporter<N>? { get set }
+  var clip: Tensor<N>.Scalar? { get set }
+  var gradientAccumulator: GradientAccumulator<N> { get }
+  var decayFunction: BaseDecayFunction<N>? { get set }
 
-  func callAsFunction(_ data: [Tensor]) -> [Tensor]
-  func apply(_ gradients: Tensor.Gradient)
+  func callAsFunction(_ data: [Tensor<N>]) -> [Tensor<N>]
+  func apply(_ gradients: Tensor<N>.Gradient)
   func zeroGradients()
   func step()
   func reset()
-  func fit(_ data: [Tensor],
-           labels: [Tensor],
+  func fit(_ data: [Tensor<N>],
+           labels: [Tensor<N>],
            lossFunction: LossFunction,
            validation: Bool,
            requiresGradients: Bool) -> Output
-  func predict(_ data: [Tensor]) -> [Tensor]
+  func predict(_ data: [Tensor<N>]) -> [Tensor<N>]
 }
 
 // TODO: allow for arbitrary weight shape in Optimizer, so we dont have to cram all weights into a 3D tensor
 open class BaseOptimizer<N: TensorNumeric>: Optimizer {
-  public var decayFunction: DecayFunction?
+  public var decayFunction: BaseDecayFunction<N>?
   public var trainable: BaseTrainable<N>
-  public var learningRate: Tensor.Scalar {
+  public var learningRate: Tensor<N>.Scalar {
     get {
       if let decayFunction {
         return decayFunction.decayedLearningRate
@@ -58,29 +58,29 @@ open class BaseOptimizer<N: TensorNumeric>: Optimizer {
       trainable.isTraining = isTraining
     }
   }
-  public var device: Device = CPU() {
+  public var device: BaseDevice<N> = CPU<N>() {
     didSet {
       switch device.type {
       case .cpu:
-        trainable.device = CPU()
+        trainable.device = CPU<N>()
       case .gpu:
-        trainable.device = GPU()
+        trainable.device = GPU<N>()
       }
     }
   }
   public var l2Normalize: Bool
   public var workers: Int
-  public var metricsReporter: MetricsReporter?
-  public var gradientAccumulator: GradientAccumulator = .init()
-  public var clip: Tensor.Scalar?
-  private var localLearningRate: Tensor.Scalar
+  public var metricsReporter: MetricsReporter<N>?
+  public var gradientAccumulator: GradientAccumulator<N> = .init()
+  public var clip: Tensor<N>.Scalar?
+  private var localLearningRate: Tensor<N>.Scalar
   
   public init(trainable: BaseTrainable<N>,
-              learningRate: Tensor.Scalar,
+              learningRate: Tensor<N>.Scalar,
               l2Normalize: Bool,
               workers: Int = 8,
-              metricsReporter: MetricsReporter? = nil,
-              clip: Tensor.Scalar? = nil) {
+              metricsReporter: MetricsReporter<N>? = nil,
+              clip: Tensor<N>.Scalar? = nil) {
     self.trainable = trainable
     self.l2Normalize = l2Normalize
     self.workers = workers
@@ -103,7 +103,7 @@ open class BaseOptimizer<N: TensorNumeric>: Optimizer {
   
   func clip(layer: BaseLayer<N>) {
     if let clip = clip {
-      if let con = layer as? any ConvolutionalLayer {
+      if let con = layer as? BaseConvolutionalLayer<N> {
         con.filters.forEach { $0.clip(clip) }
       } else {
         layer.weights.clip(clip)
@@ -118,16 +118,16 @@ open class BaseOptimizer<N: TensorNumeric>: Optimizer {
   
   /// Adds gradients to the Optimizer but does not provide an average. Please use a `GradientAccumulator` to get average gradients then apply them.
   /// - Parameter newGradients: Gradients to add to the `Optimizer`
-  open func apply(_ newGradients: Tensor.Gradient) {
+  open func apply(_ newGradients: Tensor<N>.Gradient) {
     gradientAccumulator.insert(newGradients)
   }
   
-  open func callAsFunction(_ data: [Tensor]) -> [Tensor] {
+  open func callAsFunction(_ data: [Tensor<N>]) -> [Tensor<N>] {
     predict(data)
   }
   
-  open func predict(_ data: [Tensor]) -> [Tensor] {
-    var results: [Tensor] = [Tensor].init(repeating: Tensor(), count: data.count)
+  open func predict(_ data: [Tensor<N>]) -> [Tensor<N>] {
+    var results: [Tensor<N>] = [Tensor<N>].init(repeating: Tensor<N>(), count: data.count)
 
     data.concurrentForEach(workers: min(Constants.maxWorkers, Int(ceil(Double(data.count) / Double(4)))),
                            priority: device.qosPriority) { tensor, index in
@@ -138,27 +138,27 @@ open class BaseOptimizer<N: TensorNumeric>: Optimizer {
     return results
   }
   
-  open func fit(_ data: [Tensor],
-                  labels: [Tensor],
+  open func fit(_ data: [Tensor<N>],
+                  labels: [Tensor<N>],
                   lossFunction: LossFunction,
                   validation: Bool = false,
                   requiresGradients: Bool = true) -> Output {
     
     metricsReporter?.startTimer(metric: .batchTime)
-    let accumulator = GradientAccumulator()
+    let accumulator = GradientAccumulator<N>()
     
-    var outputs: [Tensor] = [Tensor].init(repeating: Tensor(), count: data.count)
+    var outputs: [Tensor<N>] = [Tensor<N>].init(repeating: Tensor<N>(), count: data.count)
     
-    var losses: Tensor.Scalar = 0
-    var accuracy: Tensor.Scalar = 0
+    var losses: Tensor<N>.Scalar = 0
+    var accuracy: Tensor<N>.Scalar = 0
     
     // TODO: Batch consolidation: https://github.com/wvabrinskas/Neuron/issues/36
     let workersCount = min(Constants.maxWorkers, workers)
-    let concurrencySplit = Tensor.Scalar(data.count) / Tensor.Scalar(workersCount)
+    let concurrencySplit = Tensor<N>.Scalar(data.count) / Tensor<N>.Scalar(workersCount)
     metricsReporter?.update(metric: .batchConcurrency, value: concurrencySplit)
   
     data.concurrentForEach(workers: workersCount, priority: device.qosPriority) { b, index in
-      let label: [Tensor.Scalar] = labels[index].value.flatten()
+      let label: [Tensor<N>.Scalar] = labels[index].value.flatten()
       let input = data[index]
       
       self.trainable.threadId = index
@@ -167,13 +167,13 @@ open class BaseOptimizer<N: TensorNumeric>: Optimizer {
       outputs[index] = out
             
       let loss = lossFunction.calculate(out, correct: labels[index]).sum(axis: -1).asScalar()
-      losses += loss / Tensor.Scalar(data.count)
+      losses += loss / Tensor<N>.Scalar(data.count)
       
       if let reporter = self.metricsReporter {
         if validation {
-          accuracy += reporter.calculateValAccuracy(out, label: labels[index], binary: label.count == 1, running: false) / Tensor.Scalar(data.count)
+          accuracy += reporter.calculateValAccuracy(out, label: labels[index], binary: label.count == 1, running: false) / Tensor<N>.Scalar(data.count)
         } else {
-          accuracy += reporter.calculateAccuracy(out, label: labels[index], binary: label.count == 1, running: false) / Tensor.Scalar(data.count)
+          accuracy += reporter.calculateAccuracy(out, label: labels[index], binary: label.count == 1, running: false) / Tensor<N>.Scalar(data.count)
         }
       }
       
@@ -188,17 +188,17 @@ open class BaseOptimizer<N: TensorNumeric>: Optimizer {
     
     if requiresGradients {
       let accumulated = accumulator.accumulate(clearAtEnd: true)
-      let weightGradientsAcc: [Tensor] = accumulated.weights
-      let inputGradientsAcc: [Tensor] = accumulated.input
-      let biasGradientAcc: [Tensor] = accumulated.biases
+      let weightGradientsAcc: [Tensor<N>] = accumulated.weights
+      let inputGradientsAcc: [Tensor<N>] = accumulated.input
+      let biasGradientAcc: [Tensor<N>] = accumulated.biases
       
-      let gradient: Tensor.Gradient = .init(input: inputGradientsAcc,
+      let gradient: Tensor<N>.Gradient = .init(input: inputGradientsAcc,
                                             weights: weightGradientsAcc,
                                             biases: biasGradientAcc)
       return (outputs, gradient, losses, accuracy)
       
     } else {
-      let gradient: Tensor.Gradient = .init(input: [],
+      let gradient: Tensor<N>.Gradient = .init(input: [],
                                             weights: [],
                                             biases: [])
       

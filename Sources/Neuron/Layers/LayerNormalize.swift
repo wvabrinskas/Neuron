@@ -10,21 +10,21 @@ import NumSwift
 
 /// Performs a layer normalization function.
 public final class LayerNormalize<N: TensorNumeric>: BaseLayer<N> {
-  public override var weights: Tensor {
+  public override var weights: Tensor<N> {
     get {
       // For printing purposes. Not actually used
       var trainables = beta
       trainables.append(contentsOf: gamma)
-      return Tensor(trainables)
+      return Tensor<N>(trainables)
     }
     set {}
   }
 
-  private var epsilon: Tensor.Scalar
-  public var gamma: [Tensor.Scalar] = []
-  public var beta: [Tensor.Scalar] = []
-  private var dGamma: [Tensor.Scalar] = []
-  private var dBeta: [Tensor.Scalar] = []
+  private var epsilon: Tensor<N>.Scalar
+  public var gamma: [Tensor<N>.Scalar] = []
+  public var beta: [Tensor<N>.Scalar] = []
+  private var dGamma: [Tensor<N>.Scalar] = []
+  private var dBeta: [Tensor<N>.Scalar] = []
   @Atomic private var iterations: Int = 0
 
   public enum CodingKeys: String, CodingKey {
@@ -37,9 +37,9 @@ public final class LayerNormalize<N: TensorNumeric>: BaseLayer<N> {
   ///   - gamma: Gamme value for normalization
   ///   - beta: Beta value for normalization
   ///   - inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
-  public init(epsilon: Tensor.Scalar = .stabilityFactor,
-              gamma: [Tensor.Scalar] = [],
-              beta: [Tensor.Scalar] = [],
+  public init(epsilon: Tensor<N>.Scalar = .stabilityFactor,
+              gamma: [Tensor<N>.Scalar] = [],
+              beta: [Tensor<N>.Scalar] = [],
               inputSize: TensorSize = TensorSize(array: [])) {
     self.epsilon = epsilon
     self.beta = beta
@@ -58,9 +58,9 @@ public final class LayerNormalize<N: TensorNumeric>: BaseLayer<N> {
   
   convenience public required init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
-    let gamma = try container.decodeIfPresent([Tensor.Scalar].self, forKey: .gamma) ?? []
-    let beta = try container.decodeIfPresent([Tensor.Scalar].self, forKey: .beta) ?? []
-    let epsilon = try container.decodeIfPresent(Tensor.Scalar.self, forKey: .epsilon) ?? .stabilityFactor
+    let gamma = try container.decodeIfPresent([Tensor<N>.Scalar].self, forKey: .gamma) ?? []
+    let beta = try container.decodeIfPresent([Tensor<N>.Scalar].self, forKey: .beta) ?? []
+    let epsilon = try container.decodeIfPresent(Tensor<N>.Scalar.self, forKey: .epsilon) ?? .stabilityFactor
 
     self.init(epsilon: epsilon,
               gamma: gamma,
@@ -81,14 +81,14 @@ public final class LayerNormalize<N: TensorNumeric>: BaseLayer<N> {
     try container.encode(epsilon, forKey: .epsilon)
   }
   
-  public override func forward(tensor: Tensor) -> Tensor {
-    let context = TensorContext { inputs, gradient in
+  public override func forward(tensor: Tensor<N>) -> Tensor<N> {
+    let context = TensorContext<N> { inputs, gradient in
       let gradient = self.backward(inputs: inputs.value, gradient: gradient.value)
-      return (Tensor(gradient), Tensor(), Tensor())
+      return (Tensor<N>(gradient), Tensor<N>(), Tensor<N>())
     }
     
     let forward = normalize(inputs: tensor.value)
-    let out = Tensor(forward, context: context)
+    let out = Tensor<N>(forward, context: context)
     out.setGraph(tensor)
     return out
   }
@@ -99,17 +99,17 @@ public final class LayerNormalize<N: TensorNumeric>: BaseLayer<N> {
   
   private func resetDeltas() {
     let inputDim = inputSize.depth
-    dGamma = [Tensor.Scalar](repeating: 0, count: inputDim)
-    dBeta = [Tensor.Scalar](repeating: 0, count: inputDim)
+    dGamma = [Tensor<N>.Scalar](repeating: 0, count: inputDim)
+    dBeta = [Tensor<N>.Scalar](repeating: 0, count: inputDim)
   }
 
-  private func normalize(inputs: [[[Tensor.Scalar]]]) -> [[[Tensor.Scalar]]] {
+  private func normalize(inputs: [[[Tensor<N>.Scalar]]]) -> [[[Tensor<N>.Scalar]]] {
     
-    var forward: [[[Tensor.Scalar]]] = []
+    var forward: [[[Tensor<N>.Scalar]]] = []
 
     for i in 0..<inputs.count {
       let count = inputSize.rows * inputSize.columns
-      let total = Tensor.Scalar(count)
+      let total = Tensor<N>.Scalar(count)
       
       let mean = inputs[i].mean
       let inputsCentered = inputs[i] - mean
@@ -129,15 +129,15 @@ public final class LayerNormalize<N: TensorNumeric>: BaseLayer<N> {
     return forward
   }
   
-  private func backward(inputs: [[[Tensor.Scalar]]], gradient: [[[Tensor.Scalar]]]) -> [[[Tensor.Scalar]]] {
+  private func backward(inputs: [[[Tensor<N>.Scalar]]], gradient: [[[Tensor<N>.Scalar]]]) -> [[[Tensor<N>.Scalar]]] {
     
-    var backward: [[[Tensor.Scalar]]] = []
+    var backward: [[[Tensor<N>.Scalar]]] = []
     
     for i in 0..<inputs.count {
       let count = inputSize.rows * inputSize.columns
-      let total = Tensor.Scalar(count)
+      let total = Tensor<N>.Scalar(count)
       
-      let N = Tensor.Scalar(gradient[i].count)
+      let N = Tensor<N>.Scalar(gradient[i].count)
       
       let mean = inputs[i].mean
       let inputsCentered = inputs[i] - mean
@@ -155,7 +155,7 @@ public final class LayerNormalize<N: TensorNumeric>: BaseLayer<N> {
       let part2 = (1/std * ((N * gradient[i])))
       
       let result = part1 * part2 -
-      gradientSum - ((scaledX) * Tensor.Scalar.pow(ivar, 2) *
+      gradientSum - ((scaledX) * Tensor<N>.Scalar.pow(ivar, 2) *
                    (gradient[i] * scaledX).sum)
       
       backward.append(result)
@@ -172,7 +172,7 @@ public final class LayerNormalize<N: TensorNumeric>: BaseLayer<N> {
     return backward
   }
   
-  public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
+  public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor<N>.Scalar) {
     gamma = gamma - (dGamma / iterations.asTensorScalar)
     beta = beta - (dBeta / iterations.asTensorScalar)
     
@@ -184,11 +184,11 @@ public final class LayerNormalize<N: TensorNumeric>: BaseLayer<N> {
     let inputDim = inputSize.depth
     
     if gamma.isEmpty {
-      self.gamma = [Tensor.Scalar](repeating: 1, count: inputDim)
+      self.gamma = [Tensor<N>.Scalar](repeating: 1, count: inputDim)
     }
     
     if beta.isEmpty {
-      self.beta = [Tensor.Scalar](repeating: 0, count: inputDim)
+      self.beta = [Tensor<N>.Scalar](repeating: 0, count: inputDim)
     }
   }
 }

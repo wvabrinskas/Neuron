@@ -9,19 +9,19 @@ import Foundation
 import NumSwift
 
 public class SGD<N: TensorNumeric>: BaseOptimizer<N> {
-  private let momentum: Tensor.Scalar
-  private var v: [Tensor.Data] = []
-  private var vb: [[Tensor.Scalar]] = []
+  private let momentum: Tensor<N>.Scalar
+  private var v: [Tensor<N>.Data] = []
+  private var vb: [[Tensor<N>.Scalar]] = []
 
   public init(_ trainable: BaseTrainable<N>,
               device: Device = CPU(),
-              learningRate: Tensor.Scalar,
-              momentum: Tensor.Scalar = 0.9) {
+              learningRate: Tensor<N>.Scalar,
+              momentum: Tensor<N>.Scalar = 0.9) {
     self.momentum = momentum
     
     trainable.compile()
-    v = [[[[Tensor.Scalar]]]].init(repeating: [], count: trainable.layers.count)
-    vb = [[Tensor.Scalar]].init(repeating: [], count: trainable.layers.count)
+    v = [[[[Tensor<N>.Scalar]]]].init(repeating: [], count: trainable.layers.count)
+    vb = [[Tensor<N>.Scalar]].init(repeating: [], count: trainable.layers.count)
     
     super.init(trainable: trainable, learningRate: learningRate, l2Normalize: false, workers: 8)
   }
@@ -50,7 +50,7 @@ public class SGD<N: TensorNumeric>: BaseOptimizer<N> {
     }
   }
   
-  private func run(gradient: Tensor, biasGradient: Tensor, index: Int) -> Optimizer.Gradient {
+  private func run(gradient: Tensor<N>, biasGradient: Tensor<N>, index: Int) -> Optimizer.Gradient {
     let shape = gradient.shape
     let rows = shape[safe: 1] ?? 0
     let columns = shape[safe: 0] ?? 0
@@ -61,7 +61,7 @@ public class SGD<N: TensorNumeric>: BaseOptimizer<N> {
 
     if v[i].isEmpty {
       v[i] = NumSwift.zerosLike((rows, columns, depth))
-      vb[i] = [Tensor.Scalar].init(repeating: 0, count: flatBias.count)
+      vb[i] = [Tensor<N>.Scalar].init(repeating: 0, count: flatBias.count)
     }
     
     let gradientValue = gradient.value
@@ -81,7 +81,7 @@ public class SGD<N: TensorNumeric>: BaseOptimizer<N> {
       vb[i][d] = momentum * vb[i][d] + learningRate * flatBias[d]
     }
     
-    return (Tensor(v[i]), Tensor(vb[i]))
+    return (Tensor<N>(v[i]), Tensor<N>(vb[i]))
   }
   
   public override func reset() {

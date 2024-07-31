@@ -8,11 +8,11 @@
 import Foundation
 import Combine
 
-public struct DatasetModel: Equatable {
-  public var data: Tensor
-  public var label: Tensor
+public struct DatasetModel<N: TensorNumeric>: Equatable {
+  public var data: Tensor<N>
+  public var label: Tensor<N>
   
-  public init(data: Tensor, label: Tensor) {
+  public init(data: Tensor<N>, label: Tensor<N>) {
     self.data = data
     self.label = label
   }

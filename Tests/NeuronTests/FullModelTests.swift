@@ -12,13 +12,15 @@ import NumSwift
 
 
 class MockRNNDataset: RNNSupportedDataset {
-  func oneHot(_ items: [String]) -> Neuron.Tensor {
+  typealias N = Float
+
+  func oneHot(_ items: [String]) -> Neuron.Tensor<N> {
     vectorizer.oneHot(items)
   }
   
   let vectorizer = Vectorizer<String>()
   
-  func getWord(for data: Neuron.Tensor) -> [String] {
+  func getWord(for data: Neuron.Tensor<N>) -> [String] {
     return vectorizer.unvectorizeOneHot(data)
   }
   
@@ -67,20 +69,20 @@ final class FullModelTests: XCTestCase {
       let num = Int.random(in: 0...2)
       
       if num == 0 {
-        trainingData.append(DatasetModel(data: Tensor(ColorType.red.color()),
-                                         label: Tensor(ColorType.red.correctValues())))
-        validationData.append(DatasetModel(data: Tensor(ColorType.red.color()),
-                                         label: Tensor(ColorType.red.correctValues())))
+        trainingData.append(DatasetModel(data: Tensor<N>(ColorType.red.color()),
+                                         label: Tensor<N>(ColorType.red.correctValues())))
+        validationData.append(DatasetModel(data: Tensor<N>(ColorType.red.color()),
+                                         label: Tensor<N>(ColorType.red.correctValues())))
       } else if num == 1 {
-        trainingData.append(DatasetModel(data: Tensor(ColorType.green.color()),
-                                         label: Tensor(ColorType.green.correctValues())))
-        validationData.append(DatasetModel(data: Tensor(ColorType.green.color()),
-                                         label: Tensor(ColorType.green.correctValues())))
+        trainingData.append(DatasetModel(data: Tensor<N>(ColorType.green.color()),
+                                         label: Tensor<N>(ColorType.green.correctValues())))
+        validationData.append(DatasetModel(data: Tensor<N>(ColorType.green.color()),
+                                         label: Tensor<N>(ColorType.green.correctValues())))
       } else if num == 2 {
-        trainingData.append(DatasetModel(data: Tensor(ColorType.blue.color()),
-                                         label: Tensor(ColorType.blue.correctValues())))
-        validationData.append(DatasetModel(data: Tensor(ColorType.blue.color()),
-                                         label: Tensor(ColorType.blue.correctValues())))
+        trainingData.append(DatasetModel(data: Tensor<N>(ColorType.blue.color()),
+                                         label: Tensor<N>(ColorType.blue.correctValues())))
+        validationData.append(DatasetModel(data: Tensor<N>(ColorType.blue.color()),
+                                         label: Tensor<N>(ColorType.blue.correctValues())))
       }
     }
     
@@ -136,7 +138,7 @@ final class FullModelTests: XCTestCase {
       let green = ColorType.green.color()
       let blue = ColorType.blue.color()
 
-      let colors = [Tensor(red), Tensor(green), Tensor(blue)]
+      let colors = [Tensor<N>(red), Tensor<N>(green), Tensor<N>(blue)]
       let out = classifier.feed(colors)
 
       for i in 0..<out.count {
@@ -164,7 +166,7 @@ final class FullModelTests: XCTestCase {
       let green = ColorType.green.color()
       let blue = ColorType.blue.color()
 
-      let colors = [Tensor(red), Tensor(green), Tensor(blue)]
+      let colors = [Tensor<N>(red), Tensor<N>(green), Tensor<N>(blue)]
       let out = classifier.feed(colors)
 
       for i in 0..<out.count {

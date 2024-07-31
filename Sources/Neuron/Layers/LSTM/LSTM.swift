@@ -20,20 +20,20 @@ public final class LSTM<N: TensorNumeric>: BaseLayer<N> {
     }
   }
 
-  public var forgetGateWeights: Tensor = Tensor()
-  public var forgetGateBiases: Tensor = Tensor()
+  public var forgetGateWeights: Tensor<N> = Tensor<N>()
+  public var forgetGateBiases: Tensor<N> = Tensor<N>()
 
-  public var inputGateWeights: Tensor = Tensor()
-  public var inputGateBiases: Tensor = Tensor()
+  public var inputGateWeights: Tensor<N> = Tensor<N>()
+  public var inputGateBiases: Tensor<N> = Tensor<N>()
 
-  public var gateGateWeights: Tensor = Tensor()
-  public var gateGateBiases: Tensor = Tensor()
+  public var gateGateWeights: Tensor<N> = Tensor<N>()
+  public var gateGateBiases: Tensor<N> = Tensor<N>()
 
-  public var outputGateWeights: Tensor = Tensor()
-  public var outputGateBiases: Tensor = Tensor()
+  public var outputGateWeights: Tensor<N> = Tensor<N>()
+  public var outputGateBiases: Tensor<N> = Tensor<N>()
 
-  public var hiddenOutputWeights: Tensor = Tensor()
-  public var hiddenOutputBiases: Tensor = Tensor()
+  public var hiddenOutputWeights: Tensor<N> = Tensor<N>()
+  public var hiddenOutputBiases: Tensor<N> = Tensor<N>()
     
   private var hiddenUnits: Int
   private var vocabSize: Int
@@ -44,10 +44,10 @@ public final class LSTM<N: TensorNumeric>: BaseLayer<N> {
   private var cellCache: ThreadStorage<[Cache]> = .init()
 
   public class LSTMActivations {
-    let forgetGate: Tensor
-    let inputGate: Tensor
-    let outputGate: Tensor
-    let gateGate: Tensor
+    let forgetGate: Tensor<N>
+    let inputGate: Tensor<N>
+    let outputGate: Tensor<N>
+    let gateGate: Tensor<N>
     
     init(activations: LSTMCell<N>.Activations) {
       self.forgetGate = activations.fa
@@ -56,10 +56,10 @@ public final class LSTM<N: TensorNumeric>: BaseLayer<N> {
       self.gateGate = activations.ga
     }
     
-    init(forgetGate: Tensor = .init(),
-         inputGate: Tensor = .init(),
-         outputGate: Tensor = .init(),
-         gateGate: Tensor = .init()) {
+    init(forgetGate: Tensor<N> = .init(),
+         inputGate: Tensor<N> = .init(),
+         outputGate: Tensor<N> = .init(),
+         gateGate: Tensor<N> = .init()) {
       self.forgetGate = forgetGate
       self.inputGate = inputGate
       self.outputGate = outputGate
@@ -69,16 +69,16 @@ public final class LSTM<N: TensorNumeric>: BaseLayer<N> {
   
   public class Cache {
     var lstm: LSTMActivations
-    var cell: Tensor
-    var activation: Tensor
-    var embedding: Tensor
-    var output: Tensor
+    var cell: Tensor<N>
+    var activation: Tensor<N>
+    var embedding: Tensor<N>
+    var output: Tensor<N>
     
     init(lstm: LSTMActivations = .init(),
-         cell: Tensor = .init(),
-         activation: Tensor = .init(),
-         embedding: Tensor = .init(),
-         output: Tensor = .init()) {
+         cell: Tensor<N> = .init(),
+         activation: Tensor<N> = .init(),
+         embedding: Tensor<N> = .init(),
+         output: Tensor<N> = .init()) {
       self.lstm = lstm
       self.cell = cell
       self.activation = activation
@@ -87,10 +87,10 @@ public final class LSTM<N: TensorNumeric>: BaseLayer<N> {
     }
     
     func updating(lstm: LSTMActivations? = nil,
-                  cell: Tensor? = nil,
-                  activation: Tensor? = nil,
-                  embedding: Tensor? = nil,
-                  output: Tensor? = nil) {
+                  cell: Tensor<N>? = nil,
+                  activation: Tensor<N>? = nil,
+                  embedding: Tensor<N>? = nil,
+                  output: Tensor<N>? = nil) {
       self.lstm = lstm ?? self.lstm
       self.cell = cell ?? self.cell
       self.activation = activation ?? self.activation
@@ -170,16 +170,16 @@ public final class LSTM<N: TensorNumeric>: BaseLayer<N> {
 
     self.biasEnabled = try container.decodeIfPresent(Bool.self, forKey: .biasEnabled) ?? false
     self.outputSize = try container.decodeIfPresent(TensorSize.self, forKey: .outputSize) ?? TensorSize(array: [])
-    self.forgetGateWeights = try container.decodeIfPresent(Tensor.self, forKey: .forgetGateWeights) ?? Tensor()
-    self.inputGateWeights = try container.decodeIfPresent(Tensor.self, forKey: .inputGateWeights) ?? Tensor()
-    self.gateGateWeights = try container.decodeIfPresent(Tensor.self, forKey: .gateGateWeights) ?? Tensor()
-    self.outputGateWeights = try container.decodeIfPresent(Tensor.self, forKey: .outputGateWeights) ?? Tensor()
-    self.hiddenOutputWeights = try container.decodeIfPresent(Tensor.self, forKey: .hiddenOutputWeights) ?? Tensor()
-    self.forgetGateBiases = try container.decodeIfPresent(Tensor.self, forKey: .forgetGateBiases) ?? Tensor()
-    self.inputGateBiases = try container.decodeIfPresent(Tensor.self, forKey: .inputGateBiases) ?? Tensor()
-    self.gateGateBiases = try container.decodeIfPresent(Tensor.self, forKey: .gateGateBiases) ?? Tensor()
-    self.outputGateBiases = try container.decodeIfPresent(Tensor.self, forKey: .outputGateBiases) ?? Tensor()
-    self.hiddenOutputBiases = try container.decodeIfPresent(Tensor.self, forKey: .hiddenOutputBiases) ?? Tensor()
+    self.forgetGateWeights = try container.decodeIfPresent(Tensor<N>.self, forKey: .forgetGateWeights) ?? Tensor<N>()
+    self.inputGateWeights = try container.decodeIfPresent(Tensor<N>.self, forKey: .inputGateWeights) ?? Tensor<N>()
+    self.gateGateWeights = try container.decodeIfPresent(Tensor<N>.self, forKey: .gateGateWeights) ?? Tensor<N>()
+    self.outputGateWeights = try container.decodeIfPresent(Tensor<N>.self, forKey: .outputGateWeights) ?? Tensor<N>()
+    self.hiddenOutputWeights = try container.decodeIfPresent(Tensor<N>.self, forKey: .hiddenOutputWeights) ?? Tensor<N>()
+    self.forgetGateBiases = try container.decodeIfPresent(Tensor<N>.self, forKey: .forgetGateBiases) ?? Tensor<N>()
+    self.inputGateBiases = try container.decodeIfPresent(Tensor<N>.self, forKey: .inputGateBiases) ?? Tensor<N>()
+    self.gateGateBiases = try container.decodeIfPresent(Tensor<N>.self, forKey: .gateGateBiases) ?? Tensor<N>()
+    self.outputGateBiases = try container.decodeIfPresent(Tensor<N>.self, forKey: .outputGateBiases) ?? Tensor<N>()
+    self.hiddenOutputBiases = try container.decodeIfPresent(Tensor<N>.self, forKey: .hiddenOutputBiases) ?? Tensor<N>()
     
     if forgetGateBiases.isEmpty ||
         inputGateBiases.isEmpty ||
@@ -223,16 +223,16 @@ public final class LSTM<N: TensorNumeric>: BaseLayer<N> {
   
   /// The forward path for the LSTM layer. Should be preceeded by an `Embedding` layer.
   /// Emdedding input size expected is `(rows: 1, columns: inputUnits, depth: batchLength)`
-  /// - Parameter tensor: The `Embedding` input `Tensor`
+  /// - Parameter tensor: The `Embedding` input `Tensor<N>`
   /// - Returns: Depending on the state of `returnSequence` it will either returng the whole sequence of size
   /// `(rows: 1, columns: vocabSize, depth: batchLength)` or just the last output of the sequence of size
   /// `(rows: 1, columns: vocabSize, depth: 1)`
-  public override func forward(tensor: Tensor) -> Tensor {
+  public override func forward(tensor: Tensor<N>) -> Tensor<N> {
     var localCellCache: [Cache] = [setupInitialState()]
     
-    let context = TensorContext { self.backward(inputs: $0, gradient: $1, cellCache: localCellCache) }
+    let context = TensorContext<N> { self.backward(inputs: $0, gradient: $1, cellCache: localCellCache) }
     
-    var out = Tensor(context: context)
+    var out = Tensor<N>(context: context)
 
     let range = 0..<batchLength
         
@@ -242,7 +242,7 @@ public final class LSTM<N: TensorNumeric>: BaseLayer<N> {
       guard let cache = localCellCache[safe: index] else { break }
       
       // get embeddings from input
-      let getEmbeddings = Tensor(tensor.value[safe: index] ?? NumSwift.zerosLike((rows: 1, columns: vocabSize))) //use first vector
+      let getEmbeddings = Tensor<N>(tensor.value[safe: index] ?? NumSwift.zerosLike((rows: 1, columns: vocabSize))) //use first vector
       
       let cell = LSTMCell<N>(hidden: hiddenUnits,
                           input: inputUnits,
@@ -284,7 +284,7 @@ public final class LSTM<N: TensorNumeric>: BaseLayer<N> {
     self.cellCache.store(localCellCache, at: threadId)
 
     if returnSequence == false, let last = out.value.last {
-      out = Tensor(last, context: context)
+      out = Tensor<N>(last, context: context)
     }
     
     out.label = String(describing: self)
@@ -294,7 +294,7 @@ public final class LSTM<N: TensorNumeric>: BaseLayer<N> {
   }
   
   
-  public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
+  public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor<N>.Scalar) {
     /*
      order of weights in tensor...
      
@@ -316,12 +316,12 @@ public final class LSTM<N: TensorNumeric>: BaseLayer<N> {
       
       gLayers = gLayers.dropLast()
       
-      self.forgetGateWeights = self.forgetGateWeights - Tensor(forgetGateWeightGrads)
-      self.inputGateWeights = self.inputGateWeights - Tensor(inputGateWeightGrads)
-      self.gateGateWeights = self.gateGateWeights - Tensor(gateGateWeightGrads)
-      self.outputGateWeights = self.outputGateWeights - Tensor(outputGateWeightGrads)
+      self.forgetGateWeights = self.forgetGateWeights - Tensor<N>(forgetGateWeightGrads)
+      self.inputGateWeights = self.inputGateWeights - Tensor<N>(inputGateWeightGrads)
+      self.gateGateWeights = self.gateGateWeights - Tensor<N>(gateGateWeightGrads)
+      self.outputGateWeights = self.outputGateWeights - Tensor<N>(outputGateWeightGrads)
       
-      self.hiddenOutputWeights = self.hiddenOutputWeights - Tensor(hiddenOutputWeightGradients)
+      self.hiddenOutputWeights = self.hiddenOutputWeights - Tensor<N>(hiddenOutputWeightGradients)
     }
     
     /*
@@ -343,28 +343,28 @@ public final class LSTM<N: TensorNumeric>: BaseLayer<N> {
        let outputGateBiasGrads = gBiasLayers[safe: 3],
        let hiddenOutputBiasGradients = gBiasLayers[safe: 4] {
       
-      forgetGateBiases = forgetGateBiases - Tensor(forgetGateBiasGrads)
-      inputGateBiases = inputGateBiases - Tensor(inputGateBiasGrads)
-      gateGateBiases = gateGateBiases - Tensor(gateGateBiasGrads)
-      outputGateBiases = outputGateBiases - Tensor(outputGateBiasGrads)
-      hiddenOutputBiases = hiddenOutputBiases - Tensor(hiddenOutputBiasGradients)
+      forgetGateBiases = forgetGateBiases - Tensor<N>(forgetGateBiasGrads)
+      inputGateBiases = inputGateBiases - Tensor<N>(inputGateBiasGrads)
+      gateGateBiases = gateGateBiases - Tensor<N>(gateGateBiasGrads)
+      outputGateBiases = outputGateBiases - Tensor<N>(outputGateBiasGrads)
+      hiddenOutputBiases = hiddenOutputBiases - Tensor<N>(hiddenOutputBiasGradients)
     }
 
     reset()
   }
   
   // MARK: Private
-  private func backward(inputs: Tensor, gradient: Tensor, cellCache: [Cache]) -> TensorContext.TensorBackpropResult {
-    var eat: [[Tensor.Scalar]] = NumSwift.zerosLike((rows: 1,
+  private func backward(inputs: Tensor<N>, gradient: Tensor<N>, cellCache: [Cache]) -> TensorContext<N>.TensorBackpropResult {
+    var eat: [[Tensor<N>.Scalar]] = NumSwift.zerosLike((rows: 1,
                                                      columns: self.hiddenUnits))
-    var ect: [[Tensor.Scalar]] = eat
+    var ect: [[Tensor<N>.Scalar]] = eat
     
-    var wrtOutputWeightsDerivatives: Tensor = Tensor()
-    var wrtOutputBiasesDerivatives: Tensor = Tensor()
+    var wrtOutputWeightsDerivatives: Tensor<N> = Tensor<N>()
+    var wrtOutputBiasesDerivatives: Tensor<N> = Tensor<N>()
     var wrtLSTMCellInputWeightsDerivatives: LSTMCell<N>.ParameterDerivatives = .init()
     var wrtLSTMCellInputBiasDerivatives: LSTMCell<N>.ParameterDerivatives = .init()
 
-    var wrtEmbeddings: Tensor = Tensor()
+    var wrtEmbeddings: Tensor<N> = Tensor<N>()
           
     for index in (1..<cellCache.count).reversed() {
       
@@ -500,26 +500,26 @@ public final class LSTM<N: TensorNumeric>: BaseLayer<N> {
   }
   
   private func initializeBiases() {
-    let biases = Tensor(NumSwift.zerosLike((rows: 1, columns: 1, depth: 1)))
+    let biases = Tensor<N>(NumSwift.zerosLike((rows: 1, columns: 1, depth: 1)))
     self.outputGateBiases = biases.detached()
     self.forgetGateBiases = biases.detached()
     self.gateGateBiases = biases.detached()
     self.inputGateBiases = biases.detached()
     
-    self.hiddenOutputBiases = Tensor(NumSwift.zerosLike((rows: 1, columns: 1, depth: 1)))
+    self.hiddenOutputBiases = Tensor<N>(NumSwift.zerosLike((rows: 1, columns: 1, depth: 1)))
   }
   
   private func setupInitialState() -> Cache {
-    let a = Tensor(NumSwift.zerosLike((rows: 1, columns: hiddenUnits, depth: batchLength)))
-    let c = Tensor(NumSwift.zerosLike((rows: 1, columns: hiddenUnits, depth: batchLength)))
+    let a = Tensor<N>(NumSwift.zerosLike((rows: 1, columns: hiddenUnits, depth: batchLength)))
+    let c = Tensor<N>(NumSwift.zerosLike((rows: 1, columns: hiddenUnits, depth: batchLength)))
     
-    let og =  Tensor(NumSwift.zerosLike((rows: 1, columns: hiddenUnits, depth: 1)))
-    let ig =  Tensor(NumSwift.zerosLike((rows: 1, columns: hiddenUnits, depth: 1)))
-    let fg =  Tensor(NumSwift.zerosLike((rows: 1, columns: hiddenUnits, depth: 1)))
-    let gg =  Tensor(NumSwift.zerosLike((rows: 1, columns: hiddenUnits, depth: 1)))
+    let og =  Tensor<N>(NumSwift.zerosLike((rows: 1, columns: hiddenUnits, depth: 1)))
+    let ig =  Tensor<N>(NumSwift.zerosLike((rows: 1, columns: hiddenUnits, depth: 1)))
+    let fg =  Tensor<N>(NumSwift.zerosLike((rows: 1, columns: hiddenUnits, depth: 1)))
+    let gg =  Tensor<N>(NumSwift.zerosLike((rows: 1, columns: hiddenUnits, depth: 1)))
 
-    let embedding =  Tensor(NumSwift.zerosLike((rows: 1, columns: inputUnits, depth: 1)))
-    let output =  Tensor(NumSwift.zerosLike((rows: 1, columns: vocabSize, depth: 1)))
+    let embedding =  Tensor<N>(NumSwift.zerosLike((rows: 1, columns: inputUnits, depth: 1)))
+    let output =  Tensor<N>(NumSwift.zerosLike((rows: 1, columns: vocabSize, depth: 1)))
 
     let initialCache = Cache(lstm: .init(forgetGate: fg,
                                          inputGate: ig,

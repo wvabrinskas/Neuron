@@ -15,20 +15,20 @@ public class GAN<N: TensorNumeric> {
 
   public var generator: BaseOptimizer<N>
   public var discriminator: BaseOptimizer<N>
-  public var noise: () -> Tensor
+  public var noise: () -> Tensor<N>
   public var onEpochCompleted: ((_ epoch: Int) -> ())? = nil
-  public var validateGenerator: ((_ output: Tensor) -> ())? = nil
+  public var validateGenerator: ((_ output: Tensor<N>) -> ())? = nil
   public var onCompleted: (() -> ())? = nil
   public private(set) var lossFunction: LossFunction = .minimaxBinaryCrossEntropy
-  public private(set) var fakeLabel: Tensor.Scalar = 0
-  public private(set) var realLabel: Tensor.Scalar = 1
+  public private(set) var fakeLabel: Tensor<N>.Scalar = 0
+  public private(set) var realLabel: Tensor<N>.Scalar = 1
   public var epochs: Int
   
   internal let batchSize: Int
   let threadWorkers: Int
   private let discriminatorSteps: Int
   private let generatorSteps: Int
-  private let discriminatorNoiseFactor: Tensor.Scalar?
+  private let discriminatorNoiseFactor: Tensor<N>.Scalar?
   private let validationFrequency: Int
   
   public init(generator: BaseOptimizer<N>,
@@ -37,7 +37,7 @@ public class GAN<N: TensorNumeric> {
               batchSize: Int,
               discriminatorSteps: Int = 1,
               generatorSteps: Int = 1,
-              discriminatorNoiseFactor: Tensor.Scalar? = nil,
+              discriminatorNoiseFactor: Tensor<N>.Scalar? = nil,
               threadWorkers: Int = 16,
               validationFrequency: Int = 5) {
     self.generator = generator
@@ -54,11 +54,11 @@ public class GAN<N: TensorNumeric> {
     self.discriminator.workers = threadWorkers
     
     self.noise = {
-      var noise: [Tensor.Scalar] = []
+      var noise: [Tensor<N>.Scalar] = []
       for _ in 0..<10 {
-        noise.append(Tensor.Scalar.random(in: 0...1))
+        noise.append(Tensor<N>.Scalar.random(in: 0...1))
       }
-      return Tensor(noise)
+      return Tensor<N>(noise)
     }
     
   }
@@ -70,7 +70,7 @@ public class GAN<N: TensorNumeric> {
     let valBatches = validation.batched(into: batchSize)
 
     //epochs
-    var trainingBatches: [(data: [Tensor], labels: [Tensor])] = []
+    var trainingBatches: [(data: [Tensor<N>], labels: [Tensor<N>])] = []
     batches.forEach { b in
       if b.count == batchSize {
         let trainingSet = splitDataset(b)
@@ -78,7 +78,7 @@ public class GAN<N: TensorNumeric> {
       }
     }
 
-    var validationBatches: [(data: [Tensor], labels: [Tensor])] = []
+    var validationBatches: [(data: [Tensor<N>], labels: [Tensor<N>])] = []
     valBatches.forEach { b in
       if b.count == batchSize {
         let valSet = splitDataset(validation)
@@ -129,15 +129,15 @@ public class GAN<N: TensorNumeric> {
     onCompleted?()
   }
   
-  public func generate() -> Tensor {
+  public func generate() -> Tensor<N> {
     self.generator.isTraining = false
     let out = generator([noise()])
-    return out.first?.detached() ?? Tensor()
+    return out.first?.detached() ?? Tensor<N>()
   }
   
-  public func discriminate(_ input: [Tensor]) -> Tensor {
+  public func discriminate(_ input: [Tensor<N>]) -> Tensor<N> {
     let out = discriminator(input)
-    return out.first ?? Tensor()
+    return out.first ?? Tensor<N>()
   }
   
   @discardableResult
@@ -157,7 +157,7 @@ public class GAN<N: TensorNumeric> {
     return urls
   }
   
-  internal func discriminatorStep(_ real: [Tensor], labels: [Tensor]) {
+  internal func discriminatorStep(_ real: [Tensor<N>], labels: [Tensor<N>]) {
     discriminator.zeroGradients()
     
     let realOutput = trainOn(real, labels: labels)
@@ -195,8 +195,8 @@ public class GAN<N: TensorNumeric> {
     generator.step()
   }
   
-  internal func trainOn(_ batch: [Tensor],
-                        labels: [Tensor],
+  internal func trainOn(_ batch: [Tensor<N>],
+                        labels: [Tensor<N>],
                         requiresGradients: Bool = true) -> Optimizer.Output {
     discriminator.fit(batch,
                       labels: labels,
@@ -205,19 +205,19 @@ public class GAN<N: TensorNumeric> {
                       requiresGradients: requiresGradients)
   }
   
-  internal func getGenerated(_ label: TrainingType, detatch: Bool = false, count: Int) -> (data: [Tensor], labels: [Tensor]) {
-    var fakeData: [Tensor] = [Tensor](repeating: Tensor(), count: count)
-    var fakeLabels: [Tensor] = [Tensor](repeating: Tensor(), count: count)
+  internal func getGenerated(_ label: TrainingType, detatch: Bool = false, count: Int) -> (data: [Tensor<N>], labels: [Tensor<N>]) {
+    var fakeData: [Tensor<N>] = [Tensor<N>](repeating: Tensor<N>(), count: count)
+    var fakeLabels: [Tensor<N>] = [Tensor<N>](repeating: Tensor<N>(), count: count)
 
     Array(0..<count).concurrentForEach(workers: min(Constants.maxWorkers, Int(ceil(Double(count) / Double(4))))) { _, index in
-      var sample = self.generator([self.noise()])[safe: 0, Tensor()]
+      var sample = self.generator([self.noise()])[safe: 0, Tensor<N>()]
       
       if detatch {
         sample = sample.detached()
       }
       
       let localLabelValue = label == .fake ? self.fakeLabel : self.realLabel
-      var dataLabel = Tensor([localLabelValue])
+      var dataLabel = Tensor<N>([localLabelValue])
       var training = sample
       //assuming the label is 1.0 or greater
       //we need to reverse if label is <= 0
@@ -228,7 +228,7 @@ public class GAN<N: TensorNumeric> {
         let max = max(localLabelValue, abs(localLabelValue - factor))
         
         training = sample
-        dataLabel = Tensor([Tensor.Scalar.random(in: (min...max))])
+        dataLabel = Tensor<N>([Tensor<N>.Scalar.random(in: (min...max))])
       }
       
       fakeData[index] = training
@@ -238,9 +238,9 @@ public class GAN<N: TensorNumeric> {
     return (fakeData, fakeLabels)
   }
 
-  private func splitDataset(_ data: [DatasetModel]) -> (data: [Tensor], labels: [Tensor]) {
-    var labels: [Tensor] = []
-    var input: [Tensor] = []
+  private func splitDataset(_ data: [DatasetModel]) -> (data: [Tensor<N>], labels: [Tensor<N>]) {
+    var labels: [Tensor<N>] = []
+    var input: [Tensor<N>] = []
     
     data.forEach { d in
       labels.append(d.label)

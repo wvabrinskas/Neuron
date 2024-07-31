@@ -37,8 +37,8 @@ public final class Reshape<N: TensorNumeric>: BaseLayer<N> {
     self.init(to: TensorSize(array: []))
     let container = try decoder.container(keyedBy: CodingKeys.self)
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
-    self.weights = try container.decodeIfPresent(Tensor.self, forKey: .weights) ?? Tensor()
-    self.biases = try container.decodeIfPresent(Tensor.self, forKey: .biases) ?? Tensor()
+    self.weights = try container.decodeIfPresent(Tensor<N>.self, forKey: .weights) ?? Tensor<N>()
+    self.biases = try container.decodeIfPresent(Tensor<N>.self, forKey: .biases) ?? Tensor<N>()
     let resize = try container.decodeIfPresent(TensorSize.self, forKey: .reshapeSize) ?? TensorSize(array: [])
     self.init(to: resize)
   }
@@ -52,20 +52,20 @@ public final class Reshape<N: TensorNumeric>: BaseLayer<N> {
     try container.encode(encodingType, forKey: .type)
   }
   
-  public override func forward(tensor: Tensor) -> Tensor {
-    let context = TensorContext { inputs, gradient in
-      let value: [Tensor.Scalar] = gradient.value.flatten()
-      return (Tensor(value), Tensor(), Tensor())
+  public override func forward(tensor: Tensor<N>) -> Tensor<N> {
+    let context = TensorContext<N> { inputs, gradient in
+      let value: [Tensor<N>.Scalar] = gradient.value.flatten()
+      return (Tensor<N>(value), Tensor<N>(), Tensor<N>())
     }
     
-    let flat: [Tensor.Scalar] = tensor.value.flatten()
+    let flat: [Tensor<N>.Scalar] = tensor.value.flatten()
     
     let sizeCols = reshapeSize.columns
     let sizeRows = reshapeSize.rows
     
     let reshaped = flat.reshape(columns: sizeCols).reshape(columns: sizeRows)
     
-    let out = Tensor(reshaped, context: context)
+    let out = Tensor<N>(reshaped, context: context)
     
     out.setGraph(tensor)
 

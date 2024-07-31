@@ -7,14 +7,14 @@
 
 import Foundation
 
-public struct TensorContext: Codable {
-  public typealias TensorBackpropResult = (input: Tensor, weight: Tensor, bias: Tensor)
-  public typealias TensorContextFunction = (_ inputs: Tensor, _ gradient: Tensor) -> TensorBackpropResult
+public struct TensorContext<N: TensorNumeric>: Codable {
+  public typealias TensorBackpropResult = (input: Tensor<N>, weight: Tensor<N>, bias: Tensor<N>)
+  public typealias TensorContextFunction = (_ inputs: Tensor<N>, _ gradient: Tensor<N>) -> TensorBackpropResult
   var backpropagate: TensorContextFunction
   
   public init(backpropagate: TensorContextFunction? = nil) {
-    let defaultFunction = { (input: Tensor, gradient: Tensor) in
-      return (Tensor(gradient.value), Tensor(), Tensor())
+    let defaultFunction = { (input: Tensor<N>, gradient: Tensor<N>) in
+      return (Tensor<N>(gradient.value), Tensor<N>(), Tensor<N>())
     }
     
     self.backpropagate = backpropagate ?? defaultFunction
@@ -23,6 +23,6 @@ public struct TensorContext: Codable {
   public func encode(to encoder: Encoder) throws {}
   
   public init(from decoder: Decoder) throws {
-    self = TensorContext()
+    self = TensorContext<N>()
   }
 }

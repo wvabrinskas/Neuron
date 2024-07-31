@@ -43,20 +43,20 @@ public final class Flatten<N: TensorNumeric>: BaseLayer<N> {
     try container.encode(encodingType, forKey: .type)
   }
   
-  public override func forward(tensor: Tensor) -> Tensor {
-    let context = TensorContext { inputs, gradient in
+  public override func forward(tensor: Tensor<N>) -> Tensor<N> {
+    let context = TensorContext<N> { inputs, gradient in
       
       let inputSize = self.inputSize
-      let deltas: [Tensor.Scalar] = gradient.value.flatten()
+      let deltas: [Tensor<N>.Scalar] = gradient.value.flatten()
       
       let batchedDeltas = deltas.batched(into: inputSize.columns * inputSize.rows)
       let gradients = batchedDeltas.map { $0.reshape(columns: inputSize.columns) }
       
-      return (Tensor(gradients), Tensor(), Tensor())
+      return (Tensor<N>(gradients), Tensor<N>(), Tensor<N>())
     }
     
-    let flatten: [Tensor.Scalar] = tensor.value.flatten()
-    let flat = Tensor(flatten, context: context)
+    let flatten: [Tensor<N>.Scalar] = tensor.value.flatten()
+    let flat = Tensor<N>(flatten, context: context)
     
     return flat
   }

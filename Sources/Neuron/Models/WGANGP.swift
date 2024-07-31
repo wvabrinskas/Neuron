@@ -10,30 +10,30 @@ import NumSwift
 import Numerics
 
 public class WGANGP<N: TensorNumeric>: GAN<N> {
-  public override var realLabel: Tensor.Scalar { -1.0 }
-  public override var fakeLabel: Tensor.Scalar { 1.0 }
-  public var lambda: Tensor.Scalar = 0.1
+  public override var realLabel: Tensor<N>.Scalar { -1.0 }
+  public override var fakeLabel: Tensor<N>.Scalar { 1.0 }
+  public var lambda: Tensor<N>.Scalar = 0.1
 
   private struct GradientPenalty {
-    static func calculate(gradient: Tensor) -> Tensor {
+    static func calculate(gradient: Tensor<N>) -> Tensor<N> {
       let norm = sqrt(gradient.value.sumOfSquares + .stabilityFactor) - 1
-      return Tensor(Tensor.Scalar.pow(norm, 2))
+      return Tensor<N>(Tensor<N>.Scalar.pow(norm, 2))
     }
     
-    static func calculate(gradients: [Tensor]) -> [Tensor] {
+    static func calculate(gradients: [Tensor<N>]) -> [Tensor<N>] {
       gradients.map { calculate(gradient: $0) }
     }
   }
   
   public override var lossFunction: LossFunction { .wasserstein  }
   
-  override func discriminatorStep(_ real: [Tensor], labels: [Tensor]) {
+  override func discriminatorStep(_ real: [Tensor<N>], labels: [Tensor<N>]) {
     discriminator.zeroGradients()
     
-    var avgPenalty: Tensor.Scalar = 0
-    var avgCriticLoss: Tensor.Scalar = 0
-    var avgRealLoss: Tensor.Scalar = 0
-    var avgFakeLoss: Tensor.Scalar = 0
+    var avgPenalty: Tensor<N>.Scalar = 0
+    var avgCriticLoss: Tensor<N>.Scalar = 0
+    var avgRealLoss: Tensor<N>.Scalar = 0
+    var avgFakeLoss: Tensor<N>.Scalar = 0
 
     let workers = min(Constants.maxWorkers, max(max(4, threadWorkers), Int(ceil(batchSize.asTensorScalar / 4))))
     Array(0..<batchSize).concurrentForEach(workers: workers) { _, i in
@@ -44,24 +44,24 @@ public class WGANGP<N: TensorNumeric>: GAN<N> {
       let generated = self.getGenerated(.fake, detatch: true, count: 1)
       let interpolated = self.interpolated(real: [realSample], fake: generated.data)
       
-      let fakeSample = generated.data[safe: 0, Tensor()]
-      let fakeLabel = generated.labels[safe: 0, Tensor()]
+      let fakeSample = generated.data[safe: 0, Tensor<N>()]
+      let fakeLabel = generated.labels[safe: 0, Tensor<N>()]
       
-      let interSample = interpolated.data[safe: 0, Tensor()]
-      let interLabel = interpolated.labels[safe: 0, Tensor()]
+      let interSample = interpolated.data[safe: 0, Tensor<N>()]
+      let interLabel = interpolated.labels[safe: 0, Tensor<N>()]
 
       // get real output
       let realOut = self.trainOn([realSample], labels: [realLabel], requiresGradients: true)
-      let realOutput = realOut.outputs[safe: 0, Tensor()]
+      let realOutput = realOut.outputs[safe: 0, Tensor<N>()]
       
       // get fake output
       let fakeOut = self.trainOn([fakeSample], labels: [fakeLabel], requiresGradients: true)
-      let fakeOutput = fakeOut.outputs[safe: 0, Tensor()]
+      let fakeOutput = fakeOut.outputs[safe: 0, Tensor<N>()]
 
       // get gradient for interpolated
       let interOut = self.trainOn([interSample], labels: [interLabel], requiresGradients: true)
       // interpolated gradients wrt to interpolated sample
-      let interGradients = interOut.gradients.input[safe: 0, Tensor()]
+      let interGradients = interOut.gradients.input[safe: 0, Tensor<N>()]
       
       // calculate gradient penalty
       let normGradients = interGradients.norm().asScalar()
@@ -71,12 +71,12 @@ public class WGANGP<N: TensorNumeric>: GAN<N> {
       let criticCost = fakeOutput - realOutput
       let criticLoss = criticCost + self.lambda * penalty
           
-      let part1 = Tensor.Scalar(2 / fakeOutput.value.count) * self.lambda
+      let part1 = Tensor<N>.Scalar(2 / fakeOutput.value.count) * self.lambda
       let part2 = normGradients - 1
-      let part3 = interOut.outputs[safe: 0, Tensor()] / normGradients
+      let part3 = interOut.outputs[safe: 0, Tensor<N>()] / normGradients
       let dGradInter = part1 * part2 * part3
       
-      let interpolatedGradients = interOut.outputs[safe: 0, Tensor()].gradients(delta: dGradInter)
+      let interpolatedGradients = interOut.outputs[safe: 0, Tensor<N>()].gradients(delta: dGradInter)
 
       let totalGradients = fakeOut.gradients + realOut.gradients + interpolatedGradients
       
@@ -109,18 +109,18 @@ public class WGANGP<N: TensorNumeric>: GAN<N> {
     generator.metricsReporter?.update(metric: .generatorLoss, value: fakeOut.loss)
   }
   
-  internal func interpolated(real: [Tensor], fake: [Tensor]) -> (data: [Tensor], labels: [Tensor]) {
-    var interpolated: [Tensor] = []
-    var labels: [Tensor] = []
+  internal func interpolated(real: [Tensor<N>], fake: [Tensor<N>]) -> (data: [Tensor<N>], labels: [Tensor<N>]) {
+    var interpolated: [Tensor<N>] = []
+    var labels: [Tensor<N>] = []
     
     for i in 0..<real.count {
-      let epsilon = Tensor.Scalar.random(in: 0...1)
+      let epsilon = Tensor<N>.Scalar.random(in: 0...1)
       let realImage = real[i].value
       let fakeImage = fake[i].value
 
       let inter = (realImage * epsilon) + (( 1 - epsilon) * fakeImage)
-      interpolated.append(Tensor(inter))
-      labels.append(Tensor(1.0))
+      interpolated.append(Tensor<N>(inter))
+      labels.append(Tensor<N>(1.0))
     }
     
     return (interpolated, labels)

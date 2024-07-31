@@ -27,7 +27,7 @@ public protocol Trainable: AnyObject, Codable, CustomDebugStringConvertible {
   var isTraining: Bool { get set }
   
   /// The device to execute the ML ops and math ops on. Default: CPU()
-  var device: Device { get set }
+  var device: BaseDevice<N> { get set }
   
   /// Creates a Trainable object from a `.smodel` file.
   /// - Parameter url: The URL to the `.smodel` file.
@@ -37,16 +37,16 @@ public protocol Trainable: AnyObject, Codable, CustomDebugStringConvertible {
   /// Performs a forward pass on the network
   /// - Parameter data: The inputs
   /// - Returns: The output of the network
-  func predict(_ data: Tensor) -> Tensor
+  func predict(_ data: Tensor<N>) -> Tensor<N>
   
   /// Compiles the network, getting it ready to be trained.
   func compile()
   
   /// Exports the weights of the network
-  func exportWeights() throws -> [[Tensor]]
+  func exportWeights() throws -> [[Tensor<N>]]
  
   /// Attempts to replace the weights in the network
-  func importWeights(_ weights: [[Tensor]]) throws
+  func importWeights(_ weights: [[Tensor<N>]]) throws
   
   /// Exports network
   @discardableResult
@@ -132,14 +132,14 @@ private struct TrainablePrinter {
     return string
   }
   
-  static func line<L: Layer>(layer: L, previousLine: Line? = nil) -> Line {
+  static func line<N: TensorNumeric>(layer: BaseLayer<N>, previousLine: Line? = nil) -> Line {
     var parameters = layer.weights.value.flatten().count
     
     // TODO: maybe find a better way to do this so we can just reference a property like `parameters` or something
-    if let conv = layer as? any ConvolutionalLayer {
+    if let conv = layer as? BaseConvolutionalLayer<N> {
       parameters = conv.filters.map { $0.value.flatten().count }.sumSlow
-    } else if let lstm = layer as? LSTM<L.Number> {
-      parameters = lstm.forgetGateWeights.concat(lstm.gateGateWeights).concat(lstm.hiddenOutputWeights).concat(lstm.inputGateWeights).concat(lstm.outputGateWeights).value.flatten().count
+    } else if let lstm = layer as? LSTM<N> {
+     // parameters = lstm.forgetGateWeights.concat(lstm.gateGateWeights).concat(lstm.hiddenOutputWeights).concat(lstm.inputGateWeights).concat(lstm.outputGateWeights).value.flatten().count
     }
     
     let col1 = Column(value: layer.encodingType.rawValue, width: col1Width)

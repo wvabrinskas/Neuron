@@ -9,23 +9,25 @@ import Foundation
 import NumSwift
 
 public protocol DecayFunction {
-  var decayedLearningRate: Tensor.Scalar { get }
+  associatedtype N: TensorNumeric
+  var decayedLearningRate: Tensor<N>.Scalar { get }
   func reset()
   func step()
 }
 
-open class BaseDecayFunction: DecayFunction {
-  public var decayedLearningRate: Tensor.Scalar
+open class BaseDecayFunction<N: TensorNumeric>: DecayFunction {
+  public typealias N = N
+  public var decayedLearningRate: Tensor<N>.Scalar
   
-  let originalLearningRate: Tensor.Scalar
-  let decayRate: Tensor.Scalar
-  let decaySteps: Tensor.Scalar
-  var globalSteps: Tensor.Scalar = 0
+  let originalLearningRate: Tensor<N>.Scalar
+  let decayRate: Tensor<N>.Scalar
+  let decaySteps: Tensor<N>.Scalar
+  var globalSteps: Tensor<N>.Scalar = 0
   let staircase: Bool
   
-  public init(learningRate: Tensor.Scalar,
-              decayRate: Tensor.Scalar,
-              decaySteps: Tensor.Scalar,
+  public init(learningRate: Tensor<N>.Scalar,
+              decayRate: Tensor<N>.Scalar,
+              decaySteps: Tensor<N>.Scalar,
               staircase: Bool) {
     self.originalLearningRate = learningRate
     self.decayedLearningRate = learningRate

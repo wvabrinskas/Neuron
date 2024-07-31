@@ -7,7 +7,7 @@
 
 import Foundation
 
-/// Object that defines a size of a Tensor
+/// Object that defines a size of a Tensor<N>
 public struct TensorSize: Codable, Equatable {
   public let rows: Int
   public let columns: Int

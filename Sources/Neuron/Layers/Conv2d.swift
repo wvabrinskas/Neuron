@@ -70,7 +70,7 @@ public class Conv2d<N: TensorNumeric>: BaseConvolutionalLayer<N> {
               initializer: .heUniform,
               biasEnabled: biasEnabled)
     
-    self.filters = try container.decodeIfPresent([Tensor].self, forKey: .filters) ?? []
+    self.filters = try container.decodeIfPresent([Tensor<N>].self, forKey: .filters) ?? []
   }
   
   public override func encode(to encoder: Encoder) throws {
@@ -96,23 +96,23 @@ public class Conv2d<N: TensorNumeric>: BaseConvolutionalLayer<N> {
     outputSize = TensorSize(array: [columns, rows, filterCount])
   }
   
-  public override func forward(tensor: Tensor) -> Tensor {
-    let context = TensorContext { inputs, gradient in
+  public override func forward(tensor: Tensor<N>) -> Tensor<N> {
+    let context = TensorContext<N> { inputs, gradient in
       self.backward(inputs, gradient)
     }
     
-    let out = Tensor(conv(tensor), context: context)
+    let out = Tensor<N>(conv(tensor), context: context)
     
     out.setGraph(tensor)
 
     return out
   }
   
-  internal func backward(_ input: Tensor, _ delta: Tensor) -> (input: Tensor, weight: Tensor, bias: Tensor) {
-    let flippedTransposed = filters.map { flip180($0) }.transposed() as [[[[Tensor.Scalar]]]]
+  internal func backward(_ input: Tensor<N>, _ delta: Tensor<N>) -> (input: Tensor<N>, weight: Tensor<N>, bias: Tensor<N>) {
+    let flippedTransposed = filters.map { flip180($0) }.transposed() as [[[[Tensor<N>.Scalar]]]]
     
-    var weightGradients: [[[Tensor.Scalar]]] = []
-    var inputGradients: [[[Tensor.Scalar]]] = []
+    var weightGradients: [[[Tensor<N>.Scalar]]] = []
+    var inputGradients: [[[Tensor<N>.Scalar]]] = []
 
     var cachedDeltaShape: [Int]?
     
@@ -150,7 +150,7 @@ public class Conv2d<N: TensorNumeric>: BaseConvolutionalLayer<N> {
         let filter = flippedTransposed[f]
         let kernel = filter[i]
         
-        let gradientsForKernelIndex: [[Tensor.Scalar]] = device.conv2d(signal: workingDelta,
+        let gradientsForKernelIndex: [[Tensor<N>.Scalar]] = device.conv2d(signal: workingDelta,
                                                                        filter: kernel,
                                                                        strides: (1,1),
                                                                        padding: .same,
@@ -171,11 +171,11 @@ public class Conv2d<N: TensorNumeric>: BaseConvolutionalLayer<N> {
     
     let biasGradients = delta.value.map { $0.sum }
     
-    return (Tensor(inputGradients), Tensor(weightGradients), Tensor(biasGradients))
+    return (Tensor<N>(inputGradients), Tensor<N>(weightGradients), Tensor<N>(biasGradients))
   }
   
-  internal func calculateFilterGradients(_ input: Tensor, _ delta: [[Tensor.Scalar]], index: Int) -> Tensor.Data {
-    var newGradientsForFilters: Tensor.Data = []
+  internal func calculateFilterGradients(_ input: Tensor<N>, _ delta: [[Tensor<N>.Scalar]], index: Int) -> Tensor<N>.Data {
+    var newGradientsForFilters: Tensor<N>.Data = []
     var cachedFilterShape: [Int]?
 
     
@@ -239,7 +239,7 @@ public class Conv2d<N: TensorNumeric>: BaseConvolutionalLayer<N> {
     return newGradientsForFilters
   }
   
-  public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
+  public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor<N>.Scalar) {
       
     //batch out gradients by number of filters
     var weightGradientsBatched = [gradients.weights.value]
@@ -250,7 +250,7 @@ public class Conv2d<N: TensorNumeric>: BaseConvolutionalLayer<N> {
     
     for i in 0..<filterCount {
       let filterGradients = weightGradientsBatched[i]
-      filters[i] = filters[i] - Tensor(filterGradients)
+      filters[i] = filters[i] - Tensor<N>(filterGradients)
     }
     
     if biasEnabled {
@@ -258,13 +258,13 @@ public class Conv2d<N: TensorNumeric>: BaseConvolutionalLayer<N> {
     }
   }
   
-  internal func conv(_ input: Tensor) -> [[[Tensor.Scalar]]] {
-    var results: [[[Tensor.Scalar]]] = []
+  internal func conv(_ input: Tensor<N>) -> [[[Tensor<N>.Scalar]]] {
+    var results: [[[Tensor<N>.Scalar]]] = []
     
-    let flatBias: [Tensor.Scalar] = biases.value.flatten()
+    let flatBias: [Tensor<N>.Scalar] = biases.value.flatten()
     
     for f in 0..<filterCount {
-      var convolved: [[Tensor.Scalar]] = [] // maybe do concurrentForEach here too
+      var convolved: [[Tensor<N>.Scalar]] = [] // maybe do concurrentForEach here too
 
       for i in 0..<inputSize.depth {
         let currentFilter = self.filters[f].value[i]
@@ -296,7 +296,7 @@ public class Conv2d<N: TensorNumeric>: BaseConvolutionalLayer<N> {
     return results
   }
   
-  private func flip180(_ filter: Tensor) -> [[[Tensor.Scalar]]] {
+  private func flip180(_ filter: Tensor<N>) -> [[[Tensor<N>.Scalar]]] {
     filter.value.map { $0.flip180() }
   }
 }

@@ -9,16 +9,16 @@ import Foundation
 import NumSwift
 import Numerics
 
-public final class ExponentialDecay: BaseDecayFunction {
+public final class ExponentialDecay<N: TensorNumeric>: BaseDecayFunction<N> {
   public override func step() {
-    let exp: Tensor.Scalar
+    let exp: Tensor<N>.Scalar
     if staircase {
-      exp = Tensor.Scalar(Int(globalSteps) / Int(decaySteps))
+      exp = Tensor<N>.Scalar(Int(globalSteps) / Int(decaySteps))
     } else {
       exp = globalSteps / decaySteps
     }
     
-    decayedLearningRate = originalLearningRate * Tensor.Scalar.pow(decayRate, exp)
+    decayedLearningRate = originalLearningRate * Tensor<N>.Scalar.pow(decayRate, exp)
     
     super.step()
   }

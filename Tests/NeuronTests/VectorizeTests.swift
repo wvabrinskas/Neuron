@@ -12,7 +12,8 @@ import NumSwift
 
 
 final class VectorTests: XCTestCase {
-  
+  typealias N = Float
+
   func test_on_hot_letters_unvectorize() {
     let names = ["anna",
                  "emma",
@@ -33,7 +34,7 @@ final class VectorTests: XCTestCase {
     let testName = "anna"
     let oneHot = vectorizer.oneHot(testName.characters)
     
-    let expected = Tensor([[[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
+    let expected = Tensor<N>([[[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
                            [[0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
                            [[0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
                            [[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]])
@@ -66,7 +67,7 @@ final class VectorTests: XCTestCase {
     let testName = "anna"
     let oneHot = vectorizer.oneHot(testName.characters)
     
-    let expected = Tensor([[[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
+    let expected = Tensor<N>([[[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
                            [[0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
                            [[0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
                            [[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]])
@@ -84,7 +85,7 @@ final class VectorTests: XCTestCase {
     
     let oneHot = vectorizer.oneHot(words)
     
-    let expected = Tensor([[[1, 0, 0, 0, 0, 0, 0]],
+    let expected = Tensor<N>([[[1, 0, 0, 0, 0, 0, 0]],
                            [[0, 1, 0, 0, 0, 0, 0]],
                            [[0, 0, 1, 0, 0, 0, 0]],
                            [[0, 0, 0, 1, 0, 0, 0]],
@@ -110,7 +111,7 @@ final class VectorTests: XCTestCase {
     
     let oneHot = vectorizer.oneHot(words)
     
-    let expected = Tensor([[[1, 0, 0, 0, 0, 0, 0]],
+    let expected = Tensor<N>([[[1, 0, 0, 0, 0, 0, 0]],
                            [[0, 1, 0, 0, 0, 0, 0]],
                            [[0, 0, 1, 0, 0, 0, 0]],
                            [[0, 0, 0, 1, 0, 0, 0]],

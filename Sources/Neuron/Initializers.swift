@@ -17,7 +17,7 @@ public enum InitializerType: Codable, Equatable {
   
   case heNormal
   case heUniform
-  case normal(std: Tensor.Scalar)
+  case normal(std: Float)
   
   public func build() -> Initializer {
     Initializer(type: self)
@@ -61,40 +61,40 @@ public struct Initializer {
     }
   }
   
-  public func calculate(input: Int, out: Int = 0) -> Tensor.Scalar {
+  public func calculate(input: Int, out: Int = 0) -> Tensor<N>.Scalar {
     switch type {
       
     case .xavierUniform:
-      let min = -Tensor.Scalar(sqrt(6) / sqrt((Double(input) + Double(out))))
-      let max = Tensor.Scalar(sqrt(6) / sqrt((Double(input) + Double(out))))
+      let min = -Tensor<N>.Scalar(sqrt(6) / sqrt((Double(input) + Double(out))))
+      let max = Tensor<N>.Scalar(sqrt(6) / sqrt((Double(input) + Double(out))))
       
-      return Tensor.Scalar.random(in: min...max)
+      return Tensor<N>.Scalar.random(in: min...max)
       
     case .xavierNormal:
-      return Tensor.Scalar(dist.gaussRand) * Tensor.Scalar(sqrt(2 / (Double(input) + Double(out))))
+      return Tensor<N>.Scalar(dist.gaussRand) * Tensor<N>.Scalar(sqrt(2 / (Double(input) + Double(out))))
       
     case .heUniform:
-      let min = -Tensor.Scalar(sqrt(6) / sqrt((Double(input))))
-      let max = Tensor.Scalar(sqrt(6) / sqrt((Double(input))))
+      let min = -Tensor<N>.Scalar(sqrt(6) / sqrt((Double(input))))
+      let max = Tensor<N>.Scalar(sqrt(6) / sqrt((Double(input))))
       
-      return Tensor.Scalar.random(in: min...max)
+      return Tensor<N>.Scalar.random(in: min...max)
       
     case .heNormal:
-      return Tensor.Scalar(dist.gaussRand) * Tensor.Scalar(sqrt(2 / (Double(input))))
+      return Tensor<N>.Scalar(dist.gaussRand) * Tensor<N>.Scalar(sqrt(2 / (Double(input))))
       
     case .normal:
-      return Tensor.Scalar(dist.gaussRand)
+      return Tensor<N>.Scalar(dist.gaussRand)
     }
   }
   
-  public func calculate(size: TensorSize, input: Int, out: Int = 0) -> Tensor {
-    var tensor: [[[Tensor.Scalar]]] = []
+  public func calculate(size: TensorSize, input: Int, out: Int = 0) -> Tensor<N> {
+    var tensor: [[[Tensor<N>.Scalar]]] = []
     
     for _ in 0..<size.depth {
-      var rows: [[Tensor.Scalar]] = []
+      var rows: [[Tensor<N>.Scalar]] = []
       
       for _ in 0..<size.rows {
-        var columns: [Tensor.Scalar] = []
+        var columns: [Tensor<N>.Scalar] = []
         
         for _ in 0..<size.columns {
           columns.append(calculate(input: input, out: out))
@@ -105,7 +105,7 @@ public struct Initializer {
       tensor.append(rows)
     }
     
-    return Tensor(tensor)
+    return Tensor<N>(tensor)
   }
 }
 
@@ -135,7 +135,7 @@ extension Initializer: Codable {
       if k == .normal {
         if let val = try values.decodeIfPresent(String.self, forKey: .normal) {
           let split = val.split(separator: "-")[safe: 1, ""]
-          if let std = Tensor.Scalar(split) {
+          if let std = Tensor<N>.Scalar(split) {
             self = .init(type: .normal(std: std))
           } else {
             self = .init(type: .normal(std: 1))

@@ -14,7 +14,7 @@ public class Classifier<N: TensorNumeric> {
   private let epochs: Int
   private let log: Bool
   private let lossFunction: LossFunction
-  private let accuracyThreshold: Tensor.Scalar
+  private let accuracyThreshold: Tensor<N>.Scalar
   private let killOnAccuracy: Bool
   public var onAccuracyReached: (() -> ())? = nil
   public var onEpochCompleted: (() -> ())? = nil
@@ -23,7 +23,7 @@ public class Classifier<N: TensorNumeric> {
   public init(optimizer: BaseOptimizer<N>,
               epochs: Int = 100,
               batchSize: Int,
-              accuracyThreshold: Tensor.Scalar = 0.8,
+              accuracyThreshold: Tensor<N>.Scalar = 0.8,
               killOnAccuracy: Bool = true,
               threadWorkers: Int = 16,
               log: Bool = false,
@@ -38,7 +38,7 @@ public class Classifier<N: TensorNumeric> {
     self.lossFunction = lossFunction
   }
   
-  public func feed(_ data: [Tensor]) -> [Tensor] {
+  public func feed(_ data: [Tensor<N>]) -> [Tensor<N>] {
     optimizer(data)
   }
   
@@ -47,13 +47,13 @@ public class Classifier<N: TensorNumeric> {
     let valBatches = validation.batched(into: batchSize)
 
     //epochs
-    var trainingBatches: [(data: [Tensor], labels: [Tensor])] = []
+    var trainingBatches: [(data: [Tensor<N>], labels: [Tensor<N>])] = []
     batches.forEach { b in
       let trainingSet = splitDataset(b)
       trainingBatches.append(trainingSet)
     }
 
-    var validationBatches: [(data: [Tensor], labels: [Tensor])] = []
+    var validationBatches: [(data: [Tensor<N>], labels: [Tensor<N>])] = []
     valBatches.forEach { b in
       let valSet = splitDataset(b)
       validationBatches.append(valSet)
@@ -125,9 +125,9 @@ public class Classifier<N: TensorNumeric> {
     return nil
   }
   
-  private func splitDataset(_ data: [DatasetModel]) -> (data: [Tensor], labels: [Tensor]) {
-    var labels: [Tensor] = []
-    var input: [Tensor] = []
+  private func splitDataset(_ data: [DatasetModel]) -> (data: [Tensor<N>], labels: [Tensor<N>]) {
+    var labels: [Tensor<N>] = []
+    var input: [Tensor<N>] = []
     
     data.forEach { d in
       labels.append(d.label)
@@ -137,8 +137,8 @@ public class Classifier<N: TensorNumeric> {
     return (input, labels)
   }
   
-  private func trainOn(_ batch: [Tensor],
-                       labels: [Tensor],
+  private func trainOn(_ batch: [Tensor<N>],
+                       labels: [Tensor<N>],
                        validation: Bool = false,
                        requiresGradients: Bool = true) -> Optimizer.Output {
     optimizer.fit(batch,

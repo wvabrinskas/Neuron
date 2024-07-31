@@ -10,8 +10,8 @@ import NumSwift
 
 public typealias RNNSupportedDatasetData = (training: [DatasetModel], val: [DatasetModel])
 public protocol RNNSupportedDataset {
-  func oneHot(_ items: [String]) -> Tensor
-  func getWord(for data: Tensor) -> [String]
+  func oneHot(_ items: [String]) -> Tensor<N>
+  func getWord(for data: Tensor<N>) -> [String]
   func build() async -> RNNSupportedDatasetData
 }
 
@@ -34,17 +34,17 @@ public class RNN<N: TensorNumeric>: Classifier<N> {
   }
   
   public struct OptimizerParameters {
-    let learningRate: Tensor.Scalar
-    let b1: Tensor.Scalar
-    let b2: Tensor.Scalar
-    let eps: Tensor.Scalar
+    let learningRate: Tensor<N>.Scalar
+    let b1: Tensor<N>.Scalar
+    let b2: Tensor<N>.Scalar
+    let eps: Tensor<N>.Scalar
     let weightDecay: Adam<N>.WeightDecay
     let metricsReporter: MetricsReporter?
     
-    public init(learningRate: Tensor.Scalar,
-                b1: Tensor.Scalar = 0.9,
-                b2: Tensor.Scalar = 0.999,
-                eps: Tensor.Scalar = .stabilityFactor,
+    public init(learningRate: Tensor<N>.Scalar,
+                b1: Tensor<N>.Scalar = 0.9,
+                b2: Tensor<N>.Scalar = 0.999,
+                eps: Tensor<N>.Scalar = .stabilityFactor,
                 weightDecay: Adam<N>.WeightDecay = .none,
                 metricsReporter: MetricsReporter? = nil) {
       self.learningRate = learningRate
@@ -59,14 +59,14 @@ public class RNN<N: TensorNumeric>: Classifier<N> {
   public struct ClassifierParameters {
     let batchSize: Int
     let epochs: Int
-    let accuracyThreshold: Tensor.Scalar
+    let accuracyThreshold: Tensor<N>.Scalar
     let killOnAccuracy: Bool
     let threadWorkers: Int
     let lossFunction: LossFunction
     
     public init(batchSize: Int,
                 epochs: Int,
-                accuracyThreshold: Tensor.Scalar = 0.9,
+                accuracyThreshold: Tensor<N>.Scalar = 0.9,
                 killOnAccuracy: Bool = true,
                 threadWorkers: Int = 8,
                 lossFunction: LossFunction = .binaryCrossEntropySoftmax) {
@@ -164,7 +164,7 @@ public class RNN<N: TensorNumeric>: Classifier<N> {
       var name: String = ""
       var runningChar: String = ""
           
-      var batch: [[[Tensor.Scalar]]]
+      var batch: [[[Tensor<N>.Scalar]]]
       
       if let with {
         let oneHotWith = dataset.oneHot([with])
@@ -172,7 +172,7 @@ public class RNN<N: TensorNumeric>: Classifier<N> {
         name += with
 
       } else {
-        var localWord = [Tensor.Scalar](repeating: 0, count: vocabSize)
+        var localWord = [Tensor<N>.Scalar](repeating: 0, count: vocabSize)
         let index = Int.random(in: 0..<vocabSize)
         
         localWord[index] = 1.0
@@ -180,20 +180,20 @@ public class RNN<N: TensorNumeric>: Classifier<N> {
         batch = [[localWord]]
         
         // append random letter
-        let unvec = dataset.getWord(for: Tensor(batch)).joined()
+        let unvec = dataset.getWord(for: Tensor<N>(batch)).joined()
         name += unvec
       }
 
       while runningChar != endingMark && name.count < maxWordLength {
         
-        let out = optimizer.predict([Tensor(batch)])
+        let out = optimizer.predict([Tensor<N>(batch)])
         
         // output: (col: vocabSize, rows: 1, depth: batchLength)
         guard let flat = out[safe: 0]?.value[safe: batch.count - 1]?.first else {
           break
         }
       
-        var v: [Tensor.Scalar] = [Tensor.Scalar](repeating: 0, count: flat.count)
+        var v: [Tensor<N>.Scalar] = [Tensor<N>.Scalar](repeating: 0, count: flat.count)
         
         let indexToChoose: Int
         if randomizeSelection {
@@ -204,7 +204,7 @@ public class RNN<N: TensorNumeric>: Classifier<N> {
         
         v[indexToChoose] = 1
         
-        let unvec = dataset.getWord(for: Tensor(v)).joined()
+        let unvec = dataset.getWord(for: Tensor<N>(v)).joined()
         
         runningChar = unvec
         name += unvec

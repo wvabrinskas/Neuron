@@ -11,9 +11,10 @@ import NumSwift
 @testable import Neuron
 
 final class DecayFunctionTests: XCTestCase {
-  
+  typealias N = Float
+
   func test_exponentialDecay() {
-    let learningRate: Tensor.Scalar = 0.001
+    let learningRate: Tensor<N>.Scalar = 0.001
     let steps = 10
     let exp = ExponentialDecay(learningRate: learningRate,
                                decayRate: 0.96,
@@ -26,7 +27,7 @@ final class DecayFunctionTests: XCTestCase {
     
         
     XCTAssertEqual(exp.decayedLearningRate, 0.00096000003, accuracy: 0.0004)
-    XCTAssertEqual(exp.globalSteps, Tensor.Scalar(steps))
+    XCTAssertEqual(exp.globalSteps, Tensor<N>.Scalar(steps))
     XCTAssertNotEqual(exp.decayedLearningRate, learningRate)
   }
 }

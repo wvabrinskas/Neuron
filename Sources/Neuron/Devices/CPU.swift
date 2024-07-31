@@ -9,12 +9,14 @@ import Foundation
 import NumSwift
 
 /// Runs math functions on the CPU
-public struct CPU: Device {
+public class CPU<N: TensorNumeric>: BaseDevice<N> {
   /// Priority to run the multithreaded operations on
-  public var qosPriority: DispatchQoS.QoSClass = .default
-  public var type: DeviceType = .cpu
 
-  public init() {}
+  public override init() {
+    super.init()
+    qosPriority = .default
+    type = .cpu
+  }
   
   /// Calculates the transposed convolution of the given inputs
   /// - Parameters:
@@ -26,13 +28,13 @@ public struct CPU: Device {
   ///   - inputSize: Size of the signal
   ///   - outputSize: Optional declaration of the output size of the transposed convolution
   /// - Returns: The transposed convolution result as a 2D array
-  public func transConv2d(signal: [[Tensor.Scalar]],
-                          filter: [[Tensor.Scalar]],
-                          strides: (Int, Int) = (1,1),
-                          padding: NumSwift.ConvPadding = .valid,
-                          filterSize: (rows: Int, columns: Int),
-                          inputSize: (rows: Int, columns: Int),
-                          outputSize: (rows: Int, columns: Int)? = nil) -> [[Tensor.Scalar]] {
+  public func transConv2d(signal: [[Tensor<N>.Scalar]],
+                                   filter: [[Tensor<N>.Scalar]],
+                                   strides: (Int, Int) = (1,1),
+                                   padding: NumSwift.ConvPadding = .valid,
+                                   filterSize: (rows: Int, columns: Int),
+                                   inputSize: (rows: Int, columns: Int),
+                                   outputSize: (rows: Int, columns: Int)? = nil) -> [[Tensor<N>.Scalar]] where N == Float {
     
     var calculatedOutputSize: (row: Int, columns: Int) {
       var rows = inputSize.rows * strides.0
@@ -66,13 +68,13 @@ public struct CPU: Device {
   ///   - inputSize: Size of the signal
   ///   - outputSize: Optional declaration of the output size of the convolution
   /// - Returns: The convolution result as a 2D array
-  public func conv2d(signal: [[Tensor.Scalar]],
-                     filter: [[Tensor.Scalar]],
+  public func conv2d(signal: [[Tensor<N>.Scalar]],
+                     filter: [[Tensor<N>.Scalar]],
                      strides: (Int, Int) = (1,1),
                      padding: NumSwift.ConvPadding = .valid,
                      filterSize: (rows: Int, columns: Int),
                      inputSize: (rows: Int, columns: Int),
-                     outputSize: (rows: Int, columns: Int)? = nil) -> [[Tensor.Scalar]] {
+                     outputSize: (rows: Int, columns: Int)? = nil) -> [[Tensor<N>.Scalar]] where N == Float  {
     
     var calculatedOutputSize: (row: Int, columns: Int) {
       let paddingValue = padding.extra(inputSize: (inputSize.rows, inputSize.columns), filterSize: filterSize)
@@ -95,25 +97,50 @@ public struct CPU: Device {
   
   /// Performs an activation function
   /// - Parameters:
-  ///   - input: The input Tensor to perform the activation function on
+  ///   - input: The input Tensor<N> to perform the activation function on
   ///   - type: The type of activation to apply
-  /// - Returns: The activated result as a Tensor
-  public func activate(_ input: Tensor, _ type: Activation) -> Tensor {
+  /// - Returns: The activated result as a Tensor<N>
+  public func activate(_ input: Tensor<N>, _ type: Activation) -> Tensor<N> where N == Float {
 //    let result = input.value.map { $0.map { $0.map { type.activate(input: $0) }}}
-//    return Tensor(result)
+//    return Tensor<N>(result)
     type.activate(input: input)
+  }
+  
+  /// Performs an activation function
+  /// - Parameters:
+  ///   - input: The input Tensor<N> to perform the activation function on
+  ///   - type: The type of activation to apply
+  /// - Returns: The activated result as a Tensor<N>
+  public func activate(_ input: Tensor<N>, _ type: Activation) -> Tensor<N> where N == Float16 {
+//    let result = input.value.map { $0.map { $0.map { type.activate(input: $0) }}}
+//    return Tensor<N>(result)
+    type.activate(input: input)
+  }
+  
+  
+  /// Performs an activation derivative function
+  /// - Parameters:
+  ///   - input: The input Tensor<N> to perform the activation derivative function on
+  ///   - type: The type of activation derivative to apply
+  /// - Returns: The activated derivative result as a Tensor<N>
+  public func derivate(_ input: Tensor<N>, _ type: Activation) -> Tensor<N> where N == Float  {
+    type.derivate(input)
   }
   
   /// Performs an activation derivative function
   /// - Parameters:
-  ///   - input: The input Tensor to perform the activation derivative function on
+  ///   - input: The input Tensor<N> to perform the activation derivative function on
   ///   - type: The type of activation derivative to apply
-  /// - Returns: The activated derivative result as a Tensor
-  public func derivate(_ input: Tensor, _ type: Activation) -> Tensor {
+  /// - Returns: The activated derivative result as a Tensor<N>
+  public func derivate(_ input: Tensor<N>, _ type: Activation) -> Tensor<N> where N == Float16  {
     type.derivate(input)
   }
   
-  public func matmul(_ a: Tensor, _ b: Tensor) -> Tensor {
+  public func matmul(_ a: Tensor<N>, _ b: Tensor<N>) -> Tensor<N> where N == Float {
+    a.matmul(b)
+  }
+  
+  public func matmul(_ a: Tensor<N>, _ b: Tensor<N>) -> Tensor<N> where N == Float16 {
     a.matmul(b)
   }
 }

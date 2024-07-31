@@ -9,12 +9,12 @@ import Foundation
 import NumSwift
 
 public class WGAN<N: TensorNumeric>: GAN<N> {
-  public override var realLabel: Tensor.Scalar { -1.0 }
-  public override var fakeLabel: Tensor.Scalar { 1.0 }
+  public override var realLabel: Tensor<N>.Scalar { -1.0 }
+  public override var fakeLabel: Tensor<N>.Scalar { 1.0 }
   
   public override var lossFunction: LossFunction { .wasserstein  }
   
-  override func discriminatorStep(_ real: [Tensor], labels: [Tensor]) {
+  override func discriminatorStep(_ real: [Tensor<N>], labels: [Tensor<N>]) {
     discriminator.zeroGradients()
     
     let fake = getGenerated(.fake, detatch: true, count: batchSize)

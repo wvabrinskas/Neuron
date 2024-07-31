@@ -12,11 +12,11 @@ import NumSwift
 public final class AdamW<N: TensorNumeric>: Adam<N> {
   public init(_ trainable: BaseTrainable<N>,
               device: Device = CPU(),
-              learningRate: Tensor.Scalar,
-              b1: Tensor.Scalar = 0.9,
-              b2: Tensor.Scalar = 0.999,
-              eps: Tensor.Scalar = .stabilityFactor,
-              weightDecayValue: Tensor.Scalar = 0.004) {
+              learningRate: Tensor<N>.Scalar,
+              b1: Tensor<N>.Scalar = 0.9,
+              b2: Tensor<N>.Scalar = 0.999,
+              eps: Tensor<N>.Scalar = .stabilityFactor,
+              weightDecayValue: Tensor<N>.Scalar = 0.004) {
     super.init(trainable,
                device: device,
                learningRate: learningRate,
@@ -30,7 +30,7 @@ public final class AdamW<N: TensorNumeric>: Adam<N> {
 public class Adam<N: TensorNumeric>: BaseOptimizer<N> {
   public enum WeightDecay {
     case none
-    case decay(Tensor.Scalar)
+    case decay(Tensor<N>.Scalar)
   }
   
   public override var trainable: BaseTrainable<N> {
@@ -39,23 +39,23 @@ public class Adam<N: TensorNumeric>: BaseOptimizer<N> {
     }
   }
   
-  private var b1: Tensor.Scalar = 0.9
-  private var b2: Tensor.Scalar = 0.999
-  private var eps: Tensor.Scalar = .stabilityFactor
+  private var b1: Tensor<N>.Scalar = 0.9
+  private var b2: Tensor<N>.Scalar = 0.999
+  private var eps: Tensor<N>.Scalar = .stabilityFactor
   
-  private var m: [Tensor.Data] = []
-  private var v: [Tensor.Data] = []
-  private var vb: [[Tensor.Scalar]] = []
-  private var mb: [[Tensor.Scalar]] = []
-  private var t: Tensor.Scalar = 1
+  private var m: [Tensor<N>.Data] = []
+  private var v: [Tensor<N>.Data] = []
+  private var vb: [[Tensor<N>.Scalar]] = []
+  private var mb: [[Tensor<N>.Scalar]] = []
+  private var t: Tensor<N>.Scalar = 1
   private let weightDecay: WeightDecay
   
   public init(_ trainable: BaseTrainable<N>,
               device: Device = CPU(),
-              learningRate: Tensor.Scalar,
-              b1: Tensor.Scalar = 0.9,
-              b2: Tensor.Scalar = 0.999,
-              eps: Tensor.Scalar = .stabilityFactor,
+              learningRate: Tensor<N>.Scalar,
+              b1: Tensor<N>.Scalar = 0.9,
+              b2: Tensor<N>.Scalar = 0.999,
+              eps: Tensor<N>.Scalar = .stabilityFactor,
               weightDecay: WeightDecay = .none) {
     self.b1 = b1
     self.b2 = b2
@@ -98,14 +98,14 @@ public class Adam<N: TensorNumeric>: BaseOptimizer<N> {
   }
   
   private func build() {
-    m = [Tensor.Data].init(repeating: [], count: trainable.layers.count) // we want to support multiple weight structures right now this only supports one Tensor for one m value, when layers could have multiple tensors representing weights
-    v = [Tensor.Data].init(repeating: [], count: trainable.layers.count)
-    vb = [[Tensor.Scalar]].init(repeating: [], count: trainable.layers.count)
-    mb = [[Tensor.Scalar]].init(repeating: [], count: trainable.layers.count)
+    m = [Tensor<N>.Data].init(repeating: [], count: trainable.layers.count) // we want to support multiple weight structures right now this only supports one Tensor<N> for one m value, when layers could have multiple tensors representing weights
+    v = [Tensor<N>.Data].init(repeating: [], count: trainable.layers.count)
+    vb = [[Tensor<N>.Scalar]].init(repeating: [], count: trainable.layers.count)
+    mb = [[Tensor<N>.Scalar]].init(repeating: [], count: trainable.layers.count)
     trainable.compile()
   }
   
-  private func run(gradient: Tensor, biasGradient: Tensor, index: Int, weights: Tensor) -> Optimizer.Gradient {
+  private func run(gradient: Tensor<N>, biasGradient: Tensor<N>, index: Int, weights: Tensor<N>) -> Optimizer.Gradient {
     let shape = gradient.shape
     let rows = shape[safe: 1] ?? 0
     let columns = shape[safe: 0] ?? 0
@@ -114,30 +114,30 @@ public class Adam<N: TensorNumeric>: BaseOptimizer<N> {
     
     let flatBias = biasGradient.value.flatten()
 
-    var result: [[[Tensor.Scalar]]] = []
-    var biases: [Tensor.Scalar] = .init(repeating: 0, count: flatBias.count)
+    var result: [[[Tensor<N>.Scalar]]] = []
+    var biases: [Tensor<N>.Scalar] = .init(repeating: 0, count: flatBias.count)
 
     if m[i].isEmpty || v[i].isEmpty {
       m[i] = NumSwift.zerosLike((rows, columns, depth))
       v[i] = NumSwift.zerosLike((rows, columns, depth))
-      mb[i] = [Tensor.Scalar].init(repeating: 0, count: flatBias.count)
-      vb[i] = [Tensor.Scalar].init(repeating: 0, count: flatBias.count)
+      mb[i] = [Tensor<N>.Scalar].init(repeating: 0, count: flatBias.count)
+      vb[i] = [Tensor<N>.Scalar].init(repeating: 0, count: flatBias.count)
     }
     
     let gradientValue = gradient.value
         
     for d in 0..<gradientValue.count {
       let depthGradient = gradientValue[d]
-      var row: [[Tensor.Scalar]] = []
+      var row: [[Tensor<N>.Scalar]] = []
       for r in 0..<depthGradient.count {
         let rowGradient = depthGradient[r]
-        var column: [Tensor.Scalar] = []
+        var column: [Tensor<N>.Scalar] = []
         for c in 0..<rowGradient.count {
           m[i][d][r][c] = b1 * m[i][d][r][c] + (1 - b1) * gradientValue[d][r][c]
-          v[i][d][r][c] = b2 * v[i][d][r][c] + (1 - b2) * Tensor.Scalar.pow(gradientValue[d][r][c], 2)
+          v[i][d][r][c] = b2 * v[i][d][r][c] + (1 - b2) * Tensor<N>.Scalar.pow(gradientValue[d][r][c], 2)
           
-          let mHat = m[i][d][r][c] / (1 - Tensor.Scalar.pow(b1, Tensor.Scalar(t)))
-          let vHat = v[i][d][r][c] / (1 - Tensor.Scalar.pow(b2, Tensor.Scalar(t)))
+          let mHat = m[i][d][r][c] / (1 - Tensor<N>.Scalar.pow(b1, Tensor<N>.Scalar(t)))
+          let vHat = v[i][d][r][c] / (1 - Tensor<N>.Scalar.pow(b2, Tensor<N>.Scalar(t)))
           
           var delta = learningRate * (mHat / (sqrt(vHat + eps)))
           
@@ -158,17 +158,17 @@ public class Adam<N: TensorNumeric>: BaseOptimizer<N> {
       // bias gradients are performed at a depth level
       let gradientSum = flatBias[d]
       mb[i][d] = b1 * mb[i][d] + (1 - b1) * gradientSum
-      vb[i][d] = b2 * vb[i][d] + (1 - b2) * Tensor.Scalar.pow(gradientSum, 2)
+      vb[i][d] = b2 * vb[i][d] + (1 - b2) * Tensor<N>.Scalar.pow(gradientSum, 2)
       
-      let mHat = mb[i][d] / (1 - Tensor.Scalar.pow(b1, Tensor.Scalar(t)))
-      let vHat = vb[i][d] / (1 - Tensor.Scalar.pow(b2, Tensor.Scalar(t)))
+      let mHat = mb[i][d] / (1 - Tensor<N>.Scalar.pow(b1, Tensor<N>.Scalar(t)))
+      let vHat = vb[i][d] / (1 - Tensor<N>.Scalar.pow(b2, Tensor<N>.Scalar(t)))
       
       let deltaB = learningRate * (mHat / (sqrt(vHat + eps)))
       
       biases[d] = deltaB
     }
         
-    return (Tensor(result), Tensor(biases))
+    return (Tensor<N>(result), Tensor<N>(biases))
   }
   
   public override func reset() {

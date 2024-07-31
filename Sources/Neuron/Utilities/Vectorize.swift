@@ -30,15 +30,15 @@ public protocol Vectorizing {
   @discardableResult
   func vectorize(_ items: [Item], format: VectorFormat) -> [Int]
   func unvectorize(_ vector: [Int]) -> [Item]
-  func unvectorizeOneHot(_ vector: Tensor) -> [Item]
-  func oneHot(_ items: [Item]) -> Tensor
+  func unvectorizeOneHot(_ vector: Tensor<N>) -> [Item]
+  func oneHot(_ items: [Item]) -> Tensor<N>
 }
 
 
 /// Takes an input and turns it in to a vector array of integers indicating its value.
 /// ex. Can take a string and apply a integer value to the word so that if it came up again
 /// it would return the same integer value for that word.
-public class Vectorizer<T: VectorizableItem>: Vectorizing {
+public class Vectorizer<T: VectorizableItem, N: TensorNumeric>: Vectorizing {
   public typealias Item = T
   public private(set) var vector: Vector = [:]
   public private(set) var inverseVector: InverseVector = [:]
@@ -61,11 +61,11 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
   ///  `NOTE: Please call `vectorize` on your input first before calling `oneHot` otherwise it will not work
   /// - Parameter items: Array or `Item` to oneHot encode
   /// - Returns: The encoded one hot vector as a 3D tensor where the depth is the length of `items`.
-  public func oneHot(_ items: [T]) -> Tensor {
-    var result: Tensor.Data = []
+  public func oneHot(_ items: [T]) -> Tensor<N> {
+    var result: Tensor<N>.Data = []
     
     for i in 0..<items.count {
-      var vectorized: [Tensor.Scalar] = [Tensor.Scalar](repeating: 0, count: maxIndex - 2)
+      var vectorized: [Tensor<N>.Scalar] = [Tensor<N>.Scalar](repeating: 0, count: maxIndex - 2)
       
       let item = formatItem(item: items[i])
       
@@ -80,7 +80,7 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
       result.append([vectorized])
     }
       
-    return Tensor(result)
+    return Tensor<N>(result)
   }
   
   @discardableResult
@@ -114,7 +114,7 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
     return vectorized
   }
   
-  public func unvectorizeOneHot(_ vector: Tensor) -> [T] {
+  public func unvectorizeOneHot(_ vector: Tensor<N>) -> [T] {
     var items: [T] = []
     
     vector.value.forEach { v in

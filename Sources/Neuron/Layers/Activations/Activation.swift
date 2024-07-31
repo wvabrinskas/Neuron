@@ -11,7 +11,7 @@ import Numerics
 public enum Activation: Codable, Equatable {
   case reLu
   case sigmoid
-  case leakyRelu(limit: Tensor.Scalar)
+  case leakyRelu(limit: Float) // use hard coded here
   case swish
   case tanh
   case softmax
@@ -48,41 +48,41 @@ public enum Activation: Codable, Equatable {
   }
   
   /// Runs the activation function calculation based on the case of self.
-  /// - Parameter input: Input Tensor value to run through the activation function
+  /// - Parameter input: Input Tensor<N> value to run through the activation function
   /// - Returns: The result of the calculation
-  public func activate(input: Tensor) -> Tensor {
+  public func activate<N: TensorNumeric>(input: Tensor<N>) -> Tensor<N> {
     let result = input.value.map { $0.map { $0.map { activate(input: $0) }}}
-    return Tensor(result)
+    return Tensor<N>(result)
   }
   
   /// Runs the derivative of the activation function based on the case of self.
-  /// - Parameter input: Input Tensor into the calculation
+  /// - Parameter input: Input Tensor<N> into the calculation
   /// - Returns: The result of the calculation
-  public func derivate(_ input: Tensor) -> Tensor {
+  public func derivate<N: TensorNumeric>(_ input: Tensor<N>) -> Tensor<N> {
     let result = input.value.map { $0.map { $0.map { derivative(input: $0) }}}
-    return Tensor(result)
+    return Tensor<N>(result)
   }
   
   /// Runs the activation function calculation based on the case of self.
   /// - Parameter input: Input value to run through the activation function
   /// - Returns: The result of the calculation
-  private func activate(input: Tensor.Scalar) -> Tensor.Scalar {
-    var returnValue: Tensor.Scalar = 0
+  private func activate<N: TensorNumeric>(input: Tensor<N>.Scalar) -> Tensor<N>.Scalar {
+    var returnValue: Tensor<N>.Scalar = 0
     switch self {
     case .geLu:
       return input * (1 + Tensor.Scalar.erf(input / sqrt(2))) / 2
     case .seLu:
-      let lambda: Tensor.Scalar = 1.0507
-      let alpha: Tensor.Scalar = 1.6733
+      let lambda: Tensor<N>.Scalar = 1.0507
+      let alpha: Tensor<N>.Scalar = 1.6733
       if input > 0 {
         return lambda * input
       } else {
-        return lambda * alpha * (Tensor.Scalar.exp(input) - 1)
+        return lambda * alpha * (Tensor<N>.Scalar.exp(input) - 1)
       }
     case .reLu:
       returnValue = max(0, input)
     case .sigmoid:
-      let out =  1.0 / (1.0 + Tensor.Scalar.exp(-input))
+      let out =  1.0 / (1.0 + Tensor<N>.Scalar.exp(-input))
       returnValue = out
     case .leakyRelu(let limit):
       if input < 0 {
@@ -91,14 +91,14 @@ public enum Activation: Codable, Equatable {
         returnValue = input
       }
     case .swish:
-      let sigmoid =  1.0 / (1.0 + Tensor.Scalar.exp(-input))
+      let sigmoid =  1.0 / (1.0 + Tensor<N>.Scalar.exp(-input))
       returnValue = input * sigmoid
     case .tanh:
       let x = input
-      let num = Tensor.Scalar.exp(x) - Tensor.Scalar.exp(-x)
-      let denom = Tensor.Scalar.exp(x) + Tensor.Scalar.exp(-x)
+      let num = Tensor<N>.Scalar.exp(x) - Tensor<N>.Scalar.exp(-x)
+      let denom = Tensor<N>.Scalar.exp(x) + Tensor<N>.Scalar.exp(-x)
 
-      returnValue = num / (denom + Tensor.Scalar.stabilityFactor)
+      returnValue = num / (denom + Tensor<N>.Scalar.stabilityFactor)
     case .none, .softmax:
       returnValue = input
     }
@@ -114,7 +114,7 @@ public enum Activation: Codable, Equatable {
   /// Runs the derivative of the activation function based on the case of self.
   /// - Parameter input: Input into the calculation
   /// - Returns: The result of the calculation
-  private func derivative(input: Tensor.Scalar) -> Tensor.Scalar {
+  private func derivative<N: TensorNumeric>(input: Tensor<N>.Scalar) -> Tensor<N>.Scalar {
     switch self {
     case .geLu:
         // need to recompute forward, we need a global context or something =(
@@ -124,12 +124,12 @@ public enum Activation: Codable, Equatable {
       return forward + input * pdf
       
     case .seLu:
-      let lambda: Tensor.Scalar = 1.0507
-      let alpha: Tensor.Scalar = 1.6733
+      let lambda: Tensor<N>.Scalar = 1.0507
+      let alpha: Tensor<N>.Scalar = 1.6733
       if input > 0 {
         return lambda
       } else {
-        return lambda * alpha * Tensor.Scalar.exp(input)
+        return lambda * alpha * Tensor<N>.Scalar.exp(input)
       }
     case .reLu:
       return input >= 0 ? 1 : 0
@@ -140,10 +140,10 @@ public enum Activation: Codable, Equatable {
       return input > 0 ? 1 : limit
     case .swish:
       let x = input
-      return (Tensor.Scalar.exp(-x) * (x + 1) + 1) / Tensor.Scalar.pow((1 + Tensor.Scalar.exp(-x)), 2)
+      return (Tensor<N>.Scalar.exp(-x) * (x + 1) + 1) / Tensor<N>.Scalar.pow((1 + Tensor<N>.Scalar.exp(-x)), 2)
     case .tanh:
       let tan = self.activate(input: input)
-      return 1 - (Tensor.Scalar.pow(tan, 2))
+      return 1 - (Tensor<N>.Scalar.pow(tan, 2))
     case .none, .softmax:
       return 1
     }

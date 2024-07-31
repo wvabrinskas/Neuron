@@ -44,12 +44,12 @@ public final class TransConv2d<N: TensorNumeric>: Conv2d<N> {
     outputSize = TensorSize(array: [columns, rows, filterCount])
   }
   
-  internal override func backward(_ input: Tensor, _ delta: Tensor) -> (input: Tensor, weight: Tensor, bias: Tensor) {
+  internal override func backward(_ input: Tensor<N>, _ delta: Tensor<N>) -> (input: Tensor<N>, weight: Tensor<N>, bias: Tensor<N>) {
     let deltas = delta.value
-    let flippedTransposed = filters.map { flip180($0) }.transposed() as [[[[Tensor.Scalar]]]]
+    let flippedTransposed = filters.map { flip180($0) }.transposed() as [[[[Tensor<N>.Scalar]]]]
     
-    var weightGradients: [[[Tensor.Scalar]]] = []
-    var inputGradients: [[[Tensor.Scalar]]] = []
+    var weightGradients: [[[Tensor<N>.Scalar]]] = []
+    var inputGradients: [[[Tensor<N>.Scalar]]] = []
     
     for i in 0..<filterCount {
       let delta = deltas[i]
@@ -59,7 +59,7 @@ public final class TransConv2d<N: TensorNumeric>: Conv2d<N> {
         let filter = flippedTransposed[f]
         let kernel = filter[i]
         
-        let gradientsForKernelIndex: [[Tensor.Scalar]] = device.conv2d(signal: workingDeltasForInputs,
+        let gradientsForKernelIndex: [[Tensor<N>.Scalar]] = device.conv2d(signal: workingDeltasForInputs,
                                                                              filter: kernel,
                                                                              strides: strides,
                                                                              padding: padding,
@@ -82,11 +82,11 @@ public final class TransConv2d<N: TensorNumeric>: Conv2d<N> {
       
     let biasGradients = input.value.map { $0.sum }
 
-    return (Tensor(inputGradients), Tensor(weightGradients), Tensor(biasGradients))
+    return (Tensor<N>(inputGradients), Tensor<N>(weightGradients), Tensor<N>(biasGradients))
   }
   
-  internal override func calculateFilterGradients(_ input: Tensor, _ delta: [[Tensor.Scalar]], index: Int) -> Tensor.Data {
-    var newGradientsForFilters: Tensor.Data = []
+  internal override func calculateFilterGradients(_ input: Tensor<N>, _ delta: [[Tensor<N>.Scalar]], index: Int) -> Tensor<N>.Data {
+    var newGradientsForFilters: Tensor<N>.Data = []
     
     var cachedSignalShape: [Int]?
     
@@ -139,9 +139,9 @@ public final class TransConv2d<N: TensorNumeric>: Conv2d<N> {
     return newGradientsForFilters
   }
   
-  internal override func conv(_ input: Tensor) -> [[[Tensor.Scalar]]] {
+  internal override func conv(_ input: Tensor<N>) -> [[[Tensor<N>.Scalar]]] {
     let localFilters = filters.map { $0.value }
-    var convolved: [[[Tensor.Scalar]]] = []
+    var convolved: [[[Tensor<N>.Scalar]]] = []
     let flatBiases = biases.value.flatten()
     
     for i in 0..<input.value.count {
@@ -171,7 +171,7 @@ public final class TransConv2d<N: TensorNumeric>: Conv2d<N> {
         let filter = localFilters[f]
         let kernel = filter[i]
         
-        let gradientsForKernelIndex: [[Tensor.Scalar]] = device.conv2d(signal: workingInput,
+        let gradientsForKernelIndex: [[Tensor<N>.Scalar]] = device.conv2d(signal: workingInput,
                                                                              filter: kernel,
                                                                              strides: (1,1),
                                                                              padding: .same,
@@ -202,7 +202,7 @@ public final class TransConv2d<N: TensorNumeric>: Conv2d<N> {
     return result
   }
   
-  private func flip180(_ filter: Tensor) -> [[[Tensor.Scalar]]] {
+  private func flip180(_ filter: Tensor<N>) -> [[[Tensor<N>.Scalar]]] {
     filter.value.map { $0.flip180() }
   }
   

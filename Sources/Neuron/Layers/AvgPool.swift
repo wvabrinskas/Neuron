@@ -38,9 +38,9 @@ public final class AvgPool<N: TensorNumeric>: BaseLayer<N> {
     try container.encode(encodingType, forKey: .type)
   }
   
-  public override func forward(tensor: Tensor) -> Tensor {
-    func backwards(input: Tensor, gradient: Tensor) -> (Tensor, Tensor, Tensor) {
-      var poolingGradients: [[[Tensor.Scalar]]] = []
+  public override func forward(tensor: Tensor<N>) -> Tensor<N> {
+    func backwards(input: Tensor<N>, gradient: Tensor<N>) -> (Tensor<N>, Tensor<N>, Tensor<N>) {
+      var poolingGradients: [[[Tensor<N>.Scalar]]] = []
       
       let rows = inputSize.rows
       let columns = inputSize.columns
@@ -48,9 +48,9 @@ public final class AvgPool<N: TensorNumeric>: BaseLayer<N> {
       for d in 0..<inputSize.depth {
         var gradientR = 0
         
-        var results: [[Tensor.Scalar]] = []
+        var results: [[Tensor<N>.Scalar]] = []
         for r in 0..<rows {
-          var rowResult: [Tensor.Scalar] = []
+          var rowResult: [Tensor<N>.Scalar] = []
 
           var gradientC = 0
           for c in stride(from: 0, through: columns, by: kernelSize.1) {
@@ -59,7 +59,7 @@ public final class AvgPool<N: TensorNumeric>: BaseLayer<N> {
             }
             
             let avgPoolGradient = gradient.value[d][gradientR][gradientC]
-            let delta = avgPoolGradient / (Tensor.Scalar(kernelSize.0) * Tensor.Scalar(kernelSize.1))
+            let delta = avgPoolGradient / (Tensor<N>.Scalar(kernelSize.0) * Tensor<N>.Scalar(kernelSize.1))
           
             for _ in 0..<kernelSize.1 {
               rowResult.append(delta)
@@ -79,21 +79,21 @@ public final class AvgPool<N: TensorNumeric>: BaseLayer<N> {
       }
 
       if poolingGradients.isEmpty {
-        return (gradient, Tensor(), Tensor())
+        return (gradient, Tensor<N>(), Tensor<N>())
       }
       
-      return (Tensor(poolingGradients), Tensor(), Tensor())
+      return (Tensor<N>(poolingGradients), Tensor<N>(), Tensor<N>())
     }
     
-    var results: [[[Tensor.Scalar]]] = []
+    var results: [[[Tensor<N>.Scalar]]] = []
 
     tensor.value.forEach { input in
       let pool = pool(input: input)
       results.append(pool)
     }
 
-    let context = TensorContext(backpropagate: backwards)
-    let out = Tensor(results, context: context)
+    let context = TensorContext<N>(backpropagate: backwards)
+    let out = Tensor<N>(results, context: context)
     
     out.setGraph(tensor)
     
@@ -105,13 +105,13 @@ public final class AvgPool<N: TensorNumeric>: BaseLayer<N> {
   }
 
   
-  public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
+  public override func apply(gradients: BaseOptimizer<N>.Gradient, learningRate: Tensor<N>.Scalar) {
     //
   }
   
-  internal func pool(input: [[Tensor.Scalar]]) -> [[Tensor.Scalar]] {
-    var rowResults: [Tensor.Scalar] = []
-    var results: [[Tensor.Scalar]] = []
+  internal func pool(input: [[Tensor<N>.Scalar]]) -> [[Tensor<N>.Scalar]] {
+    var rowResults: [Tensor<N>.Scalar] = []
+    var results: [[Tensor<N>.Scalar]] = []
         
     let rows = inputSize.rows
     let columns = inputSize.columns
