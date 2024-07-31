@@ -8,7 +8,7 @@
 import Foundation
 import NumSwift
 
-class LSTMCell<T: TensorNumeric> {
+class LSTMCell<N: TensorNumeric> {
   let hidden: Int
   let input: Int
   let vocabSize: Int
@@ -100,7 +100,7 @@ class LSTMCell<T: TensorNumeric> {
   
   func forward(tensor: Tensor,
                parameters: Parameters,
-               cache: LSTM<T>.Cache) -> Activations {
+               cache: LSTM<N>.Cache) -> Activations {
     
     let fgw = parameters.forgetGateWeights
     let igw = parameters.inputGateWeights
@@ -114,23 +114,23 @@ class LSTMCell<T: TensorNumeric> {
     
     // forget gate
     let fa = device.matmul(concat, fgw) + parameters.forgetGateBiases.asScalar()
-    let faOut = Sigmoid<T>().forward(tensor: fa)
+    let faOut = Sigmoid<N>().forward(tensor: fa)
     
     // input gate
     let ia = device.matmul(concat, igw) + parameters.inputGateBiases.asScalar()
-    let iaOut = Sigmoid<T>().forward(tensor: ia)
+    let iaOut = Sigmoid<N>().forward(tensor: ia)
     
     // gate gate
     let ga = device.matmul(concat, ggw) + parameters.gateGateBiases.asScalar()
-    let gaOut = Tanh<T>().forward(tensor: ga)
+    let gaOut = Tanh<N>().forward(tensor: ga)
     
     // output gate
     let oa = device.matmul(concat, ogw) + parameters.outputGateBiases.asScalar() // Could be Dense layers
-    let oaOut = Sigmoid<T>().forward(tensor: oa)
+    let oaOut = Sigmoid<N>().forward(tensor: oa)
     
     let cellMemoryMatrix = (faOut * previousCellMatrix) + (iaOut * gaOut)
     
-    let tanOut = Tanh<T>().forward(tensor: cellMemoryMatrix)
+    let tanOut = Tanh<N>().forward(tensor: cellMemoryMatrix)
     
     let activationMatrix = oaOut * tanOut
     
@@ -143,8 +143,8 @@ class LSTMCell<T: TensorNumeric> {
     
   }
   
-  func backward(cache: LSTM<T>.Cache,
-                previousCache: LSTM<T>.Cache?,
+  func backward(cache: LSTM<N>.Cache,
+                previousCache: LSTM<N>.Cache?,
                 activationOutputError: [[Tensor.Scalar]],
                 nextActivationError: [[Tensor.Scalar]],
                 nextCellError: [[Tensor.Scalar]],
@@ -157,7 +157,7 @@ class LSTMCell<T: TensorNumeric> {
     let cellActivation = cache.cell
     let previousCellActivaion = previousCache?.cell ?? cache.cell.zerosLike() // if there's no previous state use 0s. Might need to come up with a better solution so we dont have to re-do this
     
-    let tanActivationOfCellActivation = Tanh<T>().forward(tensor: cellActivation)
+    let tanActivationOfCellActivation = Tanh<N>().forward(tensor: cellActivation)
     
     // output gate error
     let oa = lstm.outputGate

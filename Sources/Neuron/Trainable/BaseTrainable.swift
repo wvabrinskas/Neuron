@@ -7,7 +7,7 @@
 
 import Foundation
 
-open class BaseTrainable<T: TensorNumeric>: Trainable {
+open class BaseTrainable<N: TensorNumeric>: Trainable {
   open var threadId: Int = 0 {
     didSet {
       layers.forEach { $0.threadId = threadId }
@@ -33,26 +33,26 @@ open class BaseTrainable<T: TensorNumeric>: Trainable {
   }
   
   public var name: String = "base"
-  public var layers: [BaseLayer<T>] = []
+  public var layers: [BaseLayer<N>] = []
   public var isCompiled: Bool = false
   
   enum CodingKeys: String, CodingKey {
     case layers
   }
   
-  public init(_ layers: BaseLayer<T>...) {
+  public init(_ layers: BaseLayer<N>...) {
     self.layers = layers
   }
   
-  public init(_ layers: () -> [BaseLayer<T>]) {
+  public init(_ layers: () -> [BaseLayer<N>]) {
     self.layers = layers()
   }
   
   required convenience public init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     
-    var layers: [BaseLayer<T>] = []
-    let layerModels = try container.decodeIfPresent([LayerModel<T>].self, forKey: .layers)
+    var layers: [BaseLayer<N>] = []
+    let layerModels = try container.decodeIfPresent([LayerModel<N>].self, forKey: .layers)
     layerModels?.forEach({ model in
       layers.append(model.layer)
     })

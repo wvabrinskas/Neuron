@@ -7,7 +7,7 @@
 
 import Foundation
 
-public final class Sequential<T: TensorNumeric>: BaseTrainable<T> {
+public final class Sequential<N: TensorNumeric>: BaseTrainable<N> {
   public override var name: String { get { "Sequential" } set {}}
 
   public override func predict(_ data: Tensor) -> Tensor {

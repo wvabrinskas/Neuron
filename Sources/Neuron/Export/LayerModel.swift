@@ -8,10 +8,10 @@
 import Foundation
 import NumSwift
 
-public class LayerModel<T: TensorNumeric>: Codable {
-  var layer: BaseLayer<T>
+public class LayerModel<N: TensorNumeric>: Codable {
+  var layer: BaseLayer<N>
   
-  init(layer: BaseLayer<T>) {
+  init(layer: BaseLayer<N>) {
     self.layer = layer
   }
   
@@ -26,7 +26,7 @@ public class LayerModel<T: TensorNumeric>: Codable {
       preconditionFailure("no type specified")
     }
     
-    if let layer = try LayerModelConverter<T>.convert(decoder: decoder, type: type) {
+    if let layer = try LayerModelConverter<N>.convert(decoder: decoder, type: type) {
       self.layer = layer
       return
     }
