@@ -16,10 +16,8 @@ public class Classifier<N: TensorNumeric> {
   private let lossFunction: LossFunction
   private let accuracyThreshold: Tensor.Scalar
   private let killOnAccuracy: Bool
-  
   public var onAccuracyReached: (() -> ())? = nil
   public var onEpochCompleted: (() -> ())? = nil
-  
   public private(set) var optimizer: BaseOptimizer<N>
   
   public init(optimizer: BaseOptimizer<N>,
