@@ -49,6 +49,8 @@ public protocol ConvolutionalLayer: Layer {
 
 /// The the object that perform ML operations
 public protocol Layer: AnyObject, Codable {
+  associatedtype Number: TensorNumeric
+  
   var threadId: Int { get set }
   var encodingType: EncodingType { get set }
   var extraEncodables: [String: Codable]? { get }
@@ -88,7 +90,9 @@ extension Layer {
   }
 }
 
-open class BaseLayer: Layer {
+open class BaseLayer<N: TensorNumeric>: Layer {
+  public typealias Number = N
+  
   public var threadId: Int = 0
   public var encodingType: EncodingType
   public var inputSize: TensorSize = .init() {
@@ -178,7 +182,7 @@ open class BaseLayer: Layer {
   }
 }
 
-open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
+open class BaseConvolutionalLayer<N: TensorNumeric>: BaseLayer<N>, ConvolutionalLayer {
   public override var weights: Tensor {
     get {
       var reduce = filters
@@ -293,7 +297,7 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
   }
 }
 
-open class BaseActivationLayer: BaseLayer, ActivationLayer {
+open class BaseActivationLayer<N: TensorNumeric>: BaseLayer<N>, ActivationLayer {
   public let type: Activation
 
   public init(inputSize: TensorSize = TensorSize(array: []),

@@ -9,10 +9,11 @@ import Foundation
 import NumSwift
 
 public protocol Optimizer: AnyObject {
+  associatedtype N: TensorNumeric
   typealias Gradient = (weights: Tensor, biases: Tensor)
   typealias Output = (outputs: [Tensor], gradients: Tensor.Gradient, loss: Tensor.Scalar, accuracy: Tensor.Scalar)
   
-  var trainable: Trainable { get set }
+  var trainable: BaseTrainable<N> { get set }
   var learningRate: Tensor.Scalar { get }
   var isTraining: Bool { get set }
   var device: Device { get set }
@@ -37,9 +38,9 @@ public protocol Optimizer: AnyObject {
 }
 
 // TODO: allow for arbitrary weight shape in Optimizer, so we dont have to cram all weights into a 3D tensor
-open class BaseOptimizer: Optimizer {
+open class BaseOptimizer<N: TensorNumeric>: Optimizer {
   public var decayFunction: DecayFunction?
-  public var trainable: Trainable
+  public var trainable: BaseTrainable<N>
   public var learningRate: Tensor.Scalar {
     get {
       if let decayFunction {
@@ -74,7 +75,7 @@ open class BaseOptimizer: Optimizer {
   public var clip: Tensor.Scalar?
   private var localLearningRate: Tensor.Scalar
   
-  public init(trainable: Trainable,
+  public init(trainable: BaseTrainable<N>,
               learningRate: Tensor.Scalar,
               l2Normalize: Bool,
               workers: Int = 8,
@@ -100,9 +101,9 @@ open class BaseOptimizer: Optimizer {
     decayFunction?.reset()
   }
   
-  func clip(layer: Layer) {
+  func clip(layer: BaseLayer<N>) {
     if let clip = clip {
-      if let con = layer as? ConvolutionalLayer {
+      if let con = layer as? any ConvolutionalLayer {
         con.filters.forEach { $0.clip(clip) }
       } else {
         layer.weights.clip(clip)

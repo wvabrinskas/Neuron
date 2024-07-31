@@ -15,7 +15,7 @@ public protocol RNNSupportedDataset {
   func build() async -> RNNSupportedDatasetData
 }
 
-public class RNN: Classifier {
+public class RNN<T: TensorNumeric>: Classifier<T> {
   public struct RNNLSTMParameters {
     let hiddenUnits: Int
     let inputUnits: Int
@@ -38,14 +38,14 @@ public class RNN: Classifier {
     let b1: Tensor.Scalar
     let b2: Tensor.Scalar
     let eps: Tensor.Scalar
-    let weightDecay: Adam.WeightDecay
+    let weightDecay: Adam<T>.WeightDecay
     let metricsReporter: MetricsReporter?
     
     public init(learningRate: Tensor.Scalar,
                 b1: Tensor.Scalar = 0.9,
                 b2: Tensor.Scalar = 0.999,
                 eps: Tensor.Scalar = .stabilityFactor,
-                weightDecay: Adam.WeightDecay = .none,
+                weightDecay: Adam<T>.WeightDecay = .none,
                 metricsReporter: MetricsReporter? = nil) {
       self.learningRate = learningRate
       self.b1 = b1
@@ -80,11 +80,11 @@ public class RNN: Classifier {
   }
   
   private let dataset: RNNSupportedDataset
-  private var lstm: LSTM?
-  private var embedding: Embedding?
+  private var lstm: LSTM<T>?
+  private var embedding: Embedding<T>?
   private var vocabSize: Int = 0
   private var wordLength: Int = 0
-  private var extraLayers: [Layer]
+  private var extraLayers: [BaseLayer<T>]
   private var ready: Bool = false
   private var datasetData: RNNSupportedDatasetData?
   private let returnSequence: Bool
@@ -99,7 +99,7 @@ public class RNN: Classifier {
               classifierParameters: ClassifierParameters,
               optimizerParameters: OptimizerParameters,
               lstmParameters: RNNLSTMParameters,
-              extraLayers: () -> [Layer] = { [] }) {
+              extraLayers: () -> [BaseLayer<T>] = { [] }) {
     
     self.classifierParameters = classifierParameters
     self.optimizerParameters = optimizerParameters
@@ -109,7 +109,7 @@ public class RNN: Classifier {
     self.dataset = dataset
     self.extraLayers = extraLayers()
     
-    let network = Sequential { [] }
+    let network = Sequential<T> { [] }
     
     let optimizer = Adam(network,
                          device: device,
@@ -136,7 +136,7 @@ public class RNN: Classifier {
     
     await readyUp()
     
-    let n = Sequential.import(url)
+    let n = Sequential<T>.import(url)
     optimizer.trainable = n
   }
   
@@ -240,7 +240,7 @@ public class RNN: Classifier {
     self.vocabSize = vocabSize
     self.wordLength = wordLength
     
-    let lstm = LSTM(inputUnits: lstmParameters.inputUnits,
+    let lstm = LSTM<T>(inputUnits: lstmParameters.inputUnits,
                     batchLength: wordLength,
                     returnSequence: returnSequence,
                     biasEnabled: true,
@@ -248,7 +248,7 @@ public class RNN: Classifier {
                     hiddenUnits: lstmParameters.hiddenUnits,
                     vocabSize: vocabSize)
     
-    let embedding = Embedding(inputUnits: lstmParameters.inputUnits,
+    let embedding = Embedding<T>(inputUnits: lstmParameters.inputUnits,
                               vocabSize: vocabSize,
                               batchLength: wordLength,
                               initializer: lstmParameters.embeddingInitializer,
@@ -257,10 +257,10 @@ public class RNN: Classifier {
     self.embedding = embedding
     self.lstm = lstm
     
-    var layers: [Layer] = [embedding, lstm]
+    var layers: [BaseLayer<T>] = [embedding, lstm]
     layers.append(contentsOf: extraLayers)
     
-    let sequential = Sequential({ layers })
+    let sequential = Sequential<T>({ layers })
     
     optimizer.trainable = sequential
     

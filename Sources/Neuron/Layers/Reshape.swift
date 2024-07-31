@@ -9,7 +9,7 @@ import Foundation
 import NumSwift
 
 /// Will take the inputSize as `[M * N * K, 1, 1]` and output a tensor of size `[M, N, K]`
-public final class Reshape: BaseLayer {
+public final class Reshape<N: TensorNumeric>: BaseLayer<N> {
   private let reshapeSize: TensorSize
   
   /// Default initializer for a reshape layer.

@@ -9,7 +9,7 @@ import Foundation
 import NumSwift
 
 /// Performs a layer normalization function.
-public final class LayerNormalize: BaseLayer {
+public final class LayerNormalize<N: TensorNumeric>: BaseLayer<N> {
   public override var weights: Tensor {
     get {
       // For printing purposes. Not actually used

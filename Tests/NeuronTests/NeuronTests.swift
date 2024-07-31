@@ -68,7 +68,7 @@ final class NeuronTests: XCTestCase {
     let outputShape = [20, 20, filterCount]
     
     
-    let conv = TransConv2d(filterCount: filterCount,
+    let conv = TransConv2d<Float>(filterCount: filterCount,
                            inputSize: inputShape,
                            strides: (2,2),
                            padding: .same,
@@ -115,7 +115,7 @@ final class NeuronTests: XCTestCase {
     
     let testData: Tensor = Tensor(r)
     
-    let layer = Flatten()
+    let layer = Flatten<Float>()
     layer.inputSize = TensorSize(array: r.shape)
     
     let out = layer.forward(tensor: testData)
@@ -142,7 +142,7 @@ final class NeuronTests: XCTestCase {
     
     let size = TensorSize(array: [3,3,3])
     
-    let layer = Reshape(to: size)
+    let layer = Reshape<Float>(to: size)
     layer.inputSize = r.shape.tensorSize
     
     let out = layer.forward(tensor: testData)
@@ -168,7 +168,7 @@ final class NeuronTests: XCTestCase {
     
     let testData = Tensor(r)
     
-    let maxPool = MaxPool()
+    let maxPool = MaxPool<Float>()
     maxPool.inputSize = TensorSize(array: [3,3,3])
     
     let data = testData
@@ -206,7 +206,7 @@ final class NeuronTests: XCTestCase {
     
     let input: [[Tensor.Scalar]] = [0,0,1,0,0,0,0,1,0,0].as2D()
     
-    let conv = Conv2d(filterCount: filterCount,
+    let conv = Conv2d<Float>(filterCount: filterCount,
                       inputSize: [inputSize.0, inputSize.1, inputSize.2].tensorSize,
                       strides: (2,2),
                       padding: .same,
@@ -237,7 +237,7 @@ final class NeuronTests: XCTestCase {
       random.append(Tensor.Scalar.random(in: 0...1))
     }
     
-    let n = Sequential {
+    let n = Sequential<Float> {
       [
         Dense(7 * 7 * 1, inputs: 100, initializer: .heNormal),
         Reshape(to: [7,7,1].tensorSize),
@@ -261,7 +261,7 @@ final class NeuronTests: XCTestCase {
     n.compile()
     
     let input = Tensor(random)
-    let adam = Adam(n, learningRate: 0.01)
+    let adam = Adam<Float>(n, learningRate: 0.01)
     
     let out = adam([input])
     
@@ -269,9 +269,9 @@ final class NeuronTests: XCTestCase {
   }
   
   func testDense() {
-    let dense = Dense(5, inputs: 4, biasEnabled: false)
+    let dense = Dense<Float>(5, inputs: 4, biasEnabled: false)
     
-    let n = Sequential {
+    let n = Sequential<Float> {
       [
         dense,
       ]
@@ -285,7 +285,7 @@ final class NeuronTests: XCTestCase {
                             [0.1, 0.1, 0.1, 0.1],
                             [0.5, 0.5, 0.5, 0.5]])
     
-    let adam = Adam(n, learningRate: 1)
+    let adam = Adam<Float>(n, learningRate: 1)
     
     let input = Tensor([0.5,0.2,0.2,1.0])
     
@@ -324,7 +324,7 @@ final class NeuronTests: XCTestCase {
   
   func testLayerNorm() {
     let input = Tensor([1,0,1,0,1])
-    let norm = LayerNormalize(inputSize: [5,1,1].tensorSize)
+    let norm = LayerNormalize<Float>(inputSize: [5,1,1].tensorSize)
     
     let out = norm.forward(tensor: input)
     out.setGraph(input)
@@ -341,7 +341,7 @@ final class NeuronTests: XCTestCase {
   
   func testBatchNorm() {
     let input = Tensor([1,0,1,0,1])
-    let norm = BatchNormalize(inputSize: input.shape.tensorSize)
+    let norm = BatchNormalize<Float>(inputSize: input.shape.tensorSize)
     
     let out = norm.forward(tensor: input)
     out.setGraph(input)
@@ -358,7 +358,7 @@ final class NeuronTests: XCTestCase {
   
   func testBatchNorm2d() {
     let input = Tensor([1,0,1,0,1].as2D())
-    let norm = BatchNormalize(inputSize: input.shape.tensorSize)
+    let norm = BatchNormalize<Float>(inputSize: input.shape.tensorSize)
     
     let out = norm.forward(tensor: input)
     out.setGraph(input)
@@ -376,7 +376,7 @@ final class NeuronTests: XCTestCase {
   func testDropout() {
     let input = Tensor(NumSwift.onesLike((5,5,5)))
     
-    let dropout = Dropout(0.5, inputSize: [5,5,5].tensorSize)
+    let dropout = Dropout<Float>(0.5, inputSize: [5,5,5].tensorSize)
     
     let d: Tensor.Scalar = 1 / (1 - 0.5)
     let mask = Tensor([d,0,d,0,d].as3D())
@@ -394,7 +394,7 @@ final class NeuronTests: XCTestCase {
     XCTAssert(gradient.input.first?.isEmpty == false)
     XCTAssert(gradient.input.first!.isValueEqual(to:  Tensor([1, 0, 1, 0, 1].as3D())))
     
-    let dropoutNew = Dropout(0.5, inputSize: [5,5,5].tensorSize)
+    let dropoutNew = Dropout<Float>(0.5, inputSize: [5,5,5].tensorSize)
     let oldMask = dropoutNew.mask
     dropoutNew.apply(gradients: (Tensor(), Tensor()), learningRate: 0.05)
     

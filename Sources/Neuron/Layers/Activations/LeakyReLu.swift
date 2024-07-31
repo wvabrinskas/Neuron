@@ -9,7 +9,7 @@ import Foundation
 import NumSwift
 
 /// Performs a LeakyRelu activation.
-public final class LeakyReLu: BaseActivationLayer {
+public final class LeakyReLu<N: TensorNumeric>: BaseActivationLayer<N> {
   private var limit: Tensor.Scalar
   
   /// Default initializer for a leaky relu activation function.

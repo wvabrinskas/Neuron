@@ -9,7 +9,7 @@ import Foundation
 import NumSwift
 import Numerics
 
-public class WGANGP: GAN {
+public class WGANGP<N: TensorNumeric>: GAN<N> {
   public override var realLabel: Tensor.Scalar { -1.0 }
   public override var fakeLabel: Tensor.Scalar { 1.0 }
   public var lambda: Tensor.Scalar = 0.1

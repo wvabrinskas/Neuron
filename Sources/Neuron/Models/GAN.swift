@@ -8,13 +8,13 @@
 import Foundation
 import NumSwift
 
-public class GAN {
+public class GAN<N: TensorNumeric> {
   public enum TrainingType: String {
     case real, fake
   }
 
-  public var generator: Optimizer
-  public var discriminator: Optimizer
+  public var generator: BaseOptimizer<N>
+  public var discriminator: BaseOptimizer<N>
   public var noise: () -> Tensor
   public var onEpochCompleted: ((_ epoch: Int) -> ())? = nil
   public var validateGenerator: ((_ output: Tensor) -> ())? = nil
@@ -31,8 +31,8 @@ public class GAN {
   private let discriminatorNoiseFactor: Tensor.Scalar?
   private let validationFrequency: Int
   
-  public init(generator: Optimizer,
-              discriminator: Optimizer,
+  public init(generator: BaseOptimizer<N>,
+              discriminator: BaseOptimizer<N>,
               epochs: Int = 100,
               batchSize: Int,
               discriminatorSteps: Int = 1,

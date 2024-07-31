@@ -11,7 +11,7 @@ import NumSwift
 /// The LSTM layer, Long Short-Term Memory layer, is the heart of the `RNN` model. It should be
 /// preceeded by an `Embedding` layer as that's the expected input rather than the raw
 /// text input itself.
-public final class LSTM: BaseLayer {
+public final class LSTM<N: TensorNumeric>: BaseLayer<N> {
   public override var isTraining: Bool {
     willSet {
       if newValue == false {
@@ -49,7 +49,7 @@ public final class LSTM: BaseLayer {
     let outputGate: Tensor
     let gateGate: Tensor
     
-    init(activations: LSTMCell.Activations) {
+    init(activations: LSTMCell<N>.Activations) {
       self.forgetGate = activations.fa
       self.inputGate = activations.ia
       self.outputGate = activations.oa
@@ -244,11 +244,11 @@ public final class LSTM: BaseLayer {
       // get embeddings from input
       let getEmbeddings = Tensor(tensor.value[safe: index] ?? NumSwift.zerosLike((rows: 1, columns: vocabSize))) //use first vector
       
-      let cell = LSTMCell(hidden: hiddenUnits,
+      let cell = LSTMCell<N>(hidden: hiddenUnits,
                           input: inputUnits,
                           vocabSize: vocabSize)
       
-      let cellParameters = LSTMCell.Parameters(forgetGateWeights: forgetGateWeights.detached(),
+      let cellParameters = LSTMCell<N>.Parameters(forgetGateWeights: forgetGateWeights.detached(),
                                                inputGateWeights: inputGateWeights.detached(),
                                                gateGateWeights: gateGateWeights.detached(),
                                                outputGateWeights: outputGateWeights.detached(),
@@ -262,8 +262,8 @@ public final class LSTM: BaseLayer {
                                     cache: cache)
       
       // used mainly for prediction and shouldn't be used in back propogation unless there's a gradient associated with it
-      let outputCell = OutputCell(device: device)
-      let outputCellParameters = OutputCell.Parameters(hiddenOutputWeights: hiddenOutputWeights.detached(),
+      let outputCell = OutputCell<N>(device: device)
+      let outputCellParameters = OutputCell<N>.Parameters(hiddenOutputWeights: hiddenOutputWeights.detached(),
                                                        hiddenOutputBiases: hiddenOutputBiases.detached(),
                                                        activationMatrix: cellOutput.activationMatrix.detached())
       
@@ -361,8 +361,8 @@ public final class LSTM: BaseLayer {
     
     var wrtOutputWeightsDerivatives: Tensor = Tensor()
     var wrtOutputBiasesDerivatives: Tensor = Tensor()
-    var wrtLSTMCellInputWeightsDerivatives: LSTMCell.ParameterDerivatives = .init()
-    var wrtLSTMCellInputBiasDerivatives: LSTMCell.ParameterDerivatives = .init()
+    var wrtLSTMCellInputWeightsDerivatives: LSTMCell<N>.ParameterDerivatives = .init()
+    var wrtLSTMCellInputBiasDerivatives: LSTMCell<N>.ParameterDerivatives = .init()
 
     var wrtEmbeddings: Tensor = Tensor()
           
@@ -371,7 +371,7 @@ public final class LSTM: BaseLayer {
       let cache = cellCache[index]
       let previousCache = cellCache[safe: index - 1]
       
-      let outputCell = OutputCell(device: self.device)
+      let outputCell = OutputCell<N>(device: self.device)
 
       let activationErrors = outputCell.backward(gradient: gradient.value[safe: index] ?? gradient.zerosLike().value[0], // if output cell didn't get used in the loss function we don't need its gradients
                                                  activations: cellCache[index].activation.value[0],
@@ -393,7 +393,7 @@ public final class LSTM: BaseLayer {
       let nextActivationError = eat
       let activationOutputError = activationErrors.outputs.value[0]
 
-      let cell = LSTMCell(hidden: self.hiddenUnits,
+      let cell = LSTMCell<N>(hidden: self.hiddenUnits,
                           input: self.inputUnits,
                           vocabSize: self.vocabSize,
                           device: self.device)

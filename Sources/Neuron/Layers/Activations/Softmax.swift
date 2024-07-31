@@ -10,7 +10,7 @@ import NumSwift
 import Numerics
 
 /// Performs a Softmax activation.
-public final class Softmax: BaseActivationLayer {
+public final class Softmax<N: TensorNumeric>: BaseActivationLayer<N> {
   enum CodingKeys: String, CodingKey {
     case inputSize,
          type

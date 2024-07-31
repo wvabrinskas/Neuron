@@ -9,7 +9,7 @@ import Foundation
 import NumSwift
 
 
-class OutputCell {
+class OutputCell<N: TensorNumeric> {
   let device: Device
   
   struct Parameters {
@@ -24,7 +24,7 @@ class OutputCell {
 
   func forward(parameters: Parameters) -> Tensor {
     var outputMatrix = parameters.activationMatrix.matmul(parameters.hiddenOutputWeights) + parameters.hiddenOutputBiases.asScalar()
-    outputMatrix = Softmax(inputSize: .init(array: outputMatrix.shape)).forward(tensor: outputMatrix)
+    outputMatrix = Softmax<N>(inputSize: .init(array: outputMatrix.shape)).forward(tensor: outputMatrix)
     return outputMatrix
   }
   

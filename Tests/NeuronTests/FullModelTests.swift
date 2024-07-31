@@ -87,13 +87,13 @@ final class FullModelTests: XCTestCase {
   }
   
   func test_setttingPropertyOnTrainable_Doesnt_Reset() {
-    let network = Sequential {
+    let network = Sequential<Float> {
       [
         Dense(1, inputs: 2)
       ]
     }
     
-    let optim = Adam(network, learningRate: 0.01)
+    let optim = Adam<Float>(network, learningRate: 0.01)
     
     network.isCompiled = false
 
@@ -104,7 +104,7 @@ final class FullModelTests: XCTestCase {
   }
   
   func testBasicClassification() {
-    let network = Sequential {
+    let network = Sequential<Float> {
       [
         Dense(6, inputs: 4,
               initializer: .xavierNormal,
@@ -116,7 +116,7 @@ final class FullModelTests: XCTestCase {
       ]
     }
     
-    let optim = Adam(network, learningRate: 0.01)
+    let optim = Adam<Float>(network, learningRate: 0.01)
     
     let reporter = MetricsReporter(metricsToGather: [.loss,
                                                      .accuracy,
@@ -152,8 +152,9 @@ final class FullModelTests: XCTestCase {
     do {
       let fileURL = try Resource(name: "pretrained-classifier-color", type: "smodel").url
       
-      let n = Sequential.import(fileURL)
-      let optim = Adam(n, learningRate: 0.0001)
+      let n = Sequential<Float>.import(fileURL)
+      
+      let optim = Adam<Float>(n, learningRate: 0.0001)
       
       let classifier = Classifier(optimizer: optim,
                                   batchSize: 64,
@@ -193,7 +194,7 @@ final class FullModelTests: XCTestCase {
                                                      .valLoss])
 
     
-    let rnn = RNN(returnSequence: true,
+    let rnn = RNN<Float>(returnSequence: true,
                   dataset: MockRNNDataset(),
                   classifierParameters: RNN.ClassifierParameters(batchSize: 16,
                                                                  epochs: 1000,

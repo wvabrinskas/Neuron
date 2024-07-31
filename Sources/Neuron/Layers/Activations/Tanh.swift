@@ -9,7 +9,7 @@ import Foundation
 import NumSwift
 
 /// Performs a tanh activation.
-public final class Tanh: BaseActivationLayer {
+public final class Tanh<N: TensorNumeric>: BaseActivationLayer<N> {
   /// Default initializer for a Tanh activation.
   /// - Parameter inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
   public init(inputSize: TensorSize = TensorSize(array: [])) {

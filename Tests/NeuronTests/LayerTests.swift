@@ -70,7 +70,7 @@ final class LayerTests: XCTestCase {
     XCTAssertEqual(initializer.type, newInitializer!.type)
   }
   
-  // MARK: Sequential
+  // MARK: Sequential<Float>
   func test_sequential_importExport_Compressed() {
     
     let size = TensorSize(array: [28,28,1])
@@ -82,7 +82,7 @@ final class LayerTests: XCTestCase {
     let denseLayerOutputSize = (size.columns / 4, size.rows / 4, firstLayerFilterCount)
     let denseLayerOutputCount = denseLayerOutputSize.0 * denseLayerOutputSize.1 * firstDenseLayerDepthCount
     
-    let n = Sequential {
+    let n = Sequential<Float> {
       [
         Dense(denseLayerOutputCount,
               inputs: 100,
@@ -121,7 +121,8 @@ final class LayerTests: XCTestCase {
       return
     }
     
-    let newN = Sequential.import(gUrl)
+    let newN = Sequential<Float>.import(gUrl)
+    
     newN.compile()
     
     XCTAssertEqual(newN.debugDescription, n.debugDescription)
@@ -138,7 +139,7 @@ final class LayerTests: XCTestCase {
     let denseLayerOutputSize = (size.columns / 4, size.rows / 4, firstLayerFilterCount)
     let denseLayerOutputCount = denseLayerOutputSize.0 * denseLayerOutputSize.1 * firstDenseLayerDepthCount
     
-    let n = Sequential {
+    let n = Sequential<Float> {
       [
         Dense(denseLayerOutputCount,
               inputs: 100,
@@ -177,7 +178,7 @@ final class LayerTests: XCTestCase {
       return
     }
     
-    let newN = Sequential.import(gUrl)
+    let newN = Sequential<Float>.import(gUrl)
     newN.compile()
     
     XCTAssertEqual(newN.debugDescription, n.debugDescription)
@@ -185,7 +186,7 @@ final class LayerTests: XCTestCase {
   }
   
   func test_Sequential_importWeights() {
-    let network = Sequential {
+    let network = Sequential<Float> {
       [
         Dense(5,
               inputs: 5,
@@ -210,7 +211,7 @@ final class LayerTests: XCTestCase {
   }
   
   func test_Sequential_exportWeights_didNotCompile() {
-    let network = Sequential {
+    let network = Sequential<Float> {
       [
         Dense(20,
               inputs: 8,
@@ -239,7 +240,7 @@ final class LayerTests: XCTestCase {
     
     let inputSize = input.shape
 
-    let layer = SeLu(inputSize: TensorSize(array: inputSize))
+    let layer = SeLu<Float>(inputSize: TensorSize(array: inputSize))
     let out = layer.forward(tensor: Tensor(input))
     
     XCTAssertEqual(inputSize, out.shape)
@@ -283,7 +284,7 @@ final class LayerTests: XCTestCase {
     
     let inputSize = input.shape
 
-    let layer = AvgPool(inputSize: TensorSize(array: inputSize))
+    let layer = AvgPool<Float>(inputSize: TensorSize(array: inputSize))
     let out = layer.forward(tensor: Tensor(input))
     
     XCTAssertEqual([2,2,3], out.shape)
@@ -326,7 +327,7 @@ final class LayerTests: XCTestCase {
   
   // MARK: Dense
   func test_Dense_Parameters() {
-    let dense = Dense(20,
+    let dense = Dense<Float>(20,
                       inputs: 8,
                       initializer: .heNormal,
                       biasEnabled: true)
@@ -335,7 +336,7 @@ final class LayerTests: XCTestCase {
   }
   
   func test_Dense_importWeights_valid() {
-    let dense = Dense(20,
+    let dense = Dense<Float>(20,
                       inputs: 8,
                       initializer: .heNormal,
                       biasEnabled: true)
@@ -350,7 +351,7 @@ final class LayerTests: XCTestCase {
   }
   
   func test_Dense_importWeights_invalid_Shape() {
-    let dense = Dense(256,
+    let dense = Dense<Float>(256,
                       inputs: 100,
                       initializer: .heNormal,
                       biasEnabled: true)
@@ -368,7 +369,7 @@ final class LayerTests: XCTestCase {
   
   // MARK: Convolution
   func test_Conv2d_filters() {
-    let conv = Conv2d(filterCount: 32,
+    let conv = Conv2d<Float>(filterCount: 32,
                       inputSize: .init(array: [28,28,8]),
                       padding: .same,
                       filterSize: (3,3),
@@ -385,7 +386,7 @@ final class LayerTests: XCTestCase {
   }
   
   func test_Conv2d_importWeights_valid() {
-    let layer = Conv2d(filterCount: 5,
+    let layer = Conv2d<Float>(filterCount: 5,
                        inputSize: .init(array: [28,28,1]),
                        filterSize: (3,3),
                        initializer: .heNormal)
@@ -406,7 +407,7 @@ final class LayerTests: XCTestCase {
   }
   
   func test_Conv2d_importWeights_invalid_Shape() {
-    let layer = Conv2d(filterCount: 5,
+    let layer = Conv2d<Float>(filterCount: 5,
                        inputSize: .init(array: [28,28,1]),
                        filterSize: (3,3),
                        initializer: .heNormal)
@@ -423,7 +424,7 @@ final class LayerTests: XCTestCase {
   }
   
   func test_TransConv2d_filters() {
-    let conv = TransConv2d(filterCount: 32,
+    let conv = TransConv2d<Float>(filterCount: 32,
                            inputSize: .init(array: [28,28,8]),
                            strides: (2,2),
                            padding: .same,
@@ -448,7 +449,7 @@ final class LayerTests: XCTestCase {
     let hiddenUnits = 256
     let vocabSize = 27
     
-    let lstm = LSTM(inputUnits: inputUnits,
+    let lstm = LSTM<Float>(inputUnits: inputUnits,
                     batchLength: 1,
                     hiddenUnits: hiddenUnits,
                     vocabSize: vocabSize)
@@ -488,13 +489,13 @@ final class LayerTests: XCTestCase {
     let vocabSize = vectorizer.vector.count // the size of the total map of vocab letters available. Likely comes from Vectorize
     let inputTensor = oneHot
 
-    let embedding = Embedding(inputUnits: inputUnits,
+    let embedding = Embedding<Float>(inputUnits: inputUnits,
                               vocabSize: vocabSize,
                               batchLength: batchLength)
     
     let embeddingCalc = embedding.forward(tensor: inputTensor)
 
-    let lstm = LSTM(inputUnits: inputUnits,
+    let lstm = LSTM<Float>(inputUnits: inputUnits,
                     batchLength: batchLength,
                     initializer: .heNormal,
                     hiddenUnits: hiddenUnits,
@@ -531,7 +532,7 @@ final class LayerTests: XCTestCase {
     let inputUnits = 100
     let vocabSize = vectorizer.vector.count
     
-    let embedding = Embedding(inputUnits: inputUnits,
+    let embedding = Embedding<Float>(inputUnits: inputUnits,
                               vocabSize: vocabSize,
                               batchLength: batchLength)
     

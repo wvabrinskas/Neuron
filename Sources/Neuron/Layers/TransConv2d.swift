@@ -10,7 +10,7 @@ import NumSwift
 import NumSwiftC
 
 /// Performs a transposed 2d convolution on the inputs. Uses the same properties and initializers of `Conv2D`
-public final class TransConv2d: Conv2d {
+public final class TransConv2d<T: TensorNumeric>: Conv2d<T> {
   public override init(filterCount: Int,
                        inputSize: TensorSize? = nil,
                        strides: (rows: Int, columns: Int) = (1,1),

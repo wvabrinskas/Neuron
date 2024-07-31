@@ -9,7 +9,7 @@ import Foundation
 import NumSwift
 
 /// Performs a normalization of the inputs based on the batch.
-public final class BatchNormalize: BaseLayer {
+public final class BatchNormalize<N: TensorNumeric>: BaseLayer<N> {
   public var gamma: [Tensor.Scalar] = []
   public var beta: [Tensor.Scalar] = []
   public var movingMean: [Tensor.Scalar] = []

@@ -11,7 +11,7 @@ import NumSwift
 import Foundation
 import NumSwift
 
-public final class ___VARIABLE_productName___: BaseLayer {
+public final class ___VARIABLE_productName___<N: TensorNumeric>: BaseLayer<N> {
   public init(inputSize: TensorSize = TensorSize(array: [])) {
     super.init(inputSize: inputSize,
                initializer: nil,

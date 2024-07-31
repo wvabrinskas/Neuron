@@ -9,6 +9,8 @@ import Foundation
 import NumSwift
 import NumSwiftC
 
+public typealias TensorNumeric = FloatingPoint & Codable
+
 public protocol TensorRange {
   associatedtype T: RangeExpression<Int>
   var range: T { get }

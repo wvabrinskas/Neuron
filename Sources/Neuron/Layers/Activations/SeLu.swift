@@ -9,7 +9,7 @@ import Foundation
 import NumSwift
 
 /// Performs a Selu activation.
-public final class SeLu: BaseActivationLayer {
+public final class SeLu<N: TensorNumeric>: BaseActivationLayer<N> {
   enum CodingKeys: String, CodingKey {
     case inputSize,
          type

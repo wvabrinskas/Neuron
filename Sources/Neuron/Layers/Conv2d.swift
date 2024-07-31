@@ -10,7 +10,7 @@ import NumSwift
 import NumSwiftC
 
 /// A layer that performs a 2D convolution operation
-public class Conv2d: BaseConvolutionalLayer {
+public class Conv2d<T: TensorNumeric>: BaseConvolutionalLayer<T> {
   /// Default initializer for a 2d convolutional layer
   /// - Parameters:
   ///   - filterCount: Number of filters at this layer

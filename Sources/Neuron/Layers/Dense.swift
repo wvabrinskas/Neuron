@@ -9,7 +9,7 @@ import Foundation
 import NumSwift
 
 /// A fully connected layer that performs a `sum(wx) + b` operation using matrix multiplication.
-public final class Dense: BaseLayer {
+public final class Dense<N: TensorNumeric>: BaseLayer<N> {
   private var nodes: Int
 
   /// Default initializer for the fully connected layer

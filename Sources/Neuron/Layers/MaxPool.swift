@@ -9,7 +9,7 @@ import Foundation
 import NumSwift
 
 /// Will decrease the size of the input tensor by half using a max pooling technique.
-public final class MaxPool: BaseLayer {
+public final class MaxPool<N: TensorNumeric>: BaseLayer<N> {
   internal struct PoolingIndex: Hashable, Codable {
     var r: Int
     var c: Int

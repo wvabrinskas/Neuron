@@ -2,7 +2,7 @@ import Foundation
 import NumSwift
 
 /// An `Embedding` layer that maps each input word vector to a `X` dimensional vector.
-public final class Embedding: BaseLayer {
+public final class Embedding<N: TensorNumeric>: BaseLayer<N> {
   private let inputUnits: Int
   private let vocabSize: Int
   private let batchLength: Int

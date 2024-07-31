@@ -8,12 +8,12 @@
 import Foundation
 import NumSwift
 
-public class SGD: BaseOptimizer {
+public class SGD<N: TensorNumeric>: BaseOptimizer<N> {
   private let momentum: Tensor.Scalar
   private var v: [Tensor.Data] = []
   private var vb: [[Tensor.Scalar]] = []
 
-  public init(_ trainable: Trainable,
+  public init(_ trainable: BaseTrainable<N>,
               device: Device = CPU(),
               learningRate: Tensor.Scalar,
               momentum: Tensor.Scalar = 0.9) {

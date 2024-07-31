@@ -9,7 +9,7 @@ import Foundation
 import NumSwift
 
 /// Will take an inputSize of [M, N, K] and outputs [M * N * K, 1, 1]
-public final class Flatten: BaseLayer {
+public final class Flatten<N: TensorNumeric>: BaseLayer<N> {
   /// Default initializer for Flatten layer.
   /// - Parameter inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
   public init(inputSize: TensorSize = TensorSize(array: [])) {

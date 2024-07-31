@@ -8,7 +8,7 @@ import Foundation
 import NumSwift
 
 /// Will decrease the size of the input tensor by half using a max pooling technique.
-public final class AvgPool: BaseLayer {
+public final class AvgPool<N: TensorNumeric>: BaseLayer<N> {
 
   private let kernelSize: (rows: Int, columns: Int) = (rows: 2, columns: 2)
   

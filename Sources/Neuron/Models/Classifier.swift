@@ -8,7 +8,7 @@
 import Foundation
 import NumSwift
 
-public class Classifier {
+public class Classifier<N: TensorNumeric> {
   private var batchSize: Int
   private let threadWorkers: Int
   private let epochs: Int
@@ -20,9 +20,9 @@ public class Classifier {
   public var onAccuracyReached: (() -> ())? = nil
   public var onEpochCompleted: (() -> ())? = nil
   
-  public private(set) var optimizer: Optimizer
+  public private(set) var optimizer: BaseOptimizer<N>
   
-  public init(optimizer: Optimizer,
+  public init(optimizer: BaseOptimizer<N>,
               epochs: Int = 100,
               batchSize: Int,
               accuracyThreshold: Tensor.Scalar = 0.8,

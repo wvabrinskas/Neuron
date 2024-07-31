@@ -9,8 +9,8 @@ import Foundation
 import NumSwift
 
 /// Convienence class for Adam with weight decay as default to `0.004`
-public final class AdamW: Adam {
-  public init(_ trainable: Trainable,
+public final class AdamW<N: TensorNumeric>: Adam<N> {
+  public init(_ trainable: BaseTrainable<N>,
               device: Device = CPU(),
               learningRate: Tensor.Scalar,
               b1: Tensor.Scalar = 0.9,
@@ -27,13 +27,13 @@ public final class AdamW: Adam {
   }
 }
 
-public class Adam: BaseOptimizer {
+public class Adam<N: TensorNumeric>: BaseOptimizer<N> {
   public enum WeightDecay {
     case none
     case decay(Tensor.Scalar)
   }
   
-  public override var trainable: Trainable {
+  public override var trainable: BaseTrainable<N> {
     didSet {
       build()
     }
@@ -50,7 +50,7 @@ public class Adam: BaseOptimizer {
   private var t: Tensor.Scalar = 1
   private let weightDecay: WeightDecay
   
-  public init(_ trainable: Trainable,
+  public init(_ trainable: BaseTrainable<N>,
               device: Device = CPU(),
               learningRate: Tensor.Scalar,
               b1: Tensor.Scalar = 0.9,

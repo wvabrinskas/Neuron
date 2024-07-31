@@ -10,7 +10,7 @@ import NumSwiftC
 /// Get debug data from the `Trainable` by calling `print(sequential)`, or using `lldb`: `po trainable`, where `sequential` is your `Trainable` object.
 ///
 public protocol Trainable: AnyObject, Codable, CustomDebugStringConvertible {
-  
+  associatedtype T: TensorNumeric
   /// The id for the current thread
   var threadId: Int { get set }
   
@@ -18,7 +18,7 @@ public protocol Trainable: AnyObject, Codable, CustomDebugStringConvertible {
   var name: String { get set }
   
   /// The layers of the network
-  var layers: [Layer] { get }
+  var layers: [BaseLayer<T>] { get }
   
   /// Indicates if the network has been setup correctly and is ready for training.
   var isCompiled: Bool { get }
@@ -32,7 +32,7 @@ public protocol Trainable: AnyObject, Codable, CustomDebugStringConvertible {
   /// Creates a Trainable object from a `.smodel` file.
   /// - Parameter url: The URL to the `.smodel` file.
   /// - Returns: The network built from the file.
-  static func `import`(_ url: URL) -> Self
+  static func `import`(_ url: URL) -> Self 
   
   /// Performs a forward pass on the network
   /// - Parameter data: The inputs
@@ -53,7 +53,8 @@ public protocol Trainable: AnyObject, Codable, CustomDebugStringConvertible {
   func export(name: String?, overrite: Bool, compress: Bool) -> URL?
 }
 
-public extension Trainable {
+// MARK: - Sequential debug out
+public extension BaseTrainable {
   var debugDescription: String {
     guard isCompiled else {
       return "Trainable isn't compiled yet. Please compile first."
@@ -97,7 +98,7 @@ private struct TrainablePrinter {
     }
   }
   
-  static func build(_ trainable: Trainable) -> String {
+  static func build<T: TensorNumeric>(_ trainable: BaseTrainable<T>) -> String {
     var string = """
                  Model: "\(trainable.name)" \n\n
                  """
@@ -131,13 +132,13 @@ private struct TrainablePrinter {
     return string
   }
   
-  static func line(layer: Layer, previousLine: Line? = nil) -> Line {
+  static func line<T: Layer>(layer: T, previousLine: Line? = nil) -> Line {
     var parameters = layer.weights.value.flatten().count
     
     // TODO: maybe find a better way to do this so we can just reference a property like `parameters` or something
-    if let conv = layer as? ConvolutionalLayer {
+    if let conv = layer as? any ConvolutionalLayer {
       parameters = conv.filters.map { $0.value.flatten().count }.sumSlow
-    } else if let lstm = layer as? LSTM {
+    } else if let lstm = layer as? LSTM<T.Number> {
       parameters = lstm.forgetGateWeights.concat(lstm.gateGateWeights).concat(lstm.hiddenOutputWeights).concat(lstm.inputGateWeights).concat(lstm.outputGateWeights).value.flatten().count
     }
     

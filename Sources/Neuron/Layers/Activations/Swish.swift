@@ -9,7 +9,7 @@ import Foundation
 import NumSwift
 
 /// Performs a Swish activation.
-public final class Swish: BaseActivationLayer {
+public final class Swish<N: TensorNumeric>: BaseActivationLayer<N> {
 
   /// Default initializer for a Swish activation.
   /// - Parameter inputSize: Optional input size at this layer. If this is the first layer you will need to set this.

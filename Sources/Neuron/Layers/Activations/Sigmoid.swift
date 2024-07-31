@@ -9,7 +9,7 @@ import Foundation
 import NumSwift
 
 /// Performs a Sigmoid activation.
-public final class Sigmoid: BaseActivationLayer {
+public final class Sigmoid<N: TensorNumeric>: BaseActivationLayer<N> {
   /// Default initializer for a Sigmoid activation.
   /// - Parameter inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
   public init(inputSize: TensorSize = TensorSize(array: [])) {

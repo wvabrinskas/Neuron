@@ -9,7 +9,7 @@ import Foundation
 import NumSwift
 
 /// Performs a Relu activation.
-public final class ReLu: BaseActivationLayer {
+public final class ReLu<N: TensorNumeric>: BaseActivationLayer<N> {
   enum CodingKeys: String, CodingKey {
     case inputSize,
          type

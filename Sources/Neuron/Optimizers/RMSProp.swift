@@ -8,13 +8,13 @@
 import Foundation
 import NumSwift
 
-public class RMSProp: BaseOptimizer {
+public class RMSProp<N: TensorNumeric>: BaseOptimizer<N> {
   private var b: Tensor.Scalar = 0.9
   private var v: [Tensor.Data] = []
   private var vb: [[Tensor.Scalar]] = []
   private var eps: Tensor.Scalar = .stabilityFactor
 
-  public init(_ trainable: Trainable,
+  public init(_ trainable: BaseTrainable<N>,
               device: Device = CPU(),
               learningRate: Tensor.Scalar,
               b: Tensor.Scalar = 0.9,
