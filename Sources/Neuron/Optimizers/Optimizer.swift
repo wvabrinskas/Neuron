@@ -142,7 +142,7 @@ open class BaseOptimizer<N: TensorNumeric>: Optimizer {
                   labels: [Tensor<N>],
                   lossFunction: LossFunction,
                   validation: Bool = false,
-                  requiresGradients: Bool = true) -> Output {
+                requiresGradients: Bool = true) -> BaseOptimizer<N>.Output {
     
     metricsReporter?.startTimer(metric: .batchTime)
     let accumulator = GradientAccumulator<N>()

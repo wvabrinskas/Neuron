@@ -68,10 +68,10 @@ public final class Softmax<N: TensorNumeric>: BaseActivationLayer<N> {
     let max = outputs.max() ?? 1
     var sum: Tensor<N>.Scalar = 0
     outputs.forEach { (output) in
-      sum += Tensor<N>.Scalar.pow(Tensor<N>.Scalar(Darwin.M_E), output - max)
+      sum += Tensor<N>.Scalar.pow(Tensor<N>.Scalar(Int(Darwin.M_E)), output - max)
     }
     
-    return Tensor<N>.Scalar.pow(Tensor<N>.Scalar(Darwin.M_E), outputs[index] - max) / sum
+    return Tensor<N>.Scalar.pow(Tensor<N>.Scalar(Int(Darwin.M_E)), outputs[index] - max) / sum
   }
   
   override public func onInputSizeSet() {
