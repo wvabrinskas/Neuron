@@ -552,6 +552,22 @@ extension Array where Element == Tensor {
   }
 }
 
+public extension Tensor {
+ static func fillWith(value: Tensor.Scalar, size: TensorSize) -> Tensor {
+    var result: [[[Float]]]  = []
+    
+    for _ in 0..<size.depth {
+      var row: [[Float]] = []
+      for _ in 0..<size.rows {
+        row.append([Tensor.Scalar](repeating: value, count: size.columns))
+      }
+      result.append(row)
+    }
+
+    return Tensor(result)
+  }
+}
+
 public extension Tensor.Gradient {
   static func applyMultiple(lhs: Tensor.Gradient,
                             rhs: Tensor.Gradient,

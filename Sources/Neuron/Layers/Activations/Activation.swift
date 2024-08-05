@@ -16,6 +16,7 @@ public enum Activation: Codable, Equatable {
   case tanh
   case softmax
   case seLu
+  case geLu
   case none
   
   public func index() -> Int {
@@ -27,7 +28,8 @@ public enum Activation: Codable, Equatable {
     case .tanh: return 4
     case .softmax: return 5
     case .seLu: return 6
-    case .none: return 7
+    case .geLu: return 7
+    case .none: return 8
     }
   }
   
@@ -40,6 +42,7 @@ public enum Activation: Codable, Equatable {
     case .tanh: return "tanh"
     case .softmax: return "softmax"
     case .seLu: return "seLu"
+    case .geLu: return "geLu"
     case .none: return "none"
     }
   }
@@ -66,6 +69,8 @@ public enum Activation: Codable, Equatable {
   private func activate(input: Tensor.Scalar) -> Tensor.Scalar {
     var returnValue: Tensor.Scalar = 0
     switch self {
+    case .geLu:
+      return input * (1 + Tensor.Scalar.erf(input / sqrt(2))) / 2
     case .seLu:
       let lambda: Tensor.Scalar = 1.0507
       let alpha: Tensor.Scalar = 1.6733
@@ -111,6 +116,13 @@ public enum Activation: Codable, Equatable {
   /// - Returns: The result of the calculation
   private func derivative(input: Tensor.Scalar) -> Tensor.Scalar {
     switch self {
+    case .geLu:
+        // need to recompute forward, we need a global context or something =(
+      let forward = input * (1 + Tensor.Scalar.erf(input / sqrt(2))) / 2
+      let dist = NormalDistribution(mean: 0, deviation: 1)
+      let pdf = Tensor.Scalar.exp(dist.logProb(value: forward))
+      return forward + input * pdf
+      
     case .seLu:
       let lambda: Tensor.Scalar = 1.0507
       let alpha: Tensor.Scalar = 1.6733
