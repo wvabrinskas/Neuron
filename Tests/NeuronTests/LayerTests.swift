@@ -12,6 +12,25 @@ import NumSwift
 
 final class LayerTests: XCTestCase {
   
+  func test_gelu() {
+    let gelu = GeLu()
+    gelu.inputSize = TensorSize(rows: 3, columns: 3, depth: 3)
+    
+    let input = Tensor.fillWith(value: 1, size: gelu.inputSize)
+    
+    let output = gelu.forward(tensor: input)
+    
+    let expected = Tensor.fillWith(value: 0.8413447, size: gelu.inputSize)
+    XCTAssertEqual(expected, output)
+    
+    let error = Tensor.fillWith(value: 0.2, size: gelu.inputSize)
+
+    let errorOut = output.gradients(delta: error)
+    
+    let expectedDer = Tensor.fillWith(value: 0.22427435, size: gelu.inputSize)
+    XCTAssertEqual(expectedDer, errorOut.input[0])
+  }
+  
   func test_encode_normal_initializer_type_keepsValue() {
     let expectedStd: Tensor.Scalar = 0.1
     let rawInitializer: InitializerType = .normal(std: expectedStd)

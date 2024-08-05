@@ -18,7 +18,7 @@ public protocol TensorRange {
 /// Its `value` property is a 3D array for all instances.
 public class Tensor: Equatable, Codable {
   public static func == (lhs: Tensor, rhs: Tensor) -> Bool {
-    lhs.id == rhs.id
+    lhs.value == rhs.value || lhs.id == rhs.id  // not sure at all why there's an ID property
   }
 
   public typealias Scalar = Float
