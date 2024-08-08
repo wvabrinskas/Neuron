@@ -21,119 +21,97 @@ kernel void matmul(const device float* A [[ buffer(0) ]],
 }
 
 
-kernel void transConv3d(const device float* input [[ buffer(0) ]],
-                        const device float* kernel [[ buffer(1) ]],
+kernel void transConv2d(const device float* input [[ buffer(0) ]],
+                        const device float* filter [[ buffer(1) ]],
                         device float* output [[ buffer(2) ]],
                         constant int& inputWidth [[ buffer(3) ]],
                         constant int& inputHeight [[ buffer(4) ]],
-                        constant int& inputDepth [[ buffer(5) ]],
-                        constant int& inputChannels [[ buffer(6) ]],
-                        constant int& kernelSize [[ buffer(7) ]],
-                        constant int& outputWidth [[ buffer(8) ]],
-                        constant int& outputHeight [[ buffer(9) ]],
-                        constant int& outputDepth [[ buffer(10) ]],
-                        constant int& outputChannels [[ buffer(11) ]],
-                        constant int& strideX [[ buffer(12) ]],
-                        constant int& strideY [[ buffer(13) ]],
-                        constant int& strideZ [[ buffer(14) ]],
-                        constant int& paddingX [[ buffer(15) ]],
-                        constant int& paddingY [[ buffer(16) ]],
-                        constant int& paddingZ [[ buffer(17) ]],
-                        uint4 gid [[ thread_position_in_grid ]]) {
+                        constant int& inputChannels [[ buffer(5) ]],
+                        constant int& kernelSize [[ buffer(6) ]],
+                        constant int& outputWidth [[ buffer(7) ]],
+                        constant int& outputHeight [[ buffer(8) ]],
+                        constant int& outputChannels [[ buffer(9) ]],
+                        constant int& strideX [[ buffer(10) ]],
+                        constant int& strideY [[ buffer(11) ]],
+                        constant int& paddingX [[ buffer(12) ]],
+                        constant int& paddingY [[ buffer(13) ]],
+                        uint3 gid [[ thread_position_in_grid ]]) {
     
     int x = gid.x;
     int y = gid.y;
     int z = gid.z;
-    int w = gid.w;
     
-    if (x >= outputWidth || y >= outputHeight || z >= outputDepth || w >= outputChannels) {
+    if (x >= outputWidth || y >= outputHeight || z >= outputChannels) {
         return;
     }
     
     float sum = 0.0;
     
     for (int c = 0; c < inputChannels; c++) {
-        for (int kz = 0; kz < kernelSize; kz++) {
-            for (int ky = 0; ky < kernelSize; ky++) {
-                for (int kx = 0; kx < kernelSize; kx++) {
-                    int inputX = (x + paddingX - kx) / strideX;
-                    int inputY = (y + paddingY - ky) / strideY;
-                    int inputZ = (z + paddingZ - kz) / strideZ;
+        for (int ky = 0; ky < kernelSize; ky++) {
+            for (int kx = 0; kx < kernelSize; kx++) {
+                int inputX = (x + paddingX - kx) / strideX;
+                int inputY = (y + paddingY - ky) / strideY;
+                
+                if (inputX >= 0 && inputX < inputWidth && inputY >= 0 && inputY < inputHeight &&
+                    (x + paddingX - kx) % strideX == 0 && (y + paddingY - ky) % strideY == 0) {
+                    int inputIndex = inputY * inputWidth + inputX;
+                    int kernelIndex = ((z * inputChannels + c) * kernelSize + ky) * kernelSize + kx;
                     
-                    if (inputX >= 0 && inputX < inputWidth &&
-                        inputY >= 0 && inputY < inputHeight &&
-                        inputZ >= 0 && inputZ < inputDepth &&
-                        (x + paddingX - kx) % strideX == 0 &&
-                        (y + paddingY - ky) % strideY == 0 &&
-                        (z + paddingZ - kz) % strideZ == 0) {
-                        int inputIndex = ((c * inputDepth + inputZ) * inputHeight + inputY) * inputWidth + inputX;
-                        int kernelIndex = (((w * inputChannels + c) * kernelSize + kz) * kernelSize + ky) * kernelSize + kx;
-                        
-                        sum += input[inputIndex] * kernel[kernelIndex];
-                    }
+                    sum += input[c * inputWidth * inputHeight + inputIndex] * filter[kernelIndex];
                 }
             }
         }
     }
     
-    int outputIndex = ((w * outputDepth + z) * outputHeight + y) * outputWidth + x;
+    int outputIndex = (z * outputHeight + y) * outputWidth + x;
     output[outputIndex] = sum;
 }
 
 
-kernel void conv3d(const device float* input [[ buffer(0) ]],
-                   const device float* kernel [[ buffer(1) ]],
+kernel void conv2d(const device float* input [[ buffer(0) ]],
+                   const device float* filter [[ buffer(1) ]],
                    device float* output [[ buffer(2) ]],
                    constant int& inputWidth [[ buffer(3) ]],
                    constant int& inputHeight [[ buffer(4) ]],
-                   constant int& inputDepth [[ buffer(5) ]],
-                   constant int& inputChannels [[ buffer(6) ]],
-                   constant int& kernelSize [[ buffer(7) ]],
-                   constant int& outputWidth [[ buffer(8) ]],
-                   constant int& outputHeight [[ buffer(9) ]],
-                   constant int& outputDepth [[ buffer(10) ]],
-                   constant int& outputChannels [[ buffer(11) ]],
-                   constant int& strideX [[ buffer(12) ]],
-                   constant int& strideY [[ buffer(13) ]],
-                   constant int& strideZ [[ buffer(14) ]],
-                   constant int& paddingX [[ buffer(15) ]],
-                   constant int& paddingY [[ buffer(16) ]],
-                   constant int& paddingZ [[ buffer(17) ]],
-                   uint4 gid [[ thread_position_in_grid ]]) {
+                   constant int& inputChannels [[ buffer(5) ]],
+                   constant int& kernelSize [[ buffer(6) ]],
+                   constant int& outputWidth [[ buffer(7) ]],
+                   constant int& outputHeight [[ buffer(8) ]],
+                   constant int& outputChannels [[ buffer(9) ]],
+                   constant int& strideX [[ buffer(10) ]],
+                   constant int& strideY [[ buffer(11) ]],
+                   constant int& paddingX [[ buffer(12) ]],
+                   constant int& paddingY [[ buffer(13) ]],
+                   uint3 gid [[ thread_position_in_grid ]]) {
     
     int x = gid.x;
     int y = gid.y;
     int z = gid.z;
-    int w = gid.w;
     
-    if (x >= outputWidth || y >= outputHeight || z >= outputDepth || w >= outputChannels) {
+    if (x >= outputWidth || y >= outputHeight || z >= outputChannels) {
         return;
     }
     
     float sum = 0.0;
     
     for (int c = 0; c < inputChannels; c++) {
-        for (int kz = 0; kz < kernelSize; kz++) {
-            for (int ky = 0; ky < kernelSize; ky++) {
-                for (int kx = 0; kx < kernelSize; kx++) {
-                    int inputX = x * strideX + kx - paddingX;
-                    int inputY = y * strideY + ky - paddingY;
-                    int inputZ = z * strideZ + kz - paddingZ;
+        for (int ky = 0; ky < kernelSize; ky++) {
+            for (int kx = 0; kx < kernelSize; kx++) {
+                int inputX = x * strideX + kx - paddingX;
+                int inputY = y * strideY + ky - paddingY;
+                
+                if (inputX >= 0 && inputX < inputWidth && inputY >= 0 && inputY < inputHeight) {
+                    int inputIndex = inputY * inputWidth + inputX;
+                    int kernelIndex = ((z * inputChannels + c) * kernelSize + ky) * kernelSize + kx;
                     
-                    if (inputX >= 0 && inputX < inputWidth &&
-                        inputY >= 0 && inputY < inputHeight &&
-                        inputZ >= 0 && inputZ < inputDepth) {
-                        int inputIndex = ((c * inputDepth + inputZ) * inputHeight + inputY) * inputWidth + inputX;
-                        int kernelIndex = (((w * inputChannels + c) * kernelSize + kz) * kernelSize + ky) * kernelSize + kx;
-                        
-                        sum += input[inputIndex] * kernel[kernelIndex];
-                    }
+                    sum += input[c * inputWidth * inputHeight + inputIndex] * filter[kernelIndex];
                 }
             }
         }
     }
     
-    int outputIndex = ((w * outputDepth + z) * outputHeight + y) * outputWidth + x;
+    int outputIndex = (z * outputHeight + y) * outputWidth + x;
     output[outputIndex] = sum;
 }
 
@@ -142,13 +120,19 @@ kernel void conv3d(const device float* input [[ buffer(0) ]],
 kernel void activation(const device float* data [[ buffer(0) ]],
                        device float* results [[ buffer(1) ]],
                        const device uint& activationType [[ buffer(2) ]],
-                       const device float& limit,
-                       const uint tgPos [[ threadgroup_position_in_grid ]],
-                       const uint tPerTg [[ threads_per_threadgroup ]],
-                       const uint tPos [[ thread_position_in_threadgroup ]]) {
+                       const device float& limit [[ buffer(3) ]],
+                       const device uint& width [[ buffer(4) ]],
+                       const device uint& height [[ buffer(5) ]],
+                       uint2 gid [[ thread_position_in_grid ]]) {
   
-  uint resultIndex = tgPos * tPerTg + tPos;
+  uint x = gid.x;
+  uint y = gid.y;
   
+  if (x >= width || y >= height) {
+    return;
+  }
+  
+  uint resultIndex = y * width + x;
   float completeValue = data[resultIndex];
 
   if (activationType == 0) { //relu
@@ -179,19 +163,23 @@ kernel void activation(const device float* data [[ buffer(0) ]],
 }
 
 kernel void derivate(const device float* data [[ buffer(0) ]],
-                     device float* results [[ buffer(1) ]],
-                     const device uint& activationType [[ buffer(2) ]],
-                     const device float& limit,
-                     const uint tgPos [[ threadgroup_position_in_grid ]],
-                     const uint tPerTg [[ threads_per_threadgroup ]],
-                     const uint tPos [[ thread_position_in_threadgroup ]]) {
-
-  uint resultIndex = tgPos * tPerTg + tPos;
+                       device float* results [[ buffer(1) ]],
+                       const device uint& activationType [[ buffer(2) ]],
+                       const device float& limit [[ buffer(3) ]],
+                       const device uint& width [[ buffer(4) ]],
+                       const device uint& height [[ buffer(5) ]],
+                       uint2 gid [[ thread_position_in_grid ]]) {
+  uint x = gid.x;
+  uint y = gid.y;
   
+  if (x >= width || y >= height) {
+    return;
+  }
+  
+  uint resultIndex = y * width + x;
   float completeValue = data[resultIndex];
-  
   float value = completeValue;
-  
+
   if (activationType == 0) { //relu
     if (completeValue >= 0) {
       value = 1;
@@ -225,45 +213,45 @@ kernel void derivate(const device float* data [[ buffer(0) ]],
   results[resultIndex] = value;
 }
 
-kernel void conv2d(const device float* input [[ buffer(0) ]],
-                   const device float* kernel [[ buffer(1) ]],
-                   device float* output [[ buffer(2) ]],
-                   constant int& inputWidth [[ buffer(3) ]],
-                   constant int& inputHeight [[ buffer(4) ]],
-                   constant int& inputChannels [[ buffer(5) ]],
-                   constant int& kernelSize [[ buffer(6) ]],
-                   constant int& outputWidth [[ buffer(7) ]],
-                   constant int& outputHeight [[ buffer(8) ]],
-                   constant int& outputChannels [[ buffer(9) ]],
-                   uint3 gid [[ thread_position_in_grid ]]) {
-    
-    int x = gid.x;
-    int y = gid.y;
-    int z = gid.z;
-    
-    if (x >= outputWidth || y >= outputHeight || z >= outputChannels) {
-        return;
-    }
-    
-    float sum = 0.0;
-    int halfKernel = kernelSize / 2;
-    
-    for (int c = 0; c < inputChannels; c++) {
-        for (int ky = 0; ky < kernelSize; ky++) {
-            for (int kx = 0; kx < kernelSize; kx++) {
-                int ix = x + kx - halfKernel;
-                int iy = y + ky - halfKernel;
-                
-                if (ix >= 0 && ix < inputWidth && iy >= 0 && iy < inputHeight) {
-                    int inputIndex = (c * inputHeight + iy) * inputWidth + ix;
-                    int kernelIndex = ((z * inputChannels + c) * kernelSize + ky) * kernelSize + kx;
-                    
-                    sum += input[inputIndex] * kernel[kernelIndex];
-                }
-            }
-        }
-    }
-    
-    int outputIndex = (z * outputHeight + y) * outputWidth + x;
-    output[outputIndex] = sum;
-}
+//kernel void conv2d(const device float* input [[ buffer(0) ]],
+//                   const device float* filter [[ buffer(1) ]],
+//                   device float* output [[ buffer(2) ]],
+//                   constant int& inputWidth [[ buffer(3) ]],
+//                   constant int& inputHeight [[ buffer(4) ]],
+//                   constant int& inputChannels [[ buffer(5) ]],
+//                   constant int& kernelSize [[ buffer(6) ]],
+//                   constant int& outputWidth [[ buffer(7) ]],
+//                   constant int& outputHeight [[ buffer(8) ]],
+//                   constant int& outputChannels [[ buffer(9) ]],
+//                   uint3 gid [[ thread_position_in_grid ]]) {
+//    
+//    int x = gid.x;
+//    int y = gid.y;
+//    int z = gid.z;
+//    
+//    if (x >= outputWidth || y >= outputHeight || z >= outputChannels) {
+//        return;
+//    }
+//    
+//    float sum = 0.0;
+//    int halfKernel = kernelSize / 2;
+//    
+//    for (int c = 0; c < inputChannels; c++) {
+//        for (int ky = 0; ky < kernelSize; ky++) {
+//            for (int kx = 0; kx < kernelSize; kx++) {
+//                int ix = x + kx - halfKernel;
+//                int iy = y + ky - halfKernel;
+//                
+//                if (ix >= 0 && ix < inputWidth && iy >= 0 && iy < inputHeight) {
+//                    int inputIndex = (c * inputHeight + iy) * inputWidth + ix;
+//                    int kernelIndex = ((z * inputChannels + c) * kernelSize + ky) * kernelSize + kx;
+//                    
+//                    sum += input[inputIndex] * filter[kernelIndex];
+//                }
+//            }
+//        }
+//    }
+//    
+//    int outputIndex = (z * outputHeight + y) * outputWidth + x;
+//    output[outputIndex] = sum;
+//}

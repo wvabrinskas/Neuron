@@ -14,6 +14,36 @@ public class GPU: Device {
 
   private let manager = GPUManager.shared
   
+  public func transConv3d(signal: [[Tensor.Scalar]],
+                          filter: [[Tensor.Scalar]],
+                          strides: (Int, Int) = (1,1),
+                          padding: NumSwift.ConvPadding = .valid,
+                          filterSize: (rows: Int, columns: Int),
+                          inputSize: (rows: Int, columns: Int),
+                          outputSize: (rows: Int, columns: Int)? = nil) -> [[Tensor.Scalar]] {
+    
+    var calculatedOutputSize: (row: Int, columns: Int) {
+      var rows = inputSize.rows * strides.0
+      var columns = inputSize.columns * strides.1
+      
+      if padding == .valid {
+        rows = (inputSize.rows - 1) * strides.0 + filterSize.rows
+        columns = (inputSize.columns - 1) * strides.1 + filterSize.columns
+      }
+
+      return (rows, columns)
+    }
+    
+    let result = NumSwiftC.transConv2d(signal: signal,
+                                       filter: filter,
+                                       strides: strides,
+                                       padding: padding,
+                                       filterSize: filterSize,
+                                       inputSize: inputSize)
+    
+    return result
+  }
+  
   public func transConv2d(signal: [[Tensor.Scalar]],
                           filter: [[Tensor.Scalar]],
                           strides: (Int, Int) = (1,1),
@@ -52,7 +82,7 @@ public class GPU: Device {
                      inputSize: (rows: Int, columns: Int),
                      outputSize: (rows: Int, columns: Int)? = nil) -> [[Tensor.Scalar]] {
     
-    var calculatedOutputSize: (row: Int, columns: Int) {
+    var calculatedOutputSize: (rows: Int, columns: Int) {
       let paddingValue = padding.extra(inputSize: (inputSize.rows, inputSize.columns), filterSize: filterSize)
 
       let rows = (((inputSize.rows + (paddingValue.top + paddingValue.bottom)) - (filterSize.rows - 1) - 1) / strides.0) + 1
@@ -61,39 +91,67 @@ public class GPU: Device {
       return (rows, columns)
     }
     
-    let result = NumSwiftC.conv2d(signal: signal,
-                                  filter: filter,
-                                  strides: strides,
-                                  padding: padding,
-                                  filterSize: filterSize,
-                                  inputSize: inputSize)
+    let out = manager.conv2d(input: signal,
+                             kernels: filter,
+                             strides: strides,
+                             padding: padding,
+                             filterSize: filterSize,
+                             inputSize: inputSize,
+                             outputSize: calculatedOutputSize)
     
-    return result
+    return out
   }
   
   public func activate(_ input: Tensor, _ type: Activation) -> Tensor {
+    
     let shape = input.shape
-      
-    let flat = input.value.flatten()
-    let activated = self.manager.activate(flat, type)
+    let depth = shape[safe: 2, 0]
+    let inputSize = (rows: shape[safe: 1, 0], columns: shape[safe: 0, 0])
 
-    let reshaped = activated.reshape(columns: shape[safe: 0, 0]).batched(into: shape[safe: 2, 0])
+    var result: Tensor.Data = []
+    
+    for d in 0..<depth {
+      let activated = manager.activate(to: input.value[d],
+                                       inputSize: inputSize,
+                                       activationType: type)
 
-    return Tensor(reshaped)
+      result.append(activated)
+    }
+    
+    return Tensor(result)
   }
   
   public func derivate(_ input: Tensor, _ type: Activation) -> Tensor {
     let shape = input.shape
-      
-    let flat = input.value.flatten()
-    let activated = self.manager.activate(flat, type, derivate: true)
+    let depth = shape[safe: 2, 0]
+    let inputSize = (rows: shape[safe: 1, 0], columns: shape[safe: 0, 0])
 
-    let reshaped = activated.reshape(columns: shape[safe: 0, 0]).batched(into: shape[safe: 2, 0])
+    var result: Tensor.Data = []
+    
+    for d in 0..<depth {
+      let activated = manager.activate(to: result[d],
+                                       inputSize: inputSize,
+                                       activationType: type,
+                                       derivate: true)
 
-    return Tensor(reshaped)
+      result.append(activated)
+    }
+    
+    return Tensor(result)
   }
   
   public func matmul(_ a: Tensor, _ b: Tensor) -> Tensor {
-    a.matmul(b)
+    let bShape = b.value.shape
+    let aShape = a.value.shape
+    let aDepth = aShape[safe: 2] ?? 0
+
+    var result: Tensor.Data = []
+    
+    for d in 0..<aDepth {
+      let cResult = manager.matmul(a.value[d], aShape, b.value[d], bShape)
+      result.append(cResult)
+    }
+    
+    return Tensor(result)
   }
 }

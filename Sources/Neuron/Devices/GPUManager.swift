@@ -2,7 +2,7 @@ import Foundation
 import Metal
 import MetalPerformanceShaders
 import Accelerate
-
+import NumSwift
 
 // MARK: WIP - This is a work in progress and is not ready for use.
 
@@ -64,164 +64,226 @@ public class GPUManager {
     }
   }
   
-  
-  // currently only supports Flaot32
-  public func conv2d(_ input: Tensor,
-                     filters: [Tensor],
-                     biases: Tensor,
-                     filterCount: Int,
-                     filterSize: (rows: Int, columns: Int),
-                     strides: (rows: Int, columns: Int),
-                     inputSize: (rows: Int, columns: Int, depth: Int),
-                     outputSize: (rows: Int, columns: Int, depth: Int)) {
+  func matmul(_ A: [[Tensor.Scalar]],
+              _ aShape: [Int],
+              _ B: [[Tensor.Scalar]],
+              _ bShape: [Int]) -> [[Tensor.Scalar]] {
     
-    let descriptor = MPSCNNConvolutionDescriptor(kernelWidth: filterSize.columns,
-                                                 kernelHeight: filterSize.rows,
-                                                 inputFeatureChannels: inputSize.depth,
-                                                 outputFeatureChannels: filterCount)
+    let bColumns = bShape[safe: 0] ?? 0
+    let bRows = bShape[safe: 1] ?? 0
     
+    let aColumns = aShape[safe: 0] ?? 0
+    let aRows = aShape[safe: 1] ?? 0
     
-    descriptor.strideInPixelsX = strides.columns
-    descriptor.strideInPixelsY = strides.rows
-    
-    guard let device = device else {
-      return
+    guard let device = MTLCreateSystemDefaultDevice() else {
+      print("Metal is not supported on this device")
+      return []
     }
     
-    let filtersFlat = filters.map { $0.value }.flatten().flatten()
-    let biasesFlat = biases.value.flatten()
+    var M = Int32(aRows)
+    var K = Int32(aColumns)
+    var N = Int32(bColumns)
     
-    let conv = MPSCNNConvolution(device: device,
-                                 convolutionDescriptor: descriptor,
-                                 kernelWeights: filtersFlat,
-                                 biasTerms: biasesFlat,
-                                 flags: .none)
-
-    let inputImageDescriptor  = MPSImageDescriptor(channelFormat: MPSImageFeatureChannelFormat.float16,
-                                                   width: inputSize.columns,
-                                                   height: inputSize.rows,
-                                                   featureChannels: inputSize.depth)
-    
-    let image = MPSImage(device: device, imageDescriptor: inputImageDescriptor)
-    let inputImageData = input.value.flatten()
-    
-    image.texture.replace(region: MTLRegion(origin: MTLOrigin(x: 0, y: 0, z: 0),
-                                            size: MTLSize(width: inputSize.columns,
-                                                          height: inputSize.rows,
-                                                          depth: inputSize.depth)),
-                          mipmapLevel: 0,
-                          withBytes: inputImageData,
-                          bytesPerRow: inputSize.columns * MemoryLayout<Tensor.Scalar>.stride)
-    
-    guard let queue = device.makeCommandQueue(),
-          let commandBuffer = queue.makeCommandBuffer() else {
-      return
+    guard K == Int32(bRows) else {
+      print("Matrix dimensions don't match for multiplication")
+      return []
     }
     
-    let outputImageDescriptor  = MPSImageDescriptor(channelFormat: MPSImageFeatureChannelFormat.float16,
-                                                    width: outputSize.columns,
-                                                    height: outputSize.rows,
-                                                    featureChannels: outputSize.depth)
+    // Flatten 2D arrays
+    let flatA = A.flatten()
+    let flatB = B.flatten()
     
-    let outImage = MPSImage(device: commandBuffer.device, imageDescriptor: outputImageDescriptor)
+    guard let defaultLibrary = try? device.makeDefaultLibrary(bundle: Bundle.module),
+          let function = defaultLibrary.makeFunction(name: "matmul"),
+          let commandQueue = device.makeCommandQueue()
+    else {
+      print("Failed to create Metal function")
+      return []
+    }
     
-    conv.encode(commandBuffer: commandBuffer, sourceImage: image, destinationImage: outImage)
     
+    let pipelineState: MTLComputePipelineState
+    do {
+      pipelineState = try device.makeComputePipelineState(function: function)
+    } catch {
+      print("Failed to create compute pipeline state: \(error)")
+      return []
+    }
+    
+    let aBuffer = device.makeBuffer(bytes: flatA, length: flatA.count * MemoryLayout<Float>.stride, options: [])
+    let bBuffer = device.makeBuffer(bytes: flatB, length: flatB.count * MemoryLayout<Float>.stride, options: [])
+    guard let cBuffer = device.makeBuffer(length: Int(M * N) * MemoryLayout<Float>.stride, options: []) else { return [] }
+    
+    let commandBuffer = commandQueue.makeCommandBuffer()!
+    let computeEncoder = commandBuffer.makeComputeCommandEncoder()!
+    
+    computeEncoder.setComputePipelineState(pipelineState)
+    computeEncoder.setBuffer(aBuffer, offset: 0, index: 0)
+    computeEncoder.setBuffer(bBuffer, offset: 0, index: 1)
+    computeEncoder.setBuffer(cBuffer, offset: 0, index: 2)
+    computeEncoder.setBytes(&M, length: MemoryLayout<Int32>.stride, index: 3)
+    computeEncoder.setBytes(&N, length: MemoryLayout<Int32>.stride, index: 4)
+    computeEncoder.setBytes(&K, length: MemoryLayout<Int32>.stride, index: 5)
+    
+    let gridSize = MTLSizeMake(Int(N), Int(M), 1)
+    let threadGroupSize = MTLSizeMake(16, 16, 1)
+    computeEncoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
+    
+    computeEncoder.endEncoding()
     commandBuffer.commit()
     commandBuffer.waitUntilCompleted()
     
-    //let r = Array(arrayLiteral: outImage.texture.buffer?.contents())
+    let resultData = Data(bytesNoCopy: cBuffer.contents(), count: cBuffer.length, deallocator: .none)
+    let resultArray = resultData.withUnsafeBytes { Array(UnsafeBufferPointer<Float>(start: $0.baseAddress!.assumingMemoryBound(to: Float.self), count: Int(M * N))) }
     
-    let pixels: UnsafeMutablePointer<Tensor.Scalar> = image.texture.getPixels()
-    
-    defer {
-      pixels.deallocate()
-    }
-    
-    var result: [Tensor.Scalar] = []
-    
-    let capacity = outputSize.columns * outputSize.rows * MemoryLayout<Tensor.Scalar>.stride
-
-    for i in stride(from: 0, to: capacity, by: 4) {
-      let l     = pixels[i + 0]
-      let a     = pixels[i + 1]
-      let b     = pixels[i + 2]
-      let alpha = pixels[i + 3]
-      
-      print(l, a, b, alpha)
-      
-      result.append(a)
-    }
-    
-    print(result)
+    return resultArray.reshape(columns: Int(N))
   }
   
-  public func activate(_ num: [Tensor.Scalar],
-                       _ activationType: Activation,
-                       derivate: Bool = false) -> [Tensor.Scalar] {
-    var data = num
+  func conv2d(input: [[Tensor.Scalar]],
+              kernels: [[Tensor.Scalar]],
+              strides: (Int, Int) = (1,1),
+              padding: NumSwift.ConvPadding = .valid,
+              filterSize: (rows: Int, columns: Int),
+              inputSize: (rows: Int, columns: Int),
+              outputSize: (rows: Int, columns: Int)? = nil) -> [[Float]] {
     
-    guard let device = self.device else {
-      return num
+    let padding = padding.extra(inputSize: inputSize, filterSize: filterSize, stride: strides)
+    
+    let device = MTLCreateSystemDefaultDevice()!
+    let commandQueue = device.makeCommandQueue()!
+    
+    let defaultLibrary = try! device.makeDefaultLibrary(bundle: Bundle.module)
+    let kernelFunction = defaultLibrary.makeFunction(name: "conv2d")!
+    let pipelineState = try! device.makeComputePipelineState(function: kernelFunction)
+    
+    var inputHeight = Int32(input.count)
+    var inputWidth = Int32(inputSize.columns)
+    let inputChannels = 1
+    var kernelSize = Int32(filterSize.columns)
+    
+    var outputWidth = outputSize?.columns ?? 1
+    var outputHeight = outputSize?.rows ?? 1
+    let outputChannels = 1
+    
+    // Flatten 2D arrays
+    let flatInput = input.flatten()
+    let flatKernels = kernels.flatten()
+    
+    let inputBuffer = device.makeBuffer(bytes: flatInput, length: flatInput.count * MemoryLayout<Float>.stride, options: [])
+    let kernelBuffer = device.makeBuffer(bytes: flatKernels, length: flatKernels.count * MemoryLayout<Float>.stride, options: [])
+    guard let outputBuffer = device.makeBuffer(length: Int(outputWidth * outputHeight * outputChannels) * MemoryLayout<Float>.stride, options: []) else { return [] }
+    
+    let commandBuffer = commandQueue.makeCommandBuffer()!
+    let computeEncoder = commandBuffer.makeComputeCommandEncoder()!
+    
+    computeEncoder.setComputePipelineState(pipelineState)
+    computeEncoder.setBuffer(inputBuffer, offset: 0, index: 0)
+    computeEncoder.setBuffer(kernelBuffer, offset: 0, index: 1)
+    computeEncoder.setBuffer(outputBuffer, offset: 0, index: 2)
+    computeEncoder.setBytes(&inputWidth, length: MemoryLayout<Int32>.stride, index: 3)
+    computeEncoder.setBytes(&inputHeight, length: MemoryLayout<Int32>.stride, index: 4)
+    var inputChannels32 = Int32(inputChannels)
+    computeEncoder.setBytes(&inputChannels32, length: MemoryLayout<Int32>.stride, index: 5)
+    computeEncoder.setBytes(&kernelSize, length: MemoryLayout<Int32>.stride, index: 6)
+    computeEncoder.setBytes(&outputWidth, length: MemoryLayout<Int32>.stride, index: 7)
+    computeEncoder.setBytes(&outputHeight, length: MemoryLayout<Int32>.stride, index: 8)
+    var outputChannels32 = Int32(outputChannels)
+    computeEncoder.setBytes(&outputChannels32, length: MemoryLayout<Int32>.stride, index: 9)
+    var strideX = Int32(strides.1)
+    var strideY = Int32(strides.0)
+    computeEncoder.setBytes(&strideX, length: MemoryLayout<Int32>.stride, index: 10)
+    computeEncoder.setBytes(&strideY, length: MemoryLayout<Int32>.stride, index: 11)
+    var paddingX = Int32(padding.left)
+    var paddingY = Int32(padding.top)
+    computeEncoder.setBytes(&paddingX, length: MemoryLayout<Int32>.stride, index: 12)
+    computeEncoder.setBytes(&paddingY, length: MemoryLayout<Int32>.stride, index: 13)
+    
+    let gridSize = MTLSizeMake(Int(outputWidth), Int(outputHeight), outputChannels)
+    let threadGroupSize = MTLSizeMake(16, 16, 1)
+    computeEncoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
+    
+    computeEncoder.endEncoding()
+    commandBuffer.commit()
+    commandBuffer.waitUntilCompleted()
+    
+    let outputData = Data(bytesNoCopy: outputBuffer.contents(), count: outputBuffer.length, deallocator: .none)
+    let flatResult = [Float](unsafeUninitializedCapacity: outputData.count / MemoryLayout<Float>.stride) { buffer, initializedCount in
+      outputData.copyBytes(to: buffer)
+      initializedCount = outputData.count / MemoryLayout<Float>.stride
     }
     
+    return flatResult.reshape(columns: outputWidth)
+  }
+  
+  func activate(to input: [[Tensor.Scalar]],
+                inputSize: (rows: Int, columns: Int),
+                activationType: Activation,
+                derivate: Bool = false) -> [[Float]] {
+    guard let device = MTLCreateSystemDefaultDevice() else {
+      print("Metal is not supported on this device")
+      return []
+    }
+    
+    var height = UInt32(inputSize.rows)
+    var width = UInt32(inputSize.columns)
+    
+    // Flatten 2D array
+    let flatInput = input.flatten()
     let function: MetalFunction = derivate ? .derivate : .activation
     
-    let pipeline: MTLComputePipelineState? = self.pipelineIfExists(type: function) ?? self.addPipeline(for: function)
-    
-    guard let dataBuffer = device.makeBuffer(bytes: &data,
-                                             length: MemoryLayout<Tensor.Scalar>.stride * data.count,
-                                             options: []),
-          
-            let resultsBuffer = device.makeBuffer(length: MemoryLayout<Tensor.Scalar>.stride * data.count,
-                                                  options: []) else {
-      return num
+    guard let defaultLibrary = try? device.makeDefaultLibrary(bundle: Bundle.module),
+          let function = defaultLibrary.makeFunction(name: function.rawValue),
+          let commandQueue = device.makeCommandQueue()
+    else {
+      print("Failed to create Metal function")
+      return []
     }
     
-    let queue = self.device?.makeCommandQueue()
-    let cmds = queue?.makeCommandBuffer()
-    let newEncoder = cmds?.makeComputeCommandEncoder()
     
-    guard let encoder = newEncoder, let pipelineStrong = pipeline else {
-      return num
+    let pipelineState: MTLComputePipelineState
+    do {
+      pipelineState = try device.makeComputePipelineState(function: function)
+    } catch {
+      print("Failed to create compute pipeline state: \(error)")
+      return []
     }
     
-    var activation = CUnsignedInt(activationType.index())
+    let inputBuffer = device.makeBuffer(bytes: flatInput, length: flatInput.count * MemoryLayout<Float>.stride, options: [])
+    let outputBuffer = device.makeBuffer(length: flatInput.count * MemoryLayout<Float>.stride, options: [])
     
-    encoder.setComputePipelineState(pipelineStrong)
+    let commandBuffer = commandQueue.makeCommandBuffer()!
+    let computeEncoder = commandBuffer.makeComputeCommandEncoder()!
     
-    encoder.setBuffer(dataBuffer, offset: 0, index: 0)
-    encoder.setBuffer(resultsBuffer, offset: 0, index: 1)
-    encoder.setBytes(&activation, length: MemoryLayout<CUnsignedInt>.size, index: 2)
+    computeEncoder.setComputePipelineState(pipelineState)
+    computeEncoder.setBuffer(inputBuffer, offset: 0, index: 0)
+    computeEncoder.setBuffer(outputBuffer, offset: 0, index: 1)
+    
+    var activationTypeRaw = activationType.index()
+    computeEncoder.setBytes(&activationTypeRaw, length: MemoryLayout<UInt32>.stride, index: 2)
     
     switch activationType {
     case .leakyRelu(let limit):
       var limit = Tensor.Scalar(limit)
-      encoder.setBytes(&limit, length: MemoryLayout<Tensor.Scalar>.size, index: 3)
+      computeEncoder.setBytes(&limit, length: MemoryLayout<Tensor.Scalar>.size, index: 3)
     default:
       break
     }
     
-    let w = pipelineStrong.threadExecutionWidth
-    let _ = pipelineStrong.maxTotalThreadsPerThreadgroup / w
-    let threadsPerThreadgroup = MTLSizeMake(1, 1, 1)
+    computeEncoder.setBytes(&width, length: MemoryLayout<UInt32>.stride, index: 4)
+    computeEncoder.setBytes(&height, length: MemoryLayout<UInt32>.stride, index: 5)
     
-    let threadgroupsPerGrid = MTLSize(width: 1,
-                                      height: 1,
-                                      depth: 1)
+    let gridSize = MTLSizeMake(Int(width), Int(height), 1)
+    let threadGroupSize = MTLSizeMake(16, 16, 1)
+    computeEncoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
     
-    encoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
-    encoder.endEncoding()
+    computeEncoder.endEncoding()
+    commandBuffer.commit()
+    commandBuffer.waitUntilCompleted()
     
-    //execution step
-    cmds?.commit()
-    cmds?.waitUntilCompleted()
+    let resultData = Data(bytesNoCopy: outputBuffer!.contents(), count: outputBuffer!.length, deallocator: .none)
+    let resultArray = resultData.withUnsafeBytes { Array(UnsafeBufferPointer<Float>(start: $0.baseAddress!.assumingMemoryBound(to: Float.self), count: flatInput.count)) }
     
-    let dataArray = UnsafeMutableBufferPointer<Tensor.Scalar>(start: resultsBuffer.contents().assumingMemoryBound(to: Tensor.Scalar.self),
-                                                      count: data.count)
-    
-    return Array(dataArray)
+    return resultArray.reshape(columns: Int(width))
   }
-  
 }
 
