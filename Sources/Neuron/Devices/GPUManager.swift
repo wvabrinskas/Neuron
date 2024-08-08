@@ -29,41 +29,6 @@ public class GPUManager {
     case activation, derivate
   }
   
-  private var currentRunningPipelines: [MTLComputePipelineState] = []
-  private var device: MTLDevice? = MTLCreateSystemDefaultDevice()
-  
-  private func getFunction(_ function: MetalFunction) -> MTLFunction? {
-    return try? device?.makeDefaultLibrary(bundle: Bundle.module).makeFunction(name: function.rawValue)
-  }
-  
-  private func pipelineIfExists(type: MetalFunction) -> MTLComputePipelineState? {
-    return self.currentRunningPipelines.filter({ $0.label == type.rawValue }).first
-  }
-  
-  private func addPipeline(for type: MetalFunction) -> MTLComputePipelineState? {
-    guard let device = self.device,
-          let function = getFunction(type) else {
-      return nil
-    }
-    
-    do {
-      let descriptor = MTLComputePipelineDescriptor()
-      descriptor.label = type.rawValue
-      descriptor.computeFunction = function
-      
-      let pipeline = try device.makeComputePipelineState(descriptor: descriptor,
-                                                         options: [],
-                                                         reflection: nil)
-      
-      self.currentRunningPipelines.append(pipeline)
-      return pipeline
-      
-    } catch {
-      print(error)
-      return nil
-    }
-  }
-  
   func matmul(_ A: [[Tensor.Scalar]],
               _ aShape: [Int],
               _ B: [[Tensor.Scalar]],
@@ -145,15 +110,18 @@ public class GPUManager {
               padding: NumSwift.ConvPadding = .valid,
               filterSize: (rows: Int, columns: Int),
               inputSize: (rows: Int, columns: Int),
-              outputSize: (rows: Int, columns: Int)? = nil) -> [[Float]] {
+              outputSize: (rows: Int, columns: Int)? = nil,
+              transConv: Bool = false) -> [[Float]] {
     
     let padding = padding.extra(inputSize: inputSize, filterSize: filterSize, stride: strides)
     
     let device = MTLCreateSystemDefaultDevice()!
     let commandQueue = device.makeCommandQueue()!
     
+    let function = transConv ? "transConv2d" : "conv2d"
+    
     let defaultLibrary = try! device.makeDefaultLibrary(bundle: Bundle.module)
-    let kernelFunction = defaultLibrary.makeFunction(name: "conv2d")!
+    let kernelFunction = defaultLibrary.makeFunction(name: function)!
     let pipelineState = try! device.makeComputePipelineState(function: kernelFunction)
     
     var inputHeight = Int32(input.count)

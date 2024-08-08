@@ -13,36 +13,7 @@ public class GPU: Device {
   public var type: DeviceType = .gpu
 
   private let manager = GPUManager.shared
-  
-  public func transConv3d(signal: [[Tensor.Scalar]],
-                          filter: [[Tensor.Scalar]],
-                          strides: (Int, Int) = (1,1),
-                          padding: NumSwift.ConvPadding = .valid,
-                          filterSize: (rows: Int, columns: Int),
-                          inputSize: (rows: Int, columns: Int),
-                          outputSize: (rows: Int, columns: Int)? = nil) -> [[Tensor.Scalar]] {
-    
-    var calculatedOutputSize: (row: Int, columns: Int) {
-      var rows = inputSize.rows * strides.0
-      var columns = inputSize.columns * strides.1
-      
-      if padding == .valid {
-        rows = (inputSize.rows - 1) * strides.0 + filterSize.rows
-        columns = (inputSize.columns - 1) * strides.1 + filterSize.columns
-      }
 
-      return (rows, columns)
-    }
-    
-    let result = NumSwiftC.transConv2d(signal: signal,
-                                       filter: filter,
-                                       strides: strides,
-                                       padding: padding,
-                                       filterSize: filterSize,
-                                       inputSize: inputSize)
-    
-    return result
-  }
   
   public func transConv2d(signal: [[Tensor.Scalar]],
                           filter: [[Tensor.Scalar]],
@@ -52,7 +23,7 @@ public class GPU: Device {
                           inputSize: (rows: Int, columns: Int),
                           outputSize: (rows: Int, columns: Int)? = nil) -> [[Tensor.Scalar]] {
     
-    var calculatedOutputSize: (row: Int, columns: Int) {
+    var calculatedOutputSize: (rows: Int, columns: Int) {
       var rows = inputSize.rows * strides.0
       var columns = inputSize.columns * strides.1
       
@@ -64,14 +35,16 @@ public class GPU: Device {
       return (rows, columns)
     }
     
-    let result = NumSwiftC.transConv2d(signal: signal,
-                                       filter: filter,
-                                       strides: strides,
-                                       padding: padding,
-                                       filterSize: filterSize,
-                                       inputSize: inputSize)
+    let out = manager.conv2d(input: signal,
+                             kernels: filter,
+                             strides: strides,
+                             padding: padding,
+                             filterSize: filterSize,
+                             inputSize: inputSize,
+                             outputSize: calculatedOutputSize,
+                             transConv: true)
     
-    return result
+    return out
   }
   
   public func conv2d(signal: [[Tensor.Scalar]],

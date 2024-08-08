@@ -20,7 +20,6 @@ kernel void matmul(const device float* A [[ buffer(0) ]],
     }
 }
 
-
 kernel void transConv2d(const device float* input [[ buffer(0) ]],
                         const device float* filter [[ buffer(1) ]],
                         device float* output [[ buffer(2) ]],
@@ -68,7 +67,6 @@ kernel void transConv2d(const device float* input [[ buffer(0) ]],
     output[outputIndex] = sum;
 }
 
-
 kernel void conv2d(const device float* input [[ buffer(0) ]],
                    const device float* filter [[ buffer(1) ]],
                    device float* output [[ buffer(2) ]],
@@ -115,8 +113,6 @@ kernel void conv2d(const device float* input [[ buffer(0) ]],
     output[outputIndex] = sum;
 }
 
-
-
 kernel void activation(const device float* data [[ buffer(0) ]],
                        device float* results [[ buffer(1) ]],
                        const device uint& activationType [[ buffer(2) ]],
@@ -131,6 +127,18 @@ kernel void activation(const device float* data [[ buffer(0) ]],
   if (x >= width || y >= height) {
     return;
   }
+  
+  /*
+   case .reLu: return 0
+   case .leakyRelu: return 1
+   case .sigmoid: return 2
+   case .swish: return 3
+   case .tanh: return 4
+   case .softmax: return 5
+   case .seLu: return 6
+   case .geLu: return 7
+   case .none: return 8
+   */
   
   uint resultIndex = y * width + x;
   float completeValue = data[resultIndex];
@@ -155,8 +163,18 @@ kernel void activation(const device float* data [[ buffer(0) ]],
   } else if (activationType == 4) { //tanH
     float denom = 1.0 + exp(-2 * completeValue);
     results[resultIndex] = (2.0 / denom) - 1.0;
-    
-  } else if (activationType == 5) { //none
+  } else if (activationType == 6) { //selu
+    float alpha = 1.6732632423543772848170429916717;
+    float scale = 1.0507009873554804934193349852946;
+    if (completeValue > 0) {
+      results[resultIndex] = scale * completeValue;
+    } else {
+      results[resultIndex] = scale * alpha * (exp(completeValue) - 1);
+    }
+  } else if (activationType == 7) { //gelu
+   float cdf = 0.5 * (1.0 + tanh((sqrt(2.0 / M_PI_F) * (completeValue + 0.044715 * pow(completeValue, 3)))));
+   results[resultIndex] = completeValue * cdf;
+  } else if (activationType == 8 || activationType == 5) { //none & softmax
     results[resultIndex] = completeValue;
   }
 
@@ -206,52 +224,23 @@ kernel void derivate(const device float* data [[ buffer(0) ]],
     float tanActivate = (2.0 / denom) - 1.0;
     value = 1 - (pow(tanActivate, 2));
     
-  } else if (activationType == 5) { //none
-    results[resultIndex] = 1;
+  } else if (activationType == 6) { //selu
+    float alpha = 1.6732632423543772848170429916717;
+    float scale = 1.0507009873554804934193349852946;
+    if (completeValue > 0) {
+      value = scale;
+    } else {
+      value = scale * alpha * exp(completeValue);
+    }
+    
+  } else if (activationType == 7) { //gelu
+    float cdf = 0.5 * (1.0 + tanh((sqrt(2.0 / M_PI_F) * (completeValue + 0.044715 * pow(completeValue, 3)))));
+    float pdf = exp(-0.5 * pow(completeValue, 2)) / sqrt(2.0 * M_PI_F);
+    value = cdf + completeValue * pdf;
+    
+  } else if ( else if (activationType == 5 || activationType == 8) { //none & softmax
+    value = 1;
   }
   
   results[resultIndex] = value;
 }
-
-//kernel void conv2d(const device float* input [[ buffer(0) ]],
-//                   const device float* filter [[ buffer(1) ]],
-//                   device float* output [[ buffer(2) ]],
-//                   constant int& inputWidth [[ buffer(3) ]],
-//                   constant int& inputHeight [[ buffer(4) ]],
-//                   constant int& inputChannels [[ buffer(5) ]],
-//                   constant int& kernelSize [[ buffer(6) ]],
-//                   constant int& outputWidth [[ buffer(7) ]],
-//                   constant int& outputHeight [[ buffer(8) ]],
-//                   constant int& outputChannels [[ buffer(9) ]],
-//                   uint3 gid [[ thread_position_in_grid ]]) {
-//    
-//    int x = gid.x;
-//    int y = gid.y;
-//    int z = gid.z;
-//    
-//    if (x >= outputWidth || y >= outputHeight || z >= outputChannels) {
-//        return;
-//    }
-//    
-//    float sum = 0.0;
-//    int halfKernel = kernelSize / 2;
-//    
-//    for (int c = 0; c < inputChannels; c++) {
-//        for (int ky = 0; ky < kernelSize; ky++) {
-//            for (int kx = 0; kx < kernelSize; kx++) {
-//                int ix = x + kx - halfKernel;
-//                int iy = y + ky - halfKernel;
-//                
-//                if (ix >= 0 && ix < inputWidth && iy >= 0 && iy < inputHeight) {
-//                    int inputIndex = (c * inputHeight + iy) * inputWidth + ix;
-//                    int kernelIndex = ((z * inputChannels + c) * kernelSize + ky) * kernelSize + kx;
-//                    
-//                    sum += input[inputIndex] * filter[kernelIndex];
-//                }
-//            }
-//        }
-//    }
-//    
-//    int outputIndex = (z * outputHeight + y) * outputWidth + x;
-//    output[outputIndex] = sum;
-//}
