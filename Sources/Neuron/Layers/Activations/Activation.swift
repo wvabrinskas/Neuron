@@ -70,7 +70,8 @@ public enum Activation: Codable, Equatable {
     var returnValue: Tensor.Scalar = 0
     switch self {
     case .geLu:
-      return input * (1 + Tensor.Scalar.erf(input / sqrt(2))) / 2
+      let cdf = 0.5 * (1.0 + Tensor.Scalar.tanh(Tensor.Scalar.sqrt(2.0 / Tensor.Scalar.pi) * (input + 0.044715 * input * input * input)))
+      return input * cdf
     case .seLu:
       let lambda: Tensor.Scalar = 1.0507
       let alpha: Tensor.Scalar = 1.6733
@@ -117,12 +118,9 @@ public enum Activation: Codable, Equatable {
   private func derivative(input: Tensor.Scalar) -> Tensor.Scalar {
     switch self {
     case .geLu:
-        // need to recompute forward, we need a global context or something =(
-      let forward = input * (1 + Tensor.Scalar.erf(input / sqrt(2))) / 2
-      let dist = NormalDistribution(mean: 0, deviation: 1)
-      let pdf = Tensor.Scalar.exp(dist.logProb(value: forward))
-      return forward + input * pdf
-      
+      let cdf = 0.5 * (1.0 + Tensor.Scalar.tanh(Tensor.Scalar.sqrt(2.0 / Tensor.Scalar.pi) * (input + 0.044715 * input * input * input)))
+      let pdf = Tensor.Scalar.exp(-0.5 * Tensor.Scalar.pow(input, 2)) / Tensor.Scalar.sqrt(2.0 * Tensor.Scalar.pi)
+      return cdf + input * pdf
     case .seLu:
       let lambda: Tensor.Scalar = 1.0507
       let alpha: Tensor.Scalar = 1.6733

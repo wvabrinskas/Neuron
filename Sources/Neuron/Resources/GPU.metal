@@ -238,7 +238,7 @@ kernel void derivate(const device float* data [[ buffer(0) ]],
     float pdf = exp(-0.5 * pow(completeValue, 2)) / sqrt(2.0 * M_PI_F);
     value = cdf + completeValue * pdf;
     
-  } else if ( else if (activationType == 5 || activationType == 8) { //none & softmax
+  } else if (activationType == 5 || activationType == 8) { //none & softmax
     value = 1;
   }
   

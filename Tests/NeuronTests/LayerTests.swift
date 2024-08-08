@@ -11,7 +11,6 @@ import NumSwift
 @testable import Neuron
 
 final class LayerTests: XCTestCase {
-  
   func test_gelu() {
     let gelu = GeLu()
     gelu.inputSize = TensorSize(rows: 3, columns: 3, depth: 3)
@@ -20,14 +19,14 @@ final class LayerTests: XCTestCase {
     
     let output = gelu.forward(tensor: input)
     
-    let expected = Tensor.fillWith(value: 0.8413447, size: gelu.inputSize)
+    let expected = Tensor.fillWith(value: 0.841192, size: gelu.inputSize)
     XCTAssertEqual(expected, output)
     
     let error = Tensor.fillWith(value: 0.2, size: gelu.inputSize)
 
     let errorOut = output.gradients(delta: error)
     
-    let expectedDer = Tensor.fillWith(value: 0.22427435, size: gelu.inputSize)
+    let expectedDer = Tensor.fillWith(value: 0.21663256, size: gelu.inputSize)
     XCTAssertEqual(expectedDer, errorOut.input[0])
   }
   

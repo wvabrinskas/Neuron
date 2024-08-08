@@ -13,8 +13,9 @@ public class GPU: Device {
   public var type: DeviceType = .gpu
 
   private let manager = GPUManager.shared
-
   
+  public init() { }
+
   public func transConv2d(signal: [[Tensor.Scalar]],
                           filter: [[Tensor.Scalar]],
                           strides: (Int, Int) = (1,1),
@@ -102,7 +103,7 @@ public class GPU: Device {
     var result: Tensor.Data = []
     
     for d in 0..<depth {
-      let activated = manager.activate(to: result[d],
+      let activated = manager.activate(to: input.value[d],
                                        inputSize: inputSize,
                                        activationType: type,
                                        derivate: true)

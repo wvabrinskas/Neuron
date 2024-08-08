@@ -79,6 +79,7 @@ public class RNN: Classifier {
     }
   }
   
+  private let device: Device
   private let dataset: RNNSupportedDataset
   private var lstm: LSTM?
   private var embedding: Embedding?
@@ -101,6 +102,7 @@ public class RNN: Classifier {
               lstmParameters: RNNLSTMParameters,
               extraLayers: () -> [Layer] = { [] }) {
     
+    self.device = device
     self.classifierParameters = classifierParameters
     self.optimizerParameters = optimizerParameters
     self.lstmParameters = lstmParameters
@@ -261,6 +263,8 @@ public class RNN: Classifier {
     layers.append(contentsOf: extraLayers)
     
     let sequential = Sequential({ layers })
+    
+    sequential.device = device
     
     optimizer.trainable = sequential
     
