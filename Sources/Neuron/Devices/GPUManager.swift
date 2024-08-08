@@ -63,97 +63,99 @@ public class GPUManager {
       return nil
     }
   }
-//  
-//  public func conv2d(_ input: Tensor,
-//                     filters: [Tensor],
-//                     biases: Tensor,
-//                     filterCount: Int,
-//                     filterSize: (rows: Int, columns: Int),
-//                     strides: (rows: Int, columns: Int),
-//                     inputSize: (rows: Int, columns: Int, depth: Int),
-//                     outputSize: (rows: Int, columns: Int, depth: Int)) {
-//    
-//    let descriptor = MPSCNNConvolutionDescriptor(kernelWidth: filterSize.columns,
-//                                                 kernelHeight: filterSize.rows,
-//                                                 inputFeatureChannels: inputSize.depth,
-//                                                 outputFeatureChannels: filterCount)
-//    
-//    
-//    descriptor.strideInPixelsX = strides.columns
-//    descriptor.strideInPixelsY = strides.rows
-//    
-//    guard let device = device else {
-//      return
-//    }
-//    
-//    let filtersFlat = filters.map { $0.value }.flatten().flatten()
-//    let biasesFlat = biases.value.flatten()
-//    
-//    let conv = MPSCNNConvolution(device: device,
-//                                 convolutionDescriptor: descriptor,
-//                                 kernelWeights: filtersFlat,
-//                                 biasTerms: biasesFlat,
-//                                 flags: .none)
-//
-//    let inputImageDescriptor  = MPSImageDescriptor(channelFormat: MPSImageFeatureChannelFormat.float16,
-//                                                   width: inputSize.columns,
-//                                                   height: inputSize.rows,
-//                                                   featureChannels: inputSize.depth)
-//    
-//    let image = MPSImage(device: device, imageDescriptor: inputImageDescriptor)
-//    let inputImageData = input.value.flatten()
-//    
-//    image.texture.replace(region: MTLRegion(origin: MTLOrigin(x: 0, y: 0, z: 0),
-//                                            size: MTLSize(width: inputSize.columns,
-//                                                          height: inputSize.rows,
-//                                                          depth: inputSize.depth)),
-//                          mipmapLevel: 0,
-//                          withBytes: inputImageData,
-//                          bytesPerRow: inputSize.columns * MemoryLayout<Tensor.Scalar>.stride)
-//    
-//    guard let queue = device.makeCommandQueue(),
-//          let commandBuffer = queue.makeCommandBuffer() else {
-//      return
-//    }
-//    
-//    let outputImageDescriptor  = MPSImageDescriptor(channelFormat: MPSImageFeatureChannelFormat.float16,
-//                                                    width: outputSize.columns,
-//                                                    height: outputSize.rows,
-//                                                    featureChannels: outputSize.depth)
-//    
-//    let outImage = MPSImage(device: commandBuffer.device, imageDescriptor: outputImageDescriptor)
-//    
-//    conv.encode(commandBuffer: commandBuffer, sourceImage: image, destinationImage: outImage)
-//    
-//    commandBuffer.commit()
-//    commandBuffer.waitUntilCompleted()
-//    
-//    //let r = Array(arrayLiteral: outImage.texture.buffer?.contents())
-//    
-//    let pixels: UnsafeMutablePointer<Tensor.Scalar> = image.texture.getPixels()
-//    
-//    defer {
-//      pixels.deallocate()
-//    }
-//    
-//    var result: [Tensor.Scalar] = []
-//    
-//    let capacity = outputSize.columns * outputSize.rows * MemoryLayout<Tensor.Scalar>.stride
-//
-//    for i in stride(from: 0, to: capacity, by: 4) {
-//      let l     = pixels[i + 0]
-//      let a     = pixels[i + 1]
-//      let b     = pixels[i + 2]
-//      let alpha = pixels[i + 3]
-//      
-//      print(l, a, b, alpha)
-//      
-//      result.append(a)
-//    }
-//    
-//    print(result)
-//  }
-//  
+  
+  
+  // currently only supports Flaot32
+  public func conv2d(_ input: Tensor,
+                     filters: [Tensor],
+                     biases: Tensor,
+                     filterCount: Int,
+                     filterSize: (rows: Int, columns: Int),
+                     strides: (rows: Int, columns: Int),
+                     inputSize: (rows: Int, columns: Int, depth: Int),
+                     outputSize: (rows: Int, columns: Int, depth: Int)) {
+    
+    let descriptor = MPSCNNConvolutionDescriptor(kernelWidth: filterSize.columns,
+                                                 kernelHeight: filterSize.rows,
+                                                 inputFeatureChannels: inputSize.depth,
+                                                 outputFeatureChannels: filterCount)
+    
+    
+    descriptor.strideInPixelsX = strides.columns
+    descriptor.strideInPixelsY = strides.rows
+    
+    guard let device = device else {
+      return
+    }
+    
+    let filtersFlat = filters.map { $0.value }.flatten().flatten()
+    let biasesFlat = biases.value.flatten()
+    
+    let conv = MPSCNNConvolution(device: device,
+                                 convolutionDescriptor: descriptor,
+                                 kernelWeights: filtersFlat,
+                                 biasTerms: biasesFlat,
+                                 flags: .none)
+
+    let inputImageDescriptor  = MPSImageDescriptor(channelFormat: MPSImageFeatureChannelFormat.float16,
+                                                   width: inputSize.columns,
+                                                   height: inputSize.rows,
+                                                   featureChannels: inputSize.depth)
+    
+    let image = MPSImage(device: device, imageDescriptor: inputImageDescriptor)
+    let inputImageData = input.value.flatten()
+    
+    image.texture.replace(region: MTLRegion(origin: MTLOrigin(x: 0, y: 0, z: 0),
+                                            size: MTLSize(width: inputSize.columns,
+                                                          height: inputSize.rows,
+                                                          depth: inputSize.depth)),
+                          mipmapLevel: 0,
+                          withBytes: inputImageData,
+                          bytesPerRow: inputSize.columns * MemoryLayout<Tensor.Scalar>.stride)
+    
+    guard let queue = device.makeCommandQueue(),
+          let commandBuffer = queue.makeCommandBuffer() else {
+      return
+    }
+    
+    let outputImageDescriptor  = MPSImageDescriptor(channelFormat: MPSImageFeatureChannelFormat.float16,
+                                                    width: outputSize.columns,
+                                                    height: outputSize.rows,
+                                                    featureChannels: outputSize.depth)
+    
+    let outImage = MPSImage(device: commandBuffer.device, imageDescriptor: outputImageDescriptor)
+    
+    conv.encode(commandBuffer: commandBuffer, sourceImage: image, destinationImage: outImage)
+    
+    commandBuffer.commit()
+    commandBuffer.waitUntilCompleted()
+    
+    //let r = Array(arrayLiteral: outImage.texture.buffer?.contents())
+    
+    let pixels: UnsafeMutablePointer<Tensor.Scalar> = image.texture.getPixels()
+    
+    defer {
+      pixels.deallocate()
+    }
+    
+    var result: [Tensor.Scalar] = []
+    
+    let capacity = outputSize.columns * outputSize.rows * MemoryLayout<Tensor.Scalar>.stride
+
+    for i in stride(from: 0, to: capacity, by: 4) {
+      let l     = pixels[i + 0]
+      let a     = pixels[i + 1]
+      let b     = pixels[i + 2]
+      let alpha = pixels[i + 3]
+      
+      print(l, a, b, alpha)
+      
+      result.append(a)
+    }
+    
+    print(result)
+  }
+  
   public func activate(_ num: [Tensor.Scalar],
                        _ activationType: Activation,
                        derivate: Bool = false) -> [Tensor.Scalar] {
