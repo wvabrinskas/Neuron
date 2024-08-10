@@ -6,31 +6,13 @@ import NumSwift
 
 // MARK: WIP - This is a work in progress and is not ready for use.
 
-extension MTLTexture {
-  func getPixels<T> (_ region: MTLRegion? = nil, mipmapLevel: Int = 0) -> UnsafeMutablePointer<T> {
-    let fromRegion  = region ?? MTLRegionMake2D(0, 0, self.width, self.height)
-    let width       = fromRegion.size.width
-    let height      = fromRegion.size.height
-    let bytesPerRow = MemoryLayout<T>.stride * width
-    let data        = UnsafeMutablePointer<T>.allocate(capacity: bytesPerRow * height)
-    
-    self.getBytes(data, bytesPerRow: bytesPerRow, from: fromRegion, mipmapLevel: mipmapLevel)
-    return data
-  }
-}
-
-public typealias DataType = [[CFloat]]
-public typealias ResultType = CFloat
-
-public class GPUManager {
-  public static let shared = GPUManager()
-  
-  private let numberOfConcurrentBuffers: Int = 64
-  
-  public enum MetalFunction: String {
+class GPUManager {
+  enum MetalFunction: String {
     case activation, derivate
   }
   
+  private let numberOfConcurrentBuffers: Int = 64
+
   private lazy var device: MTLDevice? = {
     return MTLCreateSystemDefaultDevice()
   }()

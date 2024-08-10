@@ -12,15 +12,17 @@ public class GPU: Device {
   public var qosPriority: DispatchQoS.QoSClass = .default
   public var type: DeviceType = .gpu
 
-  private let manager = GPUManager.shared
+  private let manager = GPUManager()
   
   public init() { }
 
   public func dispatch(batch: [Tensor], trainable: Trainable) -> [Tensor] {
+    let batchSize = batch.count
+    
     var results: [Tensor] = [Tensor].init(repeating: Tensor(), count: batch.count)
     
     batch.concurrentForEach(workers: min(Constants.maxWorkers, Int(ceil(Double(batch.count) / Double(4)))),
-                           priority: qosPriority) { tensor, index in
+                            priority: qosPriority) { tensor, index in
       let output = trainable.predict(tensor)
       results[index] = output
     }
