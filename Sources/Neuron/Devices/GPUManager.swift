@@ -25,9 +25,32 @@ public typealias ResultType = CFloat
 public class GPUManager {
   public static let shared = GPUManager()
   
+  private let numberOfConcurrentBuffers: Int = 64
+  
   public enum MetalFunction: String {
     case activation, derivate
   }
+  
+  private lazy var device: MTLDevice? = {
+    return MTLCreateSystemDefaultDevice()
+  }()
+  
+  private lazy var commandQueue: MTLCommandQueue? = {
+    if let device = self.device {
+      let queue = device.makeCommandQueue(maxCommandBufferCount: numberOfConcurrentBuffers)
+      return queue
+    }
+    
+    return nil
+  }()
+  
+  private lazy var defaultLibrary = try? device?.makeDefaultLibrary(bundle: Bundle.module)
+  
+  /* TODO:
+     Create a queue of commands,
+     wait until all commands are done by label (maybe use a semaphore or something?)
+     allow commands to go through
+  */
   
   func matmul(_ A: [[Tensor.Scalar]],
               _ aShape: [Int],
@@ -39,11 +62,6 @@ public class GPUManager {
     
     let aColumns = aShape[safe: 0] ?? 0
     let aRows = aShape[safe: 1] ?? 0
-    
-    guard let device = MTLCreateSystemDefaultDevice() else {
-      print("Metal is not supported on this device")
-      return []
-    }
     
     var M = Int32(aRows)
     var K = Int32(aColumns)
@@ -58,29 +76,30 @@ public class GPUManager {
     let flatA = A.flatten()
     let flatB = B.flatten()
     
-    guard let defaultLibrary = try? device.makeDefaultLibrary(bundle: Bundle.module),
+    guard let device,
+          let defaultLibrary,
           let function = defaultLibrary.makeFunction(name: "matmul"),
-          let commandQueue = device.makeCommandQueue()
+          let commandQueue,
+          let commandBuffer = commandQueue.makeCommandBuffer(),
+          let computeEncoder = commandBuffer.makeComputeCommandEncoder()
     else {
-      print("Failed to create Metal function")
+      fatalError("Failed to create Metal function")
       return []
     }
     
-    
+    commandBuffer.label = "matmul"
+
     let pipelineState: MTLComputePipelineState
     do {
       pipelineState = try device.makeComputePipelineState(function: function)
     } catch {
-      print("Failed to create compute pipeline state: \(error)")
+      fatalError("Failed to create compute pipeline state: \(error)")
       return []
     }
     
     let aBuffer = device.makeBuffer(bytes: flatA, length: flatA.count * MemoryLayout<Float>.stride, options: [])
     let bBuffer = device.makeBuffer(bytes: flatB, length: flatB.count * MemoryLayout<Float>.stride, options: [])
     guard let cBuffer = device.makeBuffer(length: Int(M * N) * MemoryLayout<Float>.stride, options: []) else { return [] }
-    
-    let commandBuffer = commandQueue.makeCommandBuffer()!
-    let computeEncoder = commandBuffer.makeComputeCommandEncoder()!
     
     computeEncoder.setComputePipelineState(pipelineState)
     computeEncoder.setBuffer(aBuffer, offset: 0, index: 0)
@@ -115,14 +134,21 @@ public class GPUManager {
     
     let padding = padding.extra(inputSize: inputSize, filterSize: filterSize, stride: strides)
     
-    let device = MTLCreateSystemDefaultDevice()!
-    let commandQueue = device.makeCommandQueue()!
-    
     let function = transConv ? "transConv2d" : "conv2d"
     
-    let defaultLibrary = try! device.makeDefaultLibrary(bundle: Bundle.module)
-    let kernelFunction = defaultLibrary.makeFunction(name: function)!
-    let pipelineState = try! device.makeComputePipelineState(function: kernelFunction)
+    guard let device,
+          let defaultLibrary,
+          let kernelFunction = defaultLibrary.makeFunction(name: function),
+          let pipelineState = try? device.makeComputePipelineState(function: kernelFunction),
+          let commandQueue,
+          let commandBuffer = commandQueue.makeCommandBuffer(),
+          let computeEncoder = commandBuffer.makeComputeCommandEncoder()
+    else {
+      fatalError("Failed to create Metal function")
+      return []
+    }
+    
+    commandBuffer.label = function
     
     var inputHeight = Int32(input.count)
     var inputWidth = Int32(inputSize.columns)
@@ -140,10 +166,7 @@ public class GPUManager {
     let inputBuffer = device.makeBuffer(bytes: flatInput, length: flatInput.count * MemoryLayout<Float>.stride, options: [])
     let kernelBuffer = device.makeBuffer(bytes: flatKernels, length: flatKernels.count * MemoryLayout<Float>.stride, options: [])
     guard let outputBuffer = device.makeBuffer(length: Int(outputWidth * outputHeight * outputChannels) * MemoryLayout<Float>.stride, options: []) else { return [] }
-    
-    let commandBuffer = commandQueue.makeCommandBuffer()!
-    let computeEncoder = commandBuffer.makeComputeCommandEncoder()!
-    
+        
     computeEncoder.setComputePipelineState(pipelineState)
     computeEncoder.setBuffer(inputBuffer, offset: 0, index: 0)
     computeEncoder.setBuffer(kernelBuffer, offset: 0, index: 1)
@@ -187,11 +210,6 @@ public class GPUManager {
                 inputSize: (rows: Int, columns: Int),
                 activationType: Activation,
                 derivate: Bool = false) -> [[Float]] {
-    guard let device = MTLCreateSystemDefaultDevice() else {
-      print("Metal is not supported on this device")
-      return []
-    }
-    
     var height = UInt32(inputSize.rows)
     var width = UInt32(inputSize.columns)
     
@@ -199,29 +217,24 @@ public class GPUManager {
     let flatInput = input.flatten()
     let function: MetalFunction = derivate ? .derivate : .activation
     
-    guard let defaultLibrary = try? device.makeDefaultLibrary(bundle: Bundle.module),
-          let function = defaultLibrary.makeFunction(name: function.rawValue),
-          let commandQueue = device.makeCommandQueue()
+    guard let device,
+          let defaultLibrary,
+          let kernelFunction = defaultLibrary.makeFunction(name: function.rawValue),
+          let pipelineState = try? device.makeComputePipelineState(function: kernelFunction),
+          let commandQueue,
+          let commandBuffer = commandQueue.makeCommandBuffer(),
+          let computeEncoder = commandBuffer.makeComputeCommandEncoder()
     else {
-      print("Failed to create Metal function")
+      fatalError("Failed to create Metal function")
       return []
     }
     
-    
-    let pipelineState: MTLComputePipelineState
-    do {
-      pipelineState = try device.makeComputePipelineState(function: function)
-    } catch {
-      print("Failed to create compute pipeline state: \(error)")
-      return []
-    }
-    
+    let label = "activate-\(activationType.asString())-\(derivate)"
+    commandBuffer.label = label
+
     let inputBuffer = device.makeBuffer(bytes: flatInput, length: flatInput.count * MemoryLayout<Float>.stride, options: [])
     let outputBuffer = device.makeBuffer(length: flatInput.count * MemoryLayout<Float>.stride, options: [])
-    
-    let commandBuffer = commandQueue.makeCommandBuffer()!
-    let computeEncoder = commandBuffer.makeComputeCommandEncoder()!
-    
+        
     computeEncoder.setComputePipelineState(pipelineState)
     computeEncoder.setBuffer(inputBuffer, offset: 0, index: 0)
     computeEncoder.setBuffer(outputBuffer, offset: 0, index: 1)
@@ -229,11 +242,13 @@ public class GPUManager {
     var activationTypeRaw = activationType.index()
     computeEncoder.setBytes(&activationTypeRaw, length: MemoryLayout<UInt32>.stride, index: 2)
     
+    var defaultLimit: Int = 0
     switch activationType {
     case .leakyRelu(let limit):
       var limit = Tensor.Scalar(limit)
       computeEncoder.setBytes(&limit, length: MemoryLayout<Tensor.Scalar>.size, index: 3)
     default:
+      computeEncoder.setBytes(&defaultLimit, length: MemoryLayout<Tensor.Scalar>.size, index: 3)
       break
     }
     
@@ -246,6 +261,11 @@ public class GPUManager {
     
     computeEncoder.endEncoding()
     commandBuffer.commit()
+    
+    commandBuffer.addCompletedHandler { buffer in
+      
+    }
+    
     commandBuffer.waitUntilCompleted()
     
     let resultData = Data(bytesNoCopy: outputBuffer!.contents(), count: outputBuffer!.length, deallocator: .none)

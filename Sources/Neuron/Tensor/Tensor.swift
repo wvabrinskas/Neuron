@@ -16,7 +16,9 @@ public protocol TensorRange {
 
 /// The fundamental base for all arithmetic in the network. It holds a reference to the backpropgation graph as well as the values of the forward pass.
 /// Its `value` property is a 3D array for all instances.
-public class Tensor: Equatable, Codable {
+public class Tensor: Equatable, Codable, Sendable {
+  public private(set) var resolved: Bool = true
+  
   public static func == (lhs: Tensor, rhs: Tensor) -> Bool {
     lhs.value == rhs.value || lhs.id == rhs.id  // not sure at all why there's an ID property
   }
@@ -43,7 +45,7 @@ public class Tensor: Equatable, Codable {
   public var label: String = ""
   
   /// Generic id
-  public var id: UUID = UUID()
+  public private(set) var id: UUID = UUID()
   
   /// Actual numerical value of the Tensor
   public var value: Data {
@@ -111,6 +113,14 @@ public class Tensor: Equatable, Codable {
     self.context = TensorContext()
   }
   
+  private init(_ data: Data, context: TensorContext = TensorContext(), shapeCache: [Int] = []) {
+    self.context = context
+    // set shape cache before value so we don't call it again
+    self.shapeCache = shapeCache
+    self.value = data
+
+  }
+  
   /// Initializer for Tensor with a scalar value
   /// - Parameters:
   ///   - data: `[[Scalar]]` object to set
@@ -150,6 +160,31 @@ public class Tensor: Equatable, Codable {
   public init(_ data: Data, context: TensorContext = TensorContext()) {
     self.value = data
     self.context = context
+  }
+  
+  public func unresolve() {
+    resolved = false
+    value = []
+  }
+  
+  public func resolve(_ data: Data) {
+    resolved = true
+    self.value = data
+  }
+  
+  public func resolve(_ data: [[Scalar]]) {
+    resolved = true
+    self.value = [data]
+  }
+  
+  public func resolve(_ data: [Scalar]) {
+    resolved = true
+    self.value = [[data]]
+  }
+  
+  public func resolve(_ data: Scalar) {
+    resolved = true
+    self.value = [[[data]]]
   }
   
   /// Prints the current graph all the way to the input.
@@ -206,7 +241,7 @@ public class Tensor: Equatable, Codable {
   /// Remove this Tensor from the graph.
   /// - Returns: Detached Tensor
   public func detached() -> Tensor {
-    Tensor(value, context: TensorContext())
+    Tensor(value, context: TensorContext(), shapeCache: shapeCache)
   }
   
   /// Gets the `Tensor.Scalar` value of this Tensors value. This is reserved for Tensor's that have a value of size `[1, 1, 1]` aka a `Scalar` as `[[[Scalar]]]`

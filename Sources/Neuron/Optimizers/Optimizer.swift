@@ -126,15 +126,7 @@ open class BaseOptimizer: Optimizer {
   }
   
   open func predict(_ data: [Tensor]) -> [Tensor] {
-    var results: [Tensor] = [Tensor].init(repeating: Tensor(), count: data.count)
-
-    data.concurrentForEach(workers: min(Constants.maxWorkers, Int(ceil(Double(data.count) / Double(4)))),
-                           priority: device.qosPriority) { tensor, index in
-      let output = self.trainable.predict(tensor)
-      results[index] = output
-    }
-
-    return results
+    device.dispatch(batch: data, trainable: trainable)
   }
   
   open func fit(_ data: [Tensor],

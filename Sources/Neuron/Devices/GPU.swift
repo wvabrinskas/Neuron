@@ -16,6 +16,18 @@ public class GPU: Device {
   
   public init() { }
 
+  public func dispatch(batch: [Tensor], trainable: Trainable) -> [Tensor] {
+    var results: [Tensor] = [Tensor].init(repeating: Tensor(), count: batch.count)
+    
+    batch.concurrentForEach(workers: min(Constants.maxWorkers, Int(ceil(Double(batch.count) / Double(4)))),
+                           priority: qosPriority) { tensor, index in
+      let output = trainable.predict(tensor)
+      results[index] = output
+    }
+
+    return results
+  }
+  
   public func transConv2d(signal: [[Tensor.Scalar]],
                           filter: [[Tensor.Scalar]],
                           strides: (Int, Int) = (1,1),

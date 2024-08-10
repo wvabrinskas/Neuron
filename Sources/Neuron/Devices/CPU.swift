@@ -16,6 +16,20 @@ public struct CPU: Device {
 
   public init() {}
   
+  public func dispatch(batch: [Tensor], trainable: Trainable) -> [Tensor] {
+    var results: [Tensor] = [Tensor].init(repeating: Tensor(), count: batch.count)
+    
+    // TODO: Move to device
+
+    batch.concurrentForEach(workers: min(Constants.maxWorkers, Int(ceil(Double(batch.count) / Double(4)))),
+                           priority: qosPriority) { tensor, index in
+      let output = trainable.predict(tensor)
+      results[index] = output
+    }
+
+    return results
+  }
+  
   /// Calculates the transposed convolution of the given inputs
   /// - Parameters:
   ///   - signal: The signal as a 2D array to perform the transposed convolution on
