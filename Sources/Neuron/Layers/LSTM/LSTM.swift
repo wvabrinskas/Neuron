@@ -367,14 +367,14 @@ public final class LSTM: BaseLayer {
 
     var wrtEmbeddings: Tensor = Tensor()
           
-    for index in (1..<cellCache.count).reversed() {
+    for index in (1..<cellCache.count - 1).reversed() {
       
       let cache = cellCache[index]
       let previousCache = cellCache[safe: index - 1]
       
       let outputCell = OutputCell(device: self.device)
 
-      let activationErrors = outputCell.backward(gradient: gradient.value[safe: index] ?? gradient.zerosLike().value[0], // if output cell didn't get used in the loss function we don't need its gradients
+      let activationErrors = outputCell.backward(gradient: gradient.value[safe: index] ?? gradient.onesLike().value[0], // if output cell didn't get used in the loss function we don't need its gradients
                                                  activations: cellCache[index].activation.value[0],
                                                  batchSize: 1,
                                                  hiddenOutputWeights: self.hiddenOutputWeights.detached())

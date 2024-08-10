@@ -156,7 +156,7 @@ class LSTMCell {
 
     let lstm = cache.lstm
     let cellActivation = cache.cell
-    let previousCellActivaion = previousCache?.cell ?? cache.cell.zerosLike() // if there's no previous state use 0s. Might need to come up with a better solution so we dont have to re-do this
+    let previousCellActivaion = previousCache?.cell ?? cache.cell.onesLike() // if there's no previous state use 0s. Might need to come up with a better solution so we dont have to re-do this
     
     let tanActivationOfCellActivation = Tanh().forward(tensor: cellActivation)
     

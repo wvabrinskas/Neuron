@@ -552,6 +552,10 @@ public extension Tensor {
     
     return Tensor(NumSwift.onesLike((rows, columns, depth)))
   }
+  
+  func transposed() -> Tensor {
+    Tensor(self.value.transpose2d(), context: context)
+  }
 }
 
 extension Tensor: CustomDebugStringConvertible {
