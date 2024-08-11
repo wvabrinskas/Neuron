@@ -12,6 +12,7 @@ import NumSwift
 class OutputCell {
   let device: Device
   let dense: Dense
+  let softmax: Softmax
   
   struct Parameters {
     var hiddenOutputWeights: Tensor
@@ -29,13 +30,15 @@ class OutputCell {
     dense.weights = parameters.hiddenOutputWeights
     dense.biases = parameters.hiddenOutputBiases
     dense.inputSize = TensorSize(array: [parameters.hiddenSize, 1, 1])
+  
+    softmax = Softmax(inputSize: dense.outputSize)
   }
 
   func forward(parameters: Parameters) -> Tensor {
     dense.weights = parameters.hiddenOutputWeights
     dense.biases = parameters.hiddenOutputBiases
     var outputMatrix = dense.forward(tensor: parameters.activationMatrix)
-    outputMatrix = Softmax(inputSize: .init(array: outputMatrix.shape)).forward(tensor: outputMatrix)
+    outputMatrix = softmax.forward(tensor: outputMatrix)
     return outputMatrix
   }
 }
