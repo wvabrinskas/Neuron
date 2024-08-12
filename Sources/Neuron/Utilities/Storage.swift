@@ -18,9 +18,6 @@ public final class ThreadStorage<T> {
   }
   
   public func clear() {
-    defer {
-      lock.unlock()
-    }
     lock.with {
       storage.removeAll()
     }
