@@ -243,11 +243,6 @@ class GPUManager {
     
     computeEncoder.endEncoding()
     commandBuffer.commit()
-    
-    commandBuffer.addCompletedHandler { buffer in
-      
-    }
-    
     commandBuffer.waitUntilCompleted()
     
     let resultData = Data(bytesNoCopy: outputBuffer!.contents(), count: outputBuffer!.length, deallocator: .none)
