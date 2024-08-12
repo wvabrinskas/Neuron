@@ -453,7 +453,7 @@ final class LayerTests: XCTestCase {
                     hiddenUnits: hiddenUnits,
                     vocabSize: vocabSize)
     
-    XCTAssertEqual(lstm.hiddenOutputWeights.shape, [vocabSize, hiddenUnits, 1])
+    XCTAssertEqual(lstm.hiddenOutputWeights.shape, [hiddenUnits, vocabSize, 1])
     
     XCTAssertEqual(lstm.forgetGateWeights.shape, [hiddenUnits, hiddenUnits + inputUnits, 1])
     XCTAssertEqual(lstm.inputGateWeights.shape, [hiddenUnits, hiddenUnits + inputUnits, 1])
