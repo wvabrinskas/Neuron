@@ -39,7 +39,7 @@ public final class ___VARIABLE_productName___: BaseLayer {
     try container.encode(encodingType, forKey: .type)
   }
   
-  public override func forward(tensor: Tensor) -> Tensor {
+  public override func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
     let context = TensorContext { inputs, gradient in
       // backpropogation calculation
       return (Tensor(), Tensor(), Tensor())

@@ -96,7 +96,7 @@ public class Conv2d: BaseConvolutionalLayer {
     outputSize = TensorSize(array: [columns, rows, filterCount])
   }
   
-  public override func forward(tensor: Tensor) -> Tensor {
+  public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let context = TensorContext { inputs, gradient in
       self.backward(inputs, gradient)
     }

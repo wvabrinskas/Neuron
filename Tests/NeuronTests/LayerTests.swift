@@ -501,7 +501,7 @@ final class LayerTests: XCTestCase {
                     vocabSize: vocabSize)
 
         
-    let out = lstm.forward(tensor: embeddingCalc)
+    let out = lstm.forward(tensor: embeddingCalc, context: .init())
     
     XCTAssertEqual(out.shape, [vocabSize, 1, batchLength])
   }
