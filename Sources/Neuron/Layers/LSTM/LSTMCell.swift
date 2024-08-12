@@ -99,6 +99,7 @@ class LSTMCell {
   }
   
   func forward(tensor: Tensor,
+               context: NetworkContext,
                parameters: Parameters,
                cache: LSTM.Cache) -> Activations {
     
@@ -114,23 +115,23 @@ class LSTMCell {
     
     // forget gate
     let fa = device.matmul(concat, fgw) + parameters.forgetGateBiases.asScalar()
-    let faOut = Sigmoid().forward(tensor: fa)
+    let faOut = Sigmoid().forward(tensor: fa, context: context)
     
     // input gate
     let ia = device.matmul(concat, igw) + parameters.inputGateBiases.asScalar()
-    let iaOut = Sigmoid().forward(tensor: ia)
+    let iaOut = Sigmoid().forward(tensor: ia, context: context)
     
     // gate gate
     let ga = device.matmul(concat, ggw) + parameters.gateGateBiases.asScalar()
-    let gaOut = Tanh().forward(tensor: ga)
+    let gaOut = Tanh().forward(tensor: ga, context: context)
     
     // output gate
     let oa = device.matmul(concat, ogw) + parameters.outputGateBiases.asScalar() // Could be Dense layers
-    let oaOut = Sigmoid().forward(tensor: oa)
+    let oaOut = Sigmoid().forward(tensor: oa, context: context)
     
     let cellMemoryMatrix = (faOut * previousCellMatrix) + (iaOut * gaOut)
     
-    let tanOut = Tanh().forward(tensor: cellMemoryMatrix)
+    let tanOut = Tanh().forward(tensor: cellMemoryMatrix, context: context)
     
     let activationMatrix = oaOut * tanOut
     

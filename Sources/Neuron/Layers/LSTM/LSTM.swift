@@ -227,12 +227,12 @@ public final class LSTM: BaseLayer {
   /// - Returns: Depending on the state of `returnSequence` it will either returng the whole sequence of size
   /// `(rows: 1, columns: vocabSize, depth: batchLength)` or just the last output of the sequence of size
   /// `(rows: 1, columns: vocabSize, depth: 1)`
-  public override func forward(tensor: Tensor) -> Tensor {
+  public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     var localCellCache: [Cache] = [setupInitialState()]
     
-    let context = TensorContext { self.backward(inputs: $0, gradient: $1, cellCache: localCellCache) }
+    let tensorContext = TensorContext { self.backward(inputs: $0, gradient: $1, cellCache: localCellCache) }
     
-    var out = Tensor(context: context)
+    var out = Tensor(context: tensorContext)
 
     let range = 0..<batchLength
         
@@ -258,6 +258,7 @@ public final class LSTM: BaseLayer {
                                                outputGateBiases: outputGateBiases.detached())
 
       let cellOutput = cell.forward(tensor: getEmbeddings,
+                                    context: context,
                                     parameters: cellParameters,
                                     cache: cache)
       
@@ -281,10 +282,10 @@ public final class LSTM: BaseLayer {
       out = new
     }
     
-    self.cellCache.store(localCellCache, at: threadId)
+    self.cellCache.store(localCellCache, at: context.threadId)
 
     if returnSequence == false, let last = out.value.last {
-      out = Tensor(last, context: context)
+      out = Tensor(last, context: tensorContext)
     }
     
     out.label = String(describing: self)
@@ -460,7 +461,7 @@ public final class LSTM: BaseLayer {
   }
 
   private func reset() {
-    cellCache.store([], at: threadId)
+    cellCache.clear()
   }
 
   private func initializeWeights() {

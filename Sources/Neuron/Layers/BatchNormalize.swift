@@ -91,7 +91,7 @@ public final class BatchNormalize: BaseLayer {
     try container.encode(momentum, forKey: .momentum)
   }
 
-  public override func forward(tensor: Tensor) -> Tensor {
+  public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let context = TensorContext { inputs, gradient in
       let backward = self.backward(inputs: inputs.value, gradient: gradient.value)
       return (Tensor(backward), Tensor(), Tensor())

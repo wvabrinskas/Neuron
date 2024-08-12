@@ -38,7 +38,7 @@ public final class AvgPool: BaseLayer {
     try container.encode(encodingType, forKey: .type)
   }
   
-  public override func forward(tensor: Tensor) -> Tensor {
+  public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     func backwards(input: Tensor, gradient: Tensor) -> (Tensor, Tensor, Tensor) {
       var poolingGradients: [[[Tensor.Scalar]]] = []
       

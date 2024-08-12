@@ -81,7 +81,7 @@ public final class LayerNormalize: BaseLayer {
     try container.encode(epsilon, forKey: .epsilon)
   }
   
-  public override func forward(tensor: Tensor) -> Tensor {
+  public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let context = TensorContext { inputs, gradient in
       let gradient = self.backward(inputs: inputs.value, gradient: gradient.value)
       return (Tensor(gradient), Tensor(), Tensor())
