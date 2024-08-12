@@ -22,6 +22,7 @@ public enum DeviceType: String, Codable {
 }
 
 public protocol Device {
+  var threadId: Int { get set }
   var type: DeviceType { get }
   var qosPriority: DispatchQoS.QoSClass { get set }
   

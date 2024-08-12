@@ -9,13 +9,14 @@ import Foundation
 import NumSwift
 
 public class GPU: Device {
+  public var threadId: Int = 0
   public var qosPriority: DispatchQoS.QoSClass = .default
   public var type: DeviceType = .gpu
 
   private let manager = GPUManager()
   
   public init() { }
-
+  
   public func dispatch(batch: [Tensor], trainable: Trainable) -> [Tensor] {
     let batchSize = batch.count
     
@@ -23,6 +24,7 @@ public class GPU: Device {
     
     batch.concurrentForEach(workers: min(Constants.maxWorkers, Int(ceil(Double(batch.count) / Double(4)))),
                             priority: qosPriority) { tensor, index in
+      self.manager.dispatch(id: index)
       let output = trainable.predict(tensor)
       results[index] = output
     }
@@ -50,7 +52,8 @@ public class GPU: Device {
       return (rows, columns)
     }
     
-    let out = manager.conv2d(input: signal,
+    let out = manager.conv2d(threadId: threadId,
+                             input: signal,
                              kernels: filter,
                              strides: strides,
                              padding: padding,
@@ -79,7 +82,8 @@ public class GPU: Device {
       return (rows, columns)
     }
     
-    let out = manager.conv2d(input: signal,
+    let out = manager.conv2d(threadId: threadId,
+                             input: signal,
                              kernels: filter,
                              strides: strides,
                              padding: padding,
@@ -101,7 +105,8 @@ public class GPU: Device {
     for d in 0..<depth {
       let activated = manager.activate(to: input.value[d],
                                        inputSize: inputSize,
-                                       activationType: type)
+                                       activationType: type,
+                                       threadId: threadId)
 
       result.append(activated)
     }
@@ -120,7 +125,8 @@ public class GPU: Device {
       let activated = manager.activate(to: input.value[d],
                                        inputSize: inputSize,
                                        activationType: type,
-                                       derivate: true)
+                                       derivate: true,
+                                       threadId: threadId)
 
       result.append(activated)
     }
@@ -136,7 +142,7 @@ public class GPU: Device {
     var result: Tensor.Data = []
     
     for d in 0..<aDepth {
-      let cResult = manager.matmul(a.value[d], aShape, b.value[d], bShape)
+      let cResult = manager.matmul(a.value[d], aShape, b.value[d], bShape, threadId: threadId)
       result.append(cResult)
     }
     

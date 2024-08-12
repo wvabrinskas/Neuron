@@ -17,6 +17,8 @@ class GPUManager {
     return MTLCreateSystemDefaultDevice()
   }()
   
+  private var commandBuffers: ThreadStorage<MTLCommandBuffer> = .init()
+  
   private lazy var commandQueue: MTLCommandQueue? = {
     if let device = self.device {
       let queue = device.makeCommandQueue(maxCommandBufferCount: numberOfConcurrentBuffers)
@@ -34,10 +36,32 @@ class GPUManager {
      allow commands to go through
   */
   
+  func dispatch(id: Int) {
+    guard let commandQueue else { return }
+    
+    var commandBuffer: MTLCommandBuffer?
+    
+    if let hasBuffer = commandBuffers.value(at: id) {
+      commandBuffer = hasBuffer
+    } else if let newBuffer = commandQueue.makeCommandBuffer() {
+      commandBuffer = newBuffer
+      commandBuffers.store(newBuffer, at: id)
+    }
+    
+    guard let commandBuffer else { return }
+    
+    
+  }
+  
+  func conclude() {
+    
+  }
+  
   func matmul(_ A: [[Tensor.Scalar]],
               _ aShape: [Int],
               _ B: [[Tensor.Scalar]],
-              _ bShape: [Int]) -> [[Tensor.Scalar]] {
+              _ bShape: [Int],
+              threadId: Int) -> [[Tensor.Scalar]] {
     
     let bColumns = bShape[safe: 0] ?? 0
     let bRows = bShape[safe: 1] ?? 0
@@ -105,7 +129,8 @@ class GPUManager {
     return resultArray.reshape(columns: Int(N))
   }
   
-  func conv2d(input: [[Tensor.Scalar]],
+  func conv2d(threadId: Int,
+              input: [[Tensor.Scalar]],
               kernels: [[Tensor.Scalar]],
               strides: (Int, Int) = (1,1),
               padding: NumSwift.ConvPadding = .valid,
@@ -191,7 +216,8 @@ class GPUManager {
   func activate(to input: [[Tensor.Scalar]],
                 inputSize: (rows: Int, columns: Int),
                 activationType: Activation,
-                derivate: Bool = false) -> [[Float]] {
+                derivate: Bool = false,
+                threadId: Int) -> [[Float]] {
     var height = UInt32(inputSize.rows)
     var width = UInt32(inputSize.columns)
     
