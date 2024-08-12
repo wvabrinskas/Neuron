@@ -99,7 +99,7 @@ public final class Dense: BaseLayer {
     weights = Tensor(newWeights)
   }
   
-  public override func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
+  public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     
     let tensorContext = TensorContext { inputs, gradients in
       let gradientsFlat: [Tensor.Scalar] = gradients.value.flatten()
