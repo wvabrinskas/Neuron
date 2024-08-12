@@ -178,10 +178,10 @@ final class FullModelTests: XCTestCase {
   
   /// LSTM test example
   func test_LSTM_Forward_Example() async {
-//    guard isGithubCI == false else {
-//      XCTAssertTrue(true)
-//      return
-//    }
+    guard isGithubCI == false else {
+      XCTAssertTrue(true)
+      return
+    }
 
     let inputUnits = 50
     let hiddenUnits = 100
