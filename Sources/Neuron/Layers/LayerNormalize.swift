@@ -155,13 +155,15 @@ public final class LayerNormalize: BaseLayer {
       dBeta.append(dL_dbeta.value[safe: 0, []])
     }
     
-    
-    return (Tensor(dInputs), Tensor(dGamma), Tensor(dBeta))
+    return (Tensor(dInputs), Tensor(dGamma).concat(Tensor(dBeta), axis: 2), Tensor())
   }
   
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
-    gamma = gamma - gradients.weights
-    beta = beta - gradients.biases
+    let gammaWeights = gradients.weights[0..., 0..., 0..<inputSize.depth]
+    let betaWeights = gradients.weights[0..., 0..., inputSize.depth...]
+
+    gamma = gamma - gammaWeights
+    beta = beta - betaWeights
   }
   
   private func setupTrainables() {
