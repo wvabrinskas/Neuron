@@ -114,36 +114,49 @@ public final class LayerNormalize: BaseLayer {
   }
   
   private func backward(inputs: [[[Tensor.Scalar]]], gradient: [[[Tensor.Scalar]]]) -> (input: Tensor, weight: Tensor, bias: Tensor) {
-  
-    let count = inputSize.rows * inputSize.depth
-    let N = Tensor.Scalar(count)
+    var dInputs: Tensor.Data = []
+    var dGamma: Tensor.Data = []
+    var dBeta: Tensor.Data = []
     
-    let mean = Tensor(inputs).mean(axis: 1).value
-    let variance = Tensor(inputs).variance(axis: 1)
-    let varianceEpsilon = variance + epsilon
-    let std = (varianceEpsilon).sqrt()
-    
-    let inputsMinusMean = Tensor(inputs).subtractAlong(axis: 1, value: Tensor(mean))
+    for i in 0..<inputs.count {
+      let feature = inputs[i]
+      let gradient = gradient[i]
+      
+      let count = inputSize.rows
+      let N = Tensor.Scalar(count)
+      
+      let mean = Tensor(feature).mean(axis: 1).value
+      let variance = Tensor(feature).variance(axis: 1)
+      let varianceEpsilon = variance + epsilon
+      let std = (varianceEpsilon).sqrt()
+      
+      let inputsMinusMean = Tensor(feature).subtractAlong(axis: 1, value: Tensor(mean))
 
-    let x_norm = inputsMinusMean.divideAlong(axis: 1, value: std)
+      let x_norm = inputsMinusMean.divideAlong(axis: 1, value: std)
 
-    let dL_dbeta = Tensor(gradient).sum(axis: 2)
+      let dL_dbeta = Tensor(gradient).sum(axis: 2)
+      
+      let dL_dgamma = (x_norm * Tensor(gradient)).sum(axis: 2)
+      
+      let line1 = Tensor(gamma.value[i]).multiplyAlong(axis: 1, value: Tensor((1 / (N * std.value))))
+      let line2 = Tensor(N * gradient)
+      let line3 = dL_dbeta
+      
+      let line4 = inputsMinusMean.divideAlong(axis: 1, value: varianceEpsilon)
+      let line5 = (Tensor(feature) - Tensor(gradient).multiplyAlong(axis: 1, value: Tensor(mean))).sum(axis: 2)
+      
+      let dl_dx = line1 * (
+        line2.subtractAlong(axis: 2, value: line3)
+        - line4 * line5
+      )
+      
+      dInputs.append(dl_dx.value[safe: 0, []])
+      dGamma.append(dL_dgamma.value[safe: 0, []])
+      dBeta.append(dL_dbeta.value[safe: 0, []])
+    }
     
-    let dL_dgamma = (x_norm * Tensor(gradient)).sum(axis: 2)
-
-    let line1 = gamma.multiplyAlong(axis: 1, value: Tensor((1 / (N * std.value))))
-    let line2 = Tensor(N * gradient)
-    let line3 = dL_dbeta
     
-    let line4 = inputsMinusMean.divideAlong(axis: 1, value: varianceEpsilon)
-    let line5 = (Tensor(inputs) - Tensor(gradient).multiplyAlong(axis: 1, value: Tensor(mean))).sum(axis: 2)
-    
-    let dl_dx = line1 * (
-      line2.subtractAlong(axis: 2, value: line3)
-      - line4.multiplyAlong(axis: 2, value: line5)
-    )
-    
-    return (dl_dx, dL_dgamma, dL_dbeta)
+    return (Tensor(dInputs), Tensor(dGamma), Tensor(dBeta))
   }
   
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {

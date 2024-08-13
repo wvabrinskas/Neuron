@@ -371,8 +371,10 @@ final class NeuronTests: XCTestCase {
     let out = norm.forward(tensor: input)
     out.setGraph(input)
 
-//    XCTAssert(out.isValueEqual(to: Tensor([[0.8164965, -1.2247449, 0.8164965, -1.2247449, 0.8164965],
-//                                           [0.8164965, -1.2247449, 0.8164965, -1.2247449, 0.8164965]])))
+    XCTAssert(out.isValueEqual(to: Tensor([[[ 1.0000, -1.0000],
+                                            [ 1.0000, -1.0000]],
+                                           [[ 1.0000, -1.0000],
+                                            [ 1.0000, -1.0000]]])))
     
     let delta = Tensor([[[0.5,0],
                          [0.5,0]],
@@ -382,8 +384,10 @@ final class NeuronTests: XCTestCase {
     let gradient = out.gradients(delta: delta)
     
     XCTAssert(gradient.input.first?.isEmpty == false)
-    XCTAssert(gradient.weights.first!.isValueEqual(to: Tensor([[0.40824825, 0.0000, 0.40824825, 0.0000, 0.40824825],
-                                                             [0.40824825, 0.0000, 0.40824825, 0.0000, 0.40824825]])))
+    XCTAssert(gradient.weights.first!.isValueEqual(to: Tensor([[[0.5,0],
+                                                                [0.5,0]],
+                                                               [[0.5,0],
+                                                                [0.5,0]]])))
   }
   
   
