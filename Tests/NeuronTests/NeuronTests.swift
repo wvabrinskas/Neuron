@@ -336,7 +336,7 @@ final class NeuronTests: XCTestCase {
     let gradient = out.gradients(delta: delta)
     
     XCTAssert(gradient.input.first?.isEmpty == false)
-    XCTAssert(gradient.weights.first!.isValueEqual(to: Tensor([0.40824825, 0.0, 0.40824825, 0.0, 0.40824825])))
+    XCTAssert(gradient.weights.first![0..., 0..., 0..<input.shape.tensorSize.depth].isValueEqual(to: Tensor([0.40824825, 0.0, 0.40824825, 0.0, 0.40824825])))
     XCTAssert(gradient.input.first!.isValueEqual(to: Tensor([-2.3814485, 0.0, -2.3814485, 0.0, -2.3814485])))
   }
   
@@ -356,8 +356,8 @@ final class NeuronTests: XCTestCase {
     let gradient = out.gradients(delta: delta)
     
     XCTAssert(gradient.input.first?.isEmpty == false)
-    XCTAssert(gradient.weights.first!.isValueEqual(to: Tensor([[0.40824825, 0.0000, 0.40824825, 0.0000, 0.40824825],
-                                                             [0.40824825, 0.0000, 0.40824825, 0.0000, 0.40824825]])))
+    XCTAssert(gradient.weights.first![0..., 0..., 0..<input.shape.tensorSize.depth].isValueEqual(to: Tensor([[0.40824825, 0.0000, 0.40824825, 0.0000, 0.40824825],
+                                                                                                             [0.40824825, 0.0000, 0.40824825, 0.0000, 0.40824825]])))
   }
   
   
@@ -384,10 +384,10 @@ final class NeuronTests: XCTestCase {
     let gradient = out.gradients(delta: delta)
     
     XCTAssert(gradient.input.first?.isEmpty == false)
-    XCTAssert(gradient.weights.first!.isValueEqual(to: Tensor([[[0.5,0],
-                                                                [0.5,0]],
-                                                               [[0.5,0],
-                                                                [0.5,0]]])))
+    XCTAssert(gradient.weights.first![0..., 0..., 0..<input.shape.tensorSize.depth].isValueEqual(to: Tensor([[[0.5,0],
+                                                                                                              [0.5,0]],
+                                                                                                             [[0.5,0],
+                                                                                                              [0.5,0]]])))
   }
   
   
