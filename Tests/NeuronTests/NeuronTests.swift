@@ -322,22 +322,70 @@ final class NeuronTests: XCTestCase {
     result.biases.forEach { XCTAssert(Tensor(20).isValueEqual(to: $0)) }
   }
   
-  func testLayerNorm() {
-    let input = Tensor([1,0,1,0,1])
-    let norm = LayerNormalize(inputSize: [5,1,1].tensorSize)
+  func testLayerNorm_1d() {
+    let input = Tensor([[1,0,1,0,1]])
+    let norm = LayerNormalize(inputSize: input.shape.tensorSize)
     
     let out = norm.forward(tensor: input)
     out.setGraph(input)
 
-    XCTAssert(out.isValueEqual(to: Tensor([0.8164965, -1.2247449, 0.8164965, -1.2247449, 0.8164965])))
+    XCTAssert(out.isValueEqual(to: Tensor([[0.8164965, -1.2247449, 0.8164965, -1.2247449, 0.8164965]])))
     
-    let delta = Tensor([0.5, 0, 0.5, 0, 0.5])
+    let delta = Tensor([[0.5, 0, 0.5, 0, 0.5]])
     
     let gradient = out.gradients(delta: delta)
     
     XCTAssert(gradient.input.first?.isEmpty == false)
-    XCTAssert(gradient.input.first!.isValueEqual(to: Tensor([-1.4793792, -1.1920929e-07, -1.4793792, -1.1920929e-07, -1.4793792])))
+    XCTAssert(gradient.weights.first!.isValueEqual(to: Tensor([0.40824825, 0.0, 0.40824825, 0.0, 0.40824825])))
+    XCTAssert(gradient.input.first!.isValueEqual(to: Tensor([-2.3814485, 0.0, -2.3814485, 0.0, -2.3814485])))
   }
+  
+  func testLayerNorm_2d() {
+    let input = Tensor([[1,0,1,0,1], [1,0,1,0,1]])
+    let norm = LayerNormalize(inputSize: input.shape.tensorSize)
+    
+    let out = norm.forward(tensor: input)
+    out.setGraph(input)
+
+    XCTAssert(out.isValueEqual(to: Tensor([[0.8164965, -1.2247449, 0.8164965, -1.2247449, 0.8164965],
+                                           [0.8164965, -1.2247449, 0.8164965, -1.2247449, 0.8164965]])))
+    
+    let delta = Tensor([[0.5, 0, 0.5, 0, 0.5],
+                        [0.5, 0, 0.5, 0, 0.5]])
+    
+    let gradient = out.gradients(delta: delta)
+    
+    XCTAssert(gradient.input.first?.isEmpty == false)
+    XCTAssert(gradient.weights.first!.isValueEqual(to: Tensor([[0.40824825, 0.0000, 0.40824825, 0.0000, 0.40824825],
+                                                             [0.40824825, 0.0000, 0.40824825, 0.0000, 0.40824825]])))
+  }
+  
+  
+  func testLayerNorm_3d() {
+    let input = Tensor([[[1,0],
+                         [1,0]],
+                       [[1,0],
+                        [1,0]]])
+    let norm = LayerNormalize(inputSize: input.shape.tensorSize)
+    
+    let out = norm.forward(tensor: input)
+    out.setGraph(input)
+
+//    XCTAssert(out.isValueEqual(to: Tensor([[0.8164965, -1.2247449, 0.8164965, -1.2247449, 0.8164965],
+//                                           [0.8164965, -1.2247449, 0.8164965, -1.2247449, 0.8164965]])))
+    
+    let delta = Tensor([[[0.5,0],
+                         [0.5,0]],
+                        [[0.5,0],
+                         [0.5,0]]])
+    
+    let gradient = out.gradients(delta: delta)
+    
+    XCTAssert(gradient.input.first?.isEmpty == false)
+    XCTAssert(gradient.weights.first!.isValueEqual(to: Tensor([[0.40824825, 0.0000, 0.40824825, 0.0000, 0.40824825],
+                                                             [0.40824825, 0.0000, 0.40824825, 0.0000, 0.40824825]])))
+  }
+  
   
   func testBatchNorm() {
     let input = Tensor([1,0,1,0,1])
