@@ -24,7 +24,7 @@ public extension Float16 {
 
 public extension Tensor {
   typealias MathBlock = (_ feature: [Scalar]) -> Scalar
-  typealias MathAlongBlock = (_ feature: [Scalar], _ location: TensorSize) -> [Scalar]
+  typealias MathAlongBlock = (_ feature: [Scalar], _ value: ([Scalar]?, Scalar?)) -> [Scalar]
 
   /*
        +--------+
@@ -110,18 +110,54 @@ public extension Tensor {
     return Tensor(result)
   }
   
-  func applyAlong(axis: Int, _ block: MathAlongBlock) -> Tensor {
-    let shape = shape
-    let rows = shape[safe: 1, 0]
-    let columns = shape[safe: 0, 0]
+  // TODO: refactor so this function does the axis checking and returns a tuple ([]?, scalar?)
+  func applyAlong(axis: Int, input: Tensor, _ block: MathAlongBlock) -> Tensor {
+    let shape = input.shape
+    let size = TensorSize(array: shape)
+
+    let selfShape = self.shape
+    let selfSize = TensorSize(array: selfShape)
     
     var featureResults: [[[Scalar]]] = []
     
-    for d in 0..<value.count {
+    for d in 0..<selfSize.depth {
       var result: [[Scalar]] = []
       
-      for r in 0..<rows {
-        result.append(block(value[d][r], TensorSize(rows: r, columns: 1, depth: d)))
+      for r in 0..<selfSize.rows {
+        
+        let location = TensorSize(rows: r, columns: 1, depth: d)
+        let feature = value[d][r]
+        
+        let out: [Scalar]
+        
+        if axis == 0,
+           size.columns == selfSize.columns,
+           size.rows == 1,
+           size.depth == selfSize.depth {
+          
+          let v = input.value[safe: location.depth, [[]]][safe: 0, []]
+          out = block(feature, (v, nil))
+          
+        } else if axis == 1,
+                  size.columns == 1,
+                  size.rows == selfSize.rows,
+                  size.depth == selfSize.depth {
+          
+          let v = input.value[safe: location.depth, [[]]][safe: location.rows, []][safe: 0, 0]
+          out = block(feature, (nil, v))
+          
+        } else if axis == 2,
+                  size.columns == selfSize.columns,
+                  size.rows == selfSize.rows,
+                  size.depth == 1 {
+          
+          let v = input.value[safe: 0, [[]]][safe: location.rows, []]
+          out = block(feature, (v, nil))
+        } else {
+          out = feature
+        }
+        
+        result.append(out)
       }
       
       featureResults.append(result)
@@ -130,179 +166,59 @@ public extension Tensor {
   }
   
   func divideAlong(axis: Int, value: Tensor) -> Tensor {
-    let shape = value.shape
-    let size = TensorSize(array: shape)
-
-    let selfShape = shape
-    let selfSize = TensorSize(array: selfShape)
-    
-    let block: MathAlongBlock = { feature, location in
-      if axis == 0 {
-        guard size.columns == selfSize.columns,
-              size.rows == 1,
-              size.depth == selfSize.depth else {
-          return feature
-        }
-        
-        let v = value.value[safe: location.depth, [[]]][safe: 0, []]
-        return feature / v
-        
-      } else if axis == 1 {
-        guard size.columns == 1,
-              size.rows == selfSize.rows,
-              size.depth == selfSize.depth else {
-          return feature
-        }
-        
-        let v = value.value[safe: location.depth, [[]]][safe: location.rows, []][safe: 0, 0]
-        return feature / v
-      } else if axis == 2 {
-        guard size.columns == selfSize.columns,
-              size.rows == selfSize.rows,
-              size.depth == 1 else {
-          return feature
-        }
-        
-        let v = value.value[safe: 0, [[]]][safe: location.rows, []]
-        return feature / v
+    let block: MathAlongBlock = { feature, value in
+      if let valueArray = value.0 {
+        return feature / valueArray
+      } else if let valueScalar = value.1 {
+        return feature / valueScalar
       } else {
         return feature
       }
     }
     
-    return applyAlong(axis: axis, block)
+    return applyAlong(axis: axis, input: value, block)
   }
   
   func multiplyAlong(axis: Int, value: Tensor) -> Tensor {
-    let shape = value.shape
-    let size = TensorSize(array: shape)
-
-    let selfShape = shape
-    let selfSize = TensorSize(array: selfShape)
-    
-    let block: MathAlongBlock = { feature, location in
-      if axis == 0 {
-        guard size.columns == selfSize.columns,
-              size.rows == 1,
-              size.depth == selfSize.depth else {
-          return feature
-        }
-        
-        let v = value.value[safe: location.depth, [[]]][safe: 0, []]
-        return feature * v
-        
-      } else if axis == 1 {
-        guard size.columns == 1,
-              size.rows == selfSize.rows,
-              size.depth == selfSize.depth else {
-          return feature
-        }
-        
-        let v = value.value[safe: location.depth, [[]]][safe: location.rows, []][safe: 0, 0]
-        return feature * v
-      } else if axis == 2 {
-        guard size.columns == selfSize.columns,
-              size.rows == selfSize.rows,
-              size.depth == 1 else {
-          return feature
-        }
-        
-        let v = value.value[safe: 0, [[]]][safe: location.rows, []]
-        return feature * v
+    let block: MathAlongBlock = { feature, value in
+      if let valueArray = value.0 {
+        return feature * valueArray
+      } else if let valueScalar = value.1 {
+        return feature * valueScalar
       } else {
         return feature
       }
     }
     
-    return applyAlong(axis: axis, block)
+    return applyAlong(axis: axis, input: value, block)
   }
   
   func addAlong(axis: Int, value: Tensor) -> Tensor {
-    let shape = value.shape
-    let size = TensorSize(array: shape)
-
-    let selfShape = shape
-    let selfSize = TensorSize(array: selfShape)
-    
-    let block: MathAlongBlock = { feature, location in
-      if axis == 0 {
-        guard size.columns == selfSize.columns,
-              size.rows == 1,
-              size.depth == selfSize.depth else {
-          return feature
-        }
-        
-        let v = value.value[safe: location.depth, [[]]][safe: 0, []]
-        return feature + v
-        
-      } else if axis == 1 {
-        guard size.columns == 1,
-              size.rows == selfSize.rows,
-              size.depth == selfSize.depth else {
-          return feature
-        }
-        
-        let v = value.value[safe: location.depth, [[]]][safe: location.rows, []][safe: 0, 0]
-        return feature + v
-      } else if axis == 2 {
-        guard size.columns == selfSize.columns,
-              size.rows == selfSize.rows,
-              size.depth == 1 else {
-          return feature
-        }
-        
-        let v = value.value[safe: 0, [[]]][safe: location.rows, []]
-        return feature + v
+    let block: MathAlongBlock = { feature, value in
+      if let valueArray = value.0 {
+        return feature + valueArray
+      } else if let valueScalar = value.1 {
+        return feature + valueScalar
       } else {
         return feature
       }
     }
     
-    return applyAlong(axis: axis, block)
+    return applyAlong(axis: axis, input: value, block)
   }
   
   func subtractAlong(axis: Int, value: Tensor) -> Tensor {
-    let shape = value.shape
-    let size = TensorSize(array: shape)
-
-    let selfShape = shape
-    let selfSize = TensorSize(array: selfShape)
-    
-    let block: MathAlongBlock = { feature, location in
-      if axis == 0 {
-        guard size.columns == selfSize.columns,
-              size.rows == 1,
-              size.depth == selfSize.depth else {
-          return feature
-        }
-        
-        let v = value.value[safe: location.depth, [[]]][safe: 0, []]
-        return feature - v
-        
-      } else if axis == 1 {
-        guard size.columns == 1,
-              size.rows == selfSize.rows,
-              size.depth == selfSize.depth else {
-          return feature
-        }
-        
-        let v = value.value[safe: location.depth, [[]]][safe: location.rows, []][safe: 0, 0]
-        return feature - v
-      } else if axis == 2 {
-        guard size.columns == selfSize.columns,
-              size.rows == selfSize.rows,
-              size.depth == 1 else {
-          return feature
-        }
-        
-        let v = value.value[safe: 0, [[]]][safe: location.rows, []]
-        return feature - v
+    let block: MathAlongBlock = { feature, value in
+      if let valueArray = value.0 {
+        return feature - valueArray
+      } else if let valueScalar = value.1 {
+        return feature - valueScalar
       } else {
         return feature
       }
     }
     
-    return applyAlong(axis: axis, block)
+    return applyAlong(axis: axis, input: value, block)
   }
   
   func clip(_ val: Scalar = 0.01) {
@@ -429,7 +345,7 @@ public extension Tensor {
   
   func mean(axis: Int = -1) -> Tensor {
     let block: MathBlock = { feature in
-      feature.average
+      feature.mean
     }
     
     if axis == -1 {
