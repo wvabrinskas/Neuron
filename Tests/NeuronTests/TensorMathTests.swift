@@ -12,6 +12,47 @@ import NumSwift
 
 final class TensorMathTests: XCTestCase {
   
+  func test_subtract_along() {
+    // MARK: 0
+    
+    let delta2 = Tensor([[0.5, 0, 0.5, 0, 0.5],
+                         [0.5, 0, 0.5, 0, 0.5]])
+    
+    let subtraction2 = Tensor([[0.1, 0.2, 0.1, 0.2, 0.1]])
+    
+    let result2 = delta2.subtractAlong(axis: 0, value: subtraction2)
+    
+    XCTAssertEqual(result2,  Tensor([[0.4, -0.2, 0.4, -0.2, 0.4],
+                                     [0.4, -0.2, 0.4, -0.2, 0.4]]))
+    
+    // MARK: 1
+    let delta = Tensor([[0.5, 0, 0.5, 0, 0.5],
+                        [0.5, 0, 0.5, 0, 0.5]])
+    
+    let subtraction = Tensor([[0.1],
+                              [0.2]])
+    
+    let result = delta.subtractAlong(axis: 1, value: subtraction)
+    
+    XCTAssertEqual(result,  Tensor([[0.4, -0.1, 0.4, -0.1, 0.4],
+                                    [0.3, -0.2, 0.3, -0.2, 0.3]]))
+    
+    
+    // MARK: 2
+    let size = TensorSize(rows: 2, columns: 2, depth: 2)
+    
+    let delta3 = Tensor.fillWith(value: 1, size: size)
+    
+    let subtraction3 = Tensor.fillWith(value: 0.5, size: TensorSize(rows: size.rows,
+                                                                    columns: size.columns,
+                                                                    depth: 1))
+    
+    let result3 = delta3.subtractAlong(axis: 2, value: subtraction3)
+    
+    XCTAssertEqual(result3,  Tensor.fillWith(value: 0.5, size: size))
+ 
+  }
+  
   func test_split_dataIntegrity() {
     let tensor = Tensor([
                          [[1,1,1],
