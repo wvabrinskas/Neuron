@@ -11,39 +11,34 @@ import NumSwift
 
 class OutputCell {
   let device: Device
+  let dense: Dense
+  let softmax: Softmax
   
   struct Parameters {
     var hiddenOutputWeights: Tensor
     var hiddenOutputBiases: Tensor
     var activationMatrix: Tensor
+    let vocabSize: Int
+    let hiddenSize: Int
   }
   
-  init(device: Device = CPU()) {
+  init(device: Device = CPU(),
+       parameters: Parameters) {
     self.device = device
+    
+    dense = Dense(parameters.vocabSize)
+    dense.weights = parameters.hiddenOutputWeights
+    dense.biases = parameters.hiddenOutputBiases
+    dense.inputSize = TensorSize(array: [parameters.hiddenSize, 1, 1])
+  
+    softmax = Softmax(inputSize: dense.outputSize)
   }
 
   func forward(parameters: Parameters) -> Tensor {
-    var outputMatrix = parameters.activationMatrix.matmul(parameters.hiddenOutputWeights) + parameters.hiddenOutputBiases.asScalar()
-    outputMatrix = Softmax(inputSize: .init(array: outputMatrix.shape)).forward(tensor: outputMatrix)
+    dense.weights = parameters.hiddenOutputWeights
+    dense.biases = parameters.hiddenOutputBiases
+    var outputMatrix = dense.forward(tensor: parameters.activationMatrix)
+    outputMatrix = softmax.forward(tensor: outputMatrix)
     return outputMatrix
-  }
-  
-  func backward(gradient: [[Tensor.Scalar]],
-                activations: [[Tensor.Scalar]],
-                batchSize: Int,
-                hiddenOutputWeights: Tensor) -> (outputs: Tensor, weights: Tensor, biases: Tensor) {
-    let w = hiddenOutputWeights.value.transpose2d()
-    
-    let wrtOutputs = Tensor(gradient).matmul(Tensor(w))
-    
-    var wrtWeights = Tensor(activations.transpose2d()).matmul(Tensor(gradient))
-    
-    let wrtBiases = Tensor(gradient).sum(axis: 1)
-    
-    if batchSize > 1 {
-      wrtWeights = wrtWeights / Tensor.Scalar(batchSize)
-    }
-    
-    return (wrtOutputs, wrtWeights, wrtBiases)
   }
 }

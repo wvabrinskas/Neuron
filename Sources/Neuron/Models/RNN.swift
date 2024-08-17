@@ -24,8 +24,8 @@ public class RNN: Classifier {
 
     public init(hiddenUnits: Int,
                 inputUnits: Int,
-                embeddingInitializer: InitializerType = .xavierNormal,
-                lstmInitializer: InitializerType = .xavierNormal) {
+                embeddingInitializer: InitializerType = .xavierUniform,
+                lstmInitializer: InitializerType = .xavierUniform) {
       self.hiddenUnits = hiddenUnits
       self.inputUnits = inputUnits
       self.embeddingInitializer = embeddingInitializer
