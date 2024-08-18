@@ -130,23 +130,23 @@ public final class LayerNormalize: BaseLayer {
       let varianceEpsilon = variance + epsilon
       let std = (varianceEpsilon).sqrt()
       
-      let inputsMinusMean = Tensor(feature).subtractAlong(axis: 1, value: Tensor(mean))
+      let inputsMinusMean = Tensor(feature) - Tensor(mean)
 
-      let x_norm = inputsMinusMean.divideAlong(axis: 1, value: std)
+      let x_norm = inputsMinusMean / std
 
       let dL_dbeta = Tensor(gradient).sum(axis: 2)
       
       let dL_dgamma = (x_norm * Tensor(gradient)).sum(axis: 2)
       
-      let line1 = Tensor(gamma.value[i]).multiplyAlong(axis: 1, value: Tensor((1 / (N * std.value))))
+      let line1 = Tensor(gamma.value[i]) * Tensor((1 / (N * std.value)))
       let line2 = Tensor(N * gradient)
       let line3 = dL_dbeta
       
-      let line4 = inputsMinusMean.divideAlong(axis: 1, value: varianceEpsilon)
-      let line5 = (Tensor(feature) - Tensor(gradient).multiplyAlong(axis: 1, value: Tensor(mean))).sum(axis: 2)
+      let line4 = inputsMinusMean / varianceEpsilon
+      let line5 = (Tensor(feature) - Tensor(gradient) * Tensor(mean)).sum(axis: 2)
       
       let dl_dx = line1 * (
-        line2.subtractAlong(axis: 2, value: line3)
+        line2 - line3
         - line4 * line5
       )
       

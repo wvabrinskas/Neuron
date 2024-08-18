@@ -526,6 +526,11 @@ public extension Tensor {
     let left = lhs.value
     let right = rhs.value
     
+    if let axis = Tensor.axisToApplyAlong(selfSize: TensorSize(array: lhs.shape),
+                                          size: TensorSize(array: rhs.shape)) {
+      return lhs.addAlong(axis: axis, value: rhs)
+    }
+    
     let newTensor = left + right
     return Tensor(newTensor, context: lhs.context)
   }
@@ -547,6 +552,11 @@ public extension Tensor {
     let left = lhs.value
     let right = rhs.value
     
+    if let axis = Tensor.axisToApplyAlong(selfSize: TensorSize(array: lhs.shape),
+                                          size: TensorSize(array: rhs.shape)) {
+      return lhs.multiplyAlong(axis: axis, value: rhs)
+    }
+    
     let newTensor = left * right
     return Tensor(newTensor, context: lhs.context)
   }
@@ -554,6 +564,11 @@ public extension Tensor {
   static func /(lhs: Tensor, rhs: Tensor) -> Tensor {
     let left = lhs.value
     let right = rhs.value
+    
+    if let axis = Tensor.axisToApplyAlong(selfSize: TensorSize(array: lhs.shape),
+                                          size: TensorSize(array: rhs.shape)) {
+      return lhs.divideAlong(axis: axis, value: rhs)
+    }
     
     let newTensor = left / right
     return Tensor(newTensor, context: lhs.context)
