@@ -110,7 +110,26 @@ public extension Tensor {
     return Tensor(result)
   }
   
-  // TODO: refactor so this function does the axis checking and returns a tuple ([]?, scalar?)
+  static func axisToApplyAlong(selfSize: TensorSize, size: TensorSize) -> Int? {
+    if size.columns == selfSize.columns,
+       size.rows == 1,
+       size.depth == selfSize.depth {
+      return 0
+      
+    } else if size.columns == 1,
+              size.rows == selfSize.rows,
+              size.depth == selfSize.depth {
+      return 1
+      
+    } else if size.columns == selfSize.columns,
+              size.rows == selfSize.rows,
+              size.depth == 1 {
+      return 2
+    } else {
+      return nil
+    }
+  }
+  
   func applyAlong(axis: Int, input: Tensor, _ block: MathAlongBlock) -> Tensor {
     let shape = input.shape
     let size = TensorSize(array: shape)
@@ -514,6 +533,11 @@ public extension Tensor {
   static func -(lhs: Tensor, rhs: Tensor) -> Tensor {
     let left = lhs.value
     let right = rhs.value
+    
+    if let axis = Tensor.axisToApplyAlong(selfSize: TensorSize(array: lhs.shape),
+                                          size: TensorSize(array: rhs.shape)) {
+      return lhs.subtractAlong(axis: axis, value: rhs)
+    }
     
     let newTensor = left - right
     return Tensor(newTensor, context: lhs.context)
