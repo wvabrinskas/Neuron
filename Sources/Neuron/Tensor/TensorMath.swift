@@ -736,10 +736,10 @@ extension Array where Element == Tensor {
 
 public extension Tensor {
  static func fillWith(value: Tensor.Scalar, size: TensorSize) -> Tensor {
-    var result: [[[Float]]]  = []
+    var result: [[[Tensor.Scalar]]]  = []
     
     for _ in 0..<size.depth {
-      var row: [[Float]] = []
+      var row: [[Tensor.Scalar]] = []
       for _ in 0..<size.rows {
         row.append([Tensor.Scalar](repeating: value, count: size.columns))
       }
