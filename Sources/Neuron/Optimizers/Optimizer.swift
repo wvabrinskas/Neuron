@@ -130,7 +130,7 @@ open class BaseOptimizer: Optimizer {
 
     data.concurrentForEach(workers: min(Constants.maxWorkers, Int(ceil(Double(data.count) / Double(4)))),
                            priority: device.qosPriority) { tensor, index in
-      let output = self.trainable.predict(tensor)
+      let output = self.trainable.predict(tensor, context: .init(threadId: index))
       results[index] = output
     }
 
@@ -160,8 +160,7 @@ open class BaseOptimizer: Optimizer {
       let label: [Tensor.Scalar] = labels[index].value.flatten()
       let input = data[index]
       
-      self.trainable.threadId = index
-      let out = self.trainable.predict(input)
+      let out = self.trainable.predict(input, context: .init(threadId: index))
       
       outputs[index] = out
             

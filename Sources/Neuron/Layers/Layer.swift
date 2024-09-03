@@ -49,7 +49,6 @@ public protocol ConvolutionalLayer: Layer {
 
 /// The the object that perform ML operations
 public protocol Layer: AnyObject, Codable {
-  var threadId: Int { get set }
   var encodingType: EncodingType { get set }
   var extraEncodables: [String: Codable]? { get }
   var inputSize: TensorSize { get set }
@@ -62,7 +61,7 @@ public protocol Layer: AnyObject, Codable {
   var initializer: Initializer? { get }
   var device: Device { get set }
   var usesOptimizer: Bool { get set }
-  func forward(tensor: Tensor) -> Tensor
+  func forward(tensor: Tensor, context: NetworkContext) -> Tensor
   func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar)
   func exportWeights() throws -> [Tensor]
   func importWeights(_ weights: [Tensor]) throws
@@ -89,7 +88,6 @@ extension Layer {
 }
 
 open class BaseLayer: Layer {
-  public var threadId: Int = 0
   public var encodingType: EncodingType
   public var inputSize: TensorSize = .init() {
     didSet {
@@ -132,7 +130,7 @@ open class BaseLayer: Layer {
   }
   
   
-  public func forward(tensor: Tensor) -> Tensor {
+  public func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
     // override
     .init()
   }
@@ -314,7 +312,7 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
               encodingType: .none)
   }
   
-  public override func forward(tensor: Tensor) -> Tensor {
+  public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     
     let context = TensorContext { inputs, gradient in
       let out = self.device.derivate(inputs, self.type).value * gradient.value

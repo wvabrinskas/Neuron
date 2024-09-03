@@ -52,7 +52,7 @@ public final class Reshape: BaseLayer {
     try container.encode(encodingType, forKey: .type)
   }
   
-  public override func forward(tensor: Tensor) -> Tensor {
+  public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let context = TensorContext { inputs, gradient in
       let value: [Tensor.Scalar] = gradient.value.flatten()
       return (Tensor(value), Tensor(), Tensor())

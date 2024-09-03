@@ -11,9 +11,6 @@ import NumSwiftC
 ///
 public protocol Trainable: AnyObject, Codable, CustomDebugStringConvertible {
   
-  /// The id for the current thread
-  var threadId: Int { get set }
-  
   /// Generic name of the trainable. Used when printing the network
   var name: String { get set }
   
@@ -37,7 +34,7 @@ public protocol Trainable: AnyObject, Codable, CustomDebugStringConvertible {
   /// Performs a forward pass on the network
   /// - Parameter data: The inputs
   /// - Returns: The output of the network
-  func predict(_ data: Tensor) -> Tensor
+  func predict(_ data: Tensor, context: NetworkContext) -> Tensor
   
   /// Compiles the network, getting it ready to be trained.
   func compile()

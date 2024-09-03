@@ -7,6 +7,14 @@ public final class Embedding: BaseLayer {
   private let vocabSize: Int
   private let batchLength: Int
   
+  
+  /// Default initializer
+  /// - Parameters:
+  ///   - inputUnits: Number of hidden neurons in the dense layer
+  ///   - vocabSize: Size of the vocabulary
+  ///   - batchLength: Length of the input vector
+  ///   - initializer: Weight initializer
+  ///   - trainable: Whether or not to update weights
   public init(inputUnits: Int,
               vocabSize: Int,
               batchLength: Int,
@@ -81,7 +89,7 @@ public final class Embedding: BaseLayer {
   /// Forward path for the layer
   /// - Parameter tensor: Input word as a 3D tensor with size `rows: 1, columns: vocabSize, depth: batchLength`
   /// - Returns: An output 3D tensor of shape `rows: 1, columns: inputUnits, depth: batchLength`
-  public override func forward(tensor: Tensor) -> Tensor {
+  public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let context = TensorContext { inputs, gradient in
       var wrtEmbeddings: Tensor = Tensor()
 

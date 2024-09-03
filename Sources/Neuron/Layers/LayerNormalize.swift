@@ -13,18 +13,14 @@ public final class LayerNormalize: BaseLayer {
   public override var weights: Tensor {
     get {
       // For printing purposes. Not actually used
-      var trainables = beta
-      trainables.append(contentsOf: gamma)
-      return Tensor(trainables)
+      beta.concat(gamma, axis: 2)
     }
     set {}
   }
 
   private var epsilon: Tensor.Scalar
-  public var gamma: [Tensor.Scalar] = []
-  public var beta: [Tensor.Scalar] = []
-  private var dGamma: [Tensor.Scalar] = []
-  private var dBeta: [Tensor.Scalar] = []
+  public var gamma: Tensor = .init()
+  public var beta: Tensor = .init()
   @Atomic private var iterations: Int = 0
 
   public enum CodingKeys: String, CodingKey {
@@ -38,8 +34,8 @@ public final class LayerNormalize: BaseLayer {
   ///   - beta: Beta value for normalization
   ///   - inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
   public init(epsilon: Tensor.Scalar = .stabilityFactor,
-              gamma: [Tensor.Scalar] = [],
-              beta: [Tensor.Scalar] = [],
+              gamma: Tensor = .init(),
+              beta: Tensor = .init(),
               inputSize: TensorSize = TensorSize(array: [])) {
     self.epsilon = epsilon
     self.beta = beta
@@ -53,13 +49,12 @@ public final class LayerNormalize: BaseLayer {
     self.outputSize = inputSize
     
     setupTrainables()
-    resetDeltas()
   }
   
   convenience public required init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
-    let gamma = try container.decodeIfPresent([Tensor.Scalar].self, forKey: .gamma) ?? []
-    let beta = try container.decodeIfPresent([Tensor.Scalar].self, forKey: .beta) ?? []
+    let gamma = try container.decodeIfPresent(Tensor.self, forKey: .gamma) ?? .init()
+    let beta = try container.decodeIfPresent(Tensor.self, forKey: .beta) ?? .init()
     let epsilon = try container.decodeIfPresent(Tensor.Scalar.self, forKey: .epsilon) ?? .stabilityFactor
 
     self.init(epsilon: epsilon,
@@ -70,7 +65,6 @@ public final class LayerNormalize: BaseLayer {
     self.outputSize = inputSize
     
     setupTrainables()
-    resetDeltas()
   }
   
   public override func encode(to encoder: Encoder) throws {
@@ -81,10 +75,9 @@ public final class LayerNormalize: BaseLayer {
     try container.encode(epsilon, forKey: .epsilon)
   }
   
-  public override func forward(tensor: Tensor) -> Tensor {
+  public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let context = TensorContext { inputs, gradient in
-      let gradient = self.backward(inputs: inputs.value, gradient: gradient.value)
-      return (Tensor(gradient), Tensor(), Tensor())
+      self.backward(inputs: inputs.value, gradient: gradient.value)
     }
     
     let forward = normalize(inputs: tensor.value)
@@ -95,18 +88,13 @@ public final class LayerNormalize: BaseLayer {
   
   override public func onInputSizeSet() {
     outputSize = inputSize
-  }
-  
-  private func resetDeltas() {
-    let inputDim = inputSize.depth
-    dGamma = [Tensor.Scalar](repeating: 0, count: inputDim)
-    dBeta = [Tensor.Scalar](repeating: 0, count: inputDim)
+    setupTrainables()
   }
 
   private func normalize(inputs: [[[Tensor.Scalar]]]) -> [[[Tensor.Scalar]]] {
     
     var forward: [[[Tensor.Scalar]]] = []
-
+    
     for i in 0..<inputs.count {
       let count = inputSize.rows * inputSize.columns
       let total = Tensor.Scalar(count)
@@ -118,77 +106,73 @@ public final class LayerNormalize: BaseLayer {
       let std = sqrt(variance + epsilon)
       
       var result = (inputs[i] - mean) / std
-      result = result * gamma[i] + beta[i]
+      result = result * gamma.value[i] + beta.value[i]
       forward.append(result)
-    }
-    
-    if trainable {
-      iterations += 1
     }
 
     return forward
   }
   
-  private func backward(inputs: [[[Tensor.Scalar]]], gradient: [[[Tensor.Scalar]]]) -> [[[Tensor.Scalar]]] {
-    
-    var backward: [[[Tensor.Scalar]]] = []
+  private func backward(inputs: [[[Tensor.Scalar]]], gradient: [[[Tensor.Scalar]]]) -> (input: Tensor, weight: Tensor, bias: Tensor) {
+    var dInputs: Tensor.Data = []
+    var dGamma: Tensor.Data = []
+    var dBeta: Tensor.Data = []
     
     for i in 0..<inputs.count {
-      let count = inputSize.rows * inputSize.columns
-      let total = Tensor.Scalar(count)
+      let feature = inputs[i]
+      let gradient = gradient[i]
       
-      let N = Tensor.Scalar(gradient[i].count)
+      let count = inputSize.rows
+      let N = Tensor.Scalar(count)
       
-      let mean = inputs[i].mean
-      let inputsCentered = inputs[i] - mean
-      let variance = inputsCentered.sumOfSquares / total
+      let mean = Tensor(feature).mean(axis: 1).value
+      let variance = Tensor(feature).variance(axis: 1)
+      let varianceEpsilon = variance + epsilon
+      let std = (varianceEpsilon).sqrt()
       
-      let std = sqrt(variance + epsilon)
-      
-      let scaledX = (inputs[i] - mean)
-      let normalized = scaledX / std
-      
-      let ivar = 1 / std
-      let gradientSum = gradient[i].sum
-      
-      let part1 = (1 / N) * gamma[i]
-      let part2 = (1/std * ((N * gradient[i])))
-      
-      let result = part1 * part2 -
-      gradientSum - ((scaledX) * Tensor.Scalar.pow(ivar, 2) *
-                   (gradient[i] * scaledX).sum)
-      
-      backward.append(result)
-      
-      let lock = NSLock()
-      
-      lock.with {
-        dGamma[i] += (gradient[i] * normalized).sum
-        dBeta[i] += gradient[i].sum
-      }
+      let inputsMinusMean = Tensor(feature) - Tensor(mean)
 
+      let x_norm = inputsMinusMean / std
+
+      let dL_dbeta = Tensor(gradient).sum(axis: 2)
+      
+      let dL_dgamma = (x_norm * Tensor(gradient)).sum(axis: 2)
+      
+      let line1 = Tensor(gamma.value[i]) * Tensor((1 / (N * std.value)))
+      let line2 = Tensor(N * gradient)
+      let line3 = dL_dbeta
+      
+      let line4 = inputsMinusMean / varianceEpsilon
+      let line5 = (Tensor(feature) - Tensor(gradient) * Tensor(mean)).sum(axis: 2)
+      
+      let dl_dx = line1 * (
+        line2 - line3
+        - line4 * line5
+      )
+      
+      dInputs.append(dl_dx.value[safe: 0, []])
+      dGamma.append(dL_dgamma.value[safe: 0, []])
+      dBeta.append(dL_dbeta.value[safe: 0, []])
     }
     
-    return backward
+    return (Tensor(dInputs), Tensor(dGamma).concat(Tensor(dBeta), axis: 2), Tensor())
   }
   
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
-    gamma = gamma - (dGamma / iterations.asTensorScalar)
-    beta = beta - (dBeta / iterations.asTensorScalar)
-    
-    resetDeltas()
-    iterations = 0
+    let gammaWeights = gradients.weights[0..., 0..., 0..<inputSize.depth]
+    let betaWeights = gradients.weights[0..., 0..., inputSize.depth...]
+
+    gamma = gamma - gammaWeights
+    beta = beta - betaWeights
   }
   
   private func setupTrainables() {
-    let inputDim = inputSize.depth
-    
     if gamma.isEmpty {
-      self.gamma = [Tensor.Scalar](repeating: 1, count: inputDim)
+      self.gamma = Tensor(NumSwift.onesLike((rows: inputSize.rows, columns: inputSize.columns, depth: inputSize.depth)))
     }
     
     if beta.isEmpty {
-      self.beta = [Tensor.Scalar](repeating: 0, count: inputDim)
+      self.beta = Tensor(NumSwift.zerosLike((rows: inputSize.rows, columns: inputSize.columns, depth: inputSize.depth)))
     }
   }
 }

@@ -30,6 +30,14 @@ public struct NormalDistribution {
     
     return z1 * deviation + mean
   }
+  
+  public func logProb(value: Tensor.Scalar) -> Tensor.Scalar {
+    let loc = mean
+    let variance = deviation * deviation
+    let logScale = Tensor.Scalar.log(deviation)
+    let otherPart = Tensor.Scalar.log(Tensor.Scalar.sqrt(2 * Tensor.Scalar.pi))
+    return -(Tensor.Scalar.pow(value - loc, 2)) / (2 * variance) - logScale - otherPart
+  }
 }
 
 public class Gaussian {

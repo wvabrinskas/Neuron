@@ -7,12 +7,15 @@
 
 import Foundation
 
-public final class Sequential: Trainable {
-  public var threadId: Int = 0 {
-    didSet {
-      layers.forEach { $0.threadId = threadId }
-    }
+public struct NetworkContext: Sendable {
+  public var threadId: Int
+  
+  public init(threadId: Int = 0) {
+    self.threadId = threadId
   }
+}
+
+public final class Sequential: Trainable {
   public var name: String = "Sequential"
   public var device: Device = CPU() {
     didSet {
@@ -26,6 +29,7 @@ public final class Sequential: Trainable {
       }
     }
   }
+  
   public var isTraining: Bool = true {
     didSet {
       layers.forEach { $0.isTraining = isTraining }
@@ -69,8 +73,8 @@ public final class Sequential: Trainable {
     self.init({ layers })
   }
   
-  public func callAsFunction(_ data: Tensor) -> Tensor {
-    predict(data)
+  public func callAsFunction(_ data: Tensor, context: NetworkContext) -> Tensor {
+    predict(data, context: context)
   }
   
   public func encode(to encoder: Encoder) throws {
@@ -78,13 +82,13 @@ public final class Sequential: Trainable {
     try container.encode(layers.map { LayerModel(layer: $0) }, forKey: .layers)
   }
   
-  public func predict(_ data: Tensor) -> Tensor {
+  public func predict(_ data: Tensor, context: NetworkContext) -> Tensor {
     precondition(isCompiled, "Please call compile() on the \(self) before attempting to fit")
     
     var outputTensor = data
     
     layers.forEach { layer in
-      let newTensor = layer.forward(tensor: outputTensor)
+      let newTensor = layer.forward(tensor: outputTensor, context: context)
       if newTensor.graph == nil {
         newTensor.setGraph(outputTensor)
       }

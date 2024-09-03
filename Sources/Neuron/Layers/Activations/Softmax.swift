@@ -37,7 +37,7 @@ public final class Softmax: BaseActivationLayer {
                encodingType: .softmax)
   }
   
-  public override func forward(tensor: Tensor) -> Tensor {
+  public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let context = TensorContext { inputs, gradient in
       return (Tensor(gradient.value), Tensor(), Tensor())
     }

@@ -24,6 +24,7 @@ public extension Float16 {
 
 public extension Tensor {
   typealias MathBlock = (_ feature: [Scalar]) -> Scalar
+  typealias MathAlongBlock = (_ feature: [Scalar], _ value: ([Scalar]?, Scalar?)) -> [Scalar]
 
   /*
        +--------+
@@ -69,7 +70,7 @@ public extension Tensor {
 
       result = featureResults
       
-    } else if axis == 1 {
+    } else if axis == 1  {
       var featureResults: [[[Scalar]]] = []
       
       for d in 0..<value.count {
@@ -107,6 +108,136 @@ public extension Tensor {
     }
     
     return Tensor(result)
+  }
+  
+  static func axisToApplyAlong(selfSize: TensorSize, size: TensorSize) -> Int? {
+    if size.columns == selfSize.columns,
+       size.rows == 1,
+       size.depth == selfSize.depth {
+      return 0
+      
+    } else if size.columns == 1,
+              size.rows == selfSize.rows,
+              size.depth == selfSize.depth {
+      return 1
+      
+    } else if size.columns == selfSize.columns,
+              size.rows == selfSize.rows,
+              size.depth == 1 {
+      return 2
+    } else {
+      return nil
+    }
+  }
+  
+  func applyAlong(axis: Int, input: Tensor, _ block: MathAlongBlock) -> Tensor {
+    let shape = input.shape
+    let size = TensorSize(array: shape)
+
+    let selfShape = self.shape
+    let selfSize = TensorSize(array: selfShape)
+    
+    var featureResults: [[[Scalar]]] = []
+    
+    for d in 0..<selfSize.depth {
+      var result: [[Scalar]] = []
+      
+      for r in 0..<selfSize.rows {
+        
+        let location = TensorSize(rows: r, columns: 1, depth: d)
+        let feature = value[d][r]
+        
+        let out: [Scalar]
+        
+        if axis == 0,
+           size.columns == selfSize.columns,
+           size.rows == 1,
+           size.depth == selfSize.depth {
+          
+          let v = input.value[safe: location.depth, [[]]][safe: 0, []]
+          out = block(feature, (v, nil))
+          
+        } else if axis == 1,
+                  size.columns == 1,
+                  size.rows == selfSize.rows,
+                  size.depth == selfSize.depth {
+          
+          let v = input.value[safe: location.depth, [[]]][safe: location.rows, []][safe: 0, 0]
+          out = block(feature, (nil, v))
+          
+        } else if axis == 2,
+                  size.columns == selfSize.columns,
+                  size.rows == selfSize.rows,
+                  size.depth == 1 {
+          
+          let v = input.value[safe: 0, [[]]][safe: location.rows, []]
+          out = block(feature, (v, nil))
+        } else {
+          out = feature
+        }
+        
+        result.append(out)
+      }
+      
+      featureResults.append(result)
+    }
+    return Tensor(featureResults)
+  }
+  
+  func divideAlong(axis: Int, value: Tensor) -> Tensor {
+    let block: MathAlongBlock = { feature, value in
+      if let valueArray = value.0 {
+        return feature / valueArray
+      } else if let valueScalar = value.1 {
+        return feature / valueScalar
+      } else {
+        return feature
+      }
+    }
+    
+    return applyAlong(axis: axis, input: value, block)
+  }
+  
+  func multiplyAlong(axis: Int, value: Tensor) -> Tensor {
+    let block: MathAlongBlock = { feature, value in
+      if let valueArray = value.0 {
+        return feature * valueArray
+      } else if let valueScalar = value.1 {
+        return feature * valueScalar
+      } else {
+        return feature
+      }
+    }
+    
+    return applyAlong(axis: axis, input: value, block)
+  }
+  
+  func addAlong(axis: Int, value: Tensor) -> Tensor {
+    let block: MathAlongBlock = { feature, value in
+      if let valueArray = value.0 {
+        return feature + valueArray
+      } else if let valueScalar = value.1 {
+        return feature + valueScalar
+      } else {
+        return feature
+      }
+    }
+    
+    return applyAlong(axis: axis, input: value, block)
+  }
+  
+  func subtractAlong(axis: Int, value: Tensor) -> Tensor {
+    let block: MathAlongBlock = { feature, value in
+      if let valueArray = value.0 {
+        return feature - valueArray
+      } else if let valueScalar = value.1 {
+        return feature - valueScalar
+      } else {
+        return feature
+      }
+    }
+    
+    return applyAlong(axis: axis, input: value, block)
   }
   
   func clip(_ val: Scalar = 0.01) {
@@ -204,9 +335,36 @@ public extension Tensor {
     }
   }
   
+  func sqrt(adding: Tensor.Scalar = .stabilityFactor) -> Tensor {
+    let result: [[[Tensor.Scalar]]] = value.map { $0.map { $0.map { Tensor.Scalar.sqrt($0 + adding) } } }
+    let tensor = Tensor(result, context: context)
+    return tensor
+  }
+  
+  func variance(axis: Int = -1) -> Tensor {
+    let block: MathBlock = { feature in
+      let mean = feature.mean
+      let sumOSquares = (feature - mean).sumOfSquares
+      
+      let count = feature.count
+            
+      return sumOSquares / Tensor.Scalar(count)
+    }
+    
+    if axis == -1 {
+      let mean = self.mean(axis: -1).asScalar()
+      let flat = self.value.flatten()
+      let sumOfSquares = (flat - mean).sumOfSquares
+      
+      return Tensor(sumOfSquares / Tensor.Scalar(flat.count))
+    }
+    
+    return apply(axis: axis, block)
+  }
+  
   func mean(axis: Int = -1) -> Tensor {
     let block: MathBlock = { feature in
-      feature.average
+      feature.mean
     }
     
     if axis == -1 {
@@ -253,11 +411,11 @@ public extension Tensor {
   
   func norm(axis: Int = -1) -> Tensor {
     let block: MathBlock = { feature in
-      sqrt(feature.sumOfSquares)
+      Tensor.Scalar.sqrt(feature.sumOfSquares)
     }
     
     if axis == -1 {
-      return Tensor(sqrt(self.value.sumOfSquares))
+      return Tensor(Tensor.Scalar.sqrt(self.value.sumOfSquares))
     }
     
     return apply(axis: axis, block)
@@ -297,13 +455,13 @@ public extension Tensor {
   
   func l2Normalized() -> Tensor {
     let flatValue: Tensor.Scalar = value.sumOfSquares
-    let normalized = value / sqrt(flatValue)
+    let normalized = value / Tensor.Scalar.sqrt(flatValue)
     return Tensor(normalized, context: context)
   }
   
   func l2Normalize() {
     let flatValue: Tensor.Scalar = value.sumOfSquares
-    let normalized = value / sqrt(flatValue)
+    let normalized = value / Tensor.Scalar.sqrt(flatValue)
     self.value = normalized
   }
   
@@ -368,6 +526,11 @@ public extension Tensor {
     let left = lhs.value
     let right = rhs.value
     
+    if let axis = Tensor.axisToApplyAlong(selfSize: TensorSize(array: lhs.shape),
+                                          size: TensorSize(array: rhs.shape)) {
+      return lhs.addAlong(axis: axis, value: rhs)
+    }
+    
     let newTensor = left + right
     return Tensor(newTensor, context: lhs.context)
   }
@@ -375,6 +538,11 @@ public extension Tensor {
   static func -(lhs: Tensor, rhs: Tensor) -> Tensor {
     let left = lhs.value
     let right = rhs.value
+    
+    if let axis = Tensor.axisToApplyAlong(selfSize: TensorSize(array: lhs.shape),
+                                          size: TensorSize(array: rhs.shape)) {
+      return lhs.subtractAlong(axis: axis, value: rhs)
+    }
     
     let newTensor = left - right
     return Tensor(newTensor, context: lhs.context)
@@ -384,6 +552,11 @@ public extension Tensor {
     let left = lhs.value
     let right = rhs.value
     
+    if let axis = Tensor.axisToApplyAlong(selfSize: TensorSize(array: lhs.shape),
+                                          size: TensorSize(array: rhs.shape)) {
+      return lhs.multiplyAlong(axis: axis, value: rhs)
+    }
+    
     let newTensor = left * right
     return Tensor(newTensor, context: lhs.context)
   }
@@ -391,6 +564,11 @@ public extension Tensor {
   static func /(lhs: Tensor, rhs: Tensor) -> Tensor {
     let left = lhs.value
     let right = rhs.value
+    
+    if let axis = Tensor.axisToApplyAlong(selfSize: TensorSize(array: lhs.shape),
+                                          size: TensorSize(array: rhs.shape)) {
+      return lhs.divideAlong(axis: axis, value: rhs)
+    }
     
     let newTensor = left / right
     return Tensor(newTensor, context: lhs.context)
@@ -412,6 +590,10 @@ public extension Tensor {
     let depth = shape[safe: 2, 0]
     
     return Tensor(NumSwift.onesLike((rows, columns, depth)))
+  }
+  
+  func transposed() -> Tensor {
+    Tensor(self.value.transpose2d(), context: context)
   }
 }
 
@@ -549,6 +731,22 @@ extension Array where Element == Tensor {
     }
     
     return result
+  }
+}
+
+public extension Tensor {
+ static func fillWith(value: Tensor.Scalar, size: TensorSize) -> Tensor {
+    var result: [[[Tensor.Scalar]]]  = []
+    
+    for _ in 0..<size.depth {
+      var row: [[Tensor.Scalar]] = []
+      for _ in 0..<size.rows {
+        row.append([Tensor.Scalar](repeating: value, count: size.columns))
+      }
+      result.append(row)
+    }
+
+    return Tensor(result)
   }
 }
 

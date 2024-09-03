@@ -52,7 +52,7 @@ public final class Dropout: BaseLayer {
     try container.encode(mask, forKey: .mask)
   }
   
-  public override func forward(tensor: Tensor) -> Tensor {
+  public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let context = TensorContext { inputs, gradient in
       let droppedOutGradients = gradient * self.mask
       
