@@ -14,8 +14,9 @@ public class Classifier {
   private let epochs: Int
   private let log: Bool
   private let lossFunction: LossFunction
-  private let accuracyThreshold: Tensor.Scalar
+  private let accuracyThreshold: AccuracyThreshold
   private let killOnAccuracy: Bool
+  private let accuracyMonitor: AccuracyMonitor
   
   public var onAccuracyReached: (() -> ())? = nil
   public var onEpochCompleted: (() -> ())? = nil
@@ -25,7 +26,7 @@ public class Classifier {
   public init(optimizer: Optimizer,
               epochs: Int = 100,
               batchSize: Int,
-              accuracyThreshold: Tensor.Scalar = 0.8,
+              accuracyThreshold: AccuracyThreshold = .init(value: 0.8, averageCount: 5),
               killOnAccuracy: Bool = true,
               threadWorkers: Int = 16,
               log: Bool = false,
@@ -38,6 +39,7 @@ public class Classifier {
     self.killOnAccuracy = killOnAccuracy
     self.log = log
     self.lossFunction = lossFunction
+    self.accuracyMonitor = .init(threshold: accuracyThreshold)
   }
   
   public func feed(_ data: [Tensor]) -> [Tensor] {
@@ -80,7 +82,9 @@ public class Classifier {
 
         print("val_complete - ", "loss: ", loss, "accuracy: ", result.accuracy)
         
-        if result.accuracy >= (accuracyThreshold * 100) {
+        accuracyMonitor.append(result.accuracy / 100.0)
+        
+        if accuracyMonitor.isAboveThreshold() {
           self.onAccuracyReached?()
           if killOnAccuracy {
             return
