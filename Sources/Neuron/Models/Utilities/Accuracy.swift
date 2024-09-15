@@ -8,12 +8,19 @@
 import NumSwift
 import Foundation
 
+
+/// Used for a model to send desired accuracy information to a model. 
 public struct AccuracyThreshold: Hashable {
   let value: Tensor.Scalar
   let averageCount: Int
   
+  
+  /// Default initializer
+  /// - Parameters:
+  ///   - value: The desired accuracy, a value between 0 and 1.
+  ///   - averageCount: The number of samples to average over.
   public init(value: Tensor.Scalar, averageCount: Int) {
-    self.value = value
+    self.value = Swift.max(Swift.min(1, value), 0)
     self.averageCount = averageCount
   }
 }
