@@ -12,7 +12,7 @@ extension XCTestCase {
 }
 
 final class NeuronTests: XCTestCase {
-  
+
   func test_tensor_Subscript() {
     let input: [[Tensor.Scalar]] = [[ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
                               0,  0,  0,  0,  0,  0,  0,  0,  1],
