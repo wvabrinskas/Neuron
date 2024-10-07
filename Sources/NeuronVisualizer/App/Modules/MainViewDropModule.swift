@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Neuron
 
 @available(macOS 14, *)
 final class MainViewDropModule: DropDelegate {
@@ -18,12 +19,30 @@ final class MainViewDropModule: DropDelegate {
     self.builder = builder
   }
   
+  func buildGraphView(network: Sequential) -> GraphView {
+    var layers = network.layers.map { $0.encodingType }
+    let firstLayer = layers.removeFirst()
+    
+    let root = LayerNode(layer: firstLayer)
+    var workingNode = root
+    
+    layers.forEach { type in
+      let nextNode = LayerNode(layer: type)
+      workingNode.connections = [nextNode]
+      workingNode = nextNode
+    }
+    
+    return .init(root: root)
+  }
+  
   func build(_ data: Data?) async {
     guard let data else { return }
     
     let buildResult = await builder.build(data)
     
     viewModel.message = buildResult.description
+    viewModel.graphView = buildGraphView(network: buildResult.network)
+
     clean()
   }
   

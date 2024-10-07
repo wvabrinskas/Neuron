@@ -32,17 +32,20 @@ final class MainViewModel: Sendable {
   var message: String
   var dropState: DropState
   var dashPhase: CGFloat
+  var graphView: GraphView?
   
   init(importData: Data? = nil,
        loading: Loading = .init(),
        message: String = "",
        dropState: DropState = .none,
-       dashPhase: CGFloat = 0.0) {
+       dashPhase: CGFloat = 0.0,
+       graphView: GraphView? = nil) {
     self.importData = importData
     self.loading = loading
     self.message = message
     self.dropState = dropState
     self.dashPhase = dashPhase
+    self.graphView = graphView
   }
 }
 
@@ -57,39 +60,33 @@ struct MainView: View {
   }
   
   var body: some View {
-    VStack {
-      Text("Drag Neuron model here")
-        .font(.title)
-        .padding(viewModel.dropState == .enter ? 20 : 16)
-        .background {
-          RoundedRectangle(cornerRadius: 20, style: .continuous)
-            .strokeBorder(style: .init(lineWidth: 3, dash: [10.0], dashPhase: viewModel.dashPhase))
+    HStack {
+      Spacer()
+      VStack {
+        Text("Drag Neuron model here")
+          .font(.title)
+          .padding(viewModel.dropState == .enter ? 20 : 16)
+          .background {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+              .strokeBorder(style: .init(lineWidth: 3, dash: [10.0], dashPhase: viewModel.dashPhase))
+          }
+          .padding()
+          .opacity(viewModel.dropState == .enter ? 0.5 : 1.0)
+          .animation(.easeInOut, value: viewModel.dropState == .enter)
+        ScrollView {
+          Text(viewModel.message)
+            .padding([.leading, .trailing], 8)
+          Spacer()
         }
-        .padding()
-        .opacity(viewModel.dropState == .enter ? 0.5 : 1.0)
-        .animation(.easeInOut, value: viewModel.dropState == .enter)
-      ScrollView {
-        Text(viewModel.message)
-          .padding([.leading, .trailing], 8)
-        Spacer()
-      }
-      .overlay {
-        if viewModel.loading.isLoading {
-          ProgressView()
+        .overlay {
+          if viewModel.loading.isLoading {
+            ProgressView()
+          }
         }
       }
+      Spacer()
+      viewModel.graphView
     }
     .onDrop(of: [.data], delegate: module)
   }
 }
-
-extension Animation {
-  func `repeat`(while expression: Bool, autoreverses: Bool = true) -> Animation {
-    if expression {
-      return self.repeatForever(autoreverses: autoreverses)
-    } else {
-      return self
-    }
-  }
-}
-

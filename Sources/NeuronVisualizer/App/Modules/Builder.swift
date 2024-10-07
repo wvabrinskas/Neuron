@@ -11,6 +11,7 @@ import Foundation
 
 struct BuilderResult {
   var description: String
+  var network: Sequential
 }
 
 final class Builder {
@@ -20,7 +21,8 @@ final class Builder {
         let network: Sequential = .import(data)
         network.compile()
         
-        continuation.resume(returning: .init(description: network.debugDescription))
+        continuation.resume(returning: .init(description: network.debugDescription,
+                                             network: network))
       }
     }
   }
