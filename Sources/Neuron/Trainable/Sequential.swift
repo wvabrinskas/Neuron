@@ -53,6 +53,17 @@ public final class Sequential: Trainable {
     }
   }
   
+  @_spi(Visualizer)
+  public static func `import`(_ data: Data) -> Self {
+    let result: Result<Self, Error> =  ExportHelper.buildModel(data)
+    switch result {
+    case .success(let model):
+      return model
+    case .failure(let error):
+      preconditionFailure(error.localizedDescription)
+    }
+  }
+  
   public init(_ layers: Layer...) {
     self.layers = layers
   }
