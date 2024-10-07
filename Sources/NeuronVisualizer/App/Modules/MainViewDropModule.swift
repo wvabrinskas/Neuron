@@ -8,7 +8,7 @@
 import SwiftUI
 
 @available(macOS 14, *)
-struct MainViewDropModule: DropDelegate {
+final class MainViewDropModule: DropDelegate {
   let viewModel: MainViewModel
   private let builder: Builder
   
@@ -18,19 +18,38 @@ struct MainViewDropModule: DropDelegate {
     self.builder = builder
   }
   
-  func build(_ data: Data) async -> BuilderResult {
-    await builder.build(data)
+  func build(_ data: Data?) async {
+    guard let data else { return }
+    
+    let buildResult = await builder.build(data)
+    
+    viewModel.message = buildResult.description
+    clean()
   }
   
   func performDrop(items: [NSItemProvider]) {
+    viewModel.message.removeAll()
+    
     guard let data = items.first else { return }
     
     let _ = data.loadDataRepresentation(for: .data) { data, error in
       self.viewModel.loading.isLoading = true
-      self.viewModel.importData = data
+      Task { @MainActor in
+        await self.build(data)
+      }
     }
   }
+  
+  private func clean() {
+    viewModel.importData = nil
+    viewModel.loading = .init()
+  }
+  
   // MARK: DropDelegate
+  
+  func onBuildComplete() {
+    
+  }
   
   func dropEntered(info: DropInfo) {
     // Triggered when an object enters the view.
@@ -49,10 +68,11 @@ struct MainViewDropModule: DropDelegate {
   
   func validateDrop(info: DropInfo) -> Bool {
     // Determines whether to accept or reject the drop.
-    info.hasItemsConforming(to: [.data])
+    info.hasItemsConforming(to: [.data]) && viewModel.loading.isLoading == false
   }
   
   func performDrop(info: DropInfo) -> Bool {
+    guard viewModel.loading.isLoading == false else { return false }
     // Handles the drop when the user drops an object onto the view.
     performDrop(items: info.itemProviders(for: [.data]))
     return info.hasItemsConforming(to: [.data])

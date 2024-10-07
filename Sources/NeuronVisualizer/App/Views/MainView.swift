@@ -18,10 +18,10 @@ final class MainViewModel: Sendable {
   
   struct Loading {
     var isLoading: Bool
-    var percentage: CGFloat
+    var percentage: Double
     
     init(isLoading: Bool = false,
-         percentage: CGFloat = 0.0) {
+         percentage: Double = 0.0) {
       self.isLoading = isLoading
       self.percentage = percentage
     }
@@ -80,14 +80,6 @@ struct MainView: View {
       }
     }
     .onDrop(of: [.data], delegate: module)
-    .task(id: viewModel.loading.isLoading) {
-      guard let importData = viewModel.importData else { return }
-      let buildResult = await module.build(importData)
-      
-      viewModel.message = buildResult.description
-      viewModel.importData = nil
-      viewModel.loading.isLoading = false
-    }
   }
 }
 
