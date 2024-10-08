@@ -20,15 +20,29 @@ final class MainViewDropModule: DropDelegate {
   }
   
   func buildGraphView(network: Sequential) -> GraphView {
-    var layers = network.layers.map { $0.encodingType }
+    var layers = network.layers
     let firstLayer = layers.removeFirst()
     
-    let root = LayerNode(layer: firstLayer)
+    let payload = NodePayload(layer: firstLayer)
+    
+    let root: Node = LayerNode(payload: payload)
+    root.connections = [SizeNode(payload: payload)]
+    
     var workingNode = root
     
     layers.forEach { type in
-      let nextNode = LayerNode(layer: type)
-      workingNode.connections = [nextNode]
+      let nextNode: Node
+      let payload = NodePayload(layer: type)
+
+      if type is ActivationLayer {
+        nextNode = ActivationNode(payload: payload)
+      } else {
+        nextNode = LayerNode(payload: payload)
+      }
+      
+      let outputSizeNode = SizeNode(payload: payload)
+      
+      workingNode.connections.append(contentsOf: [nextNode, outputSizeNode])
       workingNode = nextNode
     }
     
@@ -48,6 +62,7 @@ final class MainViewDropModule: DropDelegate {
   
   func performDrop(items: [NSItemProvider]) {
     viewModel.message.removeAll()
+    viewModel.graphView = nil
     
     guard let data = items.first else { return }
     

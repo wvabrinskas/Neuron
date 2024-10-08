@@ -9,7 +9,7 @@ import Neuron
 import SwiftUI
 
 @available(macOS 14, *)
-class LayerNode: BaseNode {
+class ActivationNode: BaseNode {
   @ViewBuilder
   override func build() -> any View {
     Text(layer.rawValue)
@@ -17,10 +17,9 @@ class LayerNode: BaseNode {
       .foregroundStyle(Color.primary)
       .padding()
       .background {
-        RoundedRectangle(cornerRadius: 20, style: .continuous)
+        RoundedRectangle(cornerRadius: 10, style: .continuous)
           .fill(layer.color)
-          .stroke(.primary, style: .init(lineWidth: 2))
-          .frame(height: 40)
+          .stroke(Color.primary, style: .init(lineWidth: 2))
       }
       .padding()
   }
