@@ -15,18 +15,18 @@ class SizeNode: BaseNode {
     let array = payload.outputSize.asArray
     
     VStack {
-      ForEach(array, id: \.self) { int in
-        Text("\(int)")
+      ForEach(0..<array.count, id: \.self) { int in
+        Text("\(array[int])")
+          .font(.title2)
           .fontWeight(.semibold)
       }
     }
     .padding()
     .background {
       RoundedRectangle(cornerRadius: 10, style: .continuous)
-        .fill(layer.color)
+        .fill(.gray)
         .stroke(Color.primary, style: .init(lineWidth: 2))
     }
     .padding()
   }
 }
-

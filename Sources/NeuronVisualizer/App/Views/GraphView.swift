@@ -37,7 +37,7 @@ public struct GraphView: View {
       views.append(AnyView(node.build()))
     }
     
-    let viewToAppend = AnyView(VStack {
+    let viewToAppend = AnyView(HStack {
       ForEach(0..<node.connections.count, id: \.self) { i in
         let nodeToConnect = node.connections[i]
         AnyView(nodeToConnect.build())

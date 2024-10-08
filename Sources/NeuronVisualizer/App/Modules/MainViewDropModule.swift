@@ -20,14 +20,8 @@ final class MainViewDropModule: DropDelegate {
   }
   
   func buildGraphView(network: Sequential) -> GraphView {
-    var layers = network.layers
-    let firstLayer = layers.removeFirst()
-    
-    let payload = NodePayload(layer: firstLayer)
-    
-    let root: Node = LayerNode(payload: payload)
-    root.connections = [SizeNode(payload: payload)]
-    
+    let layers = network.layers
+    let root: Node = BaseNode()
     var workingNode = root
     
     layers.forEach { type in

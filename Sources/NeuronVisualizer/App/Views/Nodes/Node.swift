@@ -42,24 +42,16 @@ class BaseNode: Node {
   let payload: NodePayload
   
   func build() -> any View {
-    Text("Do not use")
+    EmptyView()
   }
-  
-  func outputSizeNode() -> any View {
-    let array = payload.outputSize.asArray
-    
-    return VStack {
-      ForEach(array, id: \.self) { int in
-          Text("\(int)")
-      }
-    }
-    .background(in: .rect)
-  }
-  
-  required init(payload: NodePayload) {
+
+  required init(payload: NodePayload = .init(layer: .none,
+                                             outputSize: .init(array: []),
+                                             inputSize: .init(array: []))) {
     self.payload = payload
     self.layer = VisualEncodingType(encodingType: payload.layer)
   }
+  
 }
 
 @available(macOS 14, *)
@@ -90,7 +82,7 @@ public enum VisualEncodingType: String, Codable {
     case .leakyRelu, .relu, .sigmoid, .tanh, .swish, .selu, .softmax: .green
     case .batchNormalize, .layerNormalize: .blue
     case .conv2d, .transConv2d: .cyan
-    case .dense: .gray
+    case .dense: .indigo
     case .dropout: .red
     case .flatten: .orange
     case .maxPool, .avgPool: .brown
