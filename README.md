@@ -12,6 +12,8 @@
 
 [![Tests](https://github.com/wvabrinskas/Neuron/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/wvabrinskas/Neuron/actions/workflows/tests.yml)
 
+![](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fwww.emergetools.com%2Fapi%2Fv2%2Fpublic_new_build%3FexampleId%3DNeuron%26platform%3Dios%26badgeOption%3Dversion_and_max_install_size%26buildType%3Drelease&amp;query=$.badgeMetadata&amp;label=Neuron&amp;logo=apple)
+
 # Support 
 [<img width="75" src="images/twitter.png"> ](https://twitter.com/wvabrinskas)
 [<img width="75" src="images/discord.png">](https://discord.gg/p84DYph4PW)
