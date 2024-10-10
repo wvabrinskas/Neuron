@@ -81,7 +81,7 @@ To get started with Neuron it all begins with setting up a `Sequential` object. 
 ## Build a Network
 Let's build an `MNIST` classifier network. We need to build a `Sequential` object to handle our layers.
 
-```
+```swift
 let network = Sequential {
   [
     Conv2d(filterCount: 16,
@@ -120,7 +120,7 @@ Neuron uses a `protocol` that defines what's needed for an `Opitmizer`. There ar
 
 All optimizers are interchangeable. Optimizers are the "brain" of the network. All function calls to train the network should be called through your specific `Optimizer`. Let's build an `Adam` optimizer for this classifier. 
 
-```
+```swift
 let optim = Adam(network,
                  learningRate: 0.0001,
                  l2Normalize: false)
@@ -130,7 +130,7 @@ The first parameter here is the network we defined above. `learningRate` is the 
 
 ### Decay Functions
 An `Optimizer` has an optional property for setting a learning rate decay function. 
-```
+```swift
 public protocol DecayFunction {
   var decayedLearningRate: Tensor.Scalar { get }
   func reset()
@@ -144,7 +144,7 @@ By this point you are ready to train the `Optimizer` and the network. You could 
 
 The `Classifier` model is a completely optional class that does a lot of the heavy lifting for you when training the network. Let's use that for now.
 
-```
+```swift
 let classifier = Classifier(optimizer: optim,
                             epochs: 10,
                             batchSize: 32,
@@ -160,7 +160,7 @@ Here we create a `Classifier` object. We pass in the `Adam Optimizer` we defined
 
 Next step to get the `MNIST` dataset. Neuron provides this locally to you through the `MNIST()` object.
 
-```
+```swift
 let data = await MNIST().build()
 ```
 
@@ -171,7 +171,7 @@ To train the network using the `Classifier` object just call `    classifier.fit
 ## Retrieving Metrics
 All `Optimizers` support the addition of a `MetricsReporter` object. This object will track all metrics you ask it to during the initialization. If the metric isn't supported by your netowrk setup it will report a `0`. 
 
-```
+```swift
 let reporter = MetricsReporter(frequency: 1,
                                 metricsToGather: [.loss,
                                                   .accuracy,
@@ -191,7 +191,7 @@ optim.metricsReporter?.receive = { metrics in
 
 The `metricsToGather` array is a `Set` of `Metric` definitions. 
 
-```
+```swift
 public enum Metric: String {
   case loss = "Training Loss"
   case accuracy = "Accuracy"
@@ -217,7 +217,7 @@ Once the model has trained to your liking you can export the model to a `.smodel
 
 Neuron provides a helper object for exporting called `ExportHelper`. The usage is simple: 
 
-```
+```swift
 // defined: 
 public static func getModel<T: Codable>(filename: String = "model", model: T) -> URL?
 
@@ -240,7 +240,7 @@ Keep playing around with your new model and enjoy the network! Share your model 
 ## Tensor
 The main backbone of Neuron is the `Tensor` object. This object is basically a glorified 3D array of numbers. All `Tensor` objects are 3D arrays however they can contain any type of array in-between. Its size is defined by a `TensorSize` object defining `columns`, `rows`, `depth`.
 
-```
+```swift
 public class Tensor: Equatable, Codable {
   ...
     
@@ -280,7 +280,7 @@ Above are the initializers that `Tensor` supports. More in-depth documentation o
 
 ### Arithmetic
 You can perform basic arithmetic opterations directly to a `Tensor` object as well. 
-```
+```swift
 static func * (Tensor, Tensor.Scalar) -> Tensor
 static func * (Tensor, Tensor) -> Tensor
 static func + (Tensor, Tensor) -> Tensor
@@ -295,7 +295,7 @@ static func == (Tensor, Tensor) -> Bool
 ### Building a backpropagation graph
 You can attach a `Tensor` to another `Tensor`'s graph by calling `setGraph(_ tensor: Tensor)` on the `Tensor` whose `graph` you'd like to set. 
 
-```
+```swift
 let inputTensor = Tensor([1,2,3,4])
 var outputTensor = Tensor([2])
 
@@ -316,7 +316,7 @@ More in-depth `TensorContext` documentation can be found [here](https://williamv
 Neuron performs gradient descent operations using `Tensor` objects and their accompanying `TensorContext`.
 `Tensor` objects contain an internal property called `context` which is of type `TensorContext`. `TensorContext` is an object that contains the backpropagtion information for that given `Tensor`. As of right now Neuron doesn't have a full auto-grad setup yet however `Tensor` objects with their `TensorContext` provides some type of auto-grad. 
 
-```
+```swift
 public struct TensorContext: Codable {
   public typealias TensorBackpropResult = (input: Tensor, weight: Tensor)
   public typealias TensorContextFunction = (_ inputs: Tensor, _ gradient: Tensor) -> TensorBackpropResult
@@ -340,7 +340,7 @@ public struct TensorContext: Codable {
 
 When calling `.gradients(delta: SomeTensor)` on a `Tensor` that has an attached `graph` it wil automatically backpropagate all the way through the `graph` and return a `Tensor.Gradient` object. 
 
-```
+```swift
 public struct Gradient {
   let input: [Tensor]
   let weights: [Tensor]
