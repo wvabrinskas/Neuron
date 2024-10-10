@@ -14,6 +14,16 @@
 
 <a href="https://www.emergetools.com/app/example/ios/Neuron/release?utm_campaign=badge-data"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fwww.emergetools.com%2Fapi%2Fv2%2Fpublic_new_build%3FexampleId%3DNeuron%26platform%3Dios%26badgeOption%3Dmax_install_size_only%26buildType%3Drelease&query=$.badgeMetadata&label=Neuron&logo=apple" /></a>
 
+# Sponsors
+We are incredibly grateful for the support of our sponsors
+
+<a href="https://www.emergetools.com"><img width="100" style="border-radius: 15px;" src="images/emerge-square.png"></a>
+
+# Become a Sponsor
+To become a sponsor and support the development of Neuron, simply click on the "Sponsor" button at the top of this GitHub repository.
+
+
+
 # Support 
 [<img width="75" src="images/twitter.png"> ](https://twitter.com/wvabrinskas)
 [<img width="75" src="images/discord.png">](https://discord.gg/p84DYph4PW)
