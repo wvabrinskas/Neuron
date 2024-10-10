@@ -7,3 +7,7 @@ bin
 xcuserdata/
 .swiftpm
 Package.resolved
+*.xcframework
+*.xcarchive
+/build
+*.zip
