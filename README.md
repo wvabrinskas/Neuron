@@ -22,8 +22,6 @@ We are incredibly grateful for the support of our sponsors
 # Become a Sponsor
 To become a sponsor and support the development of Neuron, simply click on the "Sponsor" button at the top of this GitHub repository.
 
-
-
 # Support 
 [<img width="75" src="images/twitter.png"> ](https://twitter.com/wvabrinskas)
 [<img width="75" src="images/discord.png">](https://discord.gg/p84DYph4PW)
@@ -39,6 +37,15 @@ Feel free to send me suggestions on how to improve this. I would be delighted to
 
 # Before you begin developing
 Run `./scripts/onboard.sh` to install the Xcode templates that `Neuron` provides to quickly generate layer code templates.
+
+# Contribution Policies
+## Filing Issues
+Feel free to file issues about the framework here or contact me through the [Discord](https://discord.gg/p84DYph4PW). I am open to all suggestions on how to improve the framework. 
+
+## Pull Requests
+There are automated tests that run when a PR is created to the `develop` or `master` branches. These tests must pass before a PR can be merged. All PRs must merge into the `develop` branch. 
+## Branching
+All features must be branched off the `develop` branch. 
 
 # Background
 
@@ -62,15 +69,6 @@ Generated 7's from a WGAN. Trained on MNIST 7's for 10 epochs. 16 - 32 kernels o
 <img width="100" src="images/700.png">
 <img width="90" src="images/701.png">
 <img width="85" src="images/702.png">
-
-# Contribution Policies
-## Filing Issues
-Feel free to file issues about the framework here or contact me through the [Discord](https://discord.gg/p84DYph4PW). I am open to all suggestions on how to improve the framework. 
-
-## Pull Requests
-There are automated tests that run when a PR is created to the `develop` or `master` branches. These tests must pass before a PR can be merged. All PRs must merge into the `develop` branch. 
-## Branching
-All features must be branched off the `develop` branch. 
 
 # Important Note: GPU Support (WIP)
 Currently there is no GPU execution, at least not as how I would like it. Everything runs on the CPU, with some C optimizations for certain mathematical functions. Neuron will run multithreaded on the CPU with somewhat decent speed depending on the model. However a very large model with serveral kernels and convolutions will take a while. This is something I want to get working ASAP however Metal is very difficult to work with, especially with my limited knowledge and my desire to write everything from scratch. 
