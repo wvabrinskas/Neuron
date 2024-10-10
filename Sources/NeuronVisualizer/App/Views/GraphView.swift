@@ -11,6 +11,8 @@ import SwiftUI
 public struct GraphView: View {
   let root: Node
   
+  @State var previousNode: Node?
+  
   public var body: some View {
     ScrollView([.horizontal, .vertical]) {
       HStack(alignment: .center) {
@@ -22,9 +24,9 @@ public struct GraphView: View {
       }
       .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
     }
-  
-  }
     
+  }
+  
   func buildViews(node: Node, buildSelf: Bool = true, runningViews: [AnyView] = []) -> [AnyView] {
     guard node.connections.isEmpty == false else {
       return runningViews
@@ -37,12 +39,37 @@ public struct GraphView: View {
       views.append(AnyView(node.build()))
     }
     
-    let viewToAppend = AnyView(HStack {
-      ForEach(0..<node.connections.count, id: \.self) { i in
-        let nodeToConnect = node.connections[i]
-        AnyView(nodeToConnect.build())
+    let viewToAppend = AnyView(
+      Group {
+        ForEach(0..<node.connections.count, id: \.self) { i in
+          let nodeToConnect = node.connections[i]
+
+          ZStack {
+            AnyView(nodeToConnect.build())
+              .background(
+                GeometryReader { positionReader in
+                  Color.clear
+                    .onAppear() {
+                      nodeToConnect.point = CGPoint(x: positionReader.frame(in: .global).midX, y: positionReader.frame(in: .global).midY)
+                      if i + 1 < node.connections.count {
+                        node.connections[i + 1].parentPoint = nodeToConnect.point
+                      }
+                      previousNode = nodeToConnect
+                    }
+                }
+              )
+            
+            let _ = print(previousNode)
+            
+            Path { path in
+              path.move(to: nodeToConnect.point ?? .zero)
+              path.addLine(to: nodeToConnect.parentPoint ?? .zero)
+            }
+            .stroke(.yellow, style: StrokeStyle(lineWidth: 3))
+          }
+        }
       }
-    })
+    )
     
     views.append(viewToAppend)
     

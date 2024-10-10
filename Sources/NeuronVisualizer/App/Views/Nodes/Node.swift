@@ -28,6 +28,8 @@ struct NodePayload {
 }
 
 protocol Node: AnyObject {
+  var parentPoint: CGPoint? { get set }
+  var point: CGPoint? { get set }
   var connections: [Node] { get set }
   init(payload: NodePayload)
   
@@ -37,6 +39,9 @@ protocol Node: AnyObject {
 
 @available(macOS 14, *)
 class BaseNode: Node {
+  var parentPoint: CGPoint?
+  var point: CGPoint?
+  
   var connections: [Node] = []
   let layer: VisualEncodingType
   let payload: NodePayload
