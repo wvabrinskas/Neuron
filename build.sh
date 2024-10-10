@@ -51,11 +51,14 @@ echo "Builds completed successfully."
 rm -rf "Neuron.xcframework"
 xcodebuild -create-xcframework -framework Neuron-iphonesimulator.xcarchive/Products/Library/Frameworks/Neuron.framework -framework Neuron-iphoneos.xcarchive/Products/Library/Frameworks/Neuron.framework -output Neuron.xcframework
 
-
 # Update the Package.swift to build the library as static instead of dynamic
 sed -i '' '/type: .dynamic,/ s/.*/\/\/Replace this/' Package.swift
 
 cp -r Neuron-iphonesimulator.xcarchive/dSYMs Neuron.xcframework/ios-arm64_x86_64-simulator
 cp -r Neuron-iphoneos.xcarchive/dSYMs Neuron.xcframework/ios-arm64
 
+zip -r Neuron.xcframework.zip Neuron.xcframework
 
+rm -rf Neuron.xcframework
+rm -rf Neuron-iphonesimulator.xcarchive
+rm -rf Neuron-iphoneos.xcarchive
