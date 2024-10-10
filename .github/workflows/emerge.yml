@@ -12,7 +12,10 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Generate iOS release bundle
-        run: build.sh
+        run: |
+         chmod +x ./build.sh
+         ./build.sh
+        shell: bash
       - name: Upload artifact to Emerge
         uses: EmergeTools/emerge-upload-action@v1.1.0
         with:
