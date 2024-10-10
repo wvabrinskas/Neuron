@@ -127,7 +127,7 @@ final class FullModelTests: XCTestCase {
     
     let classifier = Classifier(optimizer: optim,
                                 batchSize: 64,
-                                accuracyThreshold: 0.9)
+                                accuracyThreshold: .init(value: 0.9, averageCount: 5))
 
     optim.metricsReporter?.receive = { _ in }
     
@@ -157,7 +157,7 @@ final class FullModelTests: XCTestCase {
       
       let classifier = Classifier(optimizer: optim,
                                   batchSize: 64,
-                                  accuracyThreshold: 0.9)
+                                  accuracyThreshold: .init(value: 0.9, averageCount: 5))
       
       let red = ColorType.red.color()
       let green = ColorType.green.color()
@@ -197,7 +197,7 @@ final class FullModelTests: XCTestCase {
                   dataset: MockRNNDataset(),
                   classifierParameters: RNN.ClassifierParameters(batchSize: 16,
                                                                  epochs: 1000,
-                                                                 accuracyThreshold: 0.8,
+                                                                 accuracyThreshold: .init(value: 0.8, averageCount: 5),
                                                                  killOnAccuracy: false,
                                                                  threadWorkers: 8),
                   optimizerParameters: RNN.OptimizerParameters(learningRate: 0.002,

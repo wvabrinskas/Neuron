@@ -59,14 +59,14 @@ public class RNN: Classifier {
   public struct ClassifierParameters {
     let batchSize: Int
     let epochs: Int
-    let accuracyThreshold: Tensor.Scalar
+    let accuracyThreshold: AccuracyThreshold
     let killOnAccuracy: Bool
     let threadWorkers: Int
     let lossFunction: LossFunction
     
     public init(batchSize: Int,
                 epochs: Int,
-                accuracyThreshold: Tensor.Scalar = 0.9,
+                accuracyThreshold: AccuracyThreshold = .init(value: 0.9, averageCount: 5),
                 killOnAccuracy: Bool = true,
                 threadWorkers: Int = 8,
                 lossFunction: LossFunction = .binaryCrossEntropySoftmax) {

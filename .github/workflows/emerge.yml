@@ -1,0 +1,22 @@
+name: Emerge
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Generate iOS release bundle
+        run: |
+         chmod +x ./build.sh
+         ./build.sh
+        shell: bash
+      - name: Upload artifact to Emerge
+        uses: EmergeTools/emerge-upload-action@v1.1.0
+        with:
+          artifact_path: Neuron.xcframework.zip
+          emerge_api_key: ${{ secrets.EMERGE_API_KEY }}
+          build_type: release # Optional, change if your workflow builds a specific type

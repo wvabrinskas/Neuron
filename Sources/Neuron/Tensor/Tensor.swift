@@ -21,7 +21,11 @@ public class Tensor: Equatable, Codable {
     lhs.value == rhs.value || lhs.id == rhs.id  // not sure at all why there's an ID property
   }
 
+  #if QUANTIZED_F16
+  public typealias Scalar = Float16
+  #else
   public typealias Scalar = Float
+  #endif
   
   public typealias Data = [[[Scalar]]]
   
