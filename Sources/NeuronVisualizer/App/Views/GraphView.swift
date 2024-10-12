@@ -43,30 +43,7 @@ public struct GraphView: View {
       Group {
         ForEach(0..<node.connections.count, id: \.self) { i in
           let nodeToConnect = node.connections[i]
-
-          ZStack {
-            AnyView(nodeToConnect.build())
-              .background(
-                GeometryReader { positionReader in
-                  Color.clear
-                    .onAppear() {
-                      nodeToConnect.point = CGPoint(x: positionReader.frame(in: .global).midX, y: positionReader.frame(in: .global).midY)
-                      if i + 1 < node.connections.count {
-                        node.connections[i + 1].parentPoint = nodeToConnect.point
-                      }
-                      previousNode = nodeToConnect
-                    }
-                }
-              )
-            
-            let _ = print(previousNode)
-            
-            Path { path in
-              path.move(to: nodeToConnect.point ?? .zero)
-              path.addLine(to: nodeToConnect.parentPoint ?? .zero)
-            }
-            .stroke(.yellow, style: StrokeStyle(lineWidth: 3))
-          }
+          AnyView(nodeToConnect.build())
         }
       }
     )
