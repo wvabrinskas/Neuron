@@ -5,18 +5,27 @@
 //  Created by William Vabrinskas on 10/11/24.
 //
 
-import ZIPFoundation
 import Foundation
+import Logger
 
 protocol ImporterPayload: Sendable {}
+protocol ResultPayload {
+  var model: Sequential { get }
+}
 
 protocol Importer {
   associatedtype Payload: ImporterPayload
-  func fetch(payload: Payload, precompile: Bool) async throws -> Sequential
+  associatedtype ResultingPayload: ResultPayload
+  func fetch(payload: Payload, precompile: Bool) async throws -> ResultingPayload
 }
 
+struct BaseResultPayload: ResultPayload {
+  let model: Sequential
+}
 
-class BaseImporter<Payload: ImporterPayload>: Importer {
+class BaseImporter<Payload: ImporterPayload, ResultingPayload: ResultPayload>: Importer, Logger {
+  var logLevel: LogLevel = .low
+  
   enum ImporterError: Error {
     case invalidURL
     case invalidResponse
@@ -29,22 +38,11 @@ class BaseImporter<Payload: ImporterPayload>: Importer {
     self.session = session
   }
   
-  func fetch(payload: Payload, precompile: Bool = false) async throws -> Sequential {
+  func fetch(payload: Payload, precompile: Bool = false) async throws -> ResultingPayload {
     // override
-    .init()
+    fatalError("Do not use the BaseImporter, override this")
   }
-  
-  func download(request: URLRequest) async throws -> Data? {
-    let downloaded = try await session.data(for: request)
-    
-    let response = downloaded.1
-    print(response)
-    
-    let data = downloaded.0
-    
-    return data
-  }
-  
+
   func buildModel(data: Data) throws -> Sequential {
     let network: Result<Sequential, Error> = ExportHelper.buildModel(data)
     

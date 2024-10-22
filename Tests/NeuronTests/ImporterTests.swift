@@ -12,22 +12,64 @@ import XCTest
 
 final class ImporterTests: XCTestCase {
 
-  func test_remoteImporter() async throws {
+  func test_remoteImporter_not_precompile() async throws {
     guard isGithubCI == false else {
       XCTAssertTrue(true)
       return
     }
 
-    let urlString = "https://www.kaggle.com/models/williamvabrinskas/pokemon-all-classifier-v2/Other/44m/1/download/pHqaJWS1dWru2r9givMk%2Fversions%2FI5k415ZrwPAfPgEMtNqc%2Ffiles%2Fpokemon-all-classifier_minified_v2.smodel"
+    let urlString = "https://williamvabrinskas.com/Neuron/downloads/hamsternames.smodel"
     
     let payload = RemotePayload(url: urlString)
     
     let importer = RemoteImporter()
+    importer.logLevel = .high
+        
+    let result = try await importer.fetch(payload: payload, precompile: false)
+        
+    XCTAssertFalse(result.model.isCompiled)
+  }
+  
+  func test_remoteImporter_precompile() async throws {
+    guard isGithubCI == false else {
+      XCTAssertTrue(true)
+      return
+    }
+
+    let urlString = "https://williamvabrinskas.com/Neuron/downloads/hamsternames.smodel"
+    
+    let payload = RemotePayload(url: urlString)
+    
+    let importer = RemoteImporter()
+    importer.logLevel = .high
         
     let result = try await importer.fetch(payload: payload, precompile: true)
-    
-    print(result)
+        
+    XCTAssertTrue(result.model.isCompiled)
+  }
+  
+  func test_remoteImporter_cache() async throws {
+    guard isGithubCI == false else {
+      XCTAssertTrue(true)
+      return
+    }
 
+    let urlString = "https://williamvabrinskas.com/Neuron/downloads/hamsternames.smodel"
+    
+    let payload = RemotePayload(url: urlString)
+    
+    let importer = RemoteImporter()
+    importer.logLevel = .high
+        
+    let result = try await importer.fetch(payload: payload, precompile: true)
+        
+    XCTAssertTrue(result.model.isCompiled)
+    XCTAssertTrue(result.status == .cacheMiss)
+
+    let result2 = try await importer.fetch(payload: payload, precompile: true)
+        
+    XCTAssertTrue(result2.model.isCompiled)
+    XCTAssertTrue(result2.status == .cacheHit)
   }
   
 }
