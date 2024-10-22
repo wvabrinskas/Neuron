@@ -29,15 +29,7 @@ struct RemoteResultPayload: ResultPayload {
 /// Generic importer that downloads a `smodel` file directly from a remove server.
 /// Expects the downloaded object to be a `.smodel` file.
 final class RemoteImporter: BaseImporter<RemotePayload, RemoteResultPayload> {
-  private let cache: NSCache<NSString, CacheObject> = .init()
-
-  private class CacheObject {
-    let data: Data
-    
-    init(data: Data) {
-      self.data = data
-    }
-  }
+  private let cache: NSCache<NSString, NSData> = .init()
   
   override func fetch(payload: RemotePayload, precompile: Bool = false) async throws -> RemoteResultPayload {
     guard let url = URL(string: payload.url) else {
@@ -76,7 +68,7 @@ final class RemoteImporter: BaseImporter<RemotePayload, RemoteResultPayload> {
       
     let data = downloaded.0
     
-    cache.setObject(.init(data: data), forKey: url.absoluteString.ns)
+    cache.setObject(data.ns, forKey: url.absoluteString.ns)
     
     return (.cacheMiss, data)
   }
@@ -86,6 +78,18 @@ final class RemoteImporter: BaseImporter<RemotePayload, RemoteResultPayload> {
 private extension String {
   var ns: NSString {
     NSString(string: self)
+  }
+}
+
+private extension Data {
+  var ns: NSData {
+    NSData(data: self)
+  }
+}
+
+private extension NSData {
+  var data: Data {
+    Data(referencing: self)
   }
 }
 
