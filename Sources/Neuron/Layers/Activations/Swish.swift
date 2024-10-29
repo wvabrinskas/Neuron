@@ -38,6 +38,7 @@ public final class Swish: BaseActivationLayer {
   }
   
   override public func onInputSizeSet() {
+    super.onInputSizeSet()
     outputSize = inputSize
   }
   

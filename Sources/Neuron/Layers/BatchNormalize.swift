@@ -114,6 +114,7 @@ public final class BatchNormalize: BaseLayer {
   }
   
   override public func onInputSizeSet() {
+    super.onInputSizeSet()
     outputSize = inputSize
     setupTrainables()
     resetDeltas()

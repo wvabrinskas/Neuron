@@ -75,6 +75,7 @@ public final class Softmax: BaseActivationLayer {
   }
   
   override public func onInputSizeSet() {
+    super.onInputSizeSet()
     outputSize = inputSize
   }
 }

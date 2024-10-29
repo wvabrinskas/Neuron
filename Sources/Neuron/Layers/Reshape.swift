@@ -73,6 +73,7 @@ public final class Reshape: BaseLayer {
   }
   
   override public func onInputSizeSet() {
+    super.onInputSizeSet()
     outputSize = reshapeSize
   }
 }
