@@ -85,6 +85,14 @@ public struct ExportHelper: ModelBuilder {
   internal static func buildModel<T: Trainable>(_ url: URL) -> Result<T, Error> {
     do {
       let data = try Data(contentsOf: url, options: .mappedIfSafe)
+      return buildModel(data)
+    } catch {
+      return .failure(error)
+    }
+  }
+  
+  internal static func buildModel<T: Trainable>(_ data: Data) -> Result<T, Error> {
+    do {
       let modelResult: Result<T?, Error> = self.build(data)
       if let model = try modelResult.get() {
         return .success(model)
