@@ -40,7 +40,7 @@ public final class ___VARIABLE_productName___: BaseLayer {
   }
   
   public override func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
-    let context = TensorContext { inputs, gradient in
+    let tensorContext = TensorContext { inputs, gradient in
       // backpropogation calculation
       return (Tensor(), Tensor(), Tensor())
     }
