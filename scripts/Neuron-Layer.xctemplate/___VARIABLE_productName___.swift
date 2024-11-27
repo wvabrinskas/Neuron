@@ -1,11 +1,6 @@
-import Foundation
-import NumSwift
-
 //
-//  File.swift
+//  ___VARIABLE_productName___.swift
 //
-//
-//  Created by William Vabrinskas on 5/4/22.
 //
 
 import Foundation
