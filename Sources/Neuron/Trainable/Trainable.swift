@@ -71,6 +71,14 @@ public extension Trainable {
   }
 }
 
+public struct NetworkContext: Sendable {
+  public var threadId: Int
+  
+  public init(threadId: Int = 0) {
+    self.threadId = threadId
+  }
+}
+
 private struct TrainablePrinter {
   static let col1Width = 20
   static let col2Width = 15

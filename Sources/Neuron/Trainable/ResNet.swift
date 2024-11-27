@@ -1,14 +1,7 @@
-//
-//  File.swift
-//  
-//
-//  Created by William Vabrinskas on 4/28/22.
-//
-
 import Foundation
 
-public final class Sequential: BaseTrainable {
-  public override var name: String { get { "Sequential" } set {} }
+public final class ResNet: BaseTrainable {
+  public override var name: String { get { "ResNet" } set {} }
   
   override public func compile() {
     var inputSize: TensorSize = TensorSize(array: [])

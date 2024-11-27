@@ -407,7 +407,7 @@ final class NeuronTests: XCTestCase {
     XCTAssert(gradient.input.first?.isEmpty == false)
     XCTAssert(gradient.input.first!.isValueEqual(to: Tensor([-4.0823126, -0.00012750486, -4.0823126, -0.00012750486, -4.0823126])))
   }
-  
+
   func testBatchNorm2d() {
     let input = Tensor([1,0,1,0,1].as2D())
     let norm = BatchNormalize(inputSize: input.shape.tensorSize)
