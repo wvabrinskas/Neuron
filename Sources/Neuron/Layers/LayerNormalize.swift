@@ -87,6 +87,7 @@ public final class LayerNormalize: BaseLayer {
   }
   
   override public func onInputSizeSet() {
+    super.onInputSizeSet()
     outputSize = inputSize
     setupTrainables()
   }

@@ -12,6 +12,19 @@ import NumSwift
 
 final class LayerTests: XCTestCase {
   
+  func test_invalid_input_size() {
+    let sequential = Sequential {
+      [
+        ReLu(inputSize: .init(array: [1,1,0])),
+        ReLu()
+      ]
+    }
+    
+    sequential.compile()
+    
+    XCTAssertFalse(sequential.isCompiled)
+  }
+  
   func test_gelu() {
     let gelu = GeLu()
     gelu.inputSize = TensorSize(rows: 3, columns: 3, depth: 3)

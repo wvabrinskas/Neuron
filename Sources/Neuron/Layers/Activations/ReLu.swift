@@ -37,6 +37,7 @@ public final class ReLu: BaseActivationLayer {
   }
   
   override public func onInputSizeSet() {
+    super.onInputSizeSet()
     outputSize = inputSize
   }
 }

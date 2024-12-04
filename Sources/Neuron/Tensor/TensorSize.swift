@@ -44,3 +44,9 @@ public extension Array where Element == Int {
     return TensorSize(array: self)
   }
 }
+
+extension TensorSize: CustomDebugStringConvertible {
+  public var debugDescription: String {
+    "TensorSize(\(columns), \(rows), \(depth))"
+  }
+}

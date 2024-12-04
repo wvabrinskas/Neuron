@@ -44,6 +44,7 @@ public final class LeakyReLu: BaseActivationLayer {
   }
   
   override public func onInputSizeSet() {
+    super.onInputSizeSet()
     outputSize = inputSize
   }
 }

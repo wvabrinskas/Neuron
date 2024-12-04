@@ -235,6 +235,7 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
   }
   
   override public func onInputSizeSet() {
+    super.onInputSizeSet()
     initializeFilters()
   }
   
