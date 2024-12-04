@@ -30,7 +30,6 @@ public enum EncodingType: String, Codable {
        embedding,
        avgPool,
        selu,
-       resNetBlock,
        none
 }
 

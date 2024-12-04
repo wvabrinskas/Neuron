@@ -56,8 +56,6 @@ public struct LayerModelConverter {
       layer = try getLayer(layer: AvgPool.self, container: con)
     case .selu:
       layer = try getLayer(layer: SeLu.self, container: con)
-    case .resNetBlock:
-      layer = try getLayer(layer: ResNetBlock.self, container: con)
     case .none:
       layer = nil
     }

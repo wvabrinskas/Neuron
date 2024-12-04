@@ -23,6 +23,9 @@ public protocol Trainable: AnyObject, Codable, CustomDebugStringConvertible {
   /// Indicates if this particular network has its weights updated. Mainly used for Batch and Layer normalize. As they have different paths for training and not training.
   var isTraining: Bool { get set }
   
+  /// Child Trainables to pass to the optimizer
+  var children: [Trainable] { get set }
+  
   /// The device to execute the ML ops and math ops on. Default: CPU()
   var device: Device { get set }
   

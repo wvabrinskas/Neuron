@@ -8,6 +8,8 @@
 import Foundation
 
 open class BaseTrainable: Trainable {
+  public var children: [any Trainable] = []
+  
   open var name: String = "Sequential"
   open var device: Device = CPU() {
     didSet {
@@ -68,11 +70,11 @@ open class BaseTrainable: Trainable {
   }
   
   open func predict(_ data: Tensor, context: NetworkContext) -> Tensor {
-    fatalError("please use one of the premade trainables")
+    fatalError("override with specific implementation")
   }
   
   open func compile() {
-    fatalError("please use one of the premade trainables")
+    fatalError("override with specific implementation")
   }
   
   open func exportWeights() throws -> [[Tensor]] {

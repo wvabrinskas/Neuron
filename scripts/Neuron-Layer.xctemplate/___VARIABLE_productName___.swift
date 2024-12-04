@@ -21,6 +21,11 @@ public final class ___VARIABLE_productName___: BaseLayer {
   override public func onInputSizeSet() {
     /// do something when the input size is set when calling `compile` on `Sequential`
   }
+
+  public override func apply(gradients: (weights: Tensor, biases: Tensor),
+                             learningRate: Tensor.Scalar) {
+    
+  }
   
   convenience public required init(from decoder: Decoder) throws {
     self.init()
