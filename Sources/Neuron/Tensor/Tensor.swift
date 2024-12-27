@@ -224,10 +224,10 @@ public class Tensor: Equatable, Codable {
         weightGradients.insert(contentsOf: newGrads.weight, at: 0)
         biasGradients.insert(contentsOf: newGrads.bias, at: 0)
         
-        i += 1
-
         gradientsAtLevel.append(contentsOf: newGrads.input)
         input.input.forEach { childrenAtLevel[$0] = $1 }
+        
+        i += 1
       }
       
       gradientsAtLevelToUse = gradientsAtLevel

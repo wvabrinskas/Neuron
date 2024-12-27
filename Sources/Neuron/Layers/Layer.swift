@@ -61,6 +61,7 @@ public protocol Layer: AnyObject, Codable {
   var initializer: Initializer? { get }
   var device: Device { get set }
   var usesOptimizer: Bool { get set }
+  @discardableResult
   func forward(tensor: Tensor, context: NetworkContext) -> Tensor
   func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar)
   func exportWeights() throws -> [Tensor]
@@ -120,6 +121,11 @@ open class BaseLayer: Layer {
     }
   }
   
+  @discardableResult
+  open func callAsFunction(_ tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
+    forward(tensor: tensor, context: context)
+  }
+  
   required convenience public init(from decoder: Decoder) throws {
     // override
     self.init(encodingType: .none)
@@ -129,8 +135,8 @@ open class BaseLayer: Layer {
     // override
   }
   
-  
-  public func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
+  @discardableResult
+  public func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     // override
     .init()
   }
@@ -312,6 +318,7 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
               encodingType: .none)
   }
   
+  @discardableResult
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     
     let context = TensorContext { inputs, gradient in
