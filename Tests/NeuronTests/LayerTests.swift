@@ -27,38 +27,75 @@ final class LayerTests: XCTestCase {
   
   func test_backpropagation() {
     
-    let dense = Dense(50,
+    // first branch
+    let dense = Dense(20,
                       inputs: 10,
                       initializer: .heNormal,
                       biasEnabled: true)
     
-    let relu = ReLu()
+    let relu = ReLu(inputSize: dense.outputSize)
     
-    let dense2 = Dense(10,
+    
+    // second branch
+    let dense2 = Dense(20,
+                       inputs: 10,
                        initializer: .heNormal,
                        biasEnabled: true)
     
     
-    let relu2 = ReLu()
+    let relu2 = ReLu(inputSize: dense2.outputSize)
     
-    let sequential = Sequential(dense, relu, dense2, relu2)
+    // output branch
+    let dense3 = Dense(30,
+                       inputs: relu2.outputSize.columns,
+                       initializer: .heNormal,
+                       biasEnabled: true)
     
-    sequential.compile()
+    let relu3 = ReLu(inputSize: dense3.outputSize)
     
-    let input = Tensor.fillWith(value: 1, size: dense.inputSize)
-    input.label = "input"
+    /*
+       Dense1  Dense2
+         |       |
+       Relu1   Relu2
+          \     /
+           \   /
+           Dense3 (dual input graph built here)
+          /     \
+        Relu3   (current not used)
+         |
+        out (gradients calculated here)
+     */
     
-    let out = sequential.predict(input, context: .init())
+    // feed forward
+    let inputAtDense1 = Tensor.fillWith(value: 1, size: dense.inputSize)
     
-    let error = Tensor.fillWith(value: 0.5, size: relu2.outputSize)
+    let reluOut1 = relu(dense(inputAtDense1))
+    
+    let inputAtDense2 = Tensor.fillWith(value: 0.8, size: dense2.inputSize)
+    
+    let reluOut2 = relu2(dense2(inputAtDense2))
+    
+    let dense3Out1 = dense3(reluOut1)
+    let dense3Out2 = dense3(reluOut2)
+    
+    dense3Out1.setGraph(reluOut2)
 
+    let out = relu3(dense3Out1)
+        
+    print(out)
+    
+    // full backward
+    let error = Tensor.fillWith(value: 0.5, size: relu3.outputSize)
+    
     let backwards = out.gradients(delta: error)
     
     print(backwards)
-  //  print(out)
-    print(sequential)
-    print(out.printGraph())
     
+    // single branch backward
+    let dense3BranchError = Tensor.fillWith(value: 0.5, size: dense3.outputSize)
+    let dense3BackwardsBranch = dense3Out2.gradients(delta: dense3BranchError)
+    print(dense3BackwardsBranch)
+
   }
   
   func test_gelu() {
