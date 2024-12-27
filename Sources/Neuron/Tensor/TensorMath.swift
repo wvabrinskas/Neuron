@@ -606,13 +606,15 @@ extension Tensor: CustomDebugStringConvertible {
     let shape = shape
     string += "shape: (col: \(shape[safe: 0, 0]), rows: \(shape[safe: 1, 0]), depth: \(shape[safe: 2, 0]))\n"
     string += "-----\n"
+    string += "label: \(label)\n"
+    string += "-----\n"
     string += "value: \n"
     value.forEach { depth in
       depth.forEach { string += "\($0)\n" }
       string += "-----\n"
     }
     
-    string += "graph: \(graph != nil)\n"
+    string += "graph: \(graph.isEmpty == false)\n"
     string += ">"
     return string
   }

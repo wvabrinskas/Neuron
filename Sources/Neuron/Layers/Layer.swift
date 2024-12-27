@@ -325,7 +325,7 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
     out.label = type.asString()
 
     out.setGraph(tensor)
-
+    
     return out
   }
   

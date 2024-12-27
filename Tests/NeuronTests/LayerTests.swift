@@ -25,6 +25,42 @@ final class LayerTests: XCTestCase {
     XCTAssertFalse(sequential.isCompiled)
   }
   
+  func test_backpropagation() {
+    
+    let dense = Dense(50,
+                      inputs: 10,
+                      initializer: .heNormal,
+                      biasEnabled: true)
+    
+    let relu = ReLu()
+    
+    let dense2 = Dense(10,
+                       initializer: .heNormal,
+                       biasEnabled: true)
+    
+    
+    let relu2 = ReLu()
+    
+    let sequential = Sequential(dense, relu, dense2, relu2)
+    
+    sequential.compile()
+    
+    let input = Tensor.fillWith(value: 1, size: dense.inputSize)
+    input.label = "input"
+    
+    let out = sequential.predict(input, context: .init())
+    
+    let error = Tensor.fillWith(value: 0.5, size: relu2.outputSize)
+
+    let backwards = out.gradients(delta: error)
+    
+    print(backwards)
+  //  print(out)
+    print(sequential)
+    print(out.printGraph())
+    
+  }
+  
   func test_gelu() {
     let gelu = GeLu()
     gelu.inputSize = TensorSize(rows: 3, columns: 3, depth: 3)
