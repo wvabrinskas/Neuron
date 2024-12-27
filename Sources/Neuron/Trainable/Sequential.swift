@@ -89,9 +89,8 @@ public final class Sequential: Trainable {
     
     layers.forEach { layer in
       let newTensor = layer.forward(tensor: outputTensor, context: context)
-      if newTensor.graph == nil {
-        newTensor.setGraph(outputTensor)
-      }
+      newTensor.label = layer.encodingType.rawValue
+      newTensor.setGraph(outputTensor)
       outputTensor = newTensor
     }
     
