@@ -41,7 +41,7 @@ public struct ExportHelper: ModelBuilder {
 
   }
   
-  public static func getModel<T: Codable>(filename: String = "model", compress: Bool, model: T) -> URL? {
+  public static func getModel<T: Codable>(filename: String = "model", compress: Bool = true, model: T) -> URL? {
     let fileManager = FileManager.default
 
     do {
