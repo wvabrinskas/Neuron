@@ -30,7 +30,7 @@ public class RMSProp: BaseOptimizer {
     super.init(trainable: trainable,
                learningRate: learningRate,
                l2Normalize: false,
-               workers: 8)
+               workers: Constants.maxOptimizerWorkers)
   }
   
   public override func step() {

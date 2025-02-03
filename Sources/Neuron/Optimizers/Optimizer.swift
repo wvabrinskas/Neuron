@@ -77,7 +77,7 @@ open class BaseOptimizer: Optimizer {
   public init(trainable: Trainable,
               learningRate: Tensor.Scalar,
               l2Normalize: Bool,
-              workers: Int = 8,
+              workers: Int = Constants.maxWorkers,
               metricsReporter: MetricsReporter? = nil,
               clip: Tensor.Scalar? = nil) {
     self.trainable = trainable

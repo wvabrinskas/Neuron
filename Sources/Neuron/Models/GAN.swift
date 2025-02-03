@@ -38,7 +38,7 @@ public class GAN {
               discriminatorSteps: Int = 1,
               generatorSteps: Int = 1,
               discriminatorNoiseFactor: Tensor.Scalar? = nil,
-              threadWorkers: Int = 16,
+              threadWorkers: Int = Constants.maxWorkers,
               validationFrequency: Int = 5) {
     self.generator = generator
     self.discriminator = discriminator

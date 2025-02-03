@@ -28,7 +28,7 @@ public class Classifier {
               batchSize: Int,
               accuracyThreshold: AccuracyThreshold = .init(value: 0.8, averageCount: 5),
               killOnAccuracy: Bool = true,
-              threadWorkers: Int = 16,
+              threadWorkers: Int = Constants.maxWorkers,
               log: Bool = false,
               lossFunction: LossFunction = .crossEntropySoftmax) {
     self.batchSize = batchSize

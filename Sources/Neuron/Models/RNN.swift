@@ -68,7 +68,7 @@ public class RNN: Classifier {
                 epochs: Int,
                 accuracyThreshold: AccuracyThreshold = .init(value: 0.9, averageCount: 5),
                 killOnAccuracy: Bool = true,
-                threadWorkers: Int = 8,
+                threadWorkers: Int = Constants.maxWorkers,
                 lossFunction: LossFunction = .binaryCrossEntropySoftmax) {
       self.batchSize = batchSize
       self.epochs = epochs

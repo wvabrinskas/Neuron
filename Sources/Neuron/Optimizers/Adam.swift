@@ -64,7 +64,7 @@ public class Adam: BaseOptimizer {
     super.init(trainable: trainable,
                learningRate: learningRate,
                l2Normalize: false,
-               workers: 8) // limit to 8 because anything higher causes an extra second of runtime for some reason??
+               workers: Constants.maxOptimizerWorkers)
     build()
   }
   
