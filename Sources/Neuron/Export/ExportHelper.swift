@@ -54,12 +54,7 @@ public struct ExportHelper: ModelBuilder {
       let dict = try encoder.encode(model)
       
       let path = try fileManager.url(for: .documentDirectory, in: .allDomainsMask, appropriateFor: nil, create: false)
-      var fileName = "\(filename).smodel"
-
-      if compress {
-        fileName = "\(filename)_compressed.smodel"
-      }
-
+      let fileName = "\(filename).smodel"
       let fileURL = path.appendingPathComponent(fileName)
       
       try dict.write(to: fileURL)
