@@ -61,20 +61,17 @@ public class RNN: Classifier {
     let epochs: Int
     let accuracyThreshold: AccuracyThreshold
     let killOnAccuracy: Bool
-    let threadWorkers: Int
     let lossFunction: LossFunction
     
     public init(batchSize: Int,
                 epochs: Int,
                 accuracyThreshold: AccuracyThreshold = .init(value: 0.9, averageCount: 5),
                 killOnAccuracy: Bool = true,
-                threadWorkers: Int = Constants.maxWorkers,
                 lossFunction: LossFunction = .binaryCrossEntropySoftmax) {
       self.batchSize = batchSize
       self.epochs = epochs
       self.accuracyThreshold = accuracyThreshold
       self.killOnAccuracy = killOnAccuracy
-      self.threadWorkers = threadWorkers
       self.lossFunction = lossFunction
     }
   }
@@ -126,7 +123,6 @@ public class RNN: Classifier {
                batchSize: classifierParameters.batchSize,
                accuracyThreshold: classifierParameters.accuracyThreshold,
                killOnAccuracy: classifierParameters.killOnAccuracy,
-               threadWorkers: classifierParameters.threadWorkers,
                log: false,
                lossFunction: classifierParameters.lossFunction)
   }

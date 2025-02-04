@@ -8,6 +8,5 @@
 import Foundation
 
 public struct Constants {
-  public static let maxWorkers = ProcessInfo.processInfo.activeProcessorCount
-  public static let maxOptimizerWorkers: Int = 4
+  public static let maxWorkers: Int = 4
 }

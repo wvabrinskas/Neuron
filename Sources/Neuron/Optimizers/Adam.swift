@@ -63,8 +63,7 @@ public class Adam: BaseOptimizer {
     self.weightDecay = weightDecay
     super.init(trainable: trainable,
                learningRate: learningRate,
-               l2Normalize: false,
-               workers: Constants.maxOptimizerWorkers)
+               l2Normalize: false)
     build()
   }
   

@@ -10,7 +10,6 @@ import NumSwift
 
 public class Classifier {
   private var batchSize: Int
-  private let threadWorkers: Int
   private let epochs: Int
   private let log: Bool
   private let lossFunction: LossFunction
@@ -28,12 +27,10 @@ public class Classifier {
               batchSize: Int,
               accuracyThreshold: AccuracyThreshold = .init(value: 0.8, averageCount: 5),
               killOnAccuracy: Bool = true,
-              threadWorkers: Int = Constants.maxWorkers,
               log: Bool = false,
               lossFunction: LossFunction = .crossEntropySoftmax) {
     self.batchSize = batchSize
     self.accuracyThreshold = accuracyThreshold
-    self.threadWorkers = threadWorkers
     self.optimizer = optimizer
     self.epochs = epochs
     self.killOnAccuracy = killOnAccuracy

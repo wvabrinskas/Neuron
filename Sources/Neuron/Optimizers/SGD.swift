@@ -25,8 +25,7 @@ public class SGD: BaseOptimizer {
     
     super.init(trainable: trainable,
                learningRate: learningRate,
-               l2Normalize: false,
-               workers: Constants.maxOptimizerWorkers)
+               l2Normalize: false)
   }
   
   public override func step() {

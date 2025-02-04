@@ -17,7 +17,6 @@ public protocol Optimizer: AnyObject {
   var isTraining: Bool { get set }
   var device: Device { get set }
   var l2Normalize: Bool { get }
-  var workers: Int { get set }
   var metricsReporter: MetricsReporter? { get set }
   var clip: Tensor.Scalar? { get set }
   var gradientAccumulator: GradientAccumulator { get }
@@ -68,7 +67,6 @@ open class BaseOptimizer: Optimizer {
     }
   }
   public var l2Normalize: Bool
-  public var workers: Int
   public var metricsReporter: MetricsReporter?
   public var gradientAccumulator: GradientAccumulator = .init()
   public var clip: Tensor.Scalar?
@@ -77,12 +75,10 @@ open class BaseOptimizer: Optimizer {
   public init(trainable: Trainable,
               learningRate: Tensor.Scalar,
               l2Normalize: Bool,
-              workers: Int = Constants.maxWorkers,
               metricsReporter: MetricsReporter? = nil,
               clip: Tensor.Scalar? = nil) {
     self.trainable = trainable
     self.l2Normalize = l2Normalize
-    self.workers = workers
     self.metricsReporter = metricsReporter
     self.clip = clip
     self.localLearningRate = learningRate
@@ -128,7 +124,7 @@ open class BaseOptimizer: Optimizer {
   open func predict(_ data: [Tensor]) -> [Tensor] {
     var results: [Tensor] = [Tensor].init(repeating: Tensor(), count: data.count)
 
-    data.concurrentForEach(workers: min(Constants.maxWorkers, Int(ceil(Double(data.count) / Double(4)))),
+    data.concurrentForEach(workers: Constants.maxWorkers,
                            priority: device.qosPriority) { tensor, index in
       let output = self.trainable.predict(tensor, context: .init(threadId: index))
       results[index] = output
@@ -152,8 +148,10 @@ open class BaseOptimizer: Optimizer {
     var accuracy: Tensor.Scalar = 0
     
     // TODO: Batch consolidation: https://github.com/wvabrinskas/Neuron/issues/36
-    let workersCount = min(Constants.maxWorkers, workers)
+    
+    let workersCount = Constants.maxWorkers
     let concurrencySplit = Tensor.Scalar(data.count) / Tensor.Scalar(workersCount)
+    
     metricsReporter?.update(metric: .batchConcurrency, value: concurrencySplit)
   
     data.concurrentForEach(workers: workersCount, priority: device.qosPriority) { b, index in
