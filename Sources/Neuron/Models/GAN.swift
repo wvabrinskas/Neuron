@@ -204,7 +204,7 @@ public class GAN {
     var fakeData: [Tensor] = [Tensor](repeating: Tensor(), count: count)
     var fakeLabels: [Tensor] = [Tensor](repeating: Tensor(), count: count)
 
-    Array(0..<count).concurrentForEach(workers: min(Constants.maxWorkers, Int(ceil(Double(count) / Double(4))))) { _, index in
+    Array(0..<count).concurrentForEach(workers: Constants.maxWorkers) { _, index in
       var sample = self.generator([self.noise()])[safe: 0, Tensor()]
       
       if detatch {

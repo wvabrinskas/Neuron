@@ -34,10 +34,8 @@ public class WGANGP: GAN {
     var avgCriticLoss: Tensor.Scalar = 0
     var avgRealLoss: Tensor.Scalar = 0
     var avgFakeLoss: Tensor.Scalar = 0
-
-    let workers = min(Constants.maxWorkers, max(max(4, threadWorkers), Int(ceil(batchSize.asTensorScalar / 4))))
     
-    Array(0..<batchSize).concurrentForEach(workers: workers) { _, i in
+    Array(0..<batchSize).concurrentForEach(workers: Constants.maxWorkers) { _, i in
       // create data
       let realSample = real[i]
       let realLabel = labels[i]
