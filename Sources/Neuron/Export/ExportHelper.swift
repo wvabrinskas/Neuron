@@ -41,34 +41,20 @@ public struct ExportHelper: ModelBuilder {
 
   }
   
-  public static func getModel<T: Codable>(filename: String = "model", compress: Bool, model: T) -> URL? {
+  public static func getModel<T: Codable>(filename: String = "model", compress: Bool = true, model: T) -> URL? {
     let fileManager = FileManager.default
 
     do {
       let encoder = JSONEncoder()
-      encoder.outputFormatting = .prettyPrinted
+      
+      if compress == false {
+        encoder.outputFormatting = .prettyPrinted
+      }
       
       let dict = try encoder.encode(model)
-      let path = try fileManager.url(for: .documentDirectory, in: .allDomainsMask, appropriateFor: nil, create: false)
-
-      guard compress == false else {
-        guard var minimized = String(data: dict, encoding: .utf8) else {
-          return nil
-        }
-        
-        // will remove all newlines and spaces
-        minimized = minimized.replacingOccurrences(of: "\n", with: "").replacingOccurrences(of: " ", with: "")
-        
-        let minFileName = "\(filename)_compressed.smodel"
-        let minFileURL = path.appendingPathComponent(minFileName)
-        
-        try minimized.write(to: minFileURL, atomically: true, encoding: .utf8)
-        
-        return minFileURL
-      }
-
-      let fileName = "\(filename).smodel"
       
+      let path = try fileManager.url(for: .documentDirectory, in: .allDomainsMask, appropriateFor: nil, create: false)
+      let fileName = "\(filename).smodel"
       let fileURL = path.appendingPathComponent(fileName)
       
       try dict.write(to: fileURL)

@@ -23,7 +23,9 @@ public class SGD: BaseOptimizer {
     v = [[[[Tensor.Scalar]]]].init(repeating: [], count: trainable.layers.count)
     vb = [[Tensor.Scalar]].init(repeating: [], count: trainable.layers.count)
     
-    super.init(trainable: trainable, learningRate: learningRate, l2Normalize: false, workers: 8)
+    super.init(trainable: trainable,
+               learningRate: learningRate,
+               l2Normalize: false)
   }
   
   public override func step() {
