@@ -37,6 +37,7 @@ public final class SeLu: BaseActivationLayer {
   }
   
   override public func onInputSizeSet() {
+    super.onInputSizeSet()
     outputSize = inputSize
   }
 }

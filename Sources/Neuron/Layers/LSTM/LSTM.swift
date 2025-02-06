@@ -462,6 +462,7 @@ public final class LSTM: BaseLayer {
   }
   
   override public func onInputSizeSet() {
+    super.onInputSizeSet()
     outputSize = TensorSize(rows: 1,
                             columns: vocabSize,
                             depth: returnSequence ? batchLength : 1)

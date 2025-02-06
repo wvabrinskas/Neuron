@@ -24,6 +24,7 @@ public final class Flatten: BaseLayer {
   }
   
   override public func onInputSizeSet() {
+    super.onInputSizeSet()
     let total = inputSize.columns * inputSize.rows * inputSize.depth
     outputSize = TensorSize(array: [total, 1, 1])
   }

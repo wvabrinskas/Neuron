@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Logger
 
 public struct NetworkContext: Sendable {
   public var threadId: Int
@@ -15,7 +16,9 @@ public struct NetworkContext: Sendable {
   }
 }
 
-public final class Sequential: Trainable {
+public final class Sequential: Trainable, Logger {
+  public var logLevel: LogLevel = .low
+  
   public var name: String = "Sequential"
   public var device: Device = CPU() {
     didSet {
@@ -101,17 +104,38 @@ public final class Sequential: Trainable {
   public func compile() {
     var inputSize: TensorSize = TensorSize(array: [])
     var i = 0
-    layers.forEach { layer in
+    
+    var errorMsg: String = ""
+    
+    for layer in layers {
       if i == 0 && layer.inputSize.isEmpty {
         fatalError("The first layer should contain an input size")
       }
-      
+
       if i > 0 {
+        
+        if inputSize.columns == 0 {
+          errorMsg = "inputSize.columns of \(layer.self) cannot be 0"
+          break
+        } else if inputSize.rows == 0 {
+          errorMsg = "inputSize.rows of \(layer.self) cannot be 0"
+          break
+        } else if inputSize.depth == 0 {
+          errorMsg = "inputSize.depth of \(layer.self) cannot be 0"
+          break
+        }
+        
         layer.inputSize = inputSize
       }
       
       inputSize = layer.outputSize
       i += 1
+    }
+    
+    if errorMsg.isEmpty == false {
+      log(type: .error, priority: .alwaysShow, message: errorMsg)
+      isCompiled = false
+      return
     }
     
     isCompiled = true

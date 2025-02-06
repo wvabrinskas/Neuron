@@ -24,6 +24,7 @@ public final class ___VARIABLE_productName___: BaseLayer {
   }
   
   override public func onInputSizeSet() {
+    super.onInputSizeSet()
     /// do something when the input size is set when calling `compile` on `Sequential`
   }
   
