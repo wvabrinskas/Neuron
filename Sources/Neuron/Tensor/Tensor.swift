@@ -62,6 +62,7 @@ public class Tensor: Equatable, Codable {
     shape == [0,0,0]
   }
   
+  internal var graphChain: Set<UUID> = []
   internal var graph: [UUID: Tensor] = [:]
   internal let context: TensorContext
   
@@ -158,29 +159,40 @@ public class Tensor: Equatable, Codable {
   }
   
   /// Prints the current graph all the way to the input.
-  public func printGraph() {
+  public func printGraph(wrt: Tensor? = nil) {
     var inputs: [UUID: Tensor] = input
     
     // print self
     // print children
     // repeat for children
-    print("base: \(id) \(shape) \(label)")
+    var outputString: [String] = []
+    
+    outputString.insert("output: \(id) \(shape) \(label) \n", at: 0)
+    
     var level = 0
     while inputs.isEmpty == false {
       var i = 0
       var childrenAtLevel: [UUID: Tensor] = [:]
-      print("root \(level) ------ ")
+
       for (k, v) in inputs {
-        print("     input: \(i) \(k): \(v.shape) \(v.label)")//print("input \(k): ", v)
+        outputString.insert("     input: \(i) \(k): \(v.shape) \(v.label) \n", at: 0)//print("input \(k): ", v)
         childrenAtLevel.merge(v.input) { _, new in
           new
         }
         i += 1
       }
       
+      outputString.insert("level: \(level) ------ \n", at: 0)
+
       level += 1
-      inputs = childrenAtLevel
+      if let wrt, childrenAtLevel.count > 0 {
+        inputs = childrenAtLevel.filter({ $0.value.graphChain.contains(wrt.id) || $0.value.graphChain.isEmpty })
+      } else {
+        inputs = childrenAtLevel
+      }
     }
+    
+    print(outputString.joined())
   }
   
   /// Checks if the value of the Tensor is the same as another Tensor. `==` checks id property.
@@ -194,12 +206,14 @@ public class Tensor: Equatable, Codable {
   /// - Parameter tensor: The tensor to insert into the graph
   public func setGraph(_ tensor: Tensor) {
     self.graph[tensor.id] = tensor
+    graphChain.insert(tensor.id)
+    graphChain.formUnion(tensor.graphChain)
   }
   
   /// Calculates the gradients in the Tensor graph
   /// - Parameter delta: The gradient to backpropagate w.r.t
   /// - Returns: A Gradient where the the `inputGradients` is the gradient w.r.t each input in the graph at each layer and `weightGradients` is the gradient w.r.t to each parameter at each layer.
-  public func gradients(delta: Tensor) -> Tensor.Gradient {
+  public func gradients(delta: Tensor, wrt: Tensor? = nil) -> Tensor.Gradient {
     
     let selfGradients = getGradients(delta: delta)
     var inputGradients: [Tensor] = selfGradients.input
@@ -231,7 +245,11 @@ public class Tensor: Equatable, Codable {
       }
       
       gradientsAtLevelToUse = gradientsAtLevel
-      childrenAtLevelToUse = childrenAtLevel
+      if let wrt, childrenAtLevel.count > 0 {
+        childrenAtLevelToUse = childrenAtLevel.filter({ $0.value.graphChain.contains(wrt.id) || $0.value.graphChain.isEmpty })
+      } else {
+        childrenAtLevelToUse = childrenAtLevel
+      }
     }
     
     return .init(input: inputGradients, weights: weightGradients, biases: biasGradients)

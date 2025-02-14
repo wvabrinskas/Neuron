@@ -68,11 +68,13 @@ final class LayerTests: XCTestCase {
     
     // feed forward
     let inputAtDense1 = Tensor.fillWith(value: 1, size: dense.inputSize)
+    inputAtDense1.label = "input_1"
     
     let reluOut1 = relu(dense(inputAtDense1))
     
     let inputAtDense2 = Tensor.fillWith(value: 0.8, size: dense2.inputSize)
-    
+    inputAtDense2.label = "input_2"
+
     let reluOut2 = relu2(dense2(inputAtDense2))
     
     let dense3Out1 = dense3(reluOut1)
@@ -82,19 +84,21 @@ final class LayerTests: XCTestCase {
 
     let out = relu3(dense3Out1)
         
-    print(out)
+    print("input_1: ", inputAtDense1.id)
+    print("input_2: ", inputAtDense2.id)
+    //print(out)
     
     // full backward
     let error = Tensor.fillWith(value: 0.5, size: relu3.outputSize)
     
-    let backwards = out.gradients(delta: error)
+    let backwards = out.gradients(delta: error, wrt: inputAtDense1)
     
-    print(backwards)
+  // print(backwards)
     
     // single branch backward
     let dense3BranchError = Tensor.fillWith(value: 0.5, size: dense3.outputSize)
     let dense3BackwardsBranch = dense3Out2.gradients(delta: dense3BranchError)
-    print(dense3BackwardsBranch)
+    //print(dense3BackwardsBranch)
 
   }
   
