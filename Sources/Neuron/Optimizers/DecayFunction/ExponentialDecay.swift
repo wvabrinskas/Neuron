@@ -10,6 +10,16 @@ import NumSwift
 import Numerics
 
 public final class ExponentialDecay: BaseDecayFunction {
+  public override init(learningRate: Tensor.Scalar,
+                       decayRate: Tensor.Scalar = 0.96,
+                       decaySteps: Tensor.Scalar = 100000,
+                       staircase: Bool = false) {
+    super.init(learningRate: learningRate,
+               decayRate: decayRate,
+               decaySteps: decaySteps,
+               staircase: staircase)
+  }
+  
   public override func step() {
     let exp: Tensor.Scalar
     if staircase {
