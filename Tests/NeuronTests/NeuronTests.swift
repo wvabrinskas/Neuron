@@ -88,7 +88,7 @@ final class NeuronTests: XCTestCase {
     XCTAssert(outputShape == out.shape)
     
     let gradients: [[[Tensor.Scalar]]] = NumSwift.onesLike((outputShape[safe: 1, 0], outputShape[safe: 0, 0], filterCount))
-    let backward = out.gradients(delta: Tensor(gradients))
+    let backward = out.gradients(delta: Tensor(gradients), wrt: inputTensor)
     
     let expectedGradient: [[[Tensor.Scalar]]] = [[[3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
                                           [3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
@@ -122,7 +122,7 @@ final class NeuronTests: XCTestCase {
     out.setGraph(testData)
     
     let rFlat: [Tensor.Scalar] = r.flatten()
-    let backward = out.gradients(delta: Tensor(rFlat))
+    let backward = out.gradients(delta: Tensor(rFlat), wrt: testData)
     
     XCTAssert(backward.input.first?.value.shape == r.shape)
   }
@@ -150,7 +150,7 @@ final class NeuronTests: XCTestCase {
     
     XCTAssert(out.value.shape.tensorSize == size)
     
-    let backward = out.gradients(delta: out.detached())
+    let backward = out.gradients(delta: out.detached(), wrt: testData)
     
     XCTAssert(backward.input.first?.shape == testData.shape)
   }
@@ -183,7 +183,7 @@ final class NeuronTests: XCTestCase {
                                   [[1.0, 0.0],
                                    [0.0, 0.0]]]
     
-    let backward = out.gradients(delta: Tensor(gradients))
+    let backward = out.gradients(delta: Tensor(gradients), wrt: testData)
     
     let expected: Tensor = Tensor([[[0.0, 0.0, 0.0],
                                     [0.0, 1.0, 0.0],
@@ -226,7 +226,7 @@ final class NeuronTests: XCTestCase {
     XCTAssert(outputShape == out.value.shape)
     
     let gradients: [[[Tensor.Scalar]]] = NumSwift.onesLike((out.shape[safe: 1, 0], out.shape[safe: 0, 0], filterCount))
-    let backward = out.gradients(delta: Tensor(gradients))
+    let backward = out.gradients(delta: Tensor(gradients), wrt: inputTensor)
     
     XCTAssert(backward.input.first?.shape == [inputSize.0,inputSize.1,inputSize.2])
   }
@@ -333,7 +333,7 @@ final class NeuronTests: XCTestCase {
     
     let delta = Tensor([[0.5, 0, 0.5, 0, 0.5]])
     
-    let gradient = out.gradients(delta: delta)
+    let gradient = out.gradients(delta: delta, wrt: input)
     
     XCTAssert(gradient.input.first?.isEmpty == false)
     XCTAssert(gradient.weights.first![0..., 0..., 0..<input.shape.tensorSize.depth].isValueEqual(to: Tensor([0.40824825, 0.0, 0.40824825, 0.0, 0.40824825])))
@@ -353,7 +353,7 @@ final class NeuronTests: XCTestCase {
     let delta = Tensor([[0.5, 0, 0.5, 0, 0.5],
                         [0.5, 0, 0.5, 0, 0.5]])
     
-    let gradient = out.gradients(delta: delta)
+    let gradient = out.gradients(delta: delta, wrt: input)
     
     XCTAssert(gradient.input.first?.isEmpty == false)
     XCTAssert(gradient.weights.first![0..., 0..., 0..<input.shape.tensorSize.depth].isValueEqual(to: Tensor([[0.40824825, 0.0000, 0.40824825, 0.0000, 0.40824825],
@@ -381,7 +381,7 @@ final class NeuronTests: XCTestCase {
                         [[0.5,0],
                          [0.5,0]]])
     
-    let gradient = out.gradients(delta: delta)
+    let gradient = out.gradients(delta: delta, wrt: input)
     
     XCTAssert(gradient.input.first?.isEmpty == false)
     XCTAssert(gradient.weights.first![0..., 0..., 0..<input.shape.tensorSize.depth].isValueEqual(to: Tensor([[[0.5,0],
@@ -402,7 +402,7 @@ final class NeuronTests: XCTestCase {
     
     let delta = Tensor([0.5, 0, 0.5, 0, 0.5])
     
-    let gradient = out.gradients(delta: delta)
+    let gradient = out.gradients(delta: delta, wrt: input)
     
     XCTAssert(gradient.input.first?.isEmpty == false)
     XCTAssert(gradient.input.first!.isValueEqual(to: Tensor([-4.0823126, -0.00012750486, -4.0823126, -0.00012750486, -4.0823126])))
@@ -419,7 +419,7 @@ final class NeuronTests: XCTestCase {
     
     let delta = Tensor([0.5, 0, 0.5, 0, 0.5].as2D())
     
-    let gradient = out.gradients(delta: delta)
+    let gradient = out.gradients(delta: delta, wrt: input)
     
     XCTAssert(gradient.input.first?.isEmpty == false)
     XCTAssert(gradient.input.first!.isValueEqual(to: Tensor([-4.082313, -0.00012769953, -4.082313, -0.00012769953, -4.082313].as2D())))
@@ -441,7 +441,7 @@ final class NeuronTests: XCTestCase {
     
     let delta = Tensor([0.5, 0.5, 0.5, 0.5, 0.5].as3D())
     
-    let gradient = out.gradients(delta: delta)
+    let gradient = out.gradients(delta: delta, wrt: input)
     
     XCTAssert(gradient.input.first?.isEmpty == false)
     XCTAssert(gradient.input.first!.isValueEqual(to:  Tensor([1, 0, 1, 0, 1].as3D())))
