@@ -383,8 +383,11 @@ public final class LSTM: BaseLayer {
       
       let cache = cellCache[index]
       let previousCache = cellCache[safe: index - 1]
+      
+      let delta = Tensor(gradient.value[safe: index] ?? gradient.zerosLike().value[0])
             
-      let activationErrors = cache.outputValue.gradients(delta: Tensor(gradient.value[safe: index] ?? gradient.zerosLike().value[0]))
+      let activationErrors = cache.outputValue.gradients(delta: delta,
+                                                         wrt: cache.activation)
       
       if wrtOutputWeightsDerivatives.isEmpty {
         wrtOutputWeightsDerivatives = activationErrors.weights[safe: 0, Tensor()]

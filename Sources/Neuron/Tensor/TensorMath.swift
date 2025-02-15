@@ -629,15 +629,16 @@ extension Array where Element == Tensor {
     return mean
   }
   
-  func gradients(_ deltas: [Tensor]) -> [Tensor.Gradient] {
+  func gradients(_ deltas: [Tensor], wrt: [Tensor]) -> [Tensor.Gradient] {
     var result = [Tensor.Gradient](repeating: .init(),
                                       count: deltas.count)
     
     let workerCount = Constants.maxWorkers
     deltas.concurrentForEach(workers: workerCount) { element, index in
       let delta = deltas[index]
+      let input = wrt[index]
       let output = self[index]
-      result[index] = output.gradients(delta: delta)
+      result[index] = output.gradients(delta: delta, wrt: input)
     }
     
     return result

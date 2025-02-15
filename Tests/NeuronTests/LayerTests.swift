@@ -28,8 +28,13 @@ final class LayerTests: XCTestCase {
   func test_backpropagation() {
     
     // first branch
-    let dense = Dense(20,
+    let dense_0 = Dense(20,
                       inputs: 10,
+                      initializer: .heNormal,
+                      biasEnabled: true)
+    
+    let dense = Dense(20,
+                      inputs: 20,
                       initializer: .heNormal,
                       biasEnabled: true)
     
@@ -54,6 +59,10 @@ final class LayerTests: XCTestCase {
     let relu3 = ReLu(inputSize: dense3.outputSize)
     
     /*
+       input_1
+         |
+       Dense0  input_2
+         |       |
        Dense1  Dense2
          |       |
        Relu1   Relu2
@@ -61,16 +70,21 @@ final class LayerTests: XCTestCase {
            \   /
            Dense3 (dual input graph built here)
           /     \
-        Relu3   (current not used)
+        Relu3   out_2 (current not used)
          |
-        out (gradients calculated here)
+        out_1 (gradients calculated here)
+     
+    when getting gradients wrt to input_2 at `out` we shouldn't get anything because the
+    output of that branch wasn't used at `out`
      */
     
     // feed forward
-    let inputAtDense1 = Tensor.fillWith(value: 1, size: dense.inputSize)
-    inputAtDense1.label = "input_1"
+    let inputAtDense0 = Tensor.fillWith(value: 1, size: dense_0.inputSize)
+    inputAtDense0.label = "input_1"
     
-    let reluOut1 = relu(dense(inputAtDense1))
+    let dense0Out = dense_0(inputAtDense0)
+    let dense1Out = dense(dense0Out)
+    let reluOut1 = relu(dense1Out)
     
     let inputAtDense2 = Tensor.fillWith(value: 0.8, size: dense2.inputSize)
     inputAtDense2.label = "input_2"
@@ -78,27 +92,28 @@ final class LayerTests: XCTestCase {
     let reluOut2 = relu2(dense2(inputAtDense2))
     
     let dense3Out1 = dense3(reluOut1)
-    let dense3Out2 = dense3(reluOut2)
     
+    dense3Out1.setGraph(reluOut1)
     dense3Out1.setGraph(reluOut2)
 
-    let out = relu3(dense3Out1)
-        
-    print("input_1: ", inputAtDense1.id)
+    let out1 = relu3(dense3Out1) // branch_1 out
+
+    let out2 = dense3(reluOut2) // branch_2 out
+
+    print("input_1: ", inputAtDense0.id)
     print("input_2: ", inputAtDense2.id)
     //print(out)
     
     // full backward
-    let error = Tensor.fillWith(value: 0.5, size: relu3.outputSize)
+    let branch1Error = Tensor.fillWith(value: 0.5, size: relu3.outputSize)
+    let branch1Backwards = out1.gradients(delta: branch1Error, wrt: inputAtDense0)
     
-    let backwards = out.gradients(delta: error, wrt: inputAtDense1)
-    
-  // print(backwards)
+  // print(branch1Backwards)
     
     // single branch backward
-    let dense3BranchError = Tensor.fillWith(value: 0.5, size: dense3.outputSize)
-    let dense3BackwardsBranch = dense3Out2.gradients(delta: dense3BranchError)
-    //print(dense3BackwardsBranch)
+    let branch2Error = Tensor.fillWith(value: 0.5, size: dense3.outputSize)
+    let branch2Backwards = out2.gradients(delta: branch2Error, wrt: inputAtDense2)
+    //print(branch2Backwards)
 
   }
   

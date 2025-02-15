@@ -175,7 +175,7 @@ public class Tensor: Equatable, Codable {
       var childrenAtLevel: [UUID: Tensor] = [:]
 
       for (k, v) in inputs {
-        outputString.insert("     input: \(i) \(k): \(v.shape) \(v.label) \n", at: 0)//print("input \(k): ", v)
+        outputString.insert("     branch: \(i) \(k): \(v.shape) \(v.label) \n", at: 0)//print("input \(k): ", v)
         childrenAtLevel.merge(v.input) { _, new in
           new
         }
@@ -258,7 +258,9 @@ public class Tensor: Equatable, Codable {
   /// Remove this Tensor from the graph.
   /// - Returns: Detached Tensor
   public func detached() -> Tensor {
-    Tensor(value, context: TensorContext())
+    let tensor = Tensor(value, context: TensorContext())
+    tensor.id = self.id
+    return tensor
   }
   
   /// Gets the `Tensor.Scalar` value of this Tensors value. This is reserved for Tensor's that have a value of size `[1, 1, 1]` aka a `Scalar` as `[[[Scalar]]]`
