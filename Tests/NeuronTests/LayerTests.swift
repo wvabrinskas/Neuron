@@ -25,7 +25,7 @@ final class LayerTests: XCTestCase {
     XCTAssertFalse(sequential.isCompiled)
   }
   
-  func test_backpropagation() {
+  func test_backpropagation_wrt() {
     
     // first branch
     let dense_0 = Dense(20,
@@ -99,22 +99,21 @@ final class LayerTests: XCTestCase {
     let out1 = relu3(dense3Out1) // branch_1 out
 
     let out2 = dense3(reluOut2) // branch_2 out
-
-    print("input_1: ", inputAtDense0.id)
-    print("input_2: ", inputAtDense2.id)
-    //print(out)
     
-    // full backward
+    // branch 1 backwards
     let branch1Error = Tensor.fillWith(value: 0.5, size: relu3.outputSize)
     let branch1Backwards = out1.gradients(delta: branch1Error, wrt: inputAtDense0)
     
-  // print(branch1Backwards)
+    XCTAssertEqual(branch1Backwards.input.count, 6)
+    XCTAssertEqual(branch1Backwards.input[0].shape, dense_0.inputSize.asArray)
     
-    // single branch backward
+    // branch 2 backwards
     let branch2Error = Tensor.fillWith(value: 0.5, size: dense3.outputSize)
     let branch2Backwards = out2.gradients(delta: branch2Error, wrt: inputAtDense2)
-    //print(branch2Backwards)
-
+    
+    XCTAssertEqual(branch2Backwards.input.count, 3)
+    XCTAssertEqual(branch2Backwards.input[0].shape, dense2.inputSize.asArray)
+  
   }
   
   func test_gelu() {

@@ -185,7 +185,7 @@ public class Tensor: Equatable, Codable {
       outputString.insert("level: \(level) ------ \n", at: 0)
 
       level += 1
-      if let wrt, childrenAtLevel.count > 0 {
+      if let wrt, childrenAtLevel.count > 1 {
         inputs = childrenAtLevel.filter({ $0.value.graphChain.contains(wrt.id) || $0.value.graphChain.isEmpty })
       } else {
         inputs = childrenAtLevel
@@ -212,6 +212,7 @@ public class Tensor: Equatable, Codable {
   
   /// Calculates the gradients in the Tensor graph
   /// - Parameter delta: The gradient to backpropagate w.r.t
+  /// - Parameter wrt: Optional parameter to tell the auto grad which input Tensor in the graph to backprop to. If this isn't provided it will return all inputs at every level of the graph in a single array.
   /// - Returns: A Gradient where the the `inputGradients` is the gradient w.r.t each input in the graph at each layer and `weightGradients` is the gradient w.r.t to each parameter at each layer.
   public func gradients(delta: Tensor, wrt: Tensor? = nil) -> Tensor.Gradient {
     
@@ -245,7 +246,7 @@ public class Tensor: Equatable, Codable {
       }
       
       gradientsAtLevelToUse = gradientsAtLevel
-      if let wrt, childrenAtLevel.count > 0 {
+      if let wrt, childrenAtLevel.count > 1 {
         childrenAtLevelToUse = childrenAtLevel.filter({ $0.value.graphChain.contains(wrt.id) || $0.value.graphChain.isEmpty })
       } else {
         childrenAtLevelToUse = childrenAtLevel
