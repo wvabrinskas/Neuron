@@ -5,10 +5,10 @@
 ![](https://img.shields.io/github/v/tag/wvabrinskas/Neuron?style=flat-square)
 ![](https://img.shields.io/github/license/wvabrinskas/Neuron?style=flat-square)
 ![](https://img.shields.io/badge/swift-5.10.0-orange?style=flat-square)
-![](https://img.shields.io/badge/iOS-13+-darkcyan?style=flat-square)
+![](https://img.shields.io/badge/iOS-14+-darkcyan?style=flat-square)
 ![](https://img.shields.io/badge/macOS-11+-darkcyan?style=flat-square)
-![](https://img.shields.io/badge/watchOS-6+-darkcyan?style=flat-square)
-![](https://img.shields.io/badge/tvOS-13+-darkcyan?style=flat-square)
+![](https://img.shields.io/badge/watchOS-7+-darkcyan?style=flat-square)
+![](https://img.shields.io/badge/tvOS-14+-darkcyan?style=flat-square)
 
 [![Tests](https://github.com/wvabrinskas/Neuron/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/wvabrinskas/Neuron/actions/workflows/tests.yml)
 
