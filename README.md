@@ -336,7 +336,9 @@ public struct TensorContext: Codable {
 }
 ```
 
-When calling `.gradients(delta: SomeTensor)` on a `Tensor` that has an attached `graph` it wil automatically backpropagate all the way through the `graph` and return a `Tensor.Gradient` object. 
+When calling `.gradients(delta: SomeTensor, wrt: SomeInputTensor)` on a `Tensor` that has an attached `graph` it wil automatically backpropagate all the way through the `graph` with respect to the `wrt` `Tensor` and return a `Tensor.Gradient` object. 
+
+When adding `wrt` to the `.gradients(delta: SomeTensor, wrt: SomeInputTensor)` function call it will result in the gradient being calculated with respect to the `wrt` `Tensor`. Leaving this out will result in all branches being added to the gradients output.
 
 ```swift
 public struct Gradient {
