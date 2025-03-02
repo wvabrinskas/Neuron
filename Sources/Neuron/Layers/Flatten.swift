@@ -59,6 +59,8 @@ public final class Flatten: BaseLayer {
     let flatten: [Tensor.Scalar] = tensor.value.flatten()
     let flat = Tensor(flatten, context: context)
     
+    flat.setGraph(tensor)
+    
     return flat
   }
 }

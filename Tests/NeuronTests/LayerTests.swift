@@ -74,8 +74,10 @@ final class LayerTests: XCTestCase {
          |
         out_1 (gradients calculated here)
      
-    when getting gradients wrt to input_2 at `out` we shouldn't get anything because the
+    1. when getting gradients wrt to input_2 at `out` we shouldn't get anything because the
     output of that branch wasn't used at `out`
+     
+    2. Figure out how when passing twice we set the same graph twice
      */
     
     // feed forward
