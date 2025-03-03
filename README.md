@@ -356,4 +356,67 @@ public struct Gradient {
 }
 ```
 
+An example of a graph with multiple inputs and how to calculate gradients with respect to a specific input:
+
+```
+  input_1
+    |
+  Dense0  input_2
+    |       |
+  Dense1  Dense2
+    |       |
+  Relu1   Relu2
+    \     /
+      \   /
+      Dense3 (dual input graph built here)
+    /     \
+  Relu3   out_2 
+    |
+  out_1 (gradients calculated here)
+```
+
+The forward pass would be as follows:
+
+```swift
+// feed forward
+let inputAtDense0 = Tensor.fillWith(value: 1, size: dense_0.inputSize)
+inputAtDense0.label = "input_1"
+
+let dense0Out = dense_0(inputAtDense0)
+let dense1Out = dense(dense0Out)
+let reluOut1 = relu(dense1Out)
+
+let inputAtDense2 = Tensor.fillWith(value: 0.8, size: dense2.inputSize)
+inputAtDense2.label = "input_2"
+
+let reluOut2 = relu2(dense2(inputAtDense2))
+
+let dense3Out1 = dense3(reluOut1)
+
+dense3Out1.setGraph(reluOut1)
+dense3Out1.setGraph(reluOut2)
+
+let out1 = relu3(dense3Out1) // branch_1 out
+
+let out2 = dense3(reluOut2) // branch_2 out
+```
+
+To get the gradients w.r.t to `input_1` you would call:
+
+```swift
+// branch 1 backwards
+let branch1Error = Tensor.fillWith(value: 0.5, size: relu3.outputSize)
+let branch1Backwards = out1.gradients(delta: branch1Error, wrt: inputAtDense0)
+```
+
+This will return a `Tensor.Gradient` object with the gradients w.r.t to `input_1`. 
+
+To get the gradients w.r.t to `input_2` you would call:
+
+```swift
+// branch 2 backwards
+let branch2Error = Tensor.fillWith(value: 0.5, size: dense3.outputSize)
+let branch2Backwards = out2.gradients(delta: branch2Error, wrt: inputAtDense2)
+```
+
 A `Tensor.Gradient` object will contain all the gradients you'll need to perform a backpropagation step in the `Optimizer`. This object contains gradients w.r.t the `input`, w.r.t the `weights`, and w.r.t the `biases` of the graph. 
