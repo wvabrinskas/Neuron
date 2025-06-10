@@ -23,31 +23,39 @@ class MockRNNDataset: RNNSupportedDataset {
   }
   
   func build() async -> Neuron.RNNSupportedDatasetData {
+    let max = 9
     vectorizer.vectorize("hammley".fill(with: ".",
-                                     max: 8).characters)
+                                     max: max).characters)
     
     vectorizer.vectorize("spammley".fill(with: ".",
-                                         max: 8).characters)
-    let oneHot = vectorizer.oneHot("hammley".fill(with: ".",
-                                                  max: 8).characters)
-    let oneHot2 = vectorizer.oneHot("spammley".fill(with: ".",
-                                                  max: 8).characters)
+                                         max: max).characters)
+    
+    let oneHot = vectorizer.oneHot("ammley".fill(with: ".",
+                                                  max: max).characters)
+    let oneHot2 = vectorizer.oneHot("pammley".fill(with: ".",
+                                                  max: max).characters)
+    
+    let input = vectorizer.oneHot("hammley".fill(with: ".",
+                                                  max: max).characters)
+    let input2 = vectorizer.oneHot("spammley".fill(with: ".",
+                                                  max: max).characters)
+    
     let labelTensor = oneHot
-    let inputTensor = oneHot
+    let inputTensor = input
     
     let labelTensor2 = oneHot2
-    let inputTensor2 = oneHot2
+    let inputTensor2 = input2
     
     var training = [DatasetModel](repeating: DatasetModel(data: inputTensor,
-                                                          label: labelTensor), count: 1)
+                                                          label: labelTensor), count: 1000)
     var val = [DatasetModel](repeating: DatasetModel(data: inputTensor,
-                                                      label: labelTensor), count: 1)
+                                                      label: labelTensor), count: 10)
     
     training.append(contentsOf: [DatasetModel](repeating: DatasetModel(data: inputTensor2,
-                                                                       label: labelTensor2), count: 1))
+                                                                       label: labelTensor2), count: 1000))
     
     val.append(contentsOf: [DatasetModel](repeating: DatasetModel(data: inputTensor2,
-                                                                  label: labelTensor2), count: 1))
+                                                                  label: labelTensor2), count: 10))
     return (training, val)
   }
 }
@@ -202,7 +210,7 @@ final class FullModelTests: XCTestCase {
                   optimizerParameters: RNN.OptimizerParameters(learningRate: 0.002,
                                                                metricsReporter: reporter),
                   lstmParameters: RNN.RNNLSTMParameters(hiddenUnits: hiddenUnits,
-                                                       inputUnits: inputUnits))
+                                                        inputUnits: inputUnits))
     
     
     reporter.receive = { _ in }
