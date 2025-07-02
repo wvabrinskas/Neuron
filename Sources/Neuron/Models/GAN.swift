@@ -25,11 +25,11 @@ public class GAN {
   public var epochs: Int
   
   internal let batchSize: Int
-  let threadWorkers: Int
   private let discriminatorSteps: Int
   private let generatorSteps: Int
   private let discriminatorNoiseFactor: Tensor.Scalar?
   private let validationFrequency: Int
+  internal let threadWorkers = Constants.maxWorkers
   
   public init(generator: Optimizer,
               discriminator: Optimizer,
@@ -38,20 +38,15 @@ public class GAN {
               discriminatorSteps: Int = 1,
               generatorSteps: Int = 1,
               discriminatorNoiseFactor: Tensor.Scalar? = nil,
-              threadWorkers: Int = 16,
               validationFrequency: Int = 5) {
     self.generator = generator
     self.discriminator = discriminator
     self.epochs = epochs
     self.batchSize = batchSize
-    self.threadWorkers = threadWorkers
     self.discriminatorSteps = discriminatorSteps
     self.generatorSteps = generatorSteps
     self.discriminatorNoiseFactor = discriminatorNoiseFactor
     self.validationFrequency = validationFrequency
-    
-    self.generator.workers = threadWorkers
-    self.discriminator.workers = threadWorkers
     
     self.noise = {
       var noise: [Tensor.Scalar] = []
@@ -209,7 +204,7 @@ public class GAN {
     var fakeData: [Tensor] = [Tensor](repeating: Tensor(), count: count)
     var fakeLabels: [Tensor] = [Tensor](repeating: Tensor(), count: count)
 
-    Array(0..<count).concurrentForEach(workers: min(Constants.maxWorkers, Int(ceil(Double(count) / Double(4))))) { _, index in
+    Array(0..<count).concurrentForEach(workers: Constants.maxWorkers) { _, index in
       var sample = self.generator([self.noise()])[safe: 0, Tensor()]
       
       if detatch {

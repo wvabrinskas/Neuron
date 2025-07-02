@@ -38,6 +38,7 @@ public final class GeLu: BaseActivationLayer {
   }
   
   override public func onInputSizeSet() {
+    super.onInputSizeSet()
     outputSize = inputSize
   }
 }

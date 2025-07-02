@@ -80,6 +80,7 @@ public final class Dropout: BaseLayer {
   }
   
   override public func onInputSizeSet() {
+    super.onInputSizeSet()
     outputSize = inputSize
     generateMask()
   }

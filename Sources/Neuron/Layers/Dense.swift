@@ -71,6 +71,7 @@ public final class Dense: BaseLayer {
   }
   
   override public func onInputSizeSet() {
+    super.onInputSizeSet()
     precondition(inputSize.rows == 1 && inputSize.depth == 1, "Dense expects Tensor dimensions of Nx1x1 where N is the columns, got: \(inputSize)")
     
     initializeWeights(inputs: inputSize.columns)
