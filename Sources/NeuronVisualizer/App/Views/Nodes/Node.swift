@@ -16,17 +16,20 @@ struct NodePayload {
   var inputSize: TensorSize
   var parameters: Int
   var details: String
+  var layerType: BaseLayerType
   
   init(layer: EncodingType,
        outputSize: TensorSize,
        inputSize: TensorSize,
        parameters: Int,
-       details: String) {
+       details: String,
+       layerType: BaseLayerType = .regular) {
     self.layer = layer
     self.outputSize = outputSize
     self.inputSize = inputSize
     self.parameters = parameters
     self.details = details
+    self.layerType = layerType
   }
   
   init(layer: Layer) {
@@ -35,6 +38,12 @@ struct NodePayload {
     self.inputSize = layer.inputSize
     self.parameters = layer.weights.shape.reduce(1, *)
     self.details = layer.details
+    
+    layerType = if layer is ActivationLayer {
+      .activation
+    } else {
+      .regular
+    }
   }
 }
 
@@ -53,7 +62,7 @@ class BaseNode: Node {
   var point: CGPoint?
   
   var connections: [Node] = []
-  let layer: VisualEncodingType
+  let layer: EncodingType
   let payload: NodePayload
   
   func build() -> any View {
@@ -66,41 +75,23 @@ class BaseNode: Node {
                                              parameters: 0,
                                              details: "")) {
     self.payload = payload
-    self.layer = VisualEncodingType(encodingType: payload.layer)
+    self.layer = payload.layer
   }
   
 }
 
-@available(macOS 14, *)
-public enum VisualEncodingType: String, Codable {
-  case leakyRelu,
-       relu,
-       sigmoid,
-       softmax,
-       swish,
-       tanh,
-       batchNormalize,
-       conv2d,
-       dense,
-       dropout,
-       flatten,
-       maxPool,
-       reshape,
-       transConv2d,
-       layerNormalize,
-       lstm,
-       embedding,
-       avgPool,
-       selu,
-       none
-  
+enum BaseLayerType {
+  case regular, activation
+}
+
+extension EncodingType {
   var color: Color {
     switch self {
     case .leakyRelu, .relu, .sigmoid, .tanh, .swish, .selu, .softmax: Color(red: 0.2, green: 0.6, blue: 0.2)
-    case .batchNormalize, .layerNormalize: Color(red: 0.3, green: 0.5, blue: 0.8)
-    case .conv2d, .transConv2d: Color(red: 0.3, green: 0.5, blue: 0.8)
+    case .batchNormalize, .layerNormalize: Color(red: 0.6, green: 0.5, blue: 0.8)
+    case .conv2d, .transConv2d: Color(red: 0, green: 0.5, blue: 0.8)
     case .dense: Color(red: 0.8, green: 0.4, blue: 0.4)
-    case .dropout: Color(red: 0.7, green: 0.7, blue: 0.7)
+    case .dropout: Color(red: 0.7, green: 0.1, blue: 0.7)
     case .flatten: Color(red: 0.7, green: 0.4, blue: 0.8)
     case .maxPool, .avgPool: Color(red: 0.9, green: 0.6, blue: 0.2)
     case .reshape: Color(red: 0.8, green: 0.6, blue: 0.8)
@@ -109,28 +100,4 @@ public enum VisualEncodingType: String, Codable {
     }
   }
   
-  init(encodingType: EncodingType) {
-    switch encodingType {
-    case .leakyRelu: self = .leakyRelu
-    case .relu: self = .relu
-    case .sigmoid: self = .sigmoid
-    case .softmax: self = .softmax
-    case .swish: self = .swish
-    case .tanh: self = .tanh
-    case .batchNormalize: self = .batchNormalize
-    case .conv2d: self = .conv2d
-    case .dense: self = .dense
-    case .dropout: self = .dropout
-    case .flatten: self = .flatten
-    case .maxPool: self = .maxPool
-    case .reshape: self = .reshape
-    case .transConv2d: self = .transConv2d
-    case .layerNormalize: self = .layerNormalize
-    case .lstm: self = .lstm
-    case .embedding: self = .embedding
-    case .avgPool: self = .avgPool
-    case .selu: self = .selu
-    case .none: self = .none
-    }
-  }
 }

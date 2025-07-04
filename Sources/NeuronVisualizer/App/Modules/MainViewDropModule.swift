@@ -35,7 +35,11 @@ final class MainViewDropModule: DropDelegate {
     // Add all other layers
     layers.forEach { type in
       let payload = NodePayload(layer: type)
-      let nextNode = DetailedLayerNode(payload: payload)
+      let nextNode = if type is ActivationLayer {
+        DetailedActivationLayerNode(payload: payload)
+      } else {
+        DetailedLayerNode(payload: payload)
+      }
       
       workingNode.connections.append(nextNode)
       workingNode = nextNode

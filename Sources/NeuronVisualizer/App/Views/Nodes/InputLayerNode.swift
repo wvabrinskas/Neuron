@@ -23,12 +23,13 @@ class InputLayerNode: BaseNode {
       
       // Input details
       VStack(alignment: .center, spacing: 6) {
-        Text("Shape: \(formatTensorSize(payload.inputSize)) (RGB)")
+        Text("Shape: \(formatTensorSize(payload.inputSize))")
           .font(.system(size: 11))
           .foregroundColor(.primary)
         
         Text("Parameters: 0")
           .font(.system(size: 11, weight: .medium))
+          .bold()
           .foregroundColor(.primary)
       }
       .padding(.horizontal, 16)

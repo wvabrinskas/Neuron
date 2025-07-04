@@ -10,9 +10,7 @@ import Neuron
 
 public struct GraphView: View {
   let root: Node
-  
-  @State var previousNode: Node?
-  
+    
   public var body: some View {
     ScrollView([.horizontal, .vertical]) {
       VStack(alignment: .center, spacing: 0) {
@@ -49,7 +47,7 @@ public struct GraphView: View {
               .font(.system(size: 12, weight: .medium))
             Text("Input Shape: \(getInputShape(layers: layers))")
               .font(.system(size: 12, weight: .medium))
-            Text("Output Classes: \(getOutputClasses(layers: layers))")
+            Text("Output size: \(getOutputClasses(layers: layers))")
               .font(.system(size: 12, weight: .medium))
           }
           .padding(.horizontal, 16)
@@ -105,7 +103,7 @@ public struct GraphView: View {
     guard let lastLayer = layers.last as? BaseNode else {
       return "Unknown"
     }
-    return "\(lastLayer.payload.outputSize.asArray.first ?? 0)"
+    return formatTensorSize(lastLayer.payload.outputSize)
   }
   
   func formatTensorSize(_ size: TensorSize) -> String {

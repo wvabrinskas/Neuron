@@ -319,6 +319,11 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
 }
 
 open class BaseActivationLayer: BaseLayer, ActivationLayer {
+  
+  public override var details: String {
+      ""
+  }
+  
   public let type: Activation
 
   public init(inputSize: TensorSize = TensorSize(array: []),
