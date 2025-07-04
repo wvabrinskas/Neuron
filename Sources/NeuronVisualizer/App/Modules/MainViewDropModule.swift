@@ -24,19 +24,20 @@ final class MainViewDropModule: DropDelegate {
     let root: Node = BaseNode()
     var workingNode = root
     
+    // Add input layer
+    if let firstLayer = layers.first {
+      let inputPayload = NodePayload(layer: firstLayer)
+      let inputNode = InputLayerNode(payload: inputPayload)
+      workingNode.connections.append(inputNode)
+      workingNode = inputNode
+    }
+    
+    // Add all other layers
     layers.forEach { type in
-      let nextNode: Node
       let payload = NodePayload(layer: type)
-
-      if type is ActivationLayer {
-        nextNode = ActivationNode(payload: payload)
-      } else {
-        nextNode = LayerNode(payload: payload)
-      }
+      let nextNode = DetailedLayerNode(payload: payload)
       
-      let outputSizeNode = SizeNode(payload: payload)
-      
-      workingNode.connections.append(contentsOf: [nextNode, outputSizeNode])
+      workingNode.connections.append(nextNode)
       workingNode = nextNode
     }
     

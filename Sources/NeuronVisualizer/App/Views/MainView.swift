@@ -9,7 +9,6 @@ import SwiftUI
 import AppKit
 @_spi(Visualizer) import Neuron
 
-@available(macOS 14, *)
 @Observable
 final class MainViewModel: Sendable {
   enum DropState {
@@ -49,7 +48,6 @@ final class MainViewModel: Sendable {
   }
 }
 
-@available(macOS 14, *)
 struct MainView: View {
   @State private var viewModel: MainViewModel
   private var module: MainViewDropModule

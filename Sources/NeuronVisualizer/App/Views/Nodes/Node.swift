@@ -6,24 +6,35 @@
 //
 
 import SwiftUI
-import Neuron
+@_spi(Visualizer) import Neuron
+import NumSwift
 
 
 struct NodePayload {
   var layer: EncodingType
   var outputSize: TensorSize
   var inputSize: TensorSize
+  var parameters: Int
+  var details: String
   
-  init(layer: EncodingType, outputSize: TensorSize, inputSize: TensorSize) {
+  init(layer: EncodingType,
+       outputSize: TensorSize,
+       inputSize: TensorSize,
+       parameters: Int,
+       details: String) {
     self.layer = layer
     self.outputSize = outputSize
     self.inputSize = inputSize
+    self.parameters = parameters
+    self.details = details
   }
   
   init(layer: Layer) {
     self.layer = layer.encodingType
     self.outputSize = layer.outputSize
     self.inputSize = layer.inputSize
+    self.parameters = layer.weights.shape.reduce(1, *)
+    self.details = layer.details
   }
 }
 
@@ -37,7 +48,6 @@ protocol Node: AnyObject {
   func build() -> any View
 }
 
-@available(macOS 14, *)
 class BaseNode: Node {
   var parentPoint: CGPoint?
   var point: CGPoint?
@@ -52,7 +62,9 @@ class BaseNode: Node {
 
   required init(payload: NodePayload = .init(layer: .none,
                                              outputSize: .init(array: []),
-                                             inputSize: .init(array: []))) {
+                                             inputSize: .init(array: []),
+                                             parameters: 0,
+                                             details: "")) {
     self.payload = payload
     self.layer = VisualEncodingType(encodingType: payload.layer)
   }
@@ -84,16 +96,16 @@ public enum VisualEncodingType: String, Codable {
   
   var color: Color {
     switch self {
-    case .leakyRelu, .relu, .sigmoid, .tanh, .swish, .selu, .softmax: .green
-    case .batchNormalize, .layerNormalize: .blue
-    case .conv2d, .transConv2d: .cyan
-    case .dense: .indigo
-    case .dropout: .red
-    case .flatten: .orange
-    case .maxPool, .avgPool: .brown
-    case .reshape: .pink
-    case .lstm, .embedding: .purple
-      default: .gray
+    case .leakyRelu, .relu, .sigmoid, .tanh, .swish, .selu, .softmax: Color(red: 0.2, green: 0.6, blue: 0.2)
+    case .batchNormalize, .layerNormalize: Color(red: 0.3, green: 0.5, blue: 0.8)
+    case .conv2d, .transConv2d: Color(red: 0.3, green: 0.5, blue: 0.8)
+    case .dense: Color(red: 0.8, green: 0.4, blue: 0.4)
+    case .dropout: Color(red: 0.7, green: 0.7, blue: 0.7)
+    case .flatten: Color(red: 0.7, green: 0.4, blue: 0.8)
+    case .maxPool, .avgPool: Color(red: 0.9, green: 0.6, blue: 0.2)
+    case .reshape: Color(red: 0.8, green: 0.6, blue: 0.8)
+    case .lstm, .embedding: Color(red: 0.6, green: 0.4, blue: 0.8)
+      default: Color(red: 0.5, green: 0.5, blue: 0.5)
     }
   }
   
