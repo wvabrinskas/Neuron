@@ -8,24 +8,38 @@
 import Foundation
 import GameplayKit
 
-/// Weight initializer methods
+/// Weight initializer methods for neural network layers
+/// Different initialization strategies can significantly impact training performance
 public enum InitializerType: Codable, Equatable {
-  ///Generates weights based on a normal gaussian distribution. Mean = 0 sd = 1
+  /// Xavier/Glorot normal initialization - generates weights from normal distribution
+  /// Good for sigmoid and tanh activations. Mean = 0, variance = 2/(fan_in + fan_out)
   case xavierNormal
-  ///Generates weights based on a uniform distribution
+  /// Xavier/Glorot uniform initialization - generates weights from uniform distribution
+  /// Good for sigmoid and tanh activations. Range = ±√(6/(fan_in + fan_out))
   case xavierUniform
-  
+  /// He normal initialization - generates weights from normal distribution
+  /// Good for ReLU activations. Mean = 0, variance = 2/fan_in
   case heNormal
+  /// He uniform initialization - generates weights from uniform distribution
+  /// Good for ReLU activations. Range = ±√(6/fan_in)
   case heUniform
+  /// Normal initialization with custom standard deviation
+  /// - Parameter std: Standard deviation for the normal distribution
   case normal(std: Tensor.Scalar)
   
+  /// Creates an Initializer instance from this type
+  /// - Returns: A configured Initializer object
   public func build() -> Initializer {
     Initializer(type: self)
   }
 }
 
+/// Weight initializer that generates initial values for neural network parameters
+/// Implements various initialization strategies to improve training performance
 public struct Initializer {
+  /// The initialization type/strategy being used
   public let type: InitializerType
+  /// Gaussian distribution generator for normal initialization methods
   private var dist: Gaussian = Gaussian(std: 1, mean: 0)
   
   public enum CodingKeys: String, CodingKey, CaseIterable {
@@ -51,6 +65,8 @@ public struct Initializer {
     }
   }
   
+  /// Initializes the weight initializer with a specific type
+  /// - Parameter type: The initialization strategy to use
   public init(type: InitializerType) {
     self.type = type
     switch type {
@@ -61,6 +77,11 @@ public struct Initializer {
     }
   }
   
+  /// Calculates a single weight value based on the initialization strategy
+  /// - Parameters:
+  ///   - input: Number of input connections (fan-in)
+  ///   - out: Number of output connections (fan-out), defaults to 0
+  /// - Returns: A single initialized weight value
   public func calculate(input: Int, out: Int = 0) -> Tensor.Scalar {
     switch type {
       
@@ -87,6 +108,12 @@ public struct Initializer {
     }
   }
   
+  /// Creates a tensor filled with initialized weight values
+  /// - Parameters:
+  ///   - size: The desired tensor dimensions
+  ///   - input: Number of input connections (fan-in)
+  ///   - out: Number of output connections (fan-out), defaults to 0
+  /// - Returns: A tensor filled with initialized weight values
   public func calculate(size: TensorSize, input: Int, out: Int = 0) -> Tensor {
     var tensor: [[[Tensor.Scalar]]] = []
     

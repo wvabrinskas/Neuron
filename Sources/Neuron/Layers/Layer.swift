@@ -9,7 +9,8 @@ import Foundation
 import NumSwift
 import NumSwiftC
 
-/// Layer types
+/// Layer types enumeration for identifying different layer implementations
+/// Used for serialization and layer identification throughout the framework
 public enum EncodingType: String, Codable {
   case leakyRelu,
        relu,
@@ -34,11 +35,13 @@ public enum EncodingType: String, Codable {
 }
 
 /// A layer that performs an activation function
+/// Activation layers apply non-linear transformations to their inputs
 public protocol ActivationLayer: Layer {
   var type: Activation { get }
 }
 
 /// A layer that performs a convolution operation
+/// Convolutional layers apply filters to input data using convolution operations
 public protocol ConvolutionalLayer: Layer {
   var filterCount: Int { get }
   var filters: [Tensor] { get }
@@ -47,23 +50,55 @@ public protocol ConvolutionalLayer: Layer {
   var padding: NumSwift.ConvPadding { get }
 }
 
-/// The the object that perform ML operations
+/// The base protocol that all layers must implement
+/// Layers are the fundamental building blocks of neural networks
 public protocol Layer: AnyObject, Codable {
+  /// The type identifier for this layer used in serialization
   var encodingType: EncodingType { get set }
+  /// Additional encodable properties for custom layer implementations
   var extraEncodables: [String: Codable]? { get }
+  /// The size of the input tensor expected by this layer
   var inputSize: TensorSize { get set }
+  /// The size of the output tensor produced by this layer
   var outputSize: TensorSize { get }
+  /// The weight parameters of the layer
   var weights: Tensor { get }
+  /// The bias parameters of the layer
   var biases: Tensor { get }
+  /// Whether bias terms are enabled for this layer
   var biasEnabled: Bool { get set }
+  /// Whether the layer's parameters should be updated during training
   var trainable: Bool { get set }
+  /// Whether the layer is currently in training mode
   var isTraining: Bool { get set }
+  /// The weight initialization method used by this layer
   var initializer: Initializer? { get }
+  /// The computation device (CPU/GPU) used by this layer
   var device: Device { get set }
+  /// Whether gradients should be processed by the optimizer
   var usesOptimizer: Bool { get set }
+  
+  /// Performs the forward pass through the layer
+  /// - Parameters:
+  ///   - tensor: Input tensor to process
+  ///   - context: Network context containing threading information
+  /// - Returns: Output tensor after layer computation
   func forward(tensor: Tensor, context: NetworkContext) -> Tensor
+  
+  /// Applies gradients to the layer's parameters
+  /// - Parameters:
+  ///   - gradients: Gradients to apply
+  ///   - learningRate: Learning rate for parameter updates
   func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar)
+  
+  /// Exports the layer's weights for serialization
+  /// - Returns: Array of weight tensors
+  /// - Throws: LayerErrors if weights are not initialized
   func exportWeights() throws -> [Tensor]
+  
+  /// Imports weights into the layer
+  /// - Parameter weights: Array of weight tensors to import
+  /// - Throws: LayerErrors if weights are incompatible
   func importWeights(_ weights: [Tensor]) throws
 }
 
@@ -87,25 +122,43 @@ extension Layer {
   }
 }
 
+/// Base implementation of the Layer protocol
+/// Provides default implementations and common functionality for all layer types
 open class BaseLayer: Layer {
+  /// The type identifier for this layer used in serialization
   public var encodingType: EncodingType
+  /// The size of the input tensor expected by this layer
   public var inputSize: TensorSize = .init() {
     didSet {
       onInputSizeSet()
     }
   }
+  /// The size of the output tensor produced by this layer
   public var outputSize: TensorSize = .init()
+  /// The weight parameters of the layer
   public var weights: Tensor = .init()
+  /// The bias parameters of the layer
   public var biases: Tensor = .init()
+  /// Whether bias terms are enabled for this layer
   public var biasEnabled: Bool = false
+  /// Whether the layer's parameters should be updated during training
   public var trainable: Bool = true
+  /// Whether the layer is currently in training mode
   public var isTraining: Bool = true
+  /// The weight initialization method used by this layer
   public var initializer: Initializer?
+  /// The computation device (CPU/GPU) used by this layer
   public var device: Device = CPU()
-  // defines whether the gradients are run through the optimizer before being applied.
-  // this could be useful if a layer manages its own weight updates
+  /// Defines whether the gradients are run through the optimizer before being applied
+  /// This could be useful if a layer manages its own weight updates
   public var usesOptimizer: Bool = true
   
+  /// Initializes a base layer with the specified parameters
+  /// - Parameters:
+  ///   - inputSize: Optional input tensor size
+  ///   - initializer: Weight initialization method
+  ///   - biasEnabled: Whether to enable bias terms
+  ///   - encodingType: Layer type identifier
   public init(inputSize: TensorSize? = nil,
               initializer: InitializerType? = nil,
               biasEnabled: Bool = false,
@@ -130,16 +183,29 @@ open class BaseLayer: Layer {
   }
   
   
+  /// Performs the forward pass through the layer
+  /// This is a default implementation that should be overridden by subclasses
+  /// - Parameters:
+  ///   - tensor: Input tensor to process
+  ///   - context: Network context containing threading information
+  /// - Returns: Output tensor after layer computation
   public func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
     // override
     .init()
   }
   
+  /// Applies gradients to the layer's parameters
+  /// This is a default implementation that should be overridden by subclasses
+  /// - Parameters:
+  ///   - gradients: Gradients to apply
+  ///   - learningRate: Learning rate for parameter updates
   public func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     // override
   }
   
   // MARK: Internal
+  /// Called when the input size is set, allowing subclasses to initialize based on input dimensions
+  /// Override this method to perform layer-specific initialization
   public func onInputSizeSet() {
     // override
   }
@@ -176,7 +242,12 @@ open class BaseLayer: Layer {
   }
 }
 
+/// Base implementation for convolutional layers
+/// Provides common functionality for all convolutional layer types
 open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
+  /// The combined weights tensor from all filters
+  /// Getting this property concatenates all individual filters
+  /// Setting this property will result in a fatal error - use `filters` property instead
   public override var weights: Tensor {
     get {
       var reduce = filters
@@ -190,10 +261,15 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
       fatalError("Please use the `filters` property instead to manage weights on Convolutional layers")
     }
   }
+  /// Number of convolutional filters in this layer
   public var filterCount: Int
+  /// Array of individual filter tensors
   public var filters: [Tensor] = []
+  /// Size of each filter kernel (rows, columns)
   public var filterSize: (rows: Int, columns: Int)
+  /// Stride values for convolution (rows, columns)
   public var strides: (rows: Int, columns: Int)
+  /// Padding type for convolution operation
   public var padding: NumSwift.ConvPadding
   
   /// Default initializer for a 2d convolutional layer

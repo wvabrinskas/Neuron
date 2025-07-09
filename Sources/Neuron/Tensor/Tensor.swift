@@ -9,6 +9,8 @@ import Foundation
 import NumSwift
 import NumSwiftC
 
+/// Protocol for defining tensor range operations
+/// Used for tensor slicing and indexing operations
 public protocol TensorRange {
   associatedtype T: RangeExpression<Int>
   var range: T { get }
@@ -17,24 +19,41 @@ public protocol TensorRange {
 /// The fundamental base for all arithmetic in the network. It holds a reference to the backpropgation graph as well as the values of the forward pass.
 /// Its `value` property is a 3D array for all instances.
 public class Tensor: Equatable, Codable {
+  /// Equality comparison between two tensors
+  /// - Parameters:
+  ///   - lhs: Left-hand side tensor
+  ///   - rhs: Right-hand side tensor
+  /// - Returns: True if tensors have equal values or IDs
   public static func == (lhs: Tensor, rhs: Tensor) -> Bool {
-    lhs.value == rhs.value || lhs.id == rhs.id  // not sure at all why there's an ID property
+    lhs.value == rhs.value || lhs.id == rhs.id
   }
 
+  /// The scalar type used for tensor values
+  /// Uses Float16 for quantized builds, Float otherwise
   #if QUANTIZED_F16
   public typealias Scalar = Float16
   #else
   public typealias Scalar = Float
   #endif
   
+  /// The data type representing a 3D array of scalars
+  /// All tensors internally store data as [[[Scalar]]]
   public typealias Data = [[[Scalar]]]
   
   /// Gradient object returned from `gradient` calculation on the Tensor. Contains gradients w.r.t to the `input`, w.r.t to the `weights`, and w.r.t to the `biases`
   public struct Gradient {
+    /// Gradients with respect to the input tensors
     let input: [Tensor]
+    /// Gradients with respect to the weight tensors
     let weights: [Tensor]
+    /// Gradients with respect to the bias tensors
     let biases: [Tensor]
     
+    /// Initializes a gradient object with input, weight, and bias gradients
+    /// - Parameters:
+    ///   - input: Array of input gradients
+    ///   - weights: Array of weight gradients
+    ///   - biases: Array of bias gradients
     public init(input: [Tensor] = [],
                 weights: [Tensor] = [],
                 biases: [Tensor] = []) {
@@ -88,7 +107,13 @@ public class Tensor: Equatable, Codable {
     case value
   }
   
-  /// only works for 3D tensors, Input is [colRange, rowRange, depthRange]
+  /// Tensor slicing subscript for 3D tensors
+  /// Extracts a sub-tensor from the current tensor using range expressions
+  /// - Parameters:
+  ///   - colRange: Range of columns to extract
+  ///   - rowRange: Range of rows to extract
+  ///   - depthRange: Range of depth slices to extract
+  /// - Returns: A new tensor containing the sliced data
   public subscript(_ colRange: some RangeExpression<Int>,
                    _ rowRange: some RangeExpression<Int>,
                    _ depthRange: some RangeExpression<Int>) -> Tensor {
@@ -117,9 +142,10 @@ public class Tensor: Equatable, Codable {
   }
   
   /// Initializer for Tensor with a scalar value
+  /// Creates a tensor containing a single scalar value wrapped in a 3D array structure
   /// - Parameters:
-  ///   - data: `[[Scalar]]` object to set
-  ///   - context: Backpropagation context
+  ///   - data: Optional scalar value to initialize the tensor with
+  ///   - context: Backpropagation context for gradient computation
   public init(_ data: Scalar? = nil, context: TensorContext = TensorContext()) {
     if let data = data {
       self.value = [[[data]]]
