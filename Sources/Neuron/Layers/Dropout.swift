@@ -10,6 +10,14 @@ import NumSwift
 
 /// Performs a dropout operation on the inputs based on the chance percentage. The mask changes on every `apply` called.
 public final class Dropout: BaseLayer {
+  public override var details: String {
+    super.details +
+    """
+    \n
+    Chance: \(chance)
+    """
+  }
+  
   internal var mask: Tensor = Tensor()
   private var chance: Tensor.Scalar
   
