@@ -12,10 +12,7 @@ let package = Package(
     products: [
         .library(
             name: "Neuron",
-            targets: ["Neuron"]),
-        
-        .executable(name: "Visualizer",
-                    targets: ["NeuronVisualizer"])
+            targets: ["Neuron"])
     ],
     dependencies: [
       //.package(path: "../NumSwift"),
@@ -30,15 +27,6 @@ let package = Package(
             dependencies: [
               "NumSwift",
               "Logger",
-              .product(name: "Numerics", package: "swift-numerics"),
-            ],
-            resources: [ .process("Resources") ]),
-        .target(
-            name: "NeuronVisualizer",
-            dependencies: [
-              "NumSwift",
-              "Logger",
-              "Neuron",
               .product(name: "Numerics", package: "swift-numerics"),
             ],
             resources: [ .process("Resources") ]),
