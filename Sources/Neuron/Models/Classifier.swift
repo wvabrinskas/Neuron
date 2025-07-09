@@ -8,20 +8,42 @@
 import Foundation
 import NumSwift
 
+/// High-level classifier model for supervised learning tasks
+/// Handles training loop, validation, and accuracy monitoring
+/// Provides convenient interface for training neural networks on classification tasks
 public class Classifier {
+  /// Number of samples per training batch
   private var batchSize: Int
+  /// Number of training epochs to run
   private let epochs: Int
+  /// Whether to log training progress
   private let log: Bool
+  /// Loss function used for training
   private let lossFunction: LossFunction
+  /// Accuracy threshold configuration for early stopping
   private let accuracyThreshold: AccuracyThreshold
+  /// Whether to stop training when accuracy threshold is reached
   private let killOnAccuracy: Bool
+  /// Monitors accuracy for early stopping decisions
   private let accuracyMonitor: AccuracyMonitor
   
+  /// Callback executed when accuracy threshold is reached
   public var onAccuracyReached: (() -> ())? = nil
+  /// Callback executed after each epoch completes
   public var onEpochCompleted: (() -> ())? = nil
   
+  /// The optimizer used for training the model
   public private(set) var optimizer: Optimizer
   
+  /// Initializes a classifier with specified training parameters
+  /// - Parameters:
+  ///   - optimizer: The optimizer to use for training
+  ///   - epochs: Number of training epochs. Default: 100
+  ///   - batchSize: Number of samples per batch
+  ///   - accuracyThreshold: Accuracy threshold for early stopping. Default: 80% over 5 epochs
+  ///   - killOnAccuracy: Whether to stop training when threshold is reached. Default: true
+  ///   - log: Whether to log training progress. Default: false
+  ///   - lossFunction: Loss function for training. Default: .crossEntropySoftmax
   public init(optimizer: Optimizer,
               epochs: Int = 100,
               batchSize: Int,
@@ -39,10 +61,18 @@ public class Classifier {
     self.accuracyMonitor = .init(threshold: accuracyThreshold)
   }
   
+  /// Feeds data through the model for inference
+  /// - Parameter data: Input tensors to process
+  /// - Returns: Model predictions
   public func feed(_ data: [Tensor]) -> [Tensor] {
     optimizer(data)
   }
   
+  /// Trains the classifier on the provided dataset
+  /// Runs for the specified number of epochs with validation monitoring
+  /// - Parameters:
+  ///   - data: Training dataset
+  ///   - validation: Validation dataset for monitoring generalization
   public func fit(_ data: [DatasetModel], _ validation: [DatasetModel]) {
     let batches = data.batched(into: batchSize)
     let valBatches = validation.batched(into: batchSize)
@@ -119,6 +149,11 @@ public class Classifier {
     optimizer.isTraining = false
   }
   
+  /// Exports the trained model to a file
+  /// - Parameters:
+  ///   - overrite: Whether to overwrite existing files. Default: false
+  ///   - compress: Whether to compress the exported model. Default: true
+  /// - Returns: URL of the exported model file, or nil if export fails
   @discardableResult
   public func export(overrite: Bool = false, compress: Bool = true) -> URL? {
     if let network = optimizer.trainable as? Sequential {

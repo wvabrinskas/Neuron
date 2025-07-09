@@ -8,15 +8,20 @@
 import Foundation
 import NumSwift
 
-/// Performs a dropout operation on the inputs based on the chance percentage. The mask changes on every `apply` called.
+/// Dropout layer for regularization during training
+/// Randomly sets input elements to zero with probability `chance` during training
+/// Helps prevent overfitting by reducing co-adaptation between neurons
+/// During inference, all inputs are passed through (no dropout applied)
 public final class Dropout: BaseLayer {
+  /// Binary mask tensor indicating which elements to drop
   internal var mask: Tensor = Tensor()
+  /// Probability of dropping out each input element (0.0 to 1.0)
   private var chance: Tensor.Scalar
   
-  /// Default initializer for Dropout layer
+  /// Initializes a Dropout layer with specified dropout rate
   /// - Parameters:
-  ///   - chance: Percent change between 0 and 1 of an input node dropping out
-  ///   - inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
+  ///   - chance: Dropout probability (0.0 to 1.0). Higher values = more dropout
+  ///   - inputSize: Optional input tensor size. Required for first layer in network
   public init(_ chance: Tensor.Scalar, inputSize: TensorSize = TensorSize(array: [])) {
     self.chance = max(min(chance, 1.0), 0.0)
     
@@ -28,6 +33,7 @@ public final class Dropout: BaseLayer {
     self.generateMask()
   }
   
+  /// Coding keys for serialization
   enum CodingKeys: String, CodingKey {
     case inputSize,
          chance,
@@ -35,6 +41,9 @@ public final class Dropout: BaseLayer {
          mask
   }
   
+  /// Initializes Dropout layer from decoder for deserialization
+  /// - Parameter decoder: Decoder containing serialized layer data
+  /// - Throws: Decoding errors if deserialization fails
   convenience public required init(from decoder: Decoder) throws {
     self.init(0)
     let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -52,6 +61,12 @@ public final class Dropout: BaseLayer {
     try container.encode(mask, forKey: .mask)
   }
   
+  /// Performs forward pass through the dropout layer
+  /// Applies dropout mask during training, passes input unchanged during inference
+  /// - Parameters:
+  ///   - tensor: Input tensor to apply dropout to
+  ///   - context: Network context for computation
+  /// - Returns: Output tensor with dropout applied (if training) or unchanged (if inference)
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let context = TensorContext { inputs, gradient in
       let droppedOutGradients = gradient * self.mask
@@ -74,17 +89,27 @@ public final class Dropout: BaseLayer {
     return out
   }
   
+  /// Applies gradients (no-op for dropout) and generates new dropout mask
+  /// Creates a new random mask for the next forward pass
+  /// - Parameters:
+  ///   - gradients: Gradients (unused for dropout)
+  ///   - learningRate: Learning rate (unused for dropout)
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     mask = Tensor()
     generateMask()
   }
   
+  /// Called when input size is set, configures output size and generates mask
+  /// For dropout, output size equals input size
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     outputSize = inputSize
     generateMask()
   }
   
+  /// Generates a new random dropout mask
+  /// Elements are set to 0 with probability `chance`, otherwise scaled by 1/(1-chance)
+  /// The scaling ensures expected output remains unchanged during training
   private func generateMask() {
     guard mask.isEmpty else {
       return
