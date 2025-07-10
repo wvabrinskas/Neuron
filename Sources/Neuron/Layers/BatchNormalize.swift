@@ -97,7 +97,7 @@ public final class BatchNormalize: BaseLayer {
       return (Tensor(backward), Tensor(), Tensor())
     }
     
-    let forward = normalize(inputs: tensor.value)
+    let forward = normalize3D(inputs: tensor.value)
     let out = Tensor(forward, context: context)
     
     out.setGraph(tensor)
@@ -106,8 +106,11 @@ public final class BatchNormalize: BaseLayer {
   }
   
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
-    gamma = gamma - (dGamma / iterations.asTensorScalar)
-    beta = beta - (dBeta / iterations.asTensorScalar)
+    let avgDGamma = dGamma / iterations.asTensorScalar
+    let avgDBeta = dBeta / iterations.asTensorScalar
+    
+    gamma = gamma - (avgDGamma * learningRate)
+    beta = beta - (avgDBeta * learningRate)
     
     resetDeltas()
     iterations = 0
@@ -146,34 +149,31 @@ public final class BatchNormalize: BaseLayer {
     dBeta = [Tensor.Scalar](repeating: 0, count: inputDim)
   }
   
-  private func normalize(inputs: [[[Tensor.Scalar]]]) -> [[[Tensor.Scalar]]] {
+  private func normalize3D(inputs: [[[Tensor.Scalar]]]) -> [[[Tensor.Scalar]]] {
     var forward: [[[Tensor.Scalar]]] = []
 
     for i in 0..<inputs.count {
-      let count = inputSize.rows * inputSize.columns
-      let total = Tensor.Scalar(count)
-      
-      let mean = isTraining == true ? inputs[i].sum / total : movingMean[i]
-      
-      let inputsCentered = inputs[i] - mean
-
-      let variance = isTraining == true ? inputsCentered.sumOfSquares / total : movingVariance[i]
-              
-      let std = sqrt(variance + e)
-      
-      let normalized = inputsCentered / std
-      
-      let normalizedScaledAndShifted = normalized * gamma[i] + beta[i]
+      var output: [[Tensor.Scalar]] = []
 
       if isTraining {
+        // todo: support multiple batches in 1 tensor
+        let (mean, variance, _, normalized) = normalize2D(inputs: inputs[i], batchSize: 1)
+        
+        let normalizedScaledAndShifted = normalized * gamma[i] + beta[i]
+        
         let lock = NSLock()
         lock.with {
           movingMean[i] = momentum * movingMean[i] + (1 - momentum) * mean
           movingVariance[i] = momentum * movingVariance[i] + (1 - momentum) * variance
         }
+        
+        output = normalizedScaledAndShifted
+      } else {
+        let normalized = (inputs[i] - movingMean[i]) / sqrt(movingVariance[i] + e)
+        output = normalized * gamma[i]  + beta[i]
       }
       
-      forward.append(normalizedScaledAndShifted)
+      forward.append(output)
     }
     
     if isTraining {
@@ -183,6 +183,20 @@ public final class BatchNormalize: BaseLayer {
     return forward
   }
   
+  private func normalize2D(inputs: [[Tensor.Scalar]], batchSize: Tensor.Scalar = 1) -> (mean: Tensor.Scalar, variance: Tensor.Scalar, std: Tensor.Scalar, out:[[Tensor.Scalar]]) {
+    let mean = inputs.sum / batchSize
+    
+    let inputsCentered = inputs - mean
+    
+    let variance = inputsCentered.sumOfSquares / batchSize
+    
+    let std = sqrt(variance + e)
+    
+    let normalized = inputsCentered / std
+    
+    return  (mean, variance, std, normalized)
+  }
+  
   private func backward(inputs: [[[Tensor.Scalar]]], gradient: [[[Tensor.Scalar]]]) -> [[[Tensor.Scalar]]] {
     // we're doing normalization again to support multithreading.
     // TODO: figure out a way to not have to do this math again
@@ -190,20 +204,9 @@ public final class BatchNormalize: BaseLayer {
     var backward: [[[Tensor.Scalar]]] = []
     
     for i in 0..<inputs.count {
-      let count = inputSize.rows * inputSize.columns
-      let total = Tensor.Scalar(count)
-
       let N = Tensor.Scalar(gradient[i].count)
       
-      let mean = inputs[i].sum / total
-      
-      let inputsCentered = inputs[i] - mean
-
-      let variance = inputsCentered.sumOfSquares / total
-              
-      let std = sqrt(variance + e)
-      
-      let normalized = inputsCentered / std
+      let (_, _, std, normalized) = normalize2D(inputs: inputs[i], batchSize: 1)
       
       let lock = NSLock()
       
