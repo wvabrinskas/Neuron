@@ -13,6 +13,14 @@ import NumSwift
 /// Helps prevent overfitting by reducing co-adaptation between neurons
 /// During inference, all inputs are passed through (no dropout applied)
 public final class Dropout: BaseLayer {
+  public override var details: String {
+    super.details +
+    """
+    \n
+    Chance: \(chance)
+    """
+  }
+  
   /// Binary mask tensor indicating which elements to drop
   internal var mask: Tensor = Tensor()
   /// Probability of dropping out each input element (0.0 to 1.0)

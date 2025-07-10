@@ -72,6 +72,17 @@ public final class Sequential: Trainable, Logger {
     }
   }
   
+  @_spi(Visualizer)
+  public static func `import`(_ data: Data) -> Self {
+    let result: Result<Self, Error> =  ExportHelper.buildModel(data)
+    switch result {
+    case .success(let model):
+      return model
+    case .failure(let error):
+      preconditionFailure(error.localizedDescription)
+    }
+  }
+  
   /// Initializes a Sequential model with variadic layers
   /// - Parameter layers: Variable number of layers to add to the model
   public init(_ layers: Layer...) {

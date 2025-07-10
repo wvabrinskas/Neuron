@@ -11,3 +11,5 @@ Package.resolved
 *.xcarchive
 /build
 *.zip
+.claude
+.vscode
