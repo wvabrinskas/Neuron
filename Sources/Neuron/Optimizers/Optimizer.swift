@@ -122,6 +122,8 @@ open class BaseOptimizer: Optimizer {
   }
   
   open func predict(_ data: [Tensor]) -> [Tensor] {
+    trainable.isTraining = false
+    
     var results: [Tensor] = [Tensor].init(repeating: Tensor(), count: data.count)
 
     data.concurrentForEach(workers: Constants.maxWorkers,
@@ -138,6 +140,8 @@ open class BaseOptimizer: Optimizer {
                   lossFunction: LossFunction,
                   validation: Bool = false,
                   requiresGradients: Bool = true) -> Output {
+    
+    trainable.isTraining = true
     
     metricsReporter?.startTimer(metric: .batchTime)
     let accumulator = GradientAccumulator()
