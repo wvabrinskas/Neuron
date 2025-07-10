@@ -8,13 +8,18 @@
 import Foundation
 import NumSwift
 
-/// Will decrease the size of the input tensor by half using a max pooling technique.
+/// Max pooling layer for downsampling spatial dimensions
+/// Reduces tensor size by taking the maximum value in each 2x2 region
+/// Commonly used in CNNs to reduce computational load and control overfitting
+/// Preserves the most prominent features while reducing spatial resolution
 public final class MaxPool: BaseLayer {
+  /// Index structure for tracking pooling positions during backpropagation
   internal struct PoolingIndex: Hashable, Codable {
     var r: Int
     var c: Int
   }
   
+  /// Gradient structure for storing backpropagation information
   internal struct PoolingGradient: Hashable, Codable {
     static func == (lhs: MaxPool.PoolingGradient, rhs: MaxPool.PoolingGradient) -> Bool {
       lhs.tensorId == rhs.tensorId
@@ -24,11 +29,14 @@ public final class MaxPool: BaseLayer {
     var indicies: [[PoolingIndex]]
   }
   
+  /// Stored gradients for backpropagation through pooling operations
   internal var poolingGradients: [PoolingGradient] = []
+  /// Operation queue for thread-safe gradient management
   private lazy var queue: OperationQueue = OperationQueue()
   
-  /// Default initializer for max pooling.
-  /// - Parameter inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
+  /// Initializes a max pooling layer with 2x2 pooling size and stride 2
+  /// Reduces spatial dimensions by half while preserving depth
+  /// - Parameter inputSize: Input tensor dimensions. Required for first layer in network
   public init(inputSize: TensorSize = TensorSize(array: [])) {
     super.init(inputSize: inputSize,
                initializer: nil,
@@ -36,17 +44,24 @@ public final class MaxPool: BaseLayer {
                encodingType: .maxPool)
   }
   
+  /// Coding keys for serialization
   enum CodingKeys: String, CodingKey {
     case inputSize,
          type
   }
   
+  /// Initializes MaxPool layer from decoder for deserialization
+  /// - Parameter decoder: Decoder containing serialized layer data
+  /// - Throws: Decoding errors if deserialization fails
   convenience public required init(from decoder: Decoder) throws {
     self.init()
     let container = try decoder.container(keyedBy: CodingKeys.self)
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
   }
   
+  /// Encodes the MaxPool layer for serialization
+  /// - Parameter encoder: Encoder to serialize layer data
+  /// - Throws: Encoding errors if serialization fails
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
@@ -114,6 +129,8 @@ public final class MaxPool: BaseLayer {
     return out
   }
   
+  /// Called when input size is set, calculates output dimensions
+  /// Max pooling with 2x2 kernel and stride 2 reduces spatial dimensions by half
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     outputSize = TensorSize(array: [inputSize.columns / 2, inputSize.rows / 2, inputSize.depth])

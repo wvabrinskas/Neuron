@@ -8,11 +8,24 @@
 import Foundation
 import NumSwift
 
+/// Stochastic Gradient Descent (SGD) optimizer with momentum
+/// Classic optimization algorithm that updates parameters in the direction of negative gradient
+/// Momentum helps accelerate gradients in relevant directions and dampens oscillations
+/// Simple and effective for many machine learning tasks
 public class SGD: BaseOptimizer {
+  /// Momentum factor for accumulating gradients over time
   private let momentum: Tensor.Scalar
+  /// Momentum vectors for weight updates
   private var v: [Tensor.Data] = []
+  /// Momentum vectors for bias updates
   private var vb: [[Tensor.Scalar]] = []
 
+  /// Initializes SGD optimizer with momentum
+  /// - Parameters:
+  ///   - trainable: The model to optimize
+  ///   - device: Computation device (CPU/GPU). Default: CPU()
+  ///   - learningRate: Learning rate for parameter updates
+  ///   - momentum: Momentum factor for gradient accumulation. Default: 0.9
   public init(_ trainable: Trainable,
               device: Device = CPU(),
               learningRate: Tensor.Scalar,
@@ -28,6 +41,9 @@ public class SGD: BaseOptimizer {
                l2Normalize: false)
   }
   
+  /// Performs one optimization step using SGD with momentum
+  /// Updates parameters using momentum-adjusted gradients
+  /// Formula: v = momentum * v + learning_rate * gradient, params -= v
   public override func step() {
     let gradients = gradientAccumulator.accumulate()
 
@@ -86,6 +102,9 @@ public class SGD: BaseOptimizer {
     return (Tensor(v[i]), Tensor(vb[i]))
   }
   
+  /// Resets the optimizer state to initial conditions
+  /// Clears momentum vectors for both weights and biases
+  /// Useful when restarting training or changing models
   public override func reset() {
     v.removeAll(keepingCapacity: true)
     vb.removeAll(keepingCapacity: true)

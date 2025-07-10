@@ -8,10 +8,12 @@
 import Foundation
 import NumSwift
 
-/// The LSTM layer, Long Short-Term Memory layer, is the heart of the `RNN` model. It should be
-/// preceeded by an `Embedding` layer as that's the expected input rather than the raw
-/// text input itself.
+/// Long Short-Term Memory (LSTM) layer for sequence processing
+/// Designed to learn long-term dependencies in sequential data
+/// Handles vanishing gradient problem through gated architecture with forget, input, and output gates
+/// Should be preceded by an Embedding layer for text processing tasks
 public final class LSTM: BaseLayer {
+  /// Training mode flag that resets internal state when switching to inference
   public override var isTraining: Bool {
     willSet {
       if newValue == false {
@@ -20,27 +22,43 @@ public final class LSTM: BaseLayer {
     }
   }
 
+  /// Forget gate weights for controlling what information to discard
   public var forgetGateWeights: Tensor = Tensor()
+  /// Forget gate biases
   public var forgetGateBiases: Tensor = Tensor()
 
+  /// Input gate weights for controlling what new information to store
   public var inputGateWeights: Tensor = Tensor()
+  /// Input gate biases
   public var inputGateBiases: Tensor = Tensor()
 
+  /// Candidate gate weights for creating new candidate values
   public var gateGateWeights: Tensor = Tensor()
+  /// Candidate gate biases
   public var gateGateBiases: Tensor = Tensor()
 
+  /// Output gate weights for controlling what parts of cell state to output
   public var outputGateWeights: Tensor = Tensor()
+  /// Output gate biases
   public var outputGateBiases: Tensor = Tensor()
 
+  /// Hidden-to-output projection weights
   public var hiddenOutputWeights: Tensor = Tensor()
+  /// Hidden-to-output projection biases
   public var hiddenOutputBiases: Tensor = Tensor()
     
+  /// Number of hidden units in the LSTM cell
   private var hiddenUnits: Int
+  /// Size of the vocabulary for output predictions
   private var vocabSize: Int
+  /// Number of input features/units
   private var inputUnits: Int
+  /// Length of input sequences to process
   private var batchLength: Int
+  /// Whether to return full sequence or just the last output
   private let returnSequence: Bool
   
+  /// Thread-safe storage for cell states during computation
   private var cellCache: ThreadStorage<[Cache]> = .init()
 
   public class LSTMActivations {
@@ -105,14 +123,15 @@ public final class LSTM: BaseLayer {
   }
 
   
-  /// Default initializer
+  /// Initializes an LSTM layer for sequence processing
   /// - Parameters:
-  ///   - inputUnits: The number of inputs in the LSTM cell
-  ///   - batchLength: The number samples (eg. letters) at a given time
-  ///   - returnSequence: Determines if the layer returns all outputs of the sequence or just the last output. Default:   `true`
-  ///   - initializer: Initializer funciton to use
-  ///   - hiddenUnits: Number of hidden use
-  ///   - vocabSize: size of the expected vocabulary
+  ///   - inputUnits: Number of features in input embeddings
+  ///   - batchLength: Length of input sequences to process
+  ///   - returnSequence: If true, returns full sequence; if false, returns only final output. Default: true
+  ///   - biasEnabled: Whether to use bias terms in gates. Default: false
+  ///   - initializer: Weight initialization strategy. Default: .xavierNormal
+  ///   - hiddenUnits: Number of hidden units in LSTM cell
+  ///   - vocabSize: Size of output vocabulary for predictions
   public init(inputUnits: Int,
               batchLength: Int,
               returnSequence: Bool = true,

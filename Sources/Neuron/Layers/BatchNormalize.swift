@@ -8,13 +8,22 @@
 import Foundation
 import NumSwift
 
-/// Performs a normalization of the inputs based on the batch.
+/// Batch Normalization layer for stabilizing and accelerating training
+/// Normalizes inputs by adjusting and scaling activations based on batch statistics
+/// Reduces internal covariate shift and allows higher learning rates
+/// Formula: y = γ * (x - μ) / √(σ² + ε) + β
 public final class BatchNormalize: BaseLayer {
+  /// Scale parameter (γ) learned during training
   public var gamma: [Tensor.Scalar] = []
+  /// Shift parameter (β) learned during training
   public var beta: [Tensor.Scalar] = []
+  /// Running average of means for inference
   public var movingMean: [Tensor.Scalar] = []
+  /// Running average of variances for inference
   public var movingVariance: [Tensor.Scalar] = []
+  /// Momentum factor for updating running statistics
   public let momentum: Tensor.Scalar
+  /// Combined weights tensor for display purposes
   public override var weights: Tensor {
     // only used for print purposes.
     get {
@@ -27,19 +36,23 @@ public final class BatchNormalize: BaseLayer {
     set {}
   }
 
-  private let e: Tensor.Scalar = 1e-5 //this is a standard smoothing term
+  /// Small constant for numerical stability
+  private let e: Tensor.Scalar = 1e-5
+  /// Gradients for gamma parameters
   private var dGamma: [Tensor.Scalar] = []
+  /// Gradients for beta parameters
   private var dBeta: [Tensor.Scalar] = []
+  /// Number of training iterations for gradient averaging
   @Atomic private var iterations: Int = 0
   
-  /// Default initializer for Batch Normalize layer
+  /// Initializes a Batch Normalization layer
   /// - Parameters:
-  ///   - gamma: The gamma property for normalization
-  ///   - beta: The beta property for normalization
-  ///   - momentum: The momentum property for normalization
-  ///   - movingMean: Optional param to set the `movingMean` for the normalizer to start with
-  ///   - movingVariance: Optional param to set the `movingVariance` for the normalizer to start with
-  ///   - inputSize: Optional param to set the `inputSize` of this layer. [columns, rows, depth]
+  ///   - gamma: Scale parameters (γ). Empty array initializes to ones
+  ///   - beta: Shift parameters (β). Empty array initializes to zeros
+  ///   - momentum: Momentum for updating running statistics. Default: 0.99
+  ///   - movingMean: Initial running mean values. Empty array initializes to zeros
+  ///   - movingVariance: Initial running variance values. Empty array initializes to ones
+  ///   - inputSize: Input tensor dimensions [columns, rows, depth]
   public init(gamma: [Tensor.Scalar] = [],
               beta: [Tensor.Scalar] = [],
               momentum: Tensor.Scalar = 0.99,
@@ -59,10 +72,14 @@ public final class BatchNormalize: BaseLayer {
     resetDeltas()
   }
   
+  /// Coding keys for serialization
   public enum CodingKeys: String, CodingKey {
     case gamma, beta, momentum, movingMean, movingVariance, inputSize
   }
 
+  /// Initializes BatchNormalize layer from decoder for deserialization
+  /// - Parameter decoder: Decoder containing serialized layer data
+  /// - Throws: Decoding errors if deserialization fails
   convenience public required init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let movingMean = try container.decodeIfPresent([Tensor.Scalar].self, forKey: .movingMean) ?? []
@@ -91,6 +108,12 @@ public final class BatchNormalize: BaseLayer {
     try container.encode(momentum, forKey: .momentum)
   }
 
+  /// Performs forward pass through batch normalization
+  /// Normalizes input using batch statistics during training, running stats during inference
+  /// - Parameters:
+  ///   - tensor: Input tensor to normalize
+  ///   - context: Network context for computation
+  /// - Returns: Normalized tensor with learnable scale and shift applied
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let context = TensorContext { inputs, gradient in
       let backward = self.backward(inputs: inputs.value, gradient: gradient.value)
@@ -105,6 +128,11 @@ public final class BatchNormalize: BaseLayer {
     return out
   }
   
+  /// Applies accumulated gradients to update gamma and beta parameters
+  /// Averages gradients over the number of training iterations
+  /// - Parameters:
+  ///   - gradients: Accumulated gradients (unused for batch norm)
+  ///   - learningRate: Learning rate for parameter updates (unused for batch norm)
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     gamma = gamma - (dGamma / iterations.asTensorScalar)
     beta = beta - (dBeta / iterations.asTensorScalar)
@@ -113,6 +141,8 @@ public final class BatchNormalize: BaseLayer {
     iterations = 0
   }
   
+  /// Called when input size is set, initializes parameters and gradients
+  /// Sets up gamma, beta, moving mean, and moving variance arrays
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     outputSize = inputSize
