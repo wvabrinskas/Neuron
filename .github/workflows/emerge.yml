@@ -2,7 +2,7 @@ name: Emerge
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ main, develop ]
 
 jobs:
   build:
@@ -15,7 +15,7 @@ jobs:
          ./build.sh
         shell: bash
       - name: Upload artifact to Emerge
-        uses: EmergeTools/emerge-upload-action@v1.2.2
+        uses: wvabrinskas/emerge-upload-action@v1.2.2
         with:
           artifact_path: Neuron.xcframework.zip
           emerge_api_key: ${{ secrets.EMERGE_API_KEY }}
