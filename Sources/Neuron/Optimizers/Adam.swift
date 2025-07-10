@@ -8,8 +8,19 @@
 import Foundation
 import NumSwift
 
-/// Convienence class for Adam with weight decay as default to `0.004`
+/// AdamW optimizer - Adam with weight decay
+/// Convenience class for Adam optimizer with weight decay enabled by default
+/// Weight decay helps prevent overfitting by penalizing large weights
 public final class AdamW: Adam {
+  /// Initializes AdamW optimizer with weight decay
+  /// - Parameters:
+  ///   - trainable: The model to optimize
+  ///   - device: Computation device (CPU/GPU)
+  ///   - learningRate: Learning rate for parameter updates
+  ///   - b1: Exponential decay rate for first moment estimates. Default: 0.9
+  ///   - b2: Exponential decay rate for second moment estimates. Default: 0.999
+  ///   - eps: Small constant for numerical stability. Default: .stabilityFactor
+  ///   - weightDecayValue: Weight decay coefficient. Default: 0.004
   public init(_ trainable: Trainable,
               device: Device = CPU(),
               learningRate: Tensor.Scalar,
@@ -27,29 +38,56 @@ public final class AdamW: Adam {
   }
 }
 
+/// Adam (Adaptive Moment Estimation) optimizer
+/// Combines the advantages of AdaGrad and RMSprop optimizers
+/// Maintains per-parameter learning rates adapted based on first and second moments
+/// Generally works well for most deep learning tasks
 public class Adam: BaseOptimizer {
+  /// Weight decay options for regularization
   public enum WeightDecay {
+    /// No weight decay applied
     case none
+    /// Apply weight decay with specified coefficient
     case decay(Tensor.Scalar)
   }
   
+  /// The trainable model being optimized
+  /// When set, rebuilds internal state for the new model
   public override var trainable: Trainable {
     didSet {
       build()
     }
   }
   
+  /// Exponential decay rate for first moment estimates (momentum)
   private var b1: Tensor.Scalar = 0.9
+  /// Exponential decay rate for second moment estimates (variance)
   private var b2: Tensor.Scalar = 0.999
+  /// Small constant for numerical stability
   private var eps: Tensor.Scalar = .stabilityFactor
   
+  /// First moment estimates for weights
   private var m: [Tensor.Data] = []
+  /// Second moment estimates for weights
   private var v: [Tensor.Data] = []
+  /// Second moment estimates for biases
   private var vb: [[Tensor.Scalar]] = []
+  /// First moment estimates for biases
   private var mb: [[Tensor.Scalar]] = []
+  /// Time step counter for bias correction
   private var t: Tensor.Scalar = 1
+  /// Weight decay configuration
   private let weightDecay: WeightDecay
   
+  /// Initializes Adam optimizer with specified parameters
+  /// - Parameters:
+  ///   - trainable: The model to optimize
+  ///   - device: Computation device (CPU/GPU). Default: CPU()
+  ///   - learningRate: Learning rate for parameter updates
+  ///   - b1: Exponential decay rate for first moment estimates. Default: 0.9
+  ///   - b2: Exponential decay rate for second moment estimates. Default: 0.999
+  ///   - eps: Small constant for numerical stability. Default: .stabilityFactor
+  ///   - weightDecay: Weight decay configuration. Default: .none
   public init(_ trainable: Trainable,
               device: Device = CPU(),
               learningRate: Tensor.Scalar,
@@ -67,6 +105,9 @@ public class Adam: BaseOptimizer {
     build()
   }
   
+  /// Performs one optimization step using Adam algorithm
+  /// Updates model parameters using accumulated gradients and moment estimates
+  /// Applies bias correction and optional weight decay
   public override func step() {
     let gradients = gradientAccumulator.accumulate()
     
@@ -96,6 +137,9 @@ public class Adam: BaseOptimizer {
     super.step()
   }
   
+  /// Builds internal state arrays for moment estimates
+  /// Initializes first and second moment estimates for all layers
+  /// Called when trainable model is set or changed
   private func build() {
     m = [Tensor.Data].init(repeating: [], count: trainable.layers.count) // we want to support multiple weight structures right now this only supports one Tensor for one m value, when layers could have multiple tensors representing weights
     v = [Tensor.Data].init(repeating: [], count: trainable.layers.count)
@@ -170,6 +214,9 @@ public class Adam: BaseOptimizer {
     return (Tensor(result), Tensor(biases))
   }
   
+  /// Resets the optimizer state to initial conditions
+  /// Clears moment estimates and resets time step counter
+  /// Useful when starting training from scratch
   public override func reset() {
     t = 1
     m.removeAll(keepingCapacity: true)

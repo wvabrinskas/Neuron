@@ -9,17 +9,21 @@ import Foundation
 import NumSwift
 import NumSwiftC
 
-/// A layer that performs a 2D convolution operation
+/// 2D Convolutional layer for processing spatial data like images
+/// Applies learnable filters across the input using convolution operations
+/// Each filter detects specific features and patterns in the input data
+/// Commonly used in computer vision tasks for feature extraction
 public class Conv2d: BaseConvolutionalLayer {
-  /// Default initializer for a 2d convolutional layer
+  /// Initializes a 2D convolutional layer with specified parameters
   /// - Parameters:
-  ///   - filterCount: Number of filters at this layer
-  ///   - inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
-  ///   - strides: Number of row and column strides when performing convolution. Default: `(3,3)`
-  ///   - padding: Padding type when performing the convolution. Default: `.valid`
-  ///   - filterSize: Size of the filter kernel. Default: `(3,3)`
-  ///   - initializer: Weight / filter initializer function. Default: `.heNormal`
-  ///   - biasEnabled: Boolean defining if the filters have a bias applied. Default: `false`
+  ///   - filterCount: Number of learnable filters/kernels in this layer
+  ///   - inputSize: Input tensor dimensions. Required for first layer in network
+  ///   - strides: Step size for filter movement (rows, columns). Default: (1,1)
+  ///   - padding: Padding strategy for convolution. Default: .valid (no padding)
+  ///   - filterSize: Dimensions of each filter kernel (rows, columns). Default: (3,3)
+  ///   - initializer: Weight initialization method. Default: .heNormal (good for ReLU)
+  ///   - biasEnabled: Whether to add bias terms to outputs. Default: false
+  ///   - encodingType: Layer type identifier for serialization. Default: .conv2d
   public override init(filterCount: Int,
                        inputSize: TensorSize? = nil,
                        strides: (rows: Int, columns: Int) = (1,1),
@@ -39,6 +43,7 @@ public class Conv2d: BaseConvolutionalLayer {
                encodingType: encodingType)
   }
   
+  /// Coding keys for serialization
   enum CodingKeys: String, CodingKey {
     case filterSize,
          filterCount,
@@ -50,6 +55,9 @@ public class Conv2d: BaseConvolutionalLayer {
          type
   }
   
+  /// Initializes Conv2d layer from decoder for deserialization
+  /// - Parameter decoder: Decoder containing serialized layer data
+  /// - Throws: Decoding errors if deserialization fails
   required convenience public init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
@@ -85,6 +93,9 @@ public class Conv2d: BaseConvolutionalLayer {
     try container.encode(encodingType, forKey: .type)
   }
   
+  /// Called when input size is set, calculates output dimensions
+  /// Computes output size based on input size, padding, filter size, and stride
+  /// Uses the formula: output_size = (input_size + padding - filter_size) / stride + 1
   public override func onInputSizeSet() {
     super.onInputSizeSet()
     
@@ -96,6 +107,12 @@ public class Conv2d: BaseConvolutionalLayer {
     outputSize = TensorSize(array: [columns, rows, filterCount])
   }
   
+  /// Performs forward pass through the convolutional layer
+  /// Applies all filters to the input tensor using convolution operations
+  /// - Parameters:
+  ///   - tensor: Input tensor to convolve
+  ///   - context: Network context for computation
+  /// - Returns: Output tensor after convolution, with gradient computation context
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let context = TensorContext { inputs, gradient in
       self.backward(inputs, gradient)

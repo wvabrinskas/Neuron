@@ -8,16 +8,20 @@
 import Foundation
 import NumSwift
 
-/// A fully connected layer that performs a `sum(wx) + b` operation using matrix multiplication.
+/// Fully connected (Dense) layer that performs linear transformation
+/// Implements the operation: output = input * weights + bias
+/// Each input neuron is connected to every output neuron
+/// Commonly used for final classification layers and feature transformation
 public final class Dense: BaseLayer {
+  /// Number of output neurons in this layer
   private var nodes: Int
 
-  /// Default initializer for the fully connected layer
+  /// Initializes a fully connected layer with specified parameters
   /// - Parameters:
-  ///   - nodes: Number of output nodes
-  ///   - inputs: Optional input count at this layer. If this is the first layer you will need to set this.
-  ///   - initializer: Weight / filter initializer function. Default: `.heNormal`
-  ///   - biasEnabled: Boolean defining if the filters have a bias applied. Default: `false`
+  ///   - nodes: Number of output neurons/nodes in this layer
+  ///   - inputs: Optional number of input features. Required for first layer
+  ///   - initializer: Weight initialization strategy. Default: .heNormal (good for ReLU)
+  ///   - biasEnabled: Whether to add bias terms. Default: false
   public init(_ nodes: Int,
               inputs: Int? = nil,
               initializer: InitializerType = .heNormal,
@@ -38,6 +42,7 @@ public final class Dense: BaseLayer {
     }
   }
   
+  /// Coding keys for serialization
   enum CodingKeys: String, CodingKey {
     case biasEnabled,
          inputSize,
@@ -47,6 +52,9 @@ public final class Dense: BaseLayer {
          type
   }
   
+  /// Initializes Dense layer from decoder for deserialization
+  /// - Parameter decoder: Decoder containing serialized layer data
+  /// - Throws: Decoding errors if deserialization fails
   convenience public required init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let outputSize = try container.decodeIfPresent(TensorSize.self, forKey: .outputSize) ?? TensorSize(array: [])
@@ -70,6 +78,9 @@ public final class Dense: BaseLayer {
     try container.encode(biasEnabled, forKey: .biasEnabled)
   }
   
+  /// Called when input size is set, initializes weights and biases
+  /// Dense layers expect flattened input (Nx1x1 dimensions)
+  /// Creates weight matrix of size [input_features, output_features]
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     precondition(inputSize.rows == 1 && inputSize.depth == 1, "Dense expects Tensor dimensions of Nx1x1 where N is the columns, got: \(inputSize)")
@@ -78,6 +89,9 @@ public final class Dense: BaseLayer {
     self.biases = Tensor([Tensor.Scalar](repeating: 0, count: outputSize.depth))
   }
   
+  /// Initializes the weight matrix using the specified initialization strategy
+  /// Creates connections between all input features and output neurons
+  /// - Parameter inputs: Number of input features
   private func initializeWeights(inputs: Int) {
     guard weights.isEmpty else {
       return
@@ -100,6 +114,13 @@ public final class Dense: BaseLayer {
     weights = Tensor(newWeights)
   }
   
+  /// Performs forward pass through the dense layer
+  /// Implements matrix multiplication: output = input * weights + bias
+  /// Sets up gradient computation context for backpropagation
+  /// - Parameters:
+  ///   - tensor: Input tensor (flattened to 1D)
+  ///   - context: Network context for computation
+  /// - Returns: Output tensor after linear transformation
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     
     let tensorContext = TensorContext { inputs, gradients in
@@ -137,6 +158,11 @@ public final class Dense: BaseLayer {
     return out
   }
   
+  /// Applies gradients to update layer parameters
+  /// Updates weights and biases using computed gradients
+  /// - Parameters:
+  ///   - gradients: Computed gradients for weights and biases
+  ///   - learningRate: Learning rate for parameter updates (unused in this implementation)
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     weights.value = weights.value - gradients.weights.value
     

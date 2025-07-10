@@ -1,20 +1,25 @@
 import Foundation
 import NumSwift
 
-/// An `Embedding` layer that maps each input word vector to a `X` dimensional vector.
+/// Embedding layer for converting discrete tokens to dense vector representations
+/// Maps each input word/token to a learnable dense vector of specified dimensions
+/// Essential for NLP tasks and commonly used before LSTM/RNN layers
+/// Converts sparse one-hot encoded inputs to dense, meaningful representations
 public final class Embedding: BaseLayer {
+  /// Number of features in output embedding vectors
   private let inputUnits: Int
+  /// Size of the vocabulary (number of unique tokens)
   private let vocabSize: Int
+  /// Length of input sequences to process
   private let batchLength: Int
   
-  
-  /// Default initializer
+  /// Initializes an Embedding layer
   /// - Parameters:
-  ///   - inputUnits: Number of hidden neurons in the dense layer
-  ///   - vocabSize: Size of the vocabulary
-  ///   - batchLength: Length of the input vector
-  ///   - initializer: Weight initializer
-  ///   - trainable: Whether or not to update weights
+  ///   - inputUnits: Dimensionality of output embedding vectors
+  ///   - vocabSize: Size of the vocabulary (number of unique tokens)
+  ///   - batchLength: Maximum length of input sequences
+  ///   - initializer: Weight initialization strategy. Default: .xavierNormal
+  ///   - trainable: Whether embedding weights should be updated during training. Default: false
   public init(inputUnits: Int,
               vocabSize: Int,
               batchLength: Int,
@@ -86,9 +91,12 @@ public final class Embedding: BaseLayer {
     try container.encode(inputUnits, forKey: .inputUnits)
   }
   
-  /// Forward path for the layer
-  /// - Parameter tensor: Input word as a 3D tensor with size `rows: 1, columns: vocabSize, depth: batchLength`
-  /// - Returns: An output 3D tensor of shape `rows: 1, columns: inputUnits, depth: batchLength`
+  /// Performs forward pass through the embedding layer
+  /// Converts token indices to dense embedding vectors via lookup table
+  /// - Parameters:
+  ///   - tensor: Input tensor with token indices [1, vocabSize, batchLength]
+  ///   - context: Network context for computation
+  /// - Returns: Dense embedding tensor [1, inputUnits, batchLength]
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let context = TensorContext { inputs, gradient in
       var wrtEmbeddings: Tensor = Tensor()
