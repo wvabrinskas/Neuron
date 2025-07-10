@@ -60,8 +60,6 @@ public class Classifier {
       validationBatches.append(valSet)
     }
     
-    optimizer.isTraining = true
-
     for i in 0..<epochs {
       let startTime = Date().timeIntervalSince1970
 

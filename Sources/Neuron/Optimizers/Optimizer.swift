@@ -122,7 +122,7 @@ open class BaseOptimizer: Optimizer {
   }
   
   open func predict(_ data: [Tensor]) -> [Tensor] {
-    trainable.isTraining = false
+    isTraining = false
     
     var results: [Tensor] = [Tensor].init(repeating: Tensor(), count: data.count)
 
@@ -141,8 +141,8 @@ open class BaseOptimizer: Optimizer {
                   validation: Bool = false,
                   requiresGradients: Bool = true) -> Output {
     
-    trainable.isTraining = true
-    
+    isTraining = true
+        
     metricsReporter?.startTimer(metric: .batchTime)
     let accumulator = GradientAccumulator()
     

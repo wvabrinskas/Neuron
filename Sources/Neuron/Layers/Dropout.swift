@@ -32,8 +32,6 @@ public final class Dropout: BaseLayer {
                initializer: nil,
                biasEnabled: false,
                encodingType: .dropout)
-    
-    self.generateMask()
   }
   
   enum CodingKeys: String, CodingKey {
@@ -58,8 +56,11 @@ public final class Dropout: BaseLayer {
   }
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
-    let context = TensorContext { inputs, gradient in
-      let droppedOutGradients = gradient * self.mask
+    let newMask = generateMask()
+    
+    let context = TensorContext { [newMask] inputs, gradient in
+      let outMask = newMask
+      let droppedOutGradients = gradient * outMask
       
       return (droppedOutGradients, Tensor(), Tensor())
     }
@@ -67,7 +68,7 @@ public final class Dropout: BaseLayer {
     var droppedOut = tensor
     
     if isTraining && trainable {
-      droppedOut = tensor * mask
+      droppedOut = tensor * newMask
     }
 
     let out = Tensor(droppedOut.value, context: context)
@@ -79,22 +80,14 @@ public final class Dropout: BaseLayer {
     return out
   }
   
-  public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
-    mask = Tensor()
-    generateMask()
-  }
+  public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {}
   
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     outputSize = inputSize
-    generateMask()
   }
   
-  private func generateMask() {
-    guard mask.isEmpty else {
-      return
-    }
-    
+  private func generateMask() -> Tensor {
     var maskTensor: [[[Tensor.Scalar]]] = []
 
     for _ in 0..<inputSize.depth {
@@ -113,7 +106,7 @@ public final class Dropout: BaseLayer {
       maskTensor.append(row)
     }
     
-    mask = Tensor(maskTensor)
+    return Tensor(maskTensor)
   }
   
 }
