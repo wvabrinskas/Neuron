@@ -110,7 +110,7 @@ final class FullModelTests: XCTestCase {
               initializer: .xavierNormal,
               biasEnabled: false),
         ReLu(),
-       //BatchNormalize(), //-> removed since sometimes during tests it can crash
+        BatchNormalize(), //-> removed since sometimes during tests it can crash
         Dense(3, initializer: .xavierNormal),
         Softmax()
       ]

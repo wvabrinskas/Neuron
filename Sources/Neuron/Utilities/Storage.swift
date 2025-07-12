@@ -34,6 +34,17 @@ public final class ThreadStorage<T> {
     
     return val
   }
+  
+  public subscript (index: Int) -> T? {
+    get {
+      return value(at: index)
+    } set {
+      guard let newValue else {
+        return
+      }
+      store(newValue, at: index)
+    }
+  }
 }
 
 
