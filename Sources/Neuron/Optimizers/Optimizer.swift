@@ -21,6 +21,7 @@ public protocol Optimizer: AnyObject {
   var clip: Tensor.Scalar? { get set }
   var gradientAccumulator: GradientAccumulator { get }
   var decayFunction: DecayFunction? { get set }
+  var batchSize: Int { get }
 
   func callAsFunction(_ data: [Tensor]) -> [Tensor]
   func apply(_ gradients: Tensor.Gradient)
@@ -39,6 +40,7 @@ public protocol Optimizer: AnyObject {
 open class BaseOptimizer: Optimizer {
   public var decayFunction: DecayFunction?
   public var trainable: Trainable
+  public var batchSize: Int
   public var learningRate: Tensor.Scalar {
     get {
       if let decayFunction {
@@ -74,6 +76,7 @@ open class BaseOptimizer: Optimizer {
   
   public init(trainable: Trainable,
               learningRate: Tensor.Scalar,
+              batchSize: Int,
               l2Normalize: Bool,
               metricsReporter: MetricsReporter? = nil,
               clip: Tensor.Scalar? = nil) {
@@ -82,7 +85,10 @@ open class BaseOptimizer: Optimizer {
     self.metricsReporter = metricsReporter
     self.clip = clip
     self.localLearningRate = learningRate
+    self.batchSize = batchSize
     self.learningRate = learningRate
+    
+    trainable.batchSize = batchSize
   }
   
   public func step() {
@@ -128,7 +134,7 @@ open class BaseOptimizer: Optimizer {
 
     data.concurrentForEach(workers: Constants.maxWorkers,
                            priority: device.qosPriority) { tensor, index in
-      let output = self.trainable.predict(tensor, context: .init(threadId: index))
+      let output = self.trainable.predict(tensor, context: .init(indexInBatch: index))
       results[index] = output
     }
 
@@ -158,11 +164,10 @@ open class BaseOptimizer: Optimizer {
     
     metricsReporter?.update(metric: .batchConcurrency, value: concurrencySplit)
   
-    data.concurrentForEach(workers: workersCount, priority: device.qosPriority) { b, index in
+    data.concurrentForEach(workers: workersCount, priority: device.qosPriority) { input, index in
       let label: [Tensor.Scalar] = labels[index].value.flatten()
-      let input = data[index]
       
-      let out = self.trainable.predict(input, context: .init(threadId: index))
+      let out = self.trainable.predict(input, context: .init(indexInBatch: index))
       
       outputs[index] = out
             

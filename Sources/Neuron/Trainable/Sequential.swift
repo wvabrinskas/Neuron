@@ -9,10 +9,10 @@ import Foundation
 import Logger
 
 public struct NetworkContext: Sendable {
-  public var threadId: Int
+  public var indexInBatch: Int
   
-  public init(threadId: Int = 0) {
-    self.threadId = threadId
+  public init(indexInBatch: Int = 0) {
+    self.indexInBatch = indexInBatch
   }
 }
 
@@ -41,6 +41,13 @@ public final class Sequential: Trainable, Logger {
   
   public var layers: [Layer] = []
   public var isCompiled: Bool = false
+  public var batchSize: Int = 1 {
+    didSet {
+      layers.forEach { l in
+        l.batchSize = batchSize
+      }
+    }
+  }
   
   enum CodingKeys: String, CodingKey {
     case layers

@@ -13,6 +13,7 @@ public final class AdamW: Adam {
   public init(_ trainable: Trainable,
               device: Device = CPU(),
               learningRate: Tensor.Scalar,
+              batchSize: Int,
               b1: Tensor.Scalar = 0.9,
               b2: Tensor.Scalar = 0.999,
               eps: Tensor.Scalar = .stabilityFactor,
@@ -20,6 +21,7 @@ public final class AdamW: Adam {
     super.init(trainable,
                device: device,
                learningRate: learningRate,
+               batchSize: batchSize,
                b1: b1,
                b2: b2,
                eps: eps,
@@ -53,6 +55,7 @@ public class Adam: BaseOptimizer {
   public init(_ trainable: Trainable,
               device: Device = CPU(),
               learningRate: Tensor.Scalar,
+              batchSize: Int,
               b1: Tensor.Scalar = 0.9,
               b2: Tensor.Scalar = 0.999,
               eps: Tensor.Scalar = .stabilityFactor,
@@ -63,6 +66,7 @@ public class Adam: BaseOptimizer {
     self.weightDecay = weightDecay
     super.init(trainable: trainable,
                learningRate: learningRate,
+               batchSize: batchSize,
                l2Normalize: false)
     build()
   }

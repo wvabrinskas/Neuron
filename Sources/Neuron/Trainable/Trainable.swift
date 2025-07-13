@@ -26,6 +26,9 @@ public protocol Trainable: AnyObject, Codable, CustomDebugStringConvertible {
   /// The device to execute the ML ops and math ops on. Default: CPU()
   var device: Device { get set }
   
+  /// The current batch size. Default: 1
+  var batchSize: Int { get set }
+  
   /// Creates a Trainable object from a `.smodel` file.
   /// - Parameter url: The URL to the `.smodel` file.
   /// - Returns: The network built from the file.

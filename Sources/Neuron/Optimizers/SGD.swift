@@ -16,6 +16,7 @@ public class SGD: BaseOptimizer {
   public init(_ trainable: Trainable,
               device: Device = CPU(),
               learningRate: Tensor.Scalar,
+              batchSize: Int,
               momentum: Tensor.Scalar = 0.9) {
     self.momentum = momentum
     
@@ -25,6 +26,7 @@ public class SGD: BaseOptimizer {
     
     super.init(trainable: trainable,
                learningRate: learningRate,
+               batchSize: batchSize,
                l2Normalize: false)
   }
   

@@ -261,7 +261,7 @@ final class NeuronTests: XCTestCase {
     n.compile()
     
     let input = Tensor(random)
-    let adam = Adam(n, learningRate: 0.01)
+    let adam = Adam(n, learningRate: 0.01, batchSize: 1)
     
     let out = adam([input])
     
@@ -285,7 +285,7 @@ final class NeuronTests: XCTestCase {
                             [0.1, 0.1, 0.1, 0.1],
                             [0.5, 0.5, 0.5, 0.5]])
     
-    let adam = Adam(n, learningRate: 1)
+    let adam = Adam(n, learningRate: 1, batchSize: 1)
     
     let input = Tensor([0.5,0.2,0.2,1.0])
     
@@ -394,6 +394,8 @@ final class NeuronTests: XCTestCase {
   func testBatchNorm() {
     let input = Tensor([1,0,1,0,1])
     let norm = BatchNormalize(inputSize: input.shape.tensorSize)
+    norm.batchSize = 1
+    norm.isTraining = true
     
     let out = norm.forward(tensor: input)
     out.setGraph(input)
@@ -411,6 +413,8 @@ final class NeuronTests: XCTestCase {
   func testBatchNorm2d() {
     let input = Tensor([1,0,1,0,1].as2D())
     let norm = BatchNormalize(inputSize: input.shape.tensorSize)
+    norm.isTraining = true
+    norm.batchSize = 1
     
     let out = norm.forward(tensor: input)
     out.setGraph(input)
@@ -420,6 +424,29 @@ final class NeuronTests: XCTestCase {
     let delta = Tensor([0.5, 0, 0.5, 0, 0.5].as2D())
     
     let gradient = out.gradients(delta: delta)
+    
+    norm.apply(gradients: (gradient.weights.first!, gradient.biases.first!), learningRate: 0.01)
+    
+    XCTAssert(gradient.input.first?.isEmpty == false)
+    XCTAssert(gradient.input.first!.isValueEqual(to: Tensor([-4.082313, -0.00012769953, -4.082313, -0.00012769953, -4.082313].as2D())))
+  }
+  
+  func testBatchNorm3d() {
+    let input = Tensor([1,0,1,0,1].as3D())
+    let norm = BatchNormalize(inputSize: input.shape.tensorSize)
+    norm.isTraining = true
+    norm.batchSize = 1
+    
+    let out = norm.forward(tensor: input)
+    out.setGraph(input)
+
+    XCTAssert(out.isValueEqual(to: Tensor([0.81647956, -1.2247194, 0.81647956, -1.2247194, 0.81647956].as3D())))
+    
+    let delta = Tensor([0.5, 0, 0.5, 0, 0.5].as3D())
+    
+    let gradient = out.gradients(delta: delta)
+    
+    norm.apply(gradients: (gradient.weights.first!, gradient.biases.first!), learningRate: 0.01)
     
     XCTAssert(gradient.input.first?.isEmpty == false)
     XCTAssert(gradient.input.first!.isValueEqual(to: Tensor([-4.082313, -0.00012769953, -4.082313, -0.00012769953, -4.082313].as2D())))
