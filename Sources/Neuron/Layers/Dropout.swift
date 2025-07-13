@@ -69,6 +69,8 @@ public final class Dropout: BaseLayer {
     
     if isTraining && trainable {
       droppedOut = tensor * newMask
+    } else {
+      droppedOut = tensor * (1 - chance)
     }
 
     let out = Tensor(droppedOut.value, context: context)

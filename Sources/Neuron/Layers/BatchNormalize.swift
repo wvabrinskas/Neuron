@@ -215,7 +215,9 @@ public final class BatchNormalize: BaseLayer {
     return forward
   }
   
-  private func normalize2D(inputs: [[Tensor.Scalar]], batchSize: Tensor.Scalar = 1) -> (mean: Tensor.Scalar, variance: Tensor.Scalar, std: Tensor.Scalar, out:[[Tensor.Scalar]]) {
+  private func normalize2D(inputs: [[Tensor.Scalar]],
+                           batchSize: Tensor.Scalar = 1) -> (mean: Tensor.Scalar, variance: Tensor.Scalar, std: Tensor.Scalar, out:[[Tensor.Scalar]]) {
+    
     let mean = inputs.sum / batchSize
     
     let inputsCentered = inputs - mean

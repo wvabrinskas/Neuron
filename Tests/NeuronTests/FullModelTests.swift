@@ -123,7 +123,6 @@ final class FullModelTests: XCTestCase {
     let reporter = MetricsReporter(metricsToGather: [.loss,
                                                      .accuracy,
                                                      .valAccuracy,
-                                                     .batchConcurrency,
                                                      .valLoss])
     
     optim.metricsReporter = reporter
