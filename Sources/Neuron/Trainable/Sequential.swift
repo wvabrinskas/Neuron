@@ -121,11 +121,10 @@ public final class Sequential: Trainable, Logger {
   
   public func compile() {
     var inputSize: TensorSize = TensorSize(array: [])
-    var i = 0
     
     var errorMsg: String = ""
     
-    for layer in layers {
+    for (i, layer) in layers.enumerated() {
       if i == 0 && layer.inputSize.isEmpty {
         fatalError("The first layer should contain an input size")
       }
@@ -147,7 +146,6 @@ public final class Sequential: Trainable, Logger {
       }
       
       inputSize = layer.outputSize
-      i += 1
     }
     
     if errorMsg.isEmpty == false {

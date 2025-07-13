@@ -95,6 +95,18 @@ public class Tensor: Equatable, Codable {
     case value
   }
   
+  public subscript(feature index: Int) -> [[Tensor.Scalar]] {
+    let size = TensorSize(array: shape)
+    
+    if size.depth == features {
+      return value[index]
+    } else if size.rows == features {
+      return [value[0][index]]
+    } else {
+      return [[value[0][0][index]]]
+    }
+  }
+  
   /// only works for 3D tensors, Input is [colRange, rowRange, depthRange]
   public subscript(_ colRange: some RangeExpression<Int>,
                    _ rowRange: some RangeExpression<Int>,

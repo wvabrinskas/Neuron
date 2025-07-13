@@ -149,7 +149,7 @@ public final class BatchNormalize: BaseLayer {
   }
   
   private func setupTrainables() {
-    let inputDim = inputSize.depth
+    let inputDim = inputSize.features
     
     if gamma.isEmpty {
       self.gamma = [Tensor.Scalar](repeating: 1, count: inputDim)
@@ -161,12 +161,12 @@ public final class BatchNormalize: BaseLayer {
   }
   
   private func resetDeltas() {
-    let inputDim = inputSize.depth
+    let inputDim = inputSize.features
     dGamma = [Tensor.Scalar](repeating: 0, count: inputDim)
     dBeta = [Tensor.Scalar](repeating: 0, count: inputDim)
   }
   
-  private func normalize3D(inputs:  Tensor, context: NetworkContext) -> [[[Tensor.Scalar]]] {
+  private func normalize3D(inputs: Tensor, context: NetworkContext) -> [[[Tensor.Scalar]]] {
     var forward: [[[Tensor.Scalar]]] = []
 
     var normalizedInputs: [Normalization] = []
@@ -175,12 +175,12 @@ public final class BatchNormalize: BaseLayer {
     var runningVariance: [Tensor.Scalar] =  []
     
     // TODO: do this over the batch some how. a batch size of 1 should come out to 0
-    for i in 0..<inputs.value.count {
+    for i in 0..<inputs.features {
       var output: [[Tensor.Scalar]] = []
 
       if isTraining {
         // todo: support multiple batches in 1 tensor
-        let (mean, variance, std, normalized) = normalize2D(inputs: inputs.value[i], batchSize: 1)
+        let (mean, variance, std, normalized) = normalize2D(inputs: inputs[feature: i], batchSize: 1)
         normalizedInputs.append(.init(value: normalized, std: std))
         
         let normalizedScaledAndShifted = gamma[i] * normalized + beta[i]
@@ -196,7 +196,7 @@ public final class BatchNormalize: BaseLayer {
         let threadMovingMean = movingMean[inputs.id]?[i] ?? 0.0
         let threadMovingVariance = movingVariance[inputs.id]?[i] ?? 1.0
         
-        let normalized = (inputs.value[i] - threadMovingMean) / sqrt(threadMovingVariance + e)
+        let normalized = (inputs[feature: i] - threadMovingMean) / sqrt(threadMovingVariance + e)
         output = gamma[i] * normalized + beta[i]
       }
       
@@ -246,7 +246,7 @@ public final class BatchNormalize: BaseLayer {
       var std = cachedNormalization?[safe: i]?.std
       
       if normalized == nil || std == nil {
-        let (_, _, nStd, nNormalized) = normalize2D(inputs: inputs.value[i], batchSize: 1)
+        let (_, _, nStd, nNormalized) = normalize2D(inputs: inputs[feature: i], batchSize: 1)
         
         normalized = nNormalized
         std = nStd
