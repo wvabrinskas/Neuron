@@ -164,10 +164,13 @@ open class BaseOptimizer: Optimizer {
     
     metricsReporter?.update(metric: .batchConcurrency, value: concurrencySplit)
   
-    data.concurrentForEach(workers: workersCount, priority: device.qosPriority) { input, index in
+    data.concurrentForEach(workers: workersCount, priority: device.qosPriority) { input, index, processingCount, workerId in
       let label: [Tensor.Scalar] = labels[index].value.flatten()
       
-      let out = self.trainable.predict(input, context: .init(indexInBatch: index))
+      let out = self.trainable.predict(input, context: .init(indexInBatch: index,
+                                                             batchProcessingCount: processingCount,
+                                                             totalInBatch: data.count,
+                                                             threadId: workerId)) // workerId is a unique id for the running thread
       
       outputs[index] = out
             

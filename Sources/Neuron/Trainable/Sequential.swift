@@ -9,10 +9,19 @@ import Foundation
 import Logger
 
 public struct NetworkContext: Sendable {
-  public var indexInBatch: Int
+  public let indexInBatch: Int
+  public let batchProcessingCount: Int
+  public let totalInBatch: Int
+  public let threadId: UUID
   
-  public init(indexInBatch: Int = 0) {
+  public init(indexInBatch: Int = 0,
+              batchProcessingCount: Int = 0,
+              totalInBatch: Int = 0,
+              threadId: UUID = UUID()) {
     self.indexInBatch = indexInBatch
+    self.batchProcessingCount = batchProcessingCount
+    self.threadId = threadId
+    self.totalInBatch = totalInBatch
   }
 }
 

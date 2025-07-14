@@ -64,6 +64,30 @@ public final class ThreadStorage<Key: Hashable, T> {
   }
 }
 
+extension ThreadStorage where T == Tensor.Scalar {
+  public func reduceMean(batchSize: T) -> T {
+    defer {
+      lock.unlock()
+    }
+    
+    lock.lock()
+    let nonNilValues = storage.values.compactMap((\.self))
+    let average = Tensor(nonNilValues) / batchSize
+    return average.asScalar()
+  }
+  
+  public func reduceVariance(mean: T, batchSize: T) -> T {
+    defer {
+      lock.unlock()
+    }
+    
+    lock.lock()
+    let nonNilValues = storage.values.compactMap((\.self))
+    let variance = (Tensor(nonNilValues) - mean).sumOfSquares(axis: -1) / batchSize
+    return variance.asScalar()
+  }
+}
+
 
 extension ThreadStorage where T == [Tensor.Scalar] {
   public func reduceMean() -> T {

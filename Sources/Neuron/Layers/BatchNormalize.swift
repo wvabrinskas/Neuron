@@ -12,8 +12,13 @@ import NumSwift
 public final class BatchNormalize: BaseLayer {
   public var gamma: [Tensor.Scalar] = []
   public var beta: [Tensor.Scalar] = []
-  public var movingMean: ThreadStorage<UUID,[Tensor.Scalar]>
-  public var movingVariance: ThreadStorage<UUID, [Tensor.Scalar]>
+//  public var movingMean_DEP: ThreadStorage<UUID,[Tensor.Scalar]>
+//  public var movingVariance_DEP: ThreadStorage<UUID, [Tensor.Scalar]>
+  public var partialSum: ThreadStorage<UUID, Tensor.Scalar> = .init(defaultValue: 0)
+  
+  @Atomic public var movingMean: [Tensor.Scalar] = []
+  @Atomic public var movingVariance: [Tensor.Scalar] = []
+
   public let momentum: Tensor.Scalar
   public override var weights: Tensor {
     // only used for print purposes.
@@ -29,8 +34,13 @@ public final class BatchNormalize: BaseLayer {
   private var dGamma: [Tensor.Scalar] = []
   private var dBeta: [Tensor.Scalar] = []
   @Atomic private var iterations: Int = 0
-  private var cachedNormalizations: ThreadStorage<UUID, [Normalization]> = .init(defaultValue: [])
+  @Atomic private var partialIterations: Int = 0
+  private let condition = NSCondition()
   
+  private var cachedNormalizations: ThreadStorage<UUID, [Normalization]> = .init(defaultValue: [])
+  private let batchDispatchGroup = DispatchGroup()
+  let sema = DispatchSemaphore(value: 0)
+
   private class Normalization {
     let value: [[Tensor.Scalar]]
     let std: Tensor.Scalar
@@ -57,8 +67,8 @@ public final class BatchNormalize: BaseLayer {
               inputSize: TensorSize = TensorSize(array: [])) {
     self.gamma = gamma
     self.beta = beta
-    self.movingVariance = .init(defaultValue: movingVariance)
-    self.movingMean = .init(defaultValue: movingMean)
+    self.movingVariance = movingVariance
+    self.movingMean = movingMean
     self.momentum = momentum
     
     super.init(inputSize: inputSize,
@@ -97,18 +107,11 @@ public final class BatchNormalize: BaseLayer {
     try container.encode(gamma, forKey: .gamma)
     try container.encode(momentum, forKey: .momentum)
     
-    try container.encode(movingMean.reduceMean(), forKey: .movingMean)
-    try container.encode(movingVariance.reduceMean(), forKey: .movingVariance)
+    try container.encode(movingMean, forKey: .movingMean)
+    try container.encode(movingVariance, forKey: .movingVariance)
   }
 
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
-    if isTraining == false {
-      let syncMovingMean = movingMean.reduceMean()
-      let syncMovingVar = movingVariance.reduceMean()
-      movingMean.sync(syncMovingMean)
-      movingVariance.sync(syncMovingVar)
-    }
-    
     let tensorContext = TensorContext { inputs, gradient in
       let backward = self.backward(inputs: inputs,
                                    gradient: gradient.value,
@@ -134,11 +137,6 @@ public final class BatchNormalize: BaseLayer {
     resetDeltas()
     iterations = 0
     cachedNormalizations.clear()
-    
-    let syncMovingMean = movingMean.reduceMean()
-    let syncMovingVar = movingVariance.reduceMean()
-    movingMean.sync(syncMovingMean)
-    movingVariance.sync(syncMovingVar)
   }
   
   override public func onInputSizeSet() {
@@ -175,26 +173,55 @@ public final class BatchNormalize: BaseLayer {
     var runningVariance: [Tensor.Scalar] =  []
     
     // TODO: do this over the batch some how. a batch size of 1 should come out to 0
+  
+    
     for i in 0..<inputs.value.count {
       var output: [[Tensor.Scalar]] = []
-
       if isTraining {
+        
+        if iterations < batchSize {
+          condition.lock()
+          
+          while partialIterations < context.batchProcessingCount {
+            let sum = inputs.value[i].sum
+            
+            if let currentSum = partialSum[context.threadId] {
+              partialSum[context.threadId] = currentSum + sum
+            } else {
+              partialSum[context.threadId] = sum
+            }
+            
+            partialIterations += 1
+            iterations += 1
+
+            condition.broadcast()
+          }
+          
+          partialIterations = 0
+          // not just batchSize because the batch could be smaller than 32
+          while iterations < context.totalInBatch {
+            condition.wait()
+          }
+          
+          condition.unlock()
+        }
+                
         // todo: support multiple batches in 1 tensor
-        let (mean, variance, std, normalized) = normalize2D(inputs: inputs.value[i], batchSize: 1)
+        let (mean, variance, std, normalized) = normalize2D(inputs: inputs.value[i], batchSize: context.totalInBatch)
         normalizedInputs.append(.init(value: normalized, std: std))
         
         let normalizedScaledAndShifted = gamma[i] * normalized + beta[i]
         
-        let threadMovingMean = movingMean[inputs.id]?[safe: i] ?? 0.0
-        let threadMovingVariance = movingVariance[inputs.id]?[safe: i] ?? 1.0
+        let threadMovingMean = movingMean[safe: i] ?? 0.0
+        let threadMovingVariance = movingVariance[safe: i] ?? 1.0
         
-        runningMean.append(momentum *  threadMovingMean + (1 - momentum) * mean)
+        runningMean.append(momentum * threadMovingMean + (1 - momentum) * mean)
         runningVariance.append(momentum * threadMovingVariance + (1 - momentum) * variance)
     
         output = normalizedScaledAndShifted
       } else {
-        let threadMovingMean = movingMean[inputs.id]?[i] ?? 0.0
-        let threadMovingVariance = movingVariance[inputs.id]?[i] ?? 1.0
+        let threadMovingMean = movingMean[safe: i] ?? 0.0
+        let threadMovingVariance = movingVariance[safe: i] ?? 1.0
         
         let normalized = (inputs.value[i] - threadMovingMean) / sqrt(threadMovingVariance + e)
         output = gamma[i] * normalized + beta[i]
@@ -204,29 +231,24 @@ public final class BatchNormalize: BaseLayer {
     }
     
     if isTraining {
-      iterations += 1
+      movingMean = runningMean
+      movingVariance = runningVariance
       
-      // store for current thread.
-      movingMean[inputs.id] = runningMean
-      movingVariance[inputs.id] = runningVariance
       cachedNormalizations[inputs.id] = normalizedInputs
     }
     
     return forward
   }
   
-  private func normalize2D(inputs: [[Tensor.Scalar]],
-                           batchSize: Tensor.Scalar = 1) -> (mean: Tensor.Scalar, variance: Tensor.Scalar, std: Tensor.Scalar, out:[[Tensor.Scalar]]) {
+  private func normalize2D(inputs: [[Tensor.Scalar]], batchSize: Int) -> (mean: Tensor.Scalar, variance: Tensor.Scalar, std: Tensor.Scalar, out:[[Tensor.Scalar]]) {
     
-    let mean = inputs.sum / batchSize
-    
-    let inputsCentered = inputs - mean
-    
-    let variance = inputsCentered.sumOfSquares / batchSize
+    let mean = partialSum.reduceMean(batchSize: batchSize.asTensorScalar)
+      
+    let variance = partialSum.reduceVariance(mean: mean, batchSize: batchSize.asTensorScalar)
     
     let std = sqrt(variance + e)
     
-    let normalized = inputsCentered / std
+    let normalized = (inputs - mean) / std
     
     return  (mean, variance, std, normalized)
   }
@@ -246,7 +268,7 @@ public final class BatchNormalize: BaseLayer {
       var std = cachedNormalization?[safe: i]?.std
       
       if normalized == nil || std == nil {
-        let (_, _, nStd, nNormalized) = normalize2D(inputs: inputs.value[i], batchSize: 1)
+        let (_, _, nStd, nNormalized) = normalize2D(inputs: inputs.value[i], batchSize: context.totalInBatch)
         
         normalized = nNormalized
         std = nStd
