@@ -175,6 +175,7 @@ public final class BatchNormalize: BaseLayer {
       var output: [[Tensor.Scalar]] = []
       if isTraining {
         
+        // TODO: figure out how to scale this thread sync to other layers so we can wait for things like the GPU!
         if iterations < batchSize {
           condition.lock()
           
