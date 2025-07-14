@@ -43,4 +43,5 @@ public protocol Device {
   func activate(_ input: Tensor, _ type: Activation) -> Tensor
   func derivate(_ input: Tensor, _ type: Activation) -> Tensor
   func matmul(_ a: Tensor, _ b: Tensor) -> Tensor
+  func matmulWithTranspose(_ a: Tensor, transposing: Tensor) -> Tensor
 }

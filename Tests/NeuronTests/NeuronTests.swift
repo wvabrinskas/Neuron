@@ -56,7 +56,7 @@ final class NeuronTests: XCTestCase {
                               0,  0,  0,  0,  0,  1,  0,  0,  0]]
     
     let inputTensor = Tensor(input)
-    XCTAssertEqual(inputTensor[0..., ..<10, 0...].shape, [27, 10, 1])
+    XCTAssertEqual(inputTensor[0..., 0..., ..<10].shape, [27, 1, 10])
   }
   
   func testTransConv2dLayer() {
@@ -64,7 +64,7 @@ final class NeuronTests: XCTestCase {
     
     let filterCount = 1
     
-    let input: [[Tensor.Scalar]] = [0,0,1,0,0,0,0,1,0,0].as2D()
+    let input: [[[Tensor.Scalar]]] = [[0,0,1,0,0,0,0,1,0,0].as2D()]
     let outputShape = [20, 20, filterCount]
     
     
@@ -204,7 +204,7 @@ final class NeuronTests: XCTestCase {
     let filterCount = 1
     let outputShape = [5,5,filterCount]
     
-    let input: [[Tensor.Scalar]] = [0,0,1,0,0,0,0,1,0,0].as2D()
+    let input: [[[Tensor.Scalar]]] = [0,0,1,0,0,0,0,1,0,0].as3D()
     
     let conv = Conv2d(filterCount: filterCount,
                       inputSize: [inputSize.0, inputSize.1, inputSize.2].tensorSize,
@@ -291,7 +291,7 @@ final class NeuronTests: XCTestCase {
     
     let out = adam([input]).first ?? Tensor()
     
-    let expectedTensor = Tensor([[[0.95, 0.19, 0.95, 0.19, 0.95]]])
+    let expectedTensor = Tensor([0.95, 0.19, 0.95, 0.19, 0.95])
     
     XCTAssert(expectedTensor.isValueEqual(to: out))
   }
@@ -323,15 +323,15 @@ final class NeuronTests: XCTestCase {
   }
   
   func testLayerNorm_1d() {
-    let input = Tensor([[1,0,1,0,1]])
+    let input = Tensor([1,0,1,0,1])
     let norm = LayerNormalize(inputSize: input.shape.tensorSize)
     
     let out = norm.forward(tensor: input)
     out.setGraph(input)
 
-    XCTAssert(out.isValueEqual(to: Tensor([[0.8164965, -1.2247449, 0.8164965, -1.2247449, 0.8164965]])))
+    XCTAssert(out.isValueEqual(to: Tensor([0.8164965, -1.2247449, 0.8164965, -1.2247449, 0.8164965])))
     
-    let delta = Tensor([[0.5, 0, 0.5, 0, 0.5]])
+    let delta = Tensor([0.5, 0, 0.5, 0, 0.5])
     
     let gradient = out.gradients(delta: delta)
     

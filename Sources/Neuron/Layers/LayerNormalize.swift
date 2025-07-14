@@ -97,7 +97,7 @@ public final class LayerNormalize: BaseLayer {
     var forward: [[[Tensor.Scalar]]] = []
     
     for i in 0..<inputs.count {
-      let count = inputSize.rows * inputSize.columns
+      let count = inputSize.rows * inputSize.columns * inputSize.depth
       let total = Tensor.Scalar(count)
       
       let mean = inputs[i].mean
@@ -135,16 +135,16 @@ public final class LayerNormalize: BaseLayer {
 
       let x_norm = inputsMinusMean / std
 
-      let dL_dbeta = Tensor(gradient).sum(axis: 2)
+      let dL_dbeta = Tensor(gradient).sum(axis: 0)
       
-      let dL_dgamma = (x_norm * Tensor(gradient)).sum(axis: 2)
+      let dL_dgamma = (x_norm * Tensor(gradient)).sum(axis: 0)
       
       let line1 = Tensor(gamma.value[i]) * Tensor((1 / (N * std.value)))
       let line2 = Tensor(N * gradient)
       let line3 = dL_dbeta
       
       let line4 = inputsMinusMean / varianceEpsilon
-      let line5 = (Tensor(feature) - Tensor(gradient) * Tensor(mean)).sum(axis: 2)
+      let line5 = (Tensor(feature) - Tensor(gradient) * Tensor(mean)).sum(axis: 0)
       
       let dl_dx = line1 * (
         line2 - line3
@@ -156,7 +156,7 @@ public final class LayerNormalize: BaseLayer {
       dBeta.append(dL_dbeta.value[safe: 0, []])
     }
     
-    return (Tensor(dInputs), Tensor(dGamma).concat(Tensor(dBeta), axis: 2), Tensor())
+    return (Tensor(dInputs), Tensor(dGamma).concat(Tensor(dBeta), axis: 0), Tensor())
   }
   
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {

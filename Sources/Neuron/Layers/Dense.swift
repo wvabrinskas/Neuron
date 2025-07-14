@@ -30,10 +30,10 @@ public final class Dense: BaseLayer {
                biasEnabled: biasEnabled,
                encodingType: .dense)
     
-    self.outputSize = TensorSize(array: [nodes, 1, 1])
+    self.outputSize = TensorSize(array: [1, 1, nodes])
 
     if let inputs = inputs {
-      inputSize = TensorSize(array: [inputs, 1, 1])
+      inputSize = TensorSize(array: [1, 1, inputs])
       initializeWeights(inputs: inputs)
     }
   }
@@ -50,7 +50,7 @@ public final class Dense: BaseLayer {
   convenience public required init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let outputSize = try container.decodeIfPresent(TensorSize.self, forKey: .outputSize) ?? TensorSize(array: [])
-    let inputs = outputSize.columns
+    let inputs = outputSize.depth
     self.init(inputs)
     
     self.weights = try container.decodeIfPresent(Tensor.self, forKey: .weights) ?? Tensor()
@@ -72,9 +72,9 @@ public final class Dense: BaseLayer {
   
   override public func onInputSizeSet() {
     super.onInputSizeSet()
-    precondition(inputSize.rows == 1 && inputSize.depth == 1, "Dense expects Tensor dimensions of Nx1x1 where N is the columns, got: \(inputSize)")
+//    precondition(inputSize.rows == 1 && inputSize.depth == 1, "Dense expects Tensor dimensions of Nx1x1 where N is the columns, got: \(inputSize)")
     
-    initializeWeights(inputs: inputSize.columns)
+    initializeWeights(inputs: inputSize.depth)
     self.biases = Tensor([Tensor.Scalar](repeating: 0, count: outputSize.depth))
   }
   
@@ -84,7 +84,7 @@ public final class Dense: BaseLayer {
     }
     
     var newWeights: [[Tensor.Scalar]] = []
-    let outputSizeCount = outputSize.columns
+    let outputSizeCount = outputSize.depth
     
     for _ in 0..<outputSizeCount {
       var weightsForNode: [Tensor.Scalar] = []
@@ -107,23 +107,23 @@ public final class Dense: BaseLayer {
       
       let deltas = self.device.matmul(gradients, self.weights.detached())
       
-      let inputsFlat = inputs.value[safe: 0]?[safe: 0] ?? []
+      let inputsFlat = inputs.value.flatten()
       var weightGradients: [[Tensor.Scalar]] = []
       
       for i in 0..<self.nodes {
         let delta = gradientsFlat[i]
         weightGradients.append(inputsFlat * delta)
       }
-
+      
       return (deltas, Tensor(weightGradients), gradients.sum(axis: -1))
     }
     
     //THIS WAS A MAJOR BUG POINT. DO NOT SWITCH ROWS AND COLUMNS HERE BY ACCIDENT - Billy 05-20-2022
-    let weightsTransposed: [[Tensor.Scalar]] = NumSwiftC.tranpose(weights.value[safe: 0] ?? [],
-                                                                  size: (rows: outputSize.columns,
-                                                                         columns: inputSize.columns))
-    
-    var dotProducts = device.matmul(tensor, Tensor(weightsTransposed))
+    //let weightsTransposed = weights.value.flatten().reshape(columns: inputSize.depth).transpose2d()
+//    let weightsTransposed: [[Tensor.Scalar]] = NumSwiftC.tranpose(weights.value[safe: 0] ?? [],
+//                                                                  size: (rows: outputSize.columns,
+//                                                                         columns: inputSize.columns))
+    var dotProducts = device.matmulWithTranspose(tensor, transposing: weights)
     
     if biasEnabled {
       dotProducts = dotProducts + biases.asScalar()

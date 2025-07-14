@@ -47,8 +47,9 @@ public struct TensorSize: Codable, Equatable {
   // 3D -> 32x32x1 -> assume rows & columns are the same size, since that should be enforceable in other layers too? 
   // 2D -> 32x12x1 ->
   // 1D -> 32x1x1
+  // this is not great... we can't assume square inputs
   mutating private func setFeatures() {
-    if depth > 1, rows == columns {
+    if depth > 1 || (depth == 1 && rows == columns) {
       features = depth
     } else if rows > 1 {
       features = rows

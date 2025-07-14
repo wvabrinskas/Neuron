@@ -155,7 +155,12 @@ public class Tensor: Equatable, Codable {
   ///   - data: `[Scalar]` object to set
   ///   - context: Backpropagation context
   public init(_ data: [Scalar], context: TensorContext = TensorContext()) {
-    self.value = [[data]]
+    self.value = []
+    
+    for d in data {
+      self.value.append([[d]])
+    }
+    
     self.context = context
     self.features = data.count
   }
@@ -165,7 +170,12 @@ public class Tensor: Equatable, Codable {
   ///   - data: `[[Scalar]]` object to set
   ///   - context: Backpropagation context
   public init(_ data: [[Scalar]], context: TensorContext = TensorContext()) {
-    self.value = [data]
+    self.value = []
+    
+    for d in data {
+      self.value.append([d])
+    }
+    
     self.context = context
     self.features = data.count
   }

@@ -96,4 +96,8 @@ public class GPU: Device {
   public func matmul(_ a: Tensor, _ b: Tensor) -> Tensor {
     a.matmul(b)
   }
+  
+  public func matmulWithTranspose(_ a: Tensor, transposing b: Tensor) -> Tensor {
+    a.matmul(transposing: b)
+  }
 }

@@ -266,10 +266,51 @@ public extension Tensor {
   
   func matmul(_ with: Tensor) -> Tensor {
     // TODO: maybe do auto grad here?
-    let A = value
-    let B = with.value
-    return Tensor(A.matmul(B))
+    
+    let bShape = with.shape
+    let aShape = shape
+    
+    let bColumns = bShape[safe: 0] ?? 0
+    let bRows = bShape[safe: 1] ?? 0
+    let bDepth = bShape[safe: 2] ?? 0
+    
+    let aColumns = aShape[safe: 0] ?? 0
+    let aRows = aShape[safe: 1] ?? 0
+    let aDepth = aShape[safe: 2] ?? 0
+    
+    let b = with.value.flatten().reshape(columns: bColumns)
+    let a = value.flatten().reshape(columns: aDepth)
+    
+    //precondition(aColumns == bRows, "A matrix columns does not match B matrix rows")
+    //precondition(aDepth == bDepth, "A matrix depth does not match B matrix depth")
+    
+    // A -> (col, depth)
+    // B -> (row, depth)
+    let result = [a].matmul([b])[safe: 0]?[safe: 0] ?? []
+    return Tensor(result)
   }
+  
+  func matmul(transposing mat: Tensor) -> Tensor {
+    // TODO: maybe do auto grad here?
+    
+    let bShape = mat.shape
+    let aShape = shape
+    
+    let bColumns = bShape[safe: 0] ?? 0
+    let aDepth = aShape[safe: 2] ?? 0
+    
+    let b = mat.value.flatten().reshape(columns: aDepth).transpose2d()
+    let a = value.flatten().reshape(columns: bColumns)
+    
+    //precondition(aColumns == bRows, "A matrix columns does not match B matrix rows")
+    precondition(aDepth == bColumns, "A matrix depth does not match B matrix depth")
+    
+    // A -> (col, depth)
+    // B -> (row, depth)
+    let result = [a].matmul([b])[safe: 0]?[safe: 0] ?? []
+    return Tensor(result)
+  }
+  
   
   func sumOfSquares(axis: Int = -1) -> Tensor {
     let block: MathBlock = { feature in
