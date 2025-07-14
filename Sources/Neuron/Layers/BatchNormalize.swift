@@ -38,8 +38,6 @@ public final class BatchNormalize: BaseLayer {
   private let condition = NSCondition()
   
   private var cachedNormalizations: ThreadStorage<UUID, [Normalization]> = .init(defaultValue: [])
-  private let batchDispatchGroup = DispatchGroup()
-  let sema = DispatchSemaphore(value: 0)
 
   private class Normalization {
     let value: [[Tensor.Scalar]]
@@ -137,6 +135,7 @@ public final class BatchNormalize: BaseLayer {
     resetDeltas()
     iterations = 0
     cachedNormalizations.clear()
+    partialSum.clear()
   }
   
   override public func onInputSizeSet() {
@@ -172,9 +171,6 @@ public final class BatchNormalize: BaseLayer {
     var runningMean: [Tensor.Scalar] = []
     var runningVariance: [Tensor.Scalar] =  []
     
-    // TODO: do this over the batch some how. a batch size of 1 should come out to 0
-  
-    
     for i in 0..<inputs.value.count {
       var output: [[Tensor.Scalar]] = []
       if isTraining {
@@ -198,6 +194,7 @@ public final class BatchNormalize: BaseLayer {
           }
           
           partialIterations = 0
+          
           // not just batchSize because the batch could be smaller than 32
           while iterations < context.totalInBatch {
             condition.wait()
