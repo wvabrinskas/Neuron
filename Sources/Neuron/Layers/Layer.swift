@@ -142,7 +142,13 @@ open class BaseLayer: Layer {
   }
   
   public func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
-    tensorBatch.map { forward(tensor: $0, context: context) }
+    var result: TensorBatch = []
+    
+    for tensor in tensorBatch {
+      result.append(forward(tensor: tensor, context: context))
+    }
+    
+    return result
   }
   
   public func forward(tensor: Tensor, context: NetworkContext) -> Tensor {

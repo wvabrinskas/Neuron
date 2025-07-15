@@ -33,6 +33,7 @@ public final class BatchNormalize: BaseLayer {
   @Atomic private var means: [[[Tensor.Scalar]]] = []
   @Atomic private var m2s: [[[Tensor.Scalar]]] = []
   private let condition = NSCondition()
+  private let updateLock = NSLock()
 
   private var cachedNormalizations: ThreadStorage<UUID, [Normalization]> = .init(defaultValue: [])
 
@@ -207,15 +208,17 @@ public final class BatchNormalize: BaseLayer {
   }
   
   private func calculateWelfordVariance(inputs: Tensor, context: NetworkContext) {
-    for i in 0..<inputs.value.count {
-      let delta = inputs.value[i] - means[i]
-      let delta2Means = means[i] + (delta / iterations.asTensorScalar)
-      
-      means[i] = delta2Means
-      
-      let delta2 = inputs.value[i] - delta2Means
-      
-      m2s[i] = m2s[i] + (delta * delta2)
+    updateLock.with {
+      for i in 0..<inputs.value.count {
+        let delta = inputs.value[i] - means[i]
+        let delta2Means = means[i] + (delta / iterations.asTensorScalar)
+        
+        means[i] = delta2Means
+        
+        let delta2 = inputs.value[i] - delta2Means
+        
+        m2s[i] = m2s[i] + (delta * delta2)
+      }
     }
   }
   
@@ -227,22 +230,21 @@ public final class BatchNormalize: BaseLayer {
     for i in 0..<inputs.value.count {
       var output: [[Tensor.Scalar]] = []
       if isTraining {
-        let (mean, variance, std, normalized) = normalize2D(inputs: inputs.value[i],
-                                                            index: i,
-                                                            batchSize: context.totalInBatch)
-        normalizedInputs.append(.init(value: normalized, std: std))
-        
-        let normalizedScaledAndShifted = gamma[i] * normalized + beta[i]
-        
-        // TODO: this is causing weird threading issues? maybe just Thread storage? not too sure.
-        let lock = NSLock()
-        
-        lock.with {
+        updateLock.with {
+          let (mean, variance, std, normalized) = normalize2D(inputs: inputs.value[i],
+                                                              index: i,
+                                                              batchSize: context.totalInBatch)
+          normalizedInputs.append(.init(value: normalized, std: std))
+          
+          let normalizedScaledAndShifted = gamma[i] * normalized + beta[i]
+          
+          // TODO: this is causing weird threading issues? maybe just Thread storage? not too sure.
+          
           movingMean[i] = momentum * movingMean[i] + (1 - momentum) * mean
           movingVariance[i] = momentum *  movingVariance[i] + (1 - momentum) * variance
+          
+          output = normalizedScaledAndShifted
         }
-        
-        output = normalizedScaledAndShifted
       } else {
         let threadMovingMean = movingMean[i]
         let threadMovingVariance = Tensor(movingVariance[i])
@@ -305,10 +307,8 @@ public final class BatchNormalize: BaseLayer {
       guard let normalized, let std else {
         return []
       }
-      
-      let lock = NSLock()
-      
-      lock.with {
+            
+      updateLock.with {
         dGamma[i] += (gradient[i] * normalized).sum
         dBeta[i] += gradient[i].sum
       }

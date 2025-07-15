@@ -415,18 +415,7 @@ final class NeuronTests: XCTestCase {
       
       print(out)
     }
-//    
-//
-//    
-//
-//    XCTAssert(out.isValueEqual(to: Tensor([0.81647956, -1.2247194, 0.81647956, -1.2247194, 0.81647956])))
-//    
-//    let delta = Tensor([0.5, 0, 0.5, 0, 0.5])
-//    
-//    let gradient = out.gradients(delta: delta)
-//    
-//    XCTAssert(gradient.input.first?.isEmpty == false)
-//    XCTAssert(gradient.input.first!.isValueEqual(to: Tensor([-4.0823126, -0.00012750486, -4.0823126, -0.00012750486, -4.0823126])))
+    
   }
   
   func testBatchNorm2d() {
