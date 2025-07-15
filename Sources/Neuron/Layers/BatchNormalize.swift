@@ -12,8 +12,8 @@ import NumSwift
 public final class BatchNormalize: BaseLayer {
   public var gamma: [Tensor.Scalar] = []
   public var beta: [Tensor.Scalar] = []
-  @Atomic public var movingMean: [[[Tensor.Scalar]]] = []
-  @Atomic public var movingVariance: [[[Tensor.Scalar]]] = []
+  public var movingMean: [[[Tensor.Scalar]]] = []
+  public var movingVariance: [[[Tensor.Scalar]]] = []
   
   public let momentum: Tensor.Scalar
   public override var weights: Tensor {
@@ -32,10 +32,9 @@ public final class BatchNormalize: BaseLayer {
   @Atomic private var iterations: Int = 0
   @Atomic private var means: [[[Tensor.Scalar]]] = []
   @Atomic private var m2s: [[[Tensor.Scalar]]] = []
-  
-  private var partialIterations: ThreadStorage<UUID, Int> = .init(defaultValue: 0)
-  private var cachedNormalizations: ThreadStorage<UUID, [Normalization]> = .init(defaultValue: [])
   private let condition = NSCondition()
+
+  private var cachedNormalizations: ThreadStorage<UUID, [Normalization]> = .init(defaultValue: [])
 
   private var features: Tensor.Scalar {
     (inputSize.rows * inputSize.columns * inputSize.depth).asTensorScalar
@@ -113,24 +112,31 @@ public final class BatchNormalize: BaseLayer {
   
   public override func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
     if isTraining {
+      
       condition.lock()
       
       for tensor in tensorBatch {
         iterations += 1
-        calculateWellfordVariance(inputs: tensor, context: context)
+        calculateWelfordVariance(inputs: tensor, context: context)
       }
       
-      if iterations == batchSize {
+      let sizeToCheck = if context.batchProcessingCount != batchSize {
+        context.batchProcessingCount
+      } else {
+        batchSize
+      }
+      
+      if iterations == sizeToCheck {
         condition.broadcast()
       }
       
-      while iterations < batchSize {
+      
+      while iterations < sizeToCheck {
         condition.wait()
       }
       
+      condition.unlock()
     }
-    
-    condition.unlock()
     
     return super.forward(tensorBatch: tensorBatch, context: context)
   }
@@ -190,12 +196,17 @@ public final class BatchNormalize: BaseLayer {
     means = NumSwift.zerosLike((inputSize.rows, inputSize.columns, inputSize.depth))
     m2s = NumSwift.zerosLike((inputSize.rows, inputSize.columns, inputSize.depth))
     
-    movingMean = NumSwift.zerosLike((inputSize.rows, inputSize.columns, inputSize.depth))
-    movingVariance = NumSwift.zerosLike((inputSize.rows, inputSize.columns, inputSize.depth))
+    if movingMean.isEmpty {
+      movingMean = NumSwift.zerosLike((inputSize.rows, inputSize.columns, inputSize.depth))
+    }
+    
+    if movingVariance.isEmpty {
+      movingVariance = NumSwift.onesLike((inputSize.rows, inputSize.columns, inputSize.depth))
+    }
   
   }
   
-  private func calculateWellfordVariance(inputs: Tensor, context: NetworkContext) {
+  private func calculateWelfordVariance(inputs: Tensor, context: NetworkContext) {
     for i in 0..<inputs.value.count {
       let delta = inputs.value[i] - means[i]
       let delta2Means = means[i] + (delta / iterations.asTensorScalar)
@@ -212,11 +223,7 @@ public final class BatchNormalize: BaseLayer {
     var forward: [[[Tensor.Scalar]]] = []
 
     var normalizedInputs: [Normalization] = []
-    
-    var runningMean: [[[Tensor.Scalar]]] = []
-    var runningVariance: [[[Tensor.Scalar]]] =  []
-    
-
+  
     for i in 0..<inputs.value.count {
       var output: [[Tensor.Scalar]] = []
       if isTraining {
@@ -227,12 +234,14 @@ public final class BatchNormalize: BaseLayer {
         
         let normalizedScaledAndShifted = gamma[i] * normalized + beta[i]
         
-        let threadMovingMean = movingMean[i]
-        let threadMovingVariance = movingVariance[i]
-      
-        runningMean.append(momentum * threadMovingMean + (1 - momentum) * mean)
-        runningVariance.append(momentum * threadMovingVariance + (1 - momentum) * variance)
-    
+        // TODO: this is causing weird threading issues? maybe just Thread storage? not too sure.
+        let lock = NSLock()
+        
+        lock.with {
+          movingMean[i] = momentum * movingMean[i] + (1 - momentum) * mean
+          movingVariance[i] = momentum *  movingVariance[i] + (1 - momentum) * variance
+        }
+        
         output = normalizedScaledAndShifted
       } else {
         let threadMovingMean = movingMean[i]
@@ -246,9 +255,6 @@ public final class BatchNormalize: BaseLayer {
     }
     
     if isTraining {
-      movingMean = runningMean
-      movingVariance = runningVariance
-      
       cachedNormalizations[inputs.id] = normalizedInputs
     }
     

@@ -112,7 +112,7 @@ final class FullModelTests: XCTestCase {
               initializer: .heNormal,
               biasEnabled: false),
         ReLu(),
-        //BatchNormalize(),
+        BatchNormalize(),
         Dense(3, initializer: .heNormal),
         Softmax()
       ]
