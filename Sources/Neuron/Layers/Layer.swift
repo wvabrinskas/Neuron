@@ -47,6 +47,7 @@ public protocol ConvolutionalLayer: Layer {
   var padding: NumSwift.ConvPadding { get }
 }
 
+public typealias TensorBatch = [Tensor]
 /// The the object that perform ML operations
 public protocol Layer: AnyObject, Codable {
   var details: String { get }
@@ -64,6 +65,7 @@ public protocol Layer: AnyObject, Codable {
   var usesOptimizer: Bool { get set }
   var batchSize: Int { get set }
   func forward(tensor: Tensor, context: NetworkContext) -> Tensor
+  func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch
   func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar)
   func exportWeights() throws -> [Tensor]
   func importWeights(_ weights: [Tensor]) throws
@@ -139,6 +141,9 @@ open class BaseLayer: Layer {
     // override
   }
   
+  public func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
+    tensorBatch.map { forward(tensor: $0, context: context) }
+  }
   
   public func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
     // override

@@ -141,8 +141,8 @@ open class BaseOptimizer: Optimizer {
     return results
   }
   
-  open func fit(_ data: [Tensor],
-                  labels: [Tensor],
+  open func fit(_ data: TensorBatch,
+                  labels: TensorBatch,
                   lossFunction: LossFunction,
                   validation: Bool = false,
                   requiresGradients: Bool = true) -> Output {
@@ -151,9 +151,7 @@ open class BaseOptimizer: Optimizer {
         
     metricsReporter?.startTimer(metric: .batchTime)
     let accumulator = GradientAccumulator()
-    
-    var outputs: [Tensor] = [Tensor].init(repeating: Tensor(), count: data.count)
-    
+  
     var losses: Tensor.Scalar = 0
     var accuracy: Tensor.Scalar = 0
     
@@ -162,35 +160,48 @@ open class BaseOptimizer: Optimizer {
     let workersCount = Constants.maxWorkers
     let concurrencySplit = Tensor.Scalar(data.count) / Tensor.Scalar(workersCount)
     
+    var outputs: [[Tensor]] = [[Tensor]].init(repeating: [], count: workersCount)
+
     metricsReporter?.update(metric: .batchConcurrency, value: concurrencySplit)
-  
-    data.concurrentForEach(workers: workersCount, priority: device.qosPriority) { input, index, processingCount, workerId in
-      let label: [Tensor.Scalar] = labels[index].value.flatten()
+    
+    data.concurrentBatchedForEach(workers: workersCount, priority: device.qosPriority) { elements,
+                                                                                         workerIndex,
+                                                                                         indexRange,
+                                                                                         processingCount,
+                                                                                         workerId in
       
-      let out = self.trainable.predict(input, context: .init(indexInBatch: index,
-                                                             batchProcessingCount: processingCount,
-                                                             totalInBatch: data.count,
-                                                             threadId: workerId)) // workerId is a unique id for the running thread
+      let batchLabels: [[Tensor.Scalar]] = labels[indexRange].map { $0.value.flatten() }
       
-      outputs[index] = out
-            
-      let loss = lossFunction.calculate(out, correct: labels[index]).sum(axis: -1).asScalar()
-      losses += loss / Tensor.Scalar(data.count)
+      let outs = self.trainable.predict(batch: elements, context: .init(batchRange: indexRange,
+                                                                        batchProcessingCount: data.count,
+                                                                        totalInBatch: processingCount,
+                                                                        threadId: workerId))
       
-      if let reporter = self.metricsReporter {
-        if validation {
-          accuracy += reporter.calculateValAccuracy(out, label: labels[index], binary: label.count == 1, running: false) / Tensor.Scalar(data.count)
-        } else {
-          accuracy += reporter.calculateAccuracy(out, label: labels[index], binary: label.count == 1, running: false) / Tensor.Scalar(data.count)
+      outputs[workerIndex] = outs
+      
+      for (index, out) in outs.enumerated() {
+        let label = batchLabels[index]
+        
+        let loss = lossFunction.calculate(out, correct: Tensor(label)).sum(axis: -1).asScalar()
+        losses += loss / Tensor.Scalar(data.count)
+        
+        if let reporter = self.metricsReporter {
+          if validation {
+            accuracy += reporter.calculateValAccuracy(out, label: Tensor(label), binary: label.count == 1, running: false) / Tensor.Scalar(data.count)
+          } else {
+            accuracy += reporter.calculateAccuracy(out, label: Tensor(label), binary: label.count == 1, running: false) / Tensor.Scalar(data.count)
+          }
+        }
+        
+        if requiresGradients {
+          let lossGradient = lossFunction.derivative(out, correct: Tensor(label))
+          let gradient = out.gradients(delta: lossGradient)
+          accumulator.insert(gradient)
         }
       }
-      
-      if requiresGradients {
-        let lossGradient = lossFunction.derivative(out, correct: labels[index])
-        let gradient = out.gradients(delta: lossGradient)
-        accumulator.insert(gradient)
-      }
     }
+    
+    let flatOutput = outputs.flatMap { $0 }
     
     metricsReporter?.endTimer(metric: .batchTime)
     
@@ -203,14 +214,14 @@ open class BaseOptimizer: Optimizer {
       let gradient: Tensor.Gradient = .init(input: inputGradientsAcc,
                                             weights: weightGradientsAcc,
                                             biases: biasGradientAcc)
-      return (outputs, gradient, losses, accuracy)
+      return (flatOutput, gradient, losses, accuracy)
       
     } else {
       let gradient: Tensor.Gradient = .init(input: [],
                                             weights: [],
                                             biases: [])
       
-      return (outputs, gradient, losses, accuracy)
+      return (flatOutput, gradient, losses, accuracy)
     }
   }
 }

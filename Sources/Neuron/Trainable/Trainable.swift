@@ -39,6 +39,11 @@ public protocol Trainable: AnyObject, Codable, CustomDebugStringConvertible {
   /// - Returns: The output of the network
   func predict(_ data: Tensor, context: NetworkContext) -> Tensor
   
+  /// Performs a forward pass on the network
+  /// - Parameter batch: The batch of inputs
+  /// - Returns: An array of outputs
+  func predict(batch: TensorBatch, context: NetworkContext) -> TensorBatch 
+
   /// Compiles the network, getting it ready to be trained.
   func compile()
   

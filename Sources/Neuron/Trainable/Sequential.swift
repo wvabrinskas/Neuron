@@ -9,12 +9,14 @@ import Foundation
 import Logger
 
 public struct NetworkContext: Sendable {
+  public let batchRange: CountableRange<Int>
   public let indexInBatch: Int
   public let batchProcessingCount: Int
   public let totalInBatch: Int
   public let threadId: UUID
   
   public init(indexInBatch: Int = 0,
+              batchRange: CountableRange<Int> = 0..<1,
               batchProcessingCount: Int = 0,
               totalInBatch: Int = 0,
               threadId: UUID = UUID()) {
@@ -22,6 +24,7 @@ public struct NetworkContext: Sendable {
     self.batchProcessingCount = batchProcessingCount
     self.threadId = threadId
     self.totalInBatch = totalInBatch
+    self.batchRange = batchRange
   }
 }
 
@@ -110,6 +113,26 @@ public final class Sequential: Trainable, Logger {
   public func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(layers.map { LayerModel(layer: $0) }, forKey: .layers)
+  }
+  
+  public func predict(batch: TensorBatch, context: NetworkContext) -> TensorBatch {
+    precondition(isCompiled, "Please call compile() on the \(self) before attempting to fit")
+    
+    var outputTensors = batch
+    
+    layers.forEach { layer in
+      let newTensors = layer.forward(tensorBatch: outputTensors, context: context)
+      
+      for (i, tensor) in newTensors.enumerated() {
+        if tensor.graph == nil {
+          tensor.setGraph(outputTensors[i])
+        }
+      }
+
+      outputTensors = newTensors
+    }
+    
+    return outputTensors
   }
   
   public func predict(_ data: Tensor, context: NetworkContext) -> Tensor {

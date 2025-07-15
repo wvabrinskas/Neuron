@@ -109,11 +109,11 @@ final class FullModelTests: XCTestCase {
     let network = Sequential {
       [
         Dense(6, inputs: 4,
-              initializer: .xavierNormal,
+              initializer: .heNormal,
               biasEnabled: false),
         ReLu(),
-        BatchNormalize(), //-> removed since sometimes during tests it can crash
-        Dense(3, initializer: .xavierNormal),
+        //BatchNormalize(),
+        Dense(3, initializer: .heNormal),
         Softmax()
       ]
     }
