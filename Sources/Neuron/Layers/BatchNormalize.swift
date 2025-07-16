@@ -232,9 +232,7 @@ public final class BatchNormalize: BaseLayer {
           normalizedInputs.append(.init(value: normalized, std: std))
           
           let normalizedScaledAndShifted = gamma[i] * normalized + beta[i]
-          
-          // TODO: this is causing weird threading issues? maybe just Thread storage? not too sure.
-          
+                    
           movingMean[i] = momentum * movingMean[i] + (1 - momentum) * mean
           movingVariance[i] = momentum *  movingVariance[i] + (1 - momentum) * variance
           
