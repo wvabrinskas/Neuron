@@ -9,6 +9,79 @@ import Foundation
 import NumSwift
 
 /// Performs a normalization of the inputs based on the batch.
+///
+/// ## Thread Synchronization for Batch Processing
+///
+/// This layer uses a sophisticated thread synchronization pattern for concurrent batch processing:
+///
+/// ```
+/// Multiple Threads Processing Batch Items
+/// ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐
+/// │ Thread 1 │  │ Thread 2 │  │ Thread 3 │  │ Thread N │
+/// │ Tensor A │  │ Tensor B │  │ Tensor C │  │ Tensor D │
+/// └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘
+///      │             │             │             │
+///      └─────────────┼─────────────┼─────────────┘
+///                    │             │
+///                    ▼             ▼
+///            ┌─────────────────────────────┐
+///            │    NSCondition.lock()       │
+///            │  (sync point for batch)     │
+///            └─────────────────────────────┘
+///                          │
+///                          ▼
+///            ┌─────────────────────────────┐
+///            │   Each thread executes:     │
+///            │   iterations += 1           │ ◄─── @Atomic property
+///            │   calculateWelfordVariance  │
+///            └─────────────────────────────┘
+///                          │
+///                          ▼
+///            ┌─────────────────────────────┐
+///            │   updateLock.with { ... }   │ ◄─── NSLock protection
+///            │   - Update means[@Atomic]   │
+///            │   - Update m2s[@Atomic]     │
+///            │   - Welford variance calc   │
+///            └─────────────────────────────┘
+///                          │
+///                          ▼
+///            ┌─────────────────────────────┐
+///            │  if iterations == batchSize │
+///            │    condition.broadcast()    │ ◄─── Signal all waiting
+///            │  else                       │
+///            │    condition.wait()         │ ◄─── Wait for completion
+///            └─────────────────────────────┘
+///                          │
+///                          ▼
+///            ┌─────────────────────────────┐
+///            │   condition.unlock()        │
+///            │   All threads synchronized  │
+///            └─────────────────────────────┘
+///                          │
+///                          ▼
+///            ┌─────────────────────────────┐
+///            │  Individual normalize3D()   │
+///            │  - Use cached statistics    │
+///            │  - Apply gamma/beta scaling │
+///            │  - Store in ThreadStorage   │ ◄─── Thread-local cache
+///            └─────────────────────────────┘
+/// ```
+///
+/// **Key Synchronization Points:**
+/// - `NSCondition` (`condition`): Ensures all threads wait until the entire batch has computed statistics
+/// - `NSLock` (`updateLock`): Protects shared state updates during Welford variance calculation
+/// - `@Atomic` properties (`iterations`, `means`, `m2s`): Thread-safe counters and accumulators
+/// - `ThreadStorage` (`cachedNormalizations`): Thread-local storage for normalization values
+///
+/// **Process Flow:**
+/// 1. Threads process tensors concurrently from BaseOptimizer
+/// 2. Each thread increments atomic `iterations` counter
+/// 3. Welford variance calculation updates shared `means` and `m2s` under lock
+/// 4. Threads wait at condition barrier until all batch items processed
+/// 5. Once synchronized, each thread normalizes using computed batch statistics
+///
+/// This two-phase approach (statistics collection + individual normalization) ensures correct
+/// batch normalization while maximizing concurrency.
 public final class BatchNormalize: BaseLayer {
   public var gamma: [Tensor.Scalar] = []
   public var beta: [Tensor.Scalar] = []
