@@ -111,6 +111,7 @@ public class RNN: Classifier {
     let optimizer = Adam(network,
                          device: device,
                          learningRate: optimizerParameters.learningRate,
+                         batchSize: classifierParameters.batchSize,
                          b1: optimizerParameters.b1,
                          b2: optimizerParameters.b2,
                          eps: optimizerParameters.eps,

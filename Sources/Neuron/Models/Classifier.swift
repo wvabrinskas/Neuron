@@ -60,8 +60,6 @@ public class Classifier {
       validationBatches.append(valSet)
     }
     
-    optimizer.isTraining = true
-
     for i in 0..<epochs {
       let startTime = Date().timeIntervalSince1970
 
@@ -92,7 +90,7 @@ public class Classifier {
       for batch in trainingBatches {
         optimizer.zeroGradients()
 
-        let result = trainOn(batch.data, labels: batch.labels)
+        let result = trainOn(batch.data, labels: batch.labels) // multi threaded
         let weightGradients = result.gradients
         let loss = result.loss
         
@@ -105,8 +103,8 @@ public class Classifier {
           print("complete :", "\(b) / \(batches.count) -> \(batchesCompletePercent)%")
         }
         
-        optimizer.apply(weightGradients)
-        optimizer.step()
+        optimizer.apply(weightGradients) // single threaded
+        optimizer.step() // single threaded
         b += 1
         
         optimizer.metricsReporter?.report()

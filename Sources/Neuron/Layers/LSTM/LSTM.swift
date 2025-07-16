@@ -41,7 +41,7 @@ public final class LSTM: BaseLayer {
   private var batchLength: Int
   private let returnSequence: Bool
   
-  private var cellCache: ThreadStorage<[Cache]> = .init()
+  private var cellCache: ThreadStorage<Int, [Cache]> = .init(defaultValue: [])
 
   public class LSTMActivations {
     let forgetGate: Tensor
@@ -294,7 +294,7 @@ public final class LSTM: BaseLayer {
       out = new
     }
     
-    self.cellCache.store(localCellCache, at: context.threadId)
+    self.cellCache.store(localCellCache, at: context.indexInBatch)
 
     if returnSequence == false, let last = out.value.last {
       out = Tensor(last, context: tensorContext)

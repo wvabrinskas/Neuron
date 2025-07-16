@@ -47,6 +47,7 @@ public protocol ConvolutionalLayer: Layer {
   var padding: NumSwift.ConvPadding { get }
 }
 
+public typealias TensorBatch = [Tensor]
 /// The the object that perform ML operations
 public protocol Layer: AnyObject, Codable {
   var details: String { get }
@@ -62,7 +63,9 @@ public protocol Layer: AnyObject, Codable {
   var initializer: Initializer? { get }
   var device: Device { get set }
   var usesOptimizer: Bool { get set }
+  var batchSize: Int { get set }
   func forward(tensor: Tensor, context: NetworkContext) -> Tensor
+  func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch
   func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar)
   func exportWeights() throws -> [Tensor]
   func importWeights(_ weights: [Tensor]) throws
@@ -109,6 +112,8 @@ open class BaseLayer: Layer {
   public var isTraining: Bool = true
   public var initializer: Initializer?
   public var device: Device = CPU()
+  public var batchSize: Int = 1
+  
   // defines whether the gradients are run through the optimizer before being applied.
   // this could be useful if a layer manages its own weight updates
   public var usesOptimizer: Bool = true
@@ -136,12 +141,22 @@ open class BaseLayer: Layer {
     // override
   }
   
+  public func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
+    var result: TensorBatch = []
+    
+    for tensor in tensorBatch {
+      result.append(forward(tensor: tensor, context: context))
+    }
+    
+    return result
+  }
   
   public func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
     // override
     .init()
   }
   
+  // guarenteed to be single threaded operation
   public func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     // override
   }
