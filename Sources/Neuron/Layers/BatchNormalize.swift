@@ -102,9 +102,7 @@ public final class BatchNormalize: BaseLayer {
   private let e: Tensor.Scalar = 1e-5 //this is a standard smoothing term
   private var dGamma: [Tensor.Scalar] = []
   private var dBeta: [Tensor.Scalar] = []
-  @Atomic internal var iterations: Int = 0
-  @Atomic internal var means: [[[Tensor.Scalar]]] = []
-  @Atomic internal var m2s: [[[Tensor.Scalar]]] = []
+  internal let welfordVariance = WelfordVariance()
   private let condition = NSCondition()
   private let updateLock = NSLock()
 
@@ -145,6 +143,7 @@ public final class BatchNormalize: BaseLayer {
     
     setupTrainables()
     resetDeltas()
+    welfordVariance.setInputSize(inputSize)
   }
   
   public enum CodingKeys: String, CodingKey {
@@ -186,7 +185,6 @@ public final class BatchNormalize: BaseLayer {
       condition.lock()
       
       for tensor in tensorBatch {
-        iterations += 1
         calculateWelfordVariance(inputs: tensor, context: context)
       }
       
@@ -196,12 +194,12 @@ public final class BatchNormalize: BaseLayer {
         batchSize
       }
       
-      if iterations == sizeToCheck {
+      if welfordVariance.iterations == sizeToCheck {
         condition.broadcast()
       }
       
       
-      while iterations < sizeToCheck {
+      while welfordVariance.iterations < sizeToCheck {
         condition.wait()
       }
       
@@ -228,20 +226,21 @@ public final class BatchNormalize: BaseLayer {
   }
   
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
-    let avgDGamma = dGamma / iterations.asTensorScalar
-    let avgDBeta = dBeta / iterations.asTensorScalar
+    let avgDGamma = dGamma / welfordVariance.iterations.asTensorScalar
+    let avgDBeta = dBeta / welfordVariance.iterations.asTensorScalar
     
     gamma = gamma - (avgDGamma * learningRate)
     beta = beta - (avgDBeta * learningRate)
     
     resetDeltas()
-    iterations = 0
+    welfordVariance.reset()
     cachedNormalizations.clear()
   }
   
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     outputSize = inputSize
+    welfordVariance.setInputSize(inputSize)
     setupTrainables()
     resetDeltas()
   }
@@ -270,23 +269,12 @@ public final class BatchNormalize: BaseLayer {
     let inputDim = inputSize.depth
     dGamma = [Tensor.Scalar](repeating: 0, count: inputDim)
     dBeta = [Tensor.Scalar](repeating: 0, count: inputDim)
-    
-    means = NumSwift.zerosLike((inputSize.rows, inputSize.columns, inputSize.depth))
-    m2s = NumSwift.zerosLike((inputSize.rows, inputSize.columns, inputSize.depth))
   }
   
+  // TODO: breakout into separate class
   private func calculateWelfordVariance(inputs: Tensor, context: NetworkContext) {
     updateLock.with {
-      for i in 0..<inputs.value.count {
-        let delta = inputs.value[i] - means[i]
-        let delta2Means = means[i] + (delta / iterations.asTensorScalar)
-        
-        means[i] = delta2Means
-        
-        let delta2 = inputs.value[i] - delta2Means
-        
-        m2s[i] = m2s[i] + (delta * delta2)
-      }
+      welfordVariance.update(inputs)
     }
   }
   
@@ -336,9 +324,9 @@ public final class BatchNormalize: BaseLayer {
                                                std: [[Tensor.Scalar]],
                                                out:[[Tensor.Scalar]]) {
     
-    let mean = means[index]
+    let mean = welfordVariance.means[index]
       
-    let variance = m2s[index] / batchSize.asTensorScalar
+    let variance = welfordVariance.m2s[index] / batchSize.asTensorScalar
     
     let std: [[Tensor.Scalar]] = Tensor(variance).sqrt(adding: e).value[safe: 0] ?? []
     
