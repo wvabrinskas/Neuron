@@ -173,8 +173,8 @@ open class BaseOptimizer: Optimizer {
       let batchLabels: [[Tensor.Scalar]] = labels[indexRange].map { $0.value.flatten() }
       
       let outs = self.trainable.predict(batch: elements, context: .init(batchRange: indexRange,
-                                                                        batchProcessingCount: data.count,
-                                                                        totalInBatch: processingCount,
+                                                                        batchProcessingCount: processingCount,
+                                                                        totalInBatch: data.count,
                                                                         threadId: workerId))
       
       outputs[workerIndex] = outs

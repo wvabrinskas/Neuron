@@ -18,7 +18,7 @@ public final class Dropout: BaseLayer {
     """
   }
   
-  internal var mask: Tensor = Tensor()
+  internal var mask: Tensor?
   private var chance: Tensor.Scalar
   
   /// Default initializer for Dropout layer
@@ -56,7 +56,7 @@ public final class Dropout: BaseLayer {
   }
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
-    let newMask = generateMask()
+    let newMask = mask ?? generateMask() // testing purposes only
     
     let context = TensorContext { [newMask] inputs, gradient in
       let outMask = newMask

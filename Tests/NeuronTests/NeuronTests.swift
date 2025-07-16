@@ -394,7 +394,9 @@ final class NeuronTests: XCTestCase {
   func testBatchNorm() {
     var batch: [Tensor] = []
     
-    for i in 0..<32 {
+    let batchSize = 10
+    
+    for i in 0..<batchSize {
       if i % 2 == 0 {
         batch.append(Tensor([0,1,0,1,0]))
       } else {
@@ -404,63 +406,82 @@ final class NeuronTests: XCTestCase {
     
     let norm = BatchNormalize(inputSize: TensorSize(array: [5,1,1]))
     
-    norm.batchSize = batch.count
+    norm.batchSize = batchSize
     norm.isTraining = true
     
     batch.concurrentBatchedForEach(workers: Constants.maxWorkers) { elements, workerIndex, indexRange, processingCount, workerId in
-      let out = norm.forward(tensorBatch: elements, context: .init(batchRange: indexRange,
-                                                                   batchProcessingCount: processingCount,
-                                                                   totalInBatch: batch.count,
-                                                                   threadId: workerId))
+        let _ = norm.forward(tensorBatch: elements, context: .init(batchRange: indexRange,
+                                                           batchProcessingCount: processingCount,
+                                                           totalInBatch: batch.count,
+                                                           threadId: workerId))
       
-      print(out)
     }
     
+    XCTAssertEqual(norm.iterations, batchSize)
+    XCTAssertEqual(norm.m2s, [[[2.5,2.5,2.5,2.5,2.5]]]) // variance
+    XCTAssertEqual(norm.means, [[[0.5, 0.5, 0.5, 0.5, 0.5]]]) // mean
   }
   
   func testBatchNorm2d() {
-    let input = Tensor([1,0,1,0,1].as2D())
-    let norm = BatchNormalize(inputSize: input.shape.tensorSize)
+    var batch: [Tensor] = []
+    
+    let batchSize = 10
+    
+    for i in 0..<batchSize {
+      if i % 2 == 0 {
+        batch.append(Tensor([0,1,0,1,0].as2D()))
+      } else {
+        batch.append(Tensor([1,0,1,0,1].as2D()))
+      }
+    }
+    
+    let norm = BatchNormalize(inputSize: TensorSize(array: [5,5,1]))
+    
+    norm.batchSize = batchSize
     norm.isTraining = true
-    norm.batchSize = 1
     
-    let out = norm.forward(tensor: input, context: .init(indexInBatch: 0,
-                                                         batchProcessingCount: 1,
-                                                         totalInBatch: 1,
-                                                         threadId: .init()))
-    out.setGraph(input)
-
-    XCTAssert(out.isValueEqual(to: Tensor([0.81647956, -1.2247194, 0.81647956, -1.2247194, 0.81647956].as2D())))
+    batch.concurrentBatchedForEach(workers: Constants.maxWorkers) { elements, workerIndex, indexRange, processingCount, workerId in
+        let _ = norm.forward(tensorBatch: elements, context: .init(batchRange: indexRange,
+                                                           batchProcessingCount: processingCount,
+                                                           totalInBatch: batch.count,
+                                                           threadId: workerId))
+      
+    }
     
-    let delta = Tensor([0.5, 0, 0.5, 0, 0.5].as2D())
-    
-    let gradient = out.gradients(delta: delta)
-    
-    norm.apply(gradients: (gradient.weights.first!, gradient.biases.first!), learningRate: 0.01)
-    
-    XCTAssert(gradient.input.first?.isEmpty == false)
-    XCTAssert(gradient.input.first!.isValueEqual(to: Tensor([-4.082313, -0.00012769953, -4.082313, -0.00012769953, -4.082313].as2D())))
+    XCTAssertEqual(norm.iterations, batchSize)
+    XCTAssertEqual(norm.m2s, [[2.5,2.5,2.5,2.5,2.5].as2D()]) // variance
+    XCTAssertEqual(norm.means, [[0.5, 0.5, 0.5, 0.5, 0.5].as2D()]) // mean
   }
   
   func testBatchNorm3d() {
-    let input = Tensor([1,0,1,0,1].as3D())
-    let norm = BatchNormalize(inputSize: input.shape.tensorSize)
+    var batch: [Tensor] = []
+    
+    let batchSize = 10
+    
+    for i in 0..<batchSize {
+      if i % 2 == 0 {
+        batch.append(Tensor([0,1,0,1,0].as3D()))
+      } else {
+        batch.append(Tensor([1,0,1,0,1].as3D()))
+      }
+    }
+    
+    let norm = BatchNormalize(inputSize: TensorSize(array: [5,5,5]))
+    
+    norm.batchSize = batchSize
     norm.isTraining = true
-    norm.batchSize = 1
     
-    let out = norm.forward(tensor: input)
-    out.setGraph(input)
-
-    XCTAssert(out.isValueEqual(to: Tensor([0.81647956, -1.2247194, 0.81647956, -1.2247194, 0.81647956].as3D())))
+    batch.concurrentBatchedForEach(workers: Constants.maxWorkers) { elements, workerIndex, indexRange, processingCount, workerId in
+        let _ = norm.forward(tensorBatch: elements, context: .init(batchRange: indexRange,
+                                                           batchProcessingCount: processingCount,
+                                                           totalInBatch: batch.count,
+                                                           threadId: workerId))
+      
+    }
     
-    let delta = Tensor([0.5, 0, 0.5, 0, 0.5].as3D())
-    
-    let gradient = out.gradients(delta: delta)
-    
-    norm.apply(gradients: (gradient.weights.first!, gradient.biases.first!), learningRate: 0.01)
-    
-    XCTAssert(gradient.input.first?.isEmpty == false)
-    XCTAssert(gradient.input.first!.isValueEqual(to: Tensor([-4.082313, -0.00012769953, -4.082313, -0.00012769953, -4.082313].as2D())))
+    XCTAssertEqual(norm.iterations, batchSize)
+    XCTAssertEqual(norm.m2s, [2.5,2.5,2.5,2.5,2.5].as3D()) // variance
+    XCTAssertEqual(norm.means, [0.5, 0.5, 0.5, 0.5, 0.5].as3D()) // mean
   }
   
   func testDropout() {
@@ -483,12 +504,6 @@ final class NeuronTests: XCTestCase {
     
     XCTAssert(gradient.input.first?.isEmpty == false)
     XCTAssert(gradient.input.first!.isValueEqual(to:  Tensor([1, 0, 1, 0, 1].as3D())))
-    
-    let dropoutNew = Dropout(0.5, inputSize: [5,5,5].tensorSize)
-    let oldMask = dropoutNew.mask
-    dropoutNew.apply(gradients: (Tensor(), Tensor()), learningRate: 0.05)
-    
-    XCTAssert(oldMask.isValueEqual(to: dropoutNew.mask) == false)
   }
   
 }

@@ -29,17 +29,13 @@ public final class BatchNormalize: BaseLayer {
   private let e: Tensor.Scalar = 1e-5 //this is a standard smoothing term
   private var dGamma: [Tensor.Scalar] = []
   private var dBeta: [Tensor.Scalar] = []
-  @Atomic private var iterations: Int = 0
-  @Atomic private var means: [[[Tensor.Scalar]]] = []
-  @Atomic private var m2s: [[[Tensor.Scalar]]] = []
+  @Atomic internal var iterations: Int = 0
+  @Atomic internal var means: [[[Tensor.Scalar]]] = []
+  @Atomic internal var m2s: [[[Tensor.Scalar]]] = []
   private let condition = NSCondition()
   private let updateLock = NSLock()
 
   private var cachedNormalizations: ThreadStorage<UUID, [Normalization]> = .init(defaultValue: [])
-
-  private var features: Tensor.Scalar {
-    (inputSize.rows * inputSize.columns * inputSize.depth).asTensorScalar
-  }
 
   private class Normalization {
     let value: [[Tensor.Scalar]]
@@ -121,8 +117,8 @@ public final class BatchNormalize: BaseLayer {
         calculateWelfordVariance(inputs: tensor, context: context)
       }
       
-      let sizeToCheck = if context.batchProcessingCount != batchSize {
-        context.batchProcessingCount
+      let sizeToCheck = if context.totalInBatch != batchSize {
+        context.totalInBatch
       } else {
         batchSize
       }
@@ -187,6 +183,14 @@ public final class BatchNormalize: BaseLayer {
     if beta.isEmpty {
       self.beta = [Tensor.Scalar](repeating: 0, count: inputDim)
     }
+  
+    if movingMean.isEmpty {
+      movingMean = NumSwift.zerosLike((inputSize.rows, inputSize.columns, inputSize.depth))
+    }
+    
+    if movingVariance.isEmpty {
+      movingVariance = NumSwift.onesLike((inputSize.rows, inputSize.columns, inputSize.depth))
+    }
   }
   
   private func resetDeltas() {
@@ -196,15 +200,6 @@ public final class BatchNormalize: BaseLayer {
     
     means = NumSwift.zerosLike((inputSize.rows, inputSize.columns, inputSize.depth))
     m2s = NumSwift.zerosLike((inputSize.rows, inputSize.columns, inputSize.depth))
-    
-    if movingMean.isEmpty {
-      movingMean = NumSwift.zerosLike((inputSize.rows, inputSize.columns, inputSize.depth))
-    }
-    
-    if movingVariance.isEmpty {
-      movingVariance = NumSwift.onesLike((inputSize.rows, inputSize.columns, inputSize.depth))
-    }
-  
   }
   
   private func calculateWelfordVariance(inputs: Tensor, context: NetworkContext) {
@@ -286,7 +281,6 @@ public final class BatchNormalize: BaseLayer {
                         context: NetworkContext) -> [[[Tensor.Scalar]]] {
     var backward: [[[Tensor.Scalar]]] = []
     
-    // it's necessarily going to guarentee that this is run on the same thread that called forward..
     let cachedNormalization = cachedNormalizations[inputs.id]
     
     for i in 0..<inputs.value.count {
