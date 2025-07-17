@@ -82,7 +82,7 @@ import NumSwift
 ///
 /// This two-phase approach (statistics collection + individual normalization) ensures correct
 /// batch normalization while maximizing concurrency.
-public final class BatchNormalize: BaseLayer {
+public final class BatchNormalize: BaseThreadBatchingLayer {
   public var gamma: [Tensor.Scalar] = []
   public var beta: [Tensor.Scalar] = []
   public var movingMean: [[[Tensor.Scalar]]] = []
@@ -99,14 +99,15 @@ public final class BatchNormalize: BaseLayer {
     set {}
   }
   
+  public override var shouldPerformBatching: Bool {
+    isTraining
+  }
+  
   private let e: Tensor.Scalar = 1e-5 //this is a standard smoothing term
   private var dGamma: [Tensor.Scalar] = []
   private var dBeta: [Tensor.Scalar] = []
-  @Atomic internal var iterations: Int = 0
   @Atomic internal var means: [[[Tensor.Scalar]]] = []
   @Atomic internal var m2s: [[[Tensor.Scalar]]] = []
-  private let condition = NSCondition()
-  private let updateLock = NSLock()
 
   private var cachedNormalizations: ThreadStorage<UUID, [Normalization]> = .init(defaultValue: [])
 
@@ -180,35 +181,9 @@ public final class BatchNormalize: BaseLayer {
     try container.encode(movingVariance, forKey: .movingVariance)
   }
   
-  public override func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
-    if isTraining {
-      
-      condition.lock()
-      
-      for tensor in tensorBatch {
-        iterations += 1
-        calculateWelfordVariance(inputs: tensor, context: context)
-      }
-      
-      let sizeToCheck = if context.totalInBatch != batchSize {
-        context.totalInBatch
-      } else {
-        batchSize
-      }
-      
-      if iterations == sizeToCheck {
-        condition.broadcast()
-      }
-      
-      
-      while iterations < sizeToCheck {
-        condition.wait()
-      }
-      
-      condition.unlock()
-    }
-    
-    return super.forward(tensorBatch: tensorBatch, context: context)
+  // actual forward pass happens here from the super class
+  public override func performThreadBatchingForwardPass(tensor: Tensor, context: NetworkContext) {
+    calculateWelfordVariance(inputs: tensor, context: context)
   }
 
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {

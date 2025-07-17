@@ -392,3 +392,50 @@ extension NumSwift.ConvPadding {
     }
   }
 }
+
+
+
+open class BaseThreadBatchingLayer: BaseLayer {
+  let updateLock = NSLock()
+  @Atomic var iterations = 0
+  
+  open var shouldPerformBatching: Bool {
+    isTraining
+  }
+
+  private let condition = NSCondition()
+
+  public override func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
+    if shouldPerformBatching {
+      
+      condition.lock()
+      
+      for tensor in tensorBatch {
+        iterations += 1
+        performThreadBatchingForwardPass(tensor: tensor, context: context)
+      }
+      
+      let sizeToCheck = if context.totalInBatch != batchSize {
+        context.totalInBatch
+      } else {
+        batchSize
+      }
+      
+      if iterations == sizeToCheck {
+        condition.broadcast()
+      }
+      
+      while iterations < sizeToCheck {
+        condition.wait()
+      }
+      
+      condition.unlock()
+    }
+    
+    return super.forward(tensorBatch: tensorBatch, context: context)
+  }
+  
+  open func performThreadBatchingForwardPass(tensor: Tensor, context: NetworkContext) {
+    fatalError("must override")
+  }
+}
