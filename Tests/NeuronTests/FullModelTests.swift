@@ -118,6 +118,8 @@ final class FullModelTests: XCTestCase {
       ]
     }
     
+    network.device = GPU()
+    
     let optim = Adam(network, learningRate: 0.01, batchSize: batchSize)
     
     let reporter = MetricsReporter(metricsToGather: [.loss,
