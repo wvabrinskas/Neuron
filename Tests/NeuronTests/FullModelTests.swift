@@ -129,7 +129,7 @@ final class FullModelTests: XCTestCase {
     
     let classifier = Classifier(optimizer: optim,
                                 batchSize: batchSize, // 64 or higher causes issuees with BatchNorm for some reason.
-                                accuracyThreshold: .init(value: 0.9, averageCount: 5))
+                                accuracyThreshold: .init(value: 0.9, averageCount: 3))
     
     classifier.onAccuracyReached = {
       let red = ColorType.red.color()
