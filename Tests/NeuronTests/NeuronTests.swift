@@ -417,9 +417,9 @@ final class NeuronTests: XCTestCase {
       
     }
     
-    XCTAssertEqual(norm.iterations, batchSize)
-    XCTAssertEqual(norm.m2s, [[[2.5,2.5,2.5,2.5,2.5]]]) // variance
-    XCTAssertEqual(norm.means, [[[0.5, 0.5, 0.5, 0.5, 0.5]]]) // mean
+    XCTAssertEqual(norm.welfordVariance.iterations, batchSize)
+    XCTAssertEqual(norm.welfordVariance.m2s, [[[2.5,2.5,2.5,2.5,2.5]]]) // variance
+    XCTAssertEqual(norm.welfordVariance.means, [[[0.5, 0.5, 0.5, 0.5, 0.5]]]) // mean
   }
   
   func testBatchNorm2d() {
@@ -448,9 +448,9 @@ final class NeuronTests: XCTestCase {
       
     }
     
-    XCTAssertEqual(norm.iterations, batchSize)
-    XCTAssertEqual(norm.m2s, [[2.5,2.5,2.5,2.5,2.5].as2D()]) // variance
-    XCTAssertEqual(norm.means, [[0.5, 0.5, 0.5, 0.5, 0.5].as2D()]) // mean
+    XCTAssertEqual(norm.welfordVariance.iterations, batchSize)
+    XCTAssertEqual(norm.welfordVariance.m2s, [[2.5,2.5,2.5,2.5,2.5].as2D()]) // variance
+    XCTAssertEqual(norm.welfordVariance.means, [[0.5, 0.5, 0.5, 0.5, 0.5].as2D()]) // mean
   }
   
   func testBatchNorm3d() {
@@ -479,9 +479,9 @@ final class NeuronTests: XCTestCase {
       
     }
     
-    XCTAssertEqual(norm.iterations, batchSize)
-    XCTAssertEqual(norm.m2s, [2.5,2.5,2.5,2.5,2.5].as3D()) // variance
-    XCTAssertEqual(norm.means, [0.5, 0.5, 0.5, 0.5, 0.5].as3D()) // mean
+    XCTAssertEqual(norm.welfordVariance.iterations, batchSize)
+    XCTAssertEqual(norm.welfordVariance.m2s, [2.5,2.5,2.5,2.5,2.5].as3D()) // variance
+    XCTAssertEqual(norm.welfordVariance.means, [0.5, 0.5, 0.5, 0.5, 0.5].as3D()) // mean
   }
   
   func testDropout() {
