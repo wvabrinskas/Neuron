@@ -20,6 +20,10 @@ public class GPU: Device {
     return createdMetal
   }()
   
+  public init(qosPriority: DispatchQoS.QoSClass = .default) {
+    self.qosPriority = qosPriority
+  }
+  
   public func transConv2d(signal: [[Tensor.Scalar]],
                           filter: [[Tensor.Scalar]],
                           strides: (Int, Int) = (1,1),
@@ -41,9 +45,11 @@ public class GPU: Device {
   }
   
   public func activate(_ input: Tensor, _ type: Activation) -> Tensor {
+    var result: [[[Tensor.Scalar]]] = []
     
-    let result = input.value.map {
-      $0.map { value in
+    for topValue in input.value {
+      var row: [[Tensor.Scalar]] = []
+      for value in topValue {
         var leakyReluLimit: Tensor.Scalar = 0
         switch type {
         case .leakyRelu(limit: let limit):
@@ -52,17 +58,20 @@ public class GPU: Device {
           break
         }
         
-        return metal.activation(value, type: .init(type), limit: leakyReluLimit)
+        row.append(metal.activation(value, type: .init(type), limit: leakyReluLimit))
       }
+      result.append(row)
     }
-    
+  
     return Tensor(result)
   }
   
   public func derivate(_ input: Tensor, _ type: Activation) -> Tensor {
+    var result: [[[Tensor.Scalar]]] = []
     
-    let result = input.value.map {
-      $0.map { value in
+    for topValue in input.value {
+      var row: [[Tensor.Scalar]] = []
+      for value in topValue {
         var leakyReluLimit: Tensor.Scalar = 0
         switch type {
         case .leakyRelu(limit: let limit):
@@ -71,10 +80,11 @@ public class GPU: Device {
           break
         }
         
-        return metal.derivative(value, type: .init(type), limit: leakyReluLimit)
+        row.append(metal.derivative(value, type: .init(type), limit: leakyReluLimit))
       }
+      result.append(row)
     }
-    
+  
     return Tensor(result)
   }
   
