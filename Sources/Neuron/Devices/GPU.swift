@@ -13,7 +13,7 @@ public class GPU: Device {
   public var type: DeviceType = .gpu
 
   private let manager = GPUManager.shared
-  private let metal: NumSwiftMetal = {
+  let metal: NumSwiftMetal = {
     guard let createdMetal = NumSwiftMetal() else {
       fatalError("NumSwiftMetal could not be created")
     }
