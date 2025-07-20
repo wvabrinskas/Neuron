@@ -128,7 +128,7 @@ public final class Sequential: Trainable, Logger {
           tensor.setGraph(outputTensors[i])
         }
       }
-
+      
       outputTensors = newTensors
     }
     

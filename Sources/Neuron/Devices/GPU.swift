@@ -13,16 +13,135 @@ public class GPU: Device {
   public var type: DeviceType = .gpu
 
   private let manager = GPUManager.shared
+  
   let metal: NumSwiftMetal = {
     guard let createdMetal = NumSwiftMetal() else {
       fatalError("NumSwiftMetal could not be created")
     }
     return createdMetal
   }()
+
+  private struct Operation {
+    let block: CommitBlock
+    let id: CommitID
+  }
   
+  private typealias CommitResult = [CommitID: Tensor]
+  private typealias CommitID = UUID
+  private typealias CommitBlock = (@escaping (Tensor, CommitID) -> ()) -> ()
+  private let commitLock = NSLock()
+  private let commitCondition = NSCondition()
+  
+  @Atomic private var commits: [Operation] = []
+  @Atomic var iterations: Int = 0
+  @Atomic var timeSinceLastCommit: CFAbsoluteTime = 0
+  
+  
+  private let maxCommits: Int = Constants.maxWorkers
+    
   public init(qosPriority: DispatchQoS.QoSClass = .default) {
     self.qosPriority = qosPriority
   }
+
+  private func commit(_ block: @escaping CommitBlock, id: CommitID) -> CommitResult {
+    commitCondition.lock()
+    
+    let operation = Operation(block: block, id: id)
+    
+    commits.append(operation)
+    timeSinceLastCommit = CFAbsoluteTimeGetCurrent()
+    
+    iterations += 1
+    
+    var results: CommitResult = [:]
+    
+    if iterations == maxCommits {
+      commitCondition.broadcast()
+      
+      executeBatch(commits)
+      results = self.results
+      
+      // clean up
+      commits.removeAll()
+      self.results.removeAll()
+      iterations = 0
+      
+    } else {
+      // not every thread will have something to commit so we need a better way to track when to move on
+      // maybe a time out? timeSinceLastCommit and then push the commits?
+      while iterations < maxCommits {
+        commitCondition.wait()
+      }
+    }
+
+    commitCondition.unlock()
+    
+    return results
+  }
+  
+  let newCondition = NSCondition()
+  var executeIterations = 0
+
+  @Atomic private var results: CommitResult = [:]
+
+  // Pipeline multiple operations for better GPU utilization
+  private func executeBatch(_ operations: [Operation]) {
+    let sema = DispatchSemaphore(value: 0)
+
+    let oldMode = metal.isAsyncMode
+    metal.isAsyncMode = true
+        
+    // this is getting really complicated with all these blocks...
+    var operationsToWaitFor = 0
+    
+    for operation in operations {
+      // check if a thread may have already computed this
+      guard results[operation.id] == nil else {
+        sema.signal()
+        continue
+      }
+      
+      operation.block { [sema] result, id in
+        self.results[id] = result
+        sema.signal()
+      }
+      
+      operationsToWaitFor += 1
+    }
+    
+    // Wait for all operations to complete
+    metal.commitAll()
+    
+    for _ in 0..<operationsToWaitFor {
+      sema.wait()
+    }
+  }
+  
+  private func conv2d_ASYNC(signal: [[Tensor.Scalar]],
+                      filter: [[Tensor.Scalar]],
+                      strides: (Int, Int) = (1,1),
+                      padding: NumSwift.ConvPadding = .valid,
+                      filterSize: (rows: Int, columns: Int),
+                      inputSize: (rows: Int, columns: Int),
+                      outputSize: (rows: Int, columns: Int)? = nil) -> [[Tensor.Scalar]] {
+    
+    let commitID = UUID()
+    
+    let result = commit(
+      { [metal] block in
+        metal.conv2d(signal, filter,
+                     stride: strides,
+                     padding: padding) { result in
+          block(Tensor(result), commitID)
+        }
+      },
+      id: commitID)[commitID]?.value[safe: 0] ?? signal
+    
+    return result
+           
+   // metal.conv2d(signal, filter, stride: strides, padding: padding, completion: completion)
+  }
+  
   
   public func transConv2d(signal: [[Tensor.Scalar]],
                           filter: [[Tensor.Scalar]],
@@ -41,7 +160,13 @@ public class GPU: Device {
                      filterSize: (rows: Int, columns: Int),
                      inputSize: (rows: Int, columns: Int),
                      outputSize: (rows: Int, columns: Int)? = nil) -> [[Tensor.Scalar]] {
-    metal.conv2d(signal, filter, stride: strides, padding: padding)
+    conv2d_ASYNC(signal: signal,
+                 filter: filter,
+                 strides: strides,
+                 padding: padding,
+                 filterSize: filterSize,
+                 inputSize: inputSize,
+                 outputSize: outputSize)
   }
   
   public func activate(_ input: Tensor, _ type: Activation) -> Tensor {
