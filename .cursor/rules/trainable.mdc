@@ -1,0 +1,88 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+## Trainable Subclass Creation
+
+When creating a Trainable model:
+
+### Structure Requirements:
+- **Implement Trainable Protocol**: Must conform to `Trainable` protocol
+- **Implement Logger Protocol**: Should conform to `Logger` for debugging
+- **Layer Management**: Handle layer compilation and forward passes
+- **Device Propagation**: Ensure device settings propagate to all layers
+
+### Template Pattern:
+```swift
+import Foundation
+import Logger
+
+/// [Description of the trainable model]
+public final class [TrainableName]: Trainable, Logger {
+    public var logLevel: LogLevel = .low
+    public var name: String = "[ModelName]"
+    
+    public var device: Device = CPU() {
+        didSet {
+            layers.forEach { layer in
+                switch device.type {
+                case .cpu:
+                    layer.device = CPU()
+                case .gpu:
+                    layer.device = GPU()
+                }
+            }
+        }
+    }
+    
+    public var isTraining: Bool = true {
+        didSet {
+            layers.forEach { $0.isTraining = isTraining }
+        }
+    }
+    
+    public var batchSize: Int = 1 {
+        didSet {
+            layers.forEach { $0.batchSize = batchSize }
+        }
+    }
+    
+    public private(set) var layers: [Layer] = []
+    public var isCompiled: Bool = false
+    
+    // Model-specific properties
+    private var [customProperty]: [Type]
+    
+    public init([parameters]) {
+        // Initialize custom properties
+        self.[customProperty] = [value]
+    }
+    
+    // Layer management methods
+    public func add(_ layer: Layer) {
+        layers.append(layer)
+        layer.device = device
+        layer.isTraining = isTraining
+        layer.batchSize = batchSize
+    }
+    
+    public func compile() {
+        // Implement compilation logic
+        // Set up layer connections and validate architecture
+        isCompiled = true
+    }
+    
+    // Prediction methods
+    public func predict(_ data: Tensor, context: NetworkContext) -> Tensor {
+        // Implement forward pass through all layers
+    }
+    
+    public func predict(batch: TensorBatch, context: NetworkContext) -> TensorBatch {
+        // Implement batch prediction
+    }
+    
+    // Codable implementation
+    // ... (similar to Layer pattern)
+}
+```
