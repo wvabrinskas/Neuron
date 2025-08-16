@@ -4,13 +4,6 @@ globs:
 alwaysApply: true
 ---
 
-### Key Implementation Points:
-1. **State Management**: Properly initialize and maintain algorithm state
-2. **Gradient Processing**: Handle gradient clipping and accumulation
-3. **Learning Rate**: Support learning rate decay functions
-4. **Memory Efficiency**: Manage state variable memory appropriately
-5. **Batch Handling**: Work correctly with different batch sizes
-
 ## General Guidelines
 
 ### Code Style:
