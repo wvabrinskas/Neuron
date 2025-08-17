@@ -1,0 +1,101 @@
+---
+description: Use when creating a new layer.
+globs: 
+alwaysApply: false
+---
+
+## Layer Subclass Creation
+
+When creating a new Layer subclass in the Neuron framework:
+
+### Structure Requirements:
+- **Inherit from BaseLayer**: All custom layers should inherit from `BaseLayer`
+- **Set encodingType**: Each layer must have a unique `EncodingType` enum case
+- **Implement required methods**: Override `forward(tensor:context:)` and encoding/decoding methods
+- **Follow naming conventions**: Use descriptive names ending with the operation type (e.g., `Dense`, `Conv2d`, `BatchNormalize`)
+
+### Template Pattern:
+```swift
+import Foundation
+import NumSwift
+
+/// [Brief description of what this layer does]
+public final class [LayerName]: BaseLayer {
+    // Private properties for layer-specific parameters
+    private var [layerSpecificProperty]: [Type]
+    
+    /// Initializer with layer-specific parameters
+    /// - Parameters:
+    ///   - [param1]: Description of parameter
+    ///   - inputs: Optional input count (required for first layer)
+    ///   - initializer: Weight initializer function. Default: `.heNormal`
+    ///   - biasEnabled: Boolean for bias application. Default: `false`
+    public init([parameters],
+                inputs: Int? = nil,
+                initializer: InitializerType = .heNormal,
+                biasEnabled: Bool = false) {
+        
+        // Set layer-specific properties
+        self.[layerSpecificProperty] = [value]
+        
+        // Call super with appropriate encoding type
+        super.init(inputSize: nil,
+                   initializer: initializer,
+                   biasEnabled: biasEnabled,
+                   encodingType: .[layerTypeCase])
+        
+        // Set output size based on layer logic
+        self.outputSize = TensorSize(array: [outputDimensions])
+        
+        // Initialize weights if inputs provided
+        if let inputs = inputs {
+            inputSize = TensorSize(array: [inputs, 1, 1])
+            initializeWeights(inputs: inputs)
+        }
+    }
+    
+    // Codable implementation
+    enum CodingKeys: String, CodingKey {
+        case biasEnabled, inputSize, outputSize, weights, biases, [customProperties]
+    }
+    
+    convenience public required init(from decoder: Decoder) throws {
+        // Decode layer-specific properties
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        // Implementation details...
+        self.init([decodedParameters])
+        // Set decoded properties...
+    }
+    
+    public override func encode(to encoder: Encoder) throws {
+        // Encode layer-specific properties
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        // Implementation details...
+    }
+    
+    // Core forward pass implementation
+    public override func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
+        // Implement layer-specific forward pass logic
+        // Return transformed tensor
+    }
+    
+    // Weight initialization (if needed)
+    private func initializeWeights(inputs: Int) {
+        // Initialize weights and biases based on input size
+    }
+    
+    // Input size change handler (if needed)
+    public override func onInputSizeSet() {
+        // Handle input size changes
+    }
+}
+```
+
+### Key Implementation Points:
+1. **Forward Pass**: Must implement the core computation logic
+2. **Weight Management**: Handle weight initialization and updates appropriately
+3. **Batch Processing**: The base class handles batch processing automatically
+4. **Device Support**: Inherit device management from BaseLayer
+5. **Codable**: Implement proper encoding/decoding for model persistence
+
+
