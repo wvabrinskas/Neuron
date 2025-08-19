@@ -63,24 +63,26 @@ public struct Initializer {
   
   public func calculate(input: Int, out: Int = 0) -> Tensor.Scalar {
     switch type {
-      
+    
     case .xavierUniform:
-      let min = -Tensor.Scalar(sqrt(6) / sqrt((Double(input) + Double(out))))
-      let max = Tensor.Scalar(sqrt(6) / sqrt((Double(input) + Double(out))))
+      let value = Tensor.Scalar.sqrt(6 / (Tensor.Scalar(input) + Tensor.Scalar(out)))
+      let min = -value
+      let max = value
       
       return Tensor.Scalar.random(in: min...max)
       
     case .xavierNormal:
-      return Tensor.Scalar(dist.gaussRand) * Tensor.Scalar(sqrt(2 / (Double(input) + Double(out))))
+      return Tensor.Scalar(dist.gaussRand) * Tensor.Scalar.sqrt(2 / (Tensor.Scalar(input) + Tensor.Scalar(out)))
       
     case .heUniform:
-      let min = -Tensor.Scalar(sqrt(6) / sqrt((Double(input))))
-      let max = Tensor.Scalar(sqrt(6) / sqrt((Double(input))))
-      
+      let value = Tensor.Scalar.sqrt(6 / Tensor.Scalar(input))
+      let min = -value
+      let max = value
+    
       return Tensor.Scalar.random(in: min...max)
       
     case .heNormal:
-      return Tensor.Scalar(dist.gaussRand) * Tensor.Scalar(sqrt(2 / (Double(input))))
+      return Tensor.Scalar(dist.gaussRand) * Tensor.Scalar.sqrt(2 / (Tensor.Scalar(input)))
       
     case .normal:
       return Tensor.Scalar(dist.gaussRand)
