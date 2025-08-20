@@ -435,6 +435,11 @@ open class BaseThreadBatchingLayer: BaseLayer {
     return super.forward(tensorBatch: tensorBatch, context: context)
   }
   
+  public override func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Tensor.Scalar) {
+    super.apply(gradients: gradients, learningRate: learningRate)
+    iterations = 0
+  }
+  
   open func performThreadBatchingForwardPass(tensor: Tensor, context: NetworkContext) {
     fatalError("must override")
   }
