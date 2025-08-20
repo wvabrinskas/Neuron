@@ -36,7 +36,9 @@ public class GPU: Device {
     metal.transconv2d(signal, filter, stride: strides, padding: padding)
   }
   
-  let bufferSemaphore = DispatchSemaphore(value: Constants.maxWorkers)
+  @Atomic var iterations: Int = 0
+  private let maxIterations = Constants.maxWorkers
+  private let condition = NSCondition()
 
   public func conv2d(signal: [[Tensor.Scalar]],
                      filter: [[Tensor.Scalar]],
@@ -45,18 +47,23 @@ public class GPU: Device {
                      filterSize: (rows: Int, columns: Int),
                      inputSize: (rows: Int, columns: Int),
                      outputSize: (rows: Int, columns: Int)? = nil) -> [[Tensor.Scalar]] {
+    // enqueue a X number of operations
+    // wait for them to finish
+    // move on
+    
+    // right now this waits for every single one to finish before enqueuing
+    condition.lock()
+    
     let dispatchGroup = DispatchGroup()
 
     var result: [[Tensor.Scalar]] = []
 
     dispatchGroup.enter()
-    bufferSemaphore.wait()
 
     metal.conv2d(signal, filter,
                  stride: strides,
-                 padding: padding) { [bufferSemaphore] gpuResult in
+                 padding: padding) { gpuResult in
       result = gpuResult
-      bufferSemaphore.signal()
       dispatchGroup.leave()
     }
     
@@ -65,6 +72,10 @@ public class GPU: Device {
     if result.shape == [0,0] {
       fatalError()
     }
+    
+    condition.unlock()
+    
+    iterations = 0
 
     return result
   }
