@@ -203,6 +203,8 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
   }
   
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
+    super.apply(gradients: gradients, learningRate: learningRate)
+    
     let avgDGamma = dGamma / welfordVariance.iterations.asTensorScalar
     let avgDBeta = dBeta / welfordVariance.iterations.asTensorScalar
     
