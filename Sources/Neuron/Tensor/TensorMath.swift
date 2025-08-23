@@ -195,7 +195,17 @@ public extension Tensor {
       }
     }
     
-    return applyAlong(axis: axis, input: value, block)
+    let context = TensorContext { inputs, gradient in
+      return (gradient * (1 / value), Tensor(), Tensor())
+    }
+    
+    let out = applyAlong(axis: axis, input: value, block).value
+    
+    let new = Tensor(out, context: context)
+
+    new.setGraph(self)
+    
+    return new
   }
   
   func multiplyAlong(axis: Int, value: Tensor) -> Tensor {
@@ -209,7 +219,17 @@ public extension Tensor {
       }
     }
     
-    return applyAlong(axis: axis, input: value, block)
+    let context = TensorContext { inputs, gradient in
+      return (gradient * value, Tensor(), Tensor())
+    }
+    
+    let out = applyAlong(axis: axis, input: value, block).value
+    
+    let new = Tensor(out, context: context)
+
+    new.setGraph(self)
+    
+    return new
   }
   
   func addAlong(axis: Int, value: Tensor) -> Tensor {
@@ -223,7 +243,18 @@ public extension Tensor {
       }
     }
     
-    return applyAlong(axis: axis, input: value, block)
+    let context = TensorContext { inputs, gradient in
+      /// wrt to inputs it's 1
+      return (gradient, Tensor(), Tensor())
+    }
+    
+    let out = applyAlong(axis: axis, input: value, block).value
+    
+    let new = Tensor(out, context: context)
+
+    new.setGraph(self)
+    
+    return new
   }
   
   func subtractAlong(axis: Int, value: Tensor) -> Tensor {
@@ -237,7 +268,17 @@ public extension Tensor {
       }
     }
     
-    return applyAlong(axis: axis, input: value, block)
+    let context = TensorContext { inputs, gradient in
+      return (gradient * -1, Tensor(), Tensor())
+    }
+    
+    let out = applyAlong(axis: axis, input: value, block).value
+    
+    let new = Tensor(out, context: context)
+
+    new.setGraph(self)
+    
+    return new
   }
   
   func sum() -> Scalar {
@@ -522,7 +563,16 @@ public extension Tensor {
     }
     
     let newTensor = left + right
-    return Tensor(newTensor, context: lhs.context)
+    
+    let context = TensorContext { inputs, gradient in
+      return (gradient, Tensor(), Tensor())
+    }
+    
+    let new = Tensor(newTensor, context: context)
+    
+    new.setGraph(lhs)
+    
+    return new
   }
   
   static func -(lhs: Tensor, rhs: Tensor) -> Tensor {
@@ -535,7 +585,16 @@ public extension Tensor {
     }
     
     let newTensor = left - right
-    return Tensor(newTensor, context: lhs.context)
+    
+    let context = TensorContext { inputs, gradient in
+      return (gradient * -1, Tensor(), Tensor())
+    }
+    
+    let new = Tensor(newTensor, context: context)
+    
+    new.setGraph(lhs)
+    
+    return new
   }
   
   static func *(lhs: Tensor, rhs: Tensor) -> Tensor {
@@ -548,7 +607,16 @@ public extension Tensor {
     }
     
     let newTensor = left * right
-    return Tensor(newTensor, context: lhs.context)
+    
+    let context = TensorContext { inputs, gradient in
+      return (gradient * rhs, Tensor(), Tensor())
+    }
+    
+    let new = Tensor(newTensor, context: context)
+    
+    new.setGraph(lhs)
+    
+    return new
   }
   
   static func /(lhs: Tensor, rhs: Tensor) -> Tensor {
@@ -561,7 +629,16 @@ public extension Tensor {
     }
     
     let newTensor = left / right
-    return Tensor(newTensor, context: lhs.context)
+    
+    let context = TensorContext { inputs, gradient in
+      return (gradient * (1 / rhs), Tensor(), Tensor())
+    }
+    
+    let new = Tensor(newTensor, context: context)
+    
+    new.setGraph(lhs)
+    
+    return new
   }
   
   func zerosLike() -> Tensor {

@@ -18,8 +18,35 @@ public final class ResNet: BaseLayer {
     case inputSize, type
   }
   
+  private var innerBlockSequential = Sequential()
+  private let outputRelu = ReLu()
+  
   override public func onInputSizeSet() {
     /// do something when the input size is set when calling `compile` on `Sequential`
+    outputSize = inputSize
+    // build sequential?
+    
+    innerBlockSequential.layers = [
+      Conv2d(filterCount: 64,
+             inputSize: inputSize,
+             strides: (1,1),
+             padding: .same,
+             filterSize: (3,3),
+             initializer: .heNormal),
+      BatchNormalize(),
+      ReLu(),
+      Conv2d(filterCount: 64,
+             inputSize: inputSize,
+             strides: (1,1),
+             padding: .same,
+             filterSize: (3,3),
+             initializer: .heNormal),
+      BatchNormalize()
+    ]
+    
+    outputRelu.inputSize = inputSize
+    
+    innerBlockSequential.compile()
   }
   
   convenience public required init(from decoder: Decoder) throws {
@@ -40,8 +67,19 @@ public final class ResNet: BaseLayer {
       return (Tensor(), Tensor(), Tensor())
     }
     
+    let blockOut = innerBlockSequential(tensor, context: context)
+    let skipOut = blockOut + tensor
+    let reLuOut = outputRelu.forward(tensor: skipOut)
+    
     // forward calculation
-    return Tensor()
+    return reLuOut
+  }
+  
+  private func backwards() {
+    // ∂F(x)/∂x -> output of ResNet block (without skip connection) wrt input
+    // + 1 -> is the skip connection because we're just adding the inputs back to the output the partial gradient wrt to the input is just 1.
+    // ∇y × (∂F(x)/∂x + 1)
+    
   }
 }
 
