@@ -62,9 +62,9 @@ open class BaseOptimizer: Optimizer {
     didSet {
       switch device.type {
       case .cpu:
-        trainable.device = CPU()
+        trainable.device = device
       case .gpu:
-        trainable.device = GPU()
+        trainable.device = device
       }
     }
   }
@@ -164,21 +164,23 @@ open class BaseOptimizer: Optimizer {
 
     metricsReporter?.update(metric: .batchConcurrency, value: concurrencySplit)
     
-    data.concurrentBatchedForEach(workers: workersCount, priority: device.qosPriority) { elements,
-                                                                                         workerIndex,
-                                                                                         indexRange,
-                                                                                         processingCount,
-                                                                                         workerId in
+    // 1. Take all inputs, single thread, pass them to the GPU
+    // 2. Wait for all of them to come back
+    // 3. process like normal here
+    
+    device.batchSize = data.count
+    
+    if device.type == .gpu {
+      // maybe break these out by threads and then queue them all? Since we cant block the only thread..
       
-      let batchLabels: [[Tensor.Scalar]] = labels[indexRange].map { $0.value.flatten() }
+
+      let outs = self.trainable.predict(batch: data, context: .init(batchRange: 0..<data.count,
+                                                                    batchProcessingCount: data.count,
+                                                                    totalInBatch: data.count,
+                                                                    threadId: UUID()))
       
-      let outs = self.trainable.predict(batch: elements, context: .init(batchRange: indexRange,
-                                                                        batchProcessingCount: processingCount,
-                                                                        totalInBatch: data.count,
-                                                                        threadId: workerId))
-      
-      outputs[workerIndex] = outs
-      
+      let batchLabels: [[Tensor.Scalar]] = labels.map { $0.value.flatten() }
+
       for (index, out) in outs.enumerated() {
         let label = batchLabels[index]
         
@@ -199,8 +201,46 @@ open class BaseOptimizer: Optimizer {
           accumulator.insert(gradient)
         }
       }
+      
+    } else {
+      data.concurrentBatchedForEach(workers: workersCount, priority: device.qosPriority) { elements,
+                                                                                           workerIndex,
+                                                                                           indexRange,
+                                                                                           processingCount,
+                                                                                           workerId in
+        
+        let batchLabels: [[Tensor.Scalar]] = labels[indexRange].map { $0.value.flatten() }
+        
+        let outs = self.trainable.predict(batch: elements, context: .init(batchRange: indexRange,
+                                                                          batchProcessingCount: processingCount,
+                                                                          totalInBatch: data.count,
+                                                                          threadId: workerId))
+        
+        outputs[workerIndex] = outs
+        
+        for (index, out) in outs.enumerated() {
+          let label = batchLabels[index]
+          
+          let loss = lossFunction.calculate(out, correct: Tensor(label)).sum(axis: -1).asScalar()
+          losses += loss / Tensor.Scalar(data.count)
+          
+          if let reporter = self.metricsReporter {
+            if validation {
+              accuracy += reporter.calculateValAccuracy(out, label: Tensor(label), binary: label.count == 1, running: false) / Tensor.Scalar(data.count)
+            } else {
+              accuracy += reporter.calculateAccuracy(out, label: Tensor(label), binary: label.count == 1, running: false) / Tensor.Scalar(data.count)
+            }
+          }
+          
+          if requiresGradients {
+            let lossGradient = lossFunction.derivative(out, correct: Tensor(label))
+            let gradient = out.gradients(delta: lossGradient)
+            accumulator.insert(gradient)
+          }
+        }
+      }
     }
-    
+
     let flatOutput = outputs.flatMap { $0 }
     
     metricsReporter?.endTimer(metric: .batchTime)

@@ -13,6 +13,7 @@ public struct CPU: Device {
   /// Priority to run the multithreaded operations on
   public var qosPriority: DispatchQoS.QoSClass = .default
   public var type: DeviceType = .cpu
+  public var batchSize: Int = 1
 
   public init() {}
   
