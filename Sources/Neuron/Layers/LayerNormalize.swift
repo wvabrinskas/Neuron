@@ -36,7 +36,7 @@ public final class LayerNormalize: BaseLayer {
   public init(epsilon: Tensor.Scalar = .stabilityFactor,
               gamma: Tensor = .init(),
               beta: Tensor = .init(),
-              inputSize: TensorSize = TensorSize(array: [])) {
+              inputSize: TensorSize? = nil) {
     self.epsilon = epsilon
     self.beta = beta
     self.gamma = gamma
@@ -46,7 +46,9 @@ public final class LayerNormalize: BaseLayer {
                biasEnabled: false,
                encodingType: .layerNormalize)
     
-    self.outputSize = inputSize
+    if let inputSize {
+      self.outputSize = inputSize
+    }
     
     setupTrainables()
   }

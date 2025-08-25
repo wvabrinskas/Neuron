@@ -17,8 +17,8 @@ public struct NetworkContext: Sendable {
   
   public init(indexInBatch: Int = 0,
               batchRange: CountableRange<Int> = 0..<1,
-              batchProcessingCount: Int = 0,
-              totalInBatch: Int = 0,
+              batchProcessingCount: Int = 1,
+              totalInBatch: Int = 1,
               threadId: UUID = UUID()) {
     self.indexInBatch = indexInBatch
     self.batchProcessingCount = batchProcessingCount
@@ -113,6 +113,15 @@ public final class Sequential: Trainable, Logger {
   public func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(layers.map { LayerModel(layer: $0) }, forKey: .layers)
+  }
+  
+  public func apply(gradients: Tensor.Gradient, learningRate: Float) {
+    for i in 0..<layers.count {
+      let layer = layers[i]
+      let gradient = gradients.weights[i]
+      let biasGradient = gradients.biases[i]
+      layer.apply(gradients: (weights: gradient, biases: biasGradient), learningRate: learningRate)
+    }
   }
   
   public func predict(batch: TensorBatch, context: NetworkContext) -> TensorBatch {

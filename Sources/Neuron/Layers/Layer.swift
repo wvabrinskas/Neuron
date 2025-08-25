@@ -349,7 +349,7 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
   
   public let type: Activation
 
-  public init(inputSize: TensorSize = TensorSize(array: []),
+  public init(inputSize: TensorSize? = nil,
               type: Activation,
               encodingType: EncodingType) {
     self.type = type

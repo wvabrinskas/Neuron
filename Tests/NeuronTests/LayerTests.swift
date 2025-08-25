@@ -12,6 +12,30 @@ import NumSwift
 
 final class LayerTests: XCTestCase {
   
+  func testResNet() {
+    let inputSize: TensorSize = .init(rows: 64, columns: 64, depth: 3)
+
+    let resNet = ResNet(inputSize: inputSize, filterCount: 8, stride: 1)
+    
+    let outputSize = resNet.outputSize
+
+    let input = Tensor.fillWith(value: 0.25, size: inputSize)
+    
+    let out = resNet.forward(tensor: input, context: .init())
+        
+    XCTAssertEqual(out.shape, outputSize.asArray)
+    
+    let error = Tensor.fillWith(value: 0.5, size: outputSize)
+    
+    let gradients = out.gradients(delta: error)
+    
+    XCTAssertNotNil(gradients.input.first)
+
+    XCTAssertEqual(gradients.input.first?.shape, inputSize.asArray)
+    
+    resNet.apply(gradients: (Tensor(), Tensor()), learningRate: 0.01)
+  }
+  
   func test_invalid_input_size() {
     let sequential = Sequential {
       [

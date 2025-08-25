@@ -133,7 +133,7 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
               momentum: Tensor.Scalar = 0.99,
               movingMean: Tensor.Data = [],
               movingVariance: Tensor.Data = [],
-              inputSize: TensorSize = TensorSize(array: [])) {
+              inputSize: TensorSize? = nil) {
     self.gamma = gamma
     self.beta = beta
     self.movingVariance = movingVariance
@@ -145,7 +145,10 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     
     setupTrainables()
     resetDeltas()
-    welfordVariance.setInputSize(inputSize)
+    
+    if let inputSize {
+      welfordVariance.setInputSize(inputSize)
+    }
   }
   
   public enum CodingKeys: String, CodingKey {

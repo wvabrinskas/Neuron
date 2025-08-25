@@ -14,7 +14,7 @@ public final class AvgPool: BaseLayer {
   
   /// Default initializer for max pooling.
   /// - Parameter inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
-  public init(inputSize: TensorSize = TensorSize(array: [])) {
+  public init(inputSize: TensorSize? = nil) {
     super.init(inputSize: inputSize,
                initializer: nil,
                biasEnabled: false,

@@ -53,6 +53,9 @@ public protocol Trainable: AnyObject, Codable, CustomDebugStringConvertible {
   /// Attempts to replace the weights in the network
   func importWeights(_ weights: [[Tensor]]) throws
   
+  /// Applys gradients to layers
+  func apply(gradients: Tensor.Gradient, learningRate: Float)
+  
   /// Exports network
   @discardableResult
   func export(name: String?, overrite: Bool, compress: Bool) -> URL?
