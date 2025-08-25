@@ -204,6 +204,7 @@ public extension Tensor {
     let new = Tensor(out, context: context)
 
     new.setGraph(self)
+    new.setGraph(value)
     
     return new
   }
@@ -228,7 +229,8 @@ public extension Tensor {
     let new = Tensor(out, context: context)
 
     new.setGraph(self)
-    
+    new.setGraph(value)
+
     return new
   }
   
@@ -253,7 +255,8 @@ public extension Tensor {
     let new = Tensor(out, context: context)
 
     new.setGraph(self)
-    
+    new.setGraph(value)
+
     return new
   }
   
@@ -277,7 +280,8 @@ public extension Tensor {
     let new = Tensor(out, context: context)
 
     new.setGraph(self)
-    
+    new.setGraph(value)
+
     return new
   }
   
@@ -571,7 +575,8 @@ public extension Tensor {
     let new = Tensor(newTensor, context: context)
     
     new.setGraph(lhs)
-    
+    new.setGraph(rhs)
+
     return new
   }
   
@@ -593,7 +598,8 @@ public extension Tensor {
     let new = Tensor(newTensor, context: context)
     
     new.setGraph(lhs)
-    
+    new.setGraph(rhs)
+
     return new
   }
   
@@ -615,7 +621,8 @@ public extension Tensor {
     let new = Tensor(newTensor, context: context)
     
     new.setGraph(lhs)
-    
+    new.setGraph(rhs)
+
     return new
   }
   
@@ -637,7 +644,8 @@ public extension Tensor {
     let new = Tensor(newTensor, context: context)
     
     new.setGraph(lhs)
-    
+    new.setGraph(rhs)
+
     return new
   }
   

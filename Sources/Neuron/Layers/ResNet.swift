@@ -102,28 +102,32 @@ public final class ResNet: BaseLayer {
   
   public override func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
     let blockOut = innerBlockSequential(tensor, context: context)
-    
+    // set a copied input so we can separate the input tensors of the two paths.
+    // this allows us to pull the gradients wrt to each input
+    let copiedInputTensor = Tensor(tensor.value)
+
     let tensorToAdd = if shouldProjectInput {
       // we project the input here to match the filter depth
-      shortcutSequential(tensor, context: context)
+      shortcutSequential(copiedInputTensor, context: context)
     } else {
       tensor
     }
-    
-    // we need the graph from tensorToAdd here...
-    // only `blockOut` is actually being backpropogated automatically because of how the autograd for addition works.
+
     let skipOut = blockOut + tensorToAdd
     let reLuOut = outputRelu.forward(tensor: skipOut)
     
-    let tensorContext = TensorContext { [accumulator, shortCutAccumulator, shouldProjectInput, innerBlockSequential] inputs, gradient in
-      // backpropogation calculation    // ∂F(x)/∂x -> output of ResNet block (without skip connection) wrt input
-      // + 1 -> is the skip connection because we're just adding the inputs back to the output the partial gradient wrt to the input is just 1.
-      // ∇y × (∂F(x)/∂x + 1)
+    let tensorContext = TensorContext { [accumulator, shortCutAccumulator, shouldProjectInput, innerBlockSequential, shortcutSequential] inputs, gradient in
       
       // backprop all the way through the the sequentials because the graphs are built automatically for us
-      let reluGradients = reLuOut.gradients(delta: gradient)
+      let reluGradients = reLuOut.gradients(delta: gradient, wrt: tensor)
+      let reluGradientsWrtProjectedInput = reLuOut.gradients(delta: gradient, wrt: copiedInputTensor)
       
-      let wrtInputs = reluGradients.input[safe: 0, Tensor()] + 1
+      // because the input is used in two paths we can just sum the gradients...
+      // TODO: I wonder if we could do this automatically in the gradient calculation where there's no WRT so we don't need to do this manually.
+      // that would also potentially solve the multiple gradients at a single layer issue. Ah but only do addition at the joined input.
+      // We would stil have the multiple gradients at a single level problem possibly.
+      // We might need to figure out how it's applied maybe? Is it ALWAYS an addition? I guess why not if both are contributing to the output
+      let wrtInputs = reluGradients.input[safe: 0, Tensor()] + reluGradientsWrtProjectedInput.input[safe: 0, Tensor()]
       
       let blockGradientsInput = Array(reluGradients.input[0..<innerBlockSequential.layers.count])
       let blockGradientsWeights = Array(reluGradients.weights[0..<innerBlockSequential.layers.count])
@@ -134,13 +138,14 @@ public final class ResNet: BaseLayer {
                                biases: blockGradientsBiases))
       
       if shouldProjectInput {
-        let shortCutGradientsInput = Array(reluGradients.input[innerBlockSequential.layers.count...])
-        let shortCutGradientsWeights = Array(reluGradients.weights[innerBlockSequential.layers.count...])
-        let shortCutGradientsBiases = Array(reluGradients.biases[innerBlockSequential.layers.count...])
-        
+        let shortCutGradientsInput = Array(reluGradientsWrtProjectedInput.input[0..<shortcutSequential.layers.count])
+        let shortCutGradientsWeights = Array(reluGradientsWrtProjectedInput.weights[0..<shortcutSequential.layers.count])
+        let shortCutGradientsBiases = Array(reluGradientsWrtProjectedInput.biases[0..<shortcutSequential.layers.count])
+
         shortCutAccumulator.insert(.init(input: shortCutGradientsInput,
                                          weights: shortCutGradientsWeights,
                                          biases: shortCutGradientsBiases))
+        
       }
       
       return (wrtInputs, Tensor(), Tensor())
