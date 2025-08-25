@@ -64,6 +64,7 @@ public protocol Layer: AnyObject, Codable {
   var device: Device { get set }
   var usesOptimizer: Bool { get set }
   var batchSize: Int { get set }
+  @discardableResult
   func forward(tensor: Tensor, context: NetworkContext) -> Tensor
   func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch
   func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar)
@@ -132,6 +133,11 @@ open class BaseLayer: Layer {
     }
   }
   
+  @discardableResult
+  open func callAsFunction(_ tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
+    forward(tensor: tensor, context: context)
+  }
+  
   required convenience public init(from decoder: Decoder) throws {
     // override
     self.init(encodingType: .none)
@@ -151,6 +157,7 @@ open class BaseLayer: Layer {
     return result
   }
   
+  @discardableResult
   public func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
     // override
     .init()
@@ -359,6 +366,7 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
               encodingType: .none)
   }
   
+  @discardableResult
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     
     let context = TensorContext { inputs, gradient in
@@ -371,7 +379,7 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
     out.label = type.asString()
 
     out.setGraph(tensor)
-
+    
     return out
   }
   

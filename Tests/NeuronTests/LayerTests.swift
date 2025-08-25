@@ -25,6 +25,99 @@ final class LayerTests: XCTestCase {
     XCTAssertFalse(sequential.isCompiled)
   }
   
+  func test_backpropagation_wrt() {
+    
+    // first branch
+    let dense_0 = Dense(20,
+                      inputs: 10,
+                      initializer: .heNormal,
+                      biasEnabled: true)
+    
+    let dense = Dense(20,
+                      inputs: 20,
+                      initializer: .heNormal,
+                      biasEnabled: true)
+    
+    let relu = ReLu(inputSize: dense.outputSize)
+    
+    
+    // second branch
+    let dense2 = Dense(20,
+                       inputs: 10,
+                       initializer: .heNormal,
+                       biasEnabled: true)
+    
+    
+    let relu2 = ReLu(inputSize: dense2.outputSize)
+    
+    // output branch
+    let dense3 = Dense(30,
+                       inputs: relu2.outputSize.columns,
+                       initializer: .heNormal,
+                       biasEnabled: true)
+    
+    let relu3 = ReLu(inputSize: dense3.outputSize)
+    
+    /*
+       input_1
+         |
+       Dense0  input_2
+         |       |
+       Dense1  Dense2
+         |       |
+       Relu1   Relu2
+          \     /
+           \   /
+           Dense3 (dual input graph built here)
+          /     \
+        Relu3   out_2 (current not used)
+         |
+        out_1 (gradients calculated here)
+     
+    1. when getting gradients wrt to input_2 at `out` we shouldn't get anything because the
+    output of that branch wasn't used at `out`
+     
+    2. Figure out how when passing twice we set the same graph twice
+     */
+    
+    // feed forward
+    let inputAtDense0 = Tensor.fillWith(value: 1, size: dense_0.inputSize)
+    inputAtDense0.label = "input_1"
+    
+    let dense0Out = dense_0(inputAtDense0)
+    let dense1Out = dense(dense0Out)
+    let reluOut1 = relu(dense1Out)
+    
+    let inputAtDense2 = Tensor.fillWith(value: 0.8, size: dense2.inputSize)
+    inputAtDense2.label = "input_2"
+
+    let reluOut2 = relu2(dense2(inputAtDense2))
+    
+    let dense3Out1 = dense3(reluOut1)
+    
+    dense3Out1.setGraph(reluOut1)
+    dense3Out1.setGraph(reluOut2)
+
+    let out1 = relu3(dense3Out1) // branch_1 out
+
+    let out2 = dense3(reluOut2) // branch_2 out
+    
+    // branch 1 backwards
+    let branch1Error = Tensor.fillWith(value: 0.5, size: relu3.outputSize)
+    let branch1Backwards = out1.gradients(delta: branch1Error, wrt: inputAtDense0)
+    
+    XCTAssertEqual(branch1Backwards.input.count, 6)
+    XCTAssertEqual(branch1Backwards.input[0].shape, dense_0.inputSize.asArray)
+    
+    // branch 2 backwards
+    let branch2Error = Tensor.fillWith(value: 0.5, size: dense3.outputSize)
+    let branch2Backwards = out2.gradients(delta: branch2Error, wrt: inputAtDense2)
+    
+    XCTAssertEqual(branch2Backwards.input.count, 3)
+    XCTAssertEqual(branch2Backwards.input[0].shape, dense2.inputSize.asArray)
+  
+  }
+  
   func test_gelu() {
     let gelu = GeLu()
     gelu.inputSize = TensorSize(rows: 3, columns: 3, depth: 3)

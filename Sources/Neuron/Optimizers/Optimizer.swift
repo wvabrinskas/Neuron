@@ -181,6 +181,7 @@ open class BaseOptimizer: Optimizer {
       
       for (index, out) in outs.enumerated() {
         let label = batchLabels[index]
+        let input = elements[index]
         
         let loss = lossFunction.calculate(out, correct: Tensor(label)).sum(axis: -1).asScalar()
         losses += loss / Tensor.Scalar(data.count)
@@ -195,7 +196,7 @@ open class BaseOptimizer: Optimizer {
         
         if requiresGradients {
           let lossGradient = lossFunction.derivative(out, correct: Tensor(label))
-          let gradient = out.gradients(delta: lossGradient)
+          let gradient = out.gradients(delta: lossGradient, wrt: input)
           accumulator.insert(gradient)
         }
       }

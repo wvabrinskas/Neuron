@@ -62,7 +62,8 @@ public class Tensor: Equatable, Codable {
     shape == [0,0,0]
   }
   
-  internal var graph: Tensor?
+  internal var graphChain: Set<UUID> = []
+  internal var graph: [UUID: Tensor] = [:]
   internal let context: TensorContext
   
   /// Shape of the Tensor as a 1D array. `[columns, rows, depth]`
@@ -74,8 +75,8 @@ public class Tensor: Equatable, Codable {
   }
   
   /// Input from the graph
-  public var input: Tensor {
-    graph ?? Tensor()
+  public var input: [UUID: Tensor] {
+    graph
   }
   
   /// Hack to avoid having to rewrite every single math function that revolves around 1d and 2d arrays.
@@ -169,13 +170,40 @@ public class Tensor: Equatable, Codable {
   }
   
   /// Prints the current graph all the way to the input.
-  public func printGraph() {
-    var t: Tensor? = self
+  public func printGraph(wrt: Tensor? = nil) {
+    var inputs: [UUID: Tensor] = input
     
-    while let g = t {
-      print("value: ", g.value, "input: ", g.input.value)
-      t = g.graph
+    // print self
+    // print children
+    // repeat for children
+    var outputString: [String] = []
+    
+    outputString.insert("output: \(id) \(shape) \(label) \n", at: 0)
+    
+    var level = 0
+    while inputs.isEmpty == false {
+      var i = 0
+      var childrenAtLevel: [UUID: Tensor] = [:]
+
+      for (k, v) in inputs {
+        outputString.insert("     branch: \(i) \(k): \(v.shape) \(v.label) \n", at: 0)//print("input \(k): ", v)
+        childrenAtLevel.merge(v.input) { _, new in
+          new
+        }
+        i += 1
+      }
+      
+      outputString.insert("level: \(level) ------ \n", at: 0)
+
+      level += 1
+      if let wrt, childrenAtLevel.count > 1 {
+        inputs = childrenAtLevel.filter({ $0.value.graphChain.contains(wrt.id) || $0.value.graphChain.isEmpty })
+      } else {
+        inputs = childrenAtLevel
+      }
     }
+    
+    print(outputString.joined())
   }
   
   /// Checks if the value of the Tensor is the same as another Tensor. `==` checks id property.
@@ -188,47 +216,86 @@ public class Tensor: Equatable, Codable {
   /// Sets the input graph to this Tensor
   /// - Parameter tensor: The tensor to insert into the graph
   public func setGraph(_ tensor: Tensor) {
-    self.graph = tensor
+    self.graph[tensor.id] = tensor
+    graphChain.insert(tensor.id)
+    graphChain.formUnion(tensor.graphChain)
   }
   
   /// Calculates the gradients in the Tensor graph
   /// - Parameter delta: The gradient to backpropagate w.r.t
+  /// - Parameter wrt: Optional parameter to tell the auto grad which input Tensor in the graph to backprop to. If this isn't provided it will return all inputs at every level of the graph in a single array.
   /// - Returns: A Gradient where the the `inputGradients` is the gradient w.r.t each input in the graph at each layer and `weightGradients` is the gradient w.r.t to each parameter at each layer.
-  public func gradients(delta: Tensor) -> Tensor.Gradient {
-    var inputGradients: [Tensor] = []
-    var weightGradients: [Tensor] = []
-    var biasGradients: [Tensor] = []
+  public func gradients(delta: Tensor, wrt: Tensor? = nil) -> Tensor.Gradient {
+    
+    let selfGradients = getGradients(delta: delta)
+    var inputGradients: [Tensor] = selfGradients.input
+    var weightGradients: [Tensor] = selfGradients.weight
+    var biasGradients: [Tensor] = selfGradients.bias
+    
+    var gradientsAtLevelToUse: [Tensor] = inputGradients
+    var childrenAtLevelToUse: [UUID: Tensor] = input
 
-    var tensor: Tensor? = self
-    var incomingGradient = delta
+    while childrenAtLevelToUse.isEmpty == false {
+      var gradientsAtLevel: [Tensor] = []
+      var childrenAtLevel: [UUID: Tensor] = [:]
+      
+      var i = 0
 
-    while let tensorNode = tensor {
-
-      if let input = tensorNode.graph {
-        let newGrads = tensorNode.context.backpropagate(input, incomingGradient)
-        incomingGradient = newGrads.input
+      for input in childrenAtLevelToUse.values {
+        let gradientToUse = gradientsAtLevelToUse[i]
+      
+        let newGrads = input.getGradients(delta: gradientToUse)
         
-        inputGradients.insert(newGrads.input, at: 0)
-        weightGradients.insert(newGrads.weight, at: 0)
-        biasGradients.insert(newGrads.bias, at: 0)
+        inputGradients.insert(contentsOf: newGrads.input, at: 0)
+        weightGradients.insert(contentsOf: newGrads.weight, at: 0)
+        biasGradients.insert(contentsOf: newGrads.bias, at: 0)
+        
+        gradientsAtLevel.append(contentsOf: newGrads.input)
+        input.input.forEach { childrenAtLevel[$0] = $1 }
+        
+        i += 1
       }
-            
-      tensor = tensorNode.graph
+      
+      gradientsAtLevelToUse = gradientsAtLevel
+      if let wrt, childrenAtLevel.count > 1 {
+        childrenAtLevelToUse = childrenAtLevel.filter({ $0.value.graphChain.contains(wrt.id) || $0.value.graphChain.isEmpty })
+      } else {
+        childrenAtLevelToUse = childrenAtLevel
+      }
     }
-
+    
     return .init(input: inputGradients, weights: weightGradients, biases: biasGradients)
   }
   
   /// Remove this Tensor from the graph.
   /// - Returns: Detached Tensor
   public func detached() -> Tensor {
-    Tensor(value, context: TensorContext())
+    let tensor = Tensor(value, context: TensorContext())
+    tensor.id = self.id
+    return tensor
   }
   
   /// Gets the `Tensor.Scalar` value of this Tensors value. This is reserved for Tensor's that have a value of size `[1, 1, 1]` aka a `Scalar` as `[[[Scalar]]]`
   /// - Returns: The scalar value.
   public func asScalar() -> Scalar {
     value[safe: 0, [[]]][safe: 0, []][safe: 0, 0]
+  }
+  
+  func getGradients(delta: Tensor) -> (input: [Tensor], weight: [Tensor], bias: [Tensor]) {
+    var inputGradients: [Tensor] = []
+    var weightGradients: [Tensor] = []
+    var biasGradients: [Tensor] = []
+    
+    // backpropogate self
+    for input in graph.values {
+      let newGrads = context.backpropagate(input, delta)
+
+      inputGradients.insert(newGrads.input, at: 0)
+      weightGradients.insert(newGrads.weight, at: 0)
+      biasGradients.insert(newGrads.bias, at: 0)
+    }
+    
+    return (inputGradients, weightGradients, biasGradients)
   }
   
   public func l2Normalize() {

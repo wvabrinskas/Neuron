@@ -596,13 +596,15 @@ extension Tensor: CustomDebugStringConvertible {
     let shape = shape
     string += "shape: (col: \(shape[safe: 0, 0]), rows: \(shape[safe: 1, 0]), depth: \(shape[safe: 2, 0]))\n"
     string += "-----\n"
+    string += "label: \(label)\n"
+    string += "-----\n"
     string += "value: \n"
     value.forEach { depth in
       depth.forEach { string += "\($0)\n" }
       string += "-----\n"
     }
     
-    string += "graph: \(graph != nil)\n"
+    string += "graph: \(graph.isEmpty == false)\n"
     string += ">"
     return string
   }
@@ -617,15 +619,16 @@ extension Array where Element == Tensor {
     return mean
   }
   
-  func gradients(_ deltas: [Tensor]) -> [Tensor.Gradient] {
+  func gradients(_ deltas: [Tensor], wrt: [Tensor]) -> [Tensor.Gradient] {
     var result = [Tensor.Gradient](repeating: .init(),
                                       count: deltas.count)
     
     let workerCount = Constants.maxWorkers
     deltas.concurrentForEach(workers: workerCount) { element, index in
       let delta = deltas[index]
+      let input = wrt[index]
       let output = self[index]
-      result[index] = output.gradients(delta: delta)
+      result[index] = output.gradients(delta: delta, wrt: input)
     }
     
     return result
