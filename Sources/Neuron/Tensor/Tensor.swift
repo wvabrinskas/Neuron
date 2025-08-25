@@ -51,11 +51,11 @@ public class Tensor: Equatable, Codable {
   public var id: UUID = UUID()
   
   /// Actual numerical value of the Tensor
-  public var value: Data {
+  public private(set) var value: Data {
     didSet {
       shapeCache = value.shape
     }
-  }
+  } 
   
   /// Flattens the `value` and returns if there is any content in the array.
   public var isEmpty: Bool {
@@ -78,6 +78,13 @@ public class Tensor: Equatable, Codable {
   public var input: [UUID: Tensor] {
     graph
   }
+  
+  /// Hack to avoid having to rewrite every single math function that revolves around 1d and 2d arrays.
+  /// This returns the number of features of a given tensor determined by the specific shape of the array.
+  /// Ideally we'd use `depth` for this, however that requires a lot of rewrite around arithmetic functions.
+  /// In itit I tried to change `1d` to `3d` but for loop each element and appending `[[element]]`.
+  /// Very similar in `2D` as well where I appended `[element]` instead.
+  public var features: Int = 1
   
   // cache the shape so we dont need to calculate it each time we call for shape
   private var shapeCache: [Int] = []
@@ -128,6 +135,7 @@ public class Tensor: Equatable, Codable {
       self.value = []
     }
     
+    self.features = 1
     self.context = context
   }
   
@@ -138,6 +146,7 @@ public class Tensor: Equatable, Codable {
   public init(_ data: [Scalar], context: TensorContext = TensorContext()) {
     self.value = [[data]]
     self.context = context
+    self.features = data.count
   }
   
   /// Initializer for Tensor with a fully 2D array
@@ -147,6 +156,7 @@ public class Tensor: Equatable, Codable {
   public init(_ data: [[Scalar]], context: TensorContext = TensorContext()) {
     self.value = [data]
     self.context = context
+    self.features = data.count
   }
   
   /// Initializer for Tensor with a fully 3D array
@@ -156,6 +166,7 @@ public class Tensor: Equatable, Codable {
   public init(_ data: Data, context: TensorContext = TensorContext()) {
     self.value = data
     self.context = context
+    self.features = data.count
   }
   
   /// Prints the current graph all the way to the input.
@@ -285,5 +296,15 @@ public class Tensor: Equatable, Codable {
     }
     
     return (inputGradients, weightGradients, biasGradients)
+  }
+  
+  public func l2Normalize() {
+    let flatValue: Tensor.Scalar = value.sumOfSquares
+    let normalized = value / Tensor.Scalar.sqrt(flatValue)
+    self.value = normalized
+  }
+  
+  public func clip(_ val: Scalar = 0.01) {
+    value = value.map { $0.map { $0.map { Swift.max(-val, Swift.min(val, $0)) }}}
   }
 }

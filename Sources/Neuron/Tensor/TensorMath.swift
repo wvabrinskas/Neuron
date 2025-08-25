@@ -240,10 +240,6 @@ public extension Tensor {
     return applyAlong(axis: axis, input: value, block)
   }
   
-  func clip(_ val: Scalar = 0.01) {
-    value = value.map { $0.map { $0.map { Swift.max(-val, Swift.min(val, $0)) }}}
-  }
-  
   func sum() -> Scalar {
     return value.sum
   }
@@ -457,12 +453,6 @@ public extension Tensor {
     let flatValue: Tensor.Scalar = value.sumOfSquares
     let normalized = value / Tensor.Scalar.sqrt(flatValue)
     return Tensor(normalized, context: context)
-  }
-  
-  func l2Normalize() {
-    let flatValue: Tensor.Scalar = value.sumOfSquares
-    let normalized = value / Tensor.Scalar.sqrt(flatValue)
-    self.value = normalized
   }
   
   func map(_ transform: (Tensor.Scalar) -> Tensor.Scalar) -> Tensor {

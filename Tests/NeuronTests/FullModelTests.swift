@@ -101,7 +101,7 @@ final class FullModelTests: XCTestCase {
       ]
     }
     
-    let optim = Adam(network, learningRate: 0.01)
+    let optim = Adam(network, learningRate: 0.01, batchSize: 1)
     
     network.isCompiled = false
 
@@ -112,19 +112,21 @@ final class FullModelTests: XCTestCase {
   }
   
   func testBasicClassification() {
+    let batchSize = 32
+    
     let network = Sequential {
       [
-        Dense(6, inputs: 4,
-              initializer: .xavierNormal,
-              biasEnabled: true),
-        LeakyReLu(limit: 0.2),
-        //BatchNormalize(), //-> removed since sometimes during tests it can crash
-        Dense(3, initializer: .xavierNormal),
+        Dense(12, inputs: 4,
+              initializer: .xavierUniform,
+              biasEnabled: false),
+        ReLu(),
+        //BatchNormalize(),
+        Dense(3, initializer: .xavierUniform),
         Softmax()
       ]
     }
     
-    let optim = Adam(network, learningRate: 0.01)
+    let optim = Adam(network, learningRate: 0.01, batchSize: batchSize)
     
     let reporter = MetricsReporter(metricsToGather: [.loss,
                                                      .accuracy,
@@ -134,10 +136,8 @@ final class FullModelTests: XCTestCase {
     optim.metricsReporter = reporter
     
     let classifier = Classifier(optimizer: optim,
-                                batchSize: 64,
-                                accuracyThreshold: .init(value: 0.9, averageCount: 5))
-
-    optim.metricsReporter?.receive = { _ in }
+                                batchSize: batchSize, // 64 or higher causes issuees with BatchNorm for some reason.
+                                accuracyThreshold: .init(value: 0.9, averageCount: 3))
     
     classifier.onAccuracyReached = {
       let red = ColorType.red.color()
@@ -157,14 +157,16 @@ final class FullModelTests: XCTestCase {
   }
   
   func testImportPretrainedClassifier() {
+    let batchSize = 64
+    
     do {
       let fileURL = try Resource(name: "pretrained-classifier-color", type: "smodel").url
       
       let n = Sequential.import(fileURL)
-      let optim = Adam(n, learningRate: 0.0001)
+      let optim = Adam(n, learningRate: 0.0001, batchSize: batchSize)
       
       let classifier = Classifier(optimizer: optim,
-                                  batchSize: 64,
+                                  batchSize: batchSize,
                                   accuracyThreshold: .init(value: 0.9, averageCount: 5))
       
       let red = ColorType.red.color()

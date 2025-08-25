@@ -9,10 +9,22 @@ import Foundation
 import Logger
 
 public struct NetworkContext: Sendable {
-  public var threadId: Int
+  public let batchRange: CountableRange<Int>
+  public let indexInBatch: Int
+  public let batchProcessingCount: Int
+  public let totalInBatch: Int
+  public let threadId: UUID
   
-  public init(threadId: Int = 0) {
+  public init(indexInBatch: Int = 0,
+              batchRange: CountableRange<Int> = 0..<1,
+              batchProcessingCount: Int = 0,
+              totalInBatch: Int = 0,
+              threadId: UUID = UUID()) {
+    self.indexInBatch = indexInBatch
+    self.batchProcessingCount = batchProcessingCount
     self.threadId = threadId
+    self.totalInBatch = totalInBatch
+    self.batchRange = batchRange
   }
 }
 
@@ -41,6 +53,13 @@ public final class Sequential: Trainable, Logger {
   
   public var layers: [Layer] = []
   public var isCompiled: Bool = false
+  public var batchSize: Int = 1 {
+    didSet {
+      layers.forEach { l in
+        l.batchSize = batchSize
+      }
+    }
+  }
   
   enum CodingKeys: String, CodingKey {
     case layers
@@ -48,6 +67,17 @@ public final class Sequential: Trainable, Logger {
   
   public static func `import`(_ url: URL) -> Self {
     let result: Result<Self, Error> =  ExportHelper.buildModel(url)
+    switch result {
+    case .success(let model):
+      return model
+    case .failure(let error):
+      preconditionFailure(error.localizedDescription)
+    }
+  }
+  
+  @_spi(Visualizer)
+  public static func `import`(_ data: Data) -> Self {
+    let result: Result<Self, Error> =  ExportHelper.buildModel(data)
     switch result {
     case .success(let model):
       return model
@@ -83,6 +113,26 @@ public final class Sequential: Trainable, Logger {
   public func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(layers.map { LayerModel(layer: $0) }, forKey: .layers)
+  }
+  
+  public func predict(batch: TensorBatch, context: NetworkContext) -> TensorBatch {
+    precondition(isCompiled, "Please call compile() on the \(self) before attempting to fit")
+    
+    var outputTensors = batch
+    
+    layers.forEach { layer in
+      let newTensors = layer.forward(tensorBatch: outputTensors, context: context)
+      
+      for (i, tensor) in newTensors.enumerated() {
+        if tensor.graph == nil {
+          tensor.setGraph(outputTensors[i])
+        }
+      }
+
+      outputTensors = newTensors
+    }
+    
+    return outputTensors
   }
   
   public func predict(_ data: Tensor, context: NetworkContext) -> Tensor {

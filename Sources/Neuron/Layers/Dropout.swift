@@ -10,7 +10,15 @@ import NumSwift
 
 /// Performs a dropout operation on the inputs based on the chance percentage. The mask changes on every `apply` called.
 public final class Dropout: BaseLayer {
-  internal var mask: Tensor = Tensor()
+  public override var details: String {
+    super.details +
+    """
+    \n
+    Chance: \(chance)
+    """
+  }
+  
+  internal var mask: Tensor?
   private var chance: Tensor.Scalar
   
   /// Default initializer for Dropout layer
@@ -24,15 +32,12 @@ public final class Dropout: BaseLayer {
                initializer: nil,
                biasEnabled: false,
                encodingType: .dropout)
-    
-    self.generateMask()
   }
   
   enum CodingKeys: String, CodingKey {
     case inputSize,
          chance,
-         type,
-         mask
+         type
   }
   
   convenience public required init(from decoder: Decoder) throws {
@@ -41,7 +46,6 @@ public final class Dropout: BaseLayer {
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
     self.chance = try container.decodeIfPresent(Tensor.Scalar.self, forKey: .chance) ?? 0
     self.outputSize = inputSize
-    self.mask = try container.decodeIfPresent(Tensor.self, forKey: .mask) ?? Tensor()
   }
   
   public override func encode(to encoder: Encoder) throws {
@@ -49,20 +53,24 @@ public final class Dropout: BaseLayer {
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(chance, forKey: .chance)
     try container.encode(encodingType, forKey: .type)
-    try container.encode(mask, forKey: .mask)
   }
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
-    let context = TensorContext { inputs, gradient in
-      let droppedOutGradients = gradient * self.mask
+    let newMask = mask ?? generateMask() // testing purposes only
+    
+    let context = TensorContext { [newMask] inputs, gradient in
+      let outMask = newMask
+      let droppedOutGradients = gradient * outMask
       
       return (droppedOutGradients, Tensor(), Tensor())
     }
     
     var droppedOut = tensor
     
-    if trainable {
-      droppedOut = tensor * mask
+    if isTraining && trainable {
+      droppedOut = tensor * newMask
+    } else {
+      droppedOut = tensor * (1 - chance)
     }
 
     let out = Tensor(droppedOut.value, context: context)
@@ -74,22 +82,14 @@ public final class Dropout: BaseLayer {
     return out
   }
   
-  public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
-    mask = Tensor()
-    generateMask()
-  }
+  public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {}
   
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     outputSize = inputSize
-    generateMask()
   }
   
-  private func generateMask() {
-    guard mask.isEmpty else {
-      return
-    }
-    
+  private func generateMask() -> Tensor {
     var maskTensor: [[[Tensor.Scalar]]] = []
 
     for _ in 0..<inputSize.depth {
@@ -108,7 +108,7 @@ public final class Dropout: BaseLayer {
       maskTensor.append(row)
     }
     
-    mask = Tensor(maskTensor)
+    return Tensor(maskTensor)
   }
   
 }

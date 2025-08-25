@@ -6,7 +6,7 @@
 ![](https://img.shields.io/github/license/wvabrinskas/Neuron?style=flat-square)
 ![](https://img.shields.io/badge/swift-5.10.0-orange?style=flat-square)
 ![](https://img.shields.io/badge/iOS-14+-darkcyan?style=flat-square)
-![](https://img.shields.io/badge/macOS-11+-darkcyan?style=flat-square)
+![](https://img.shields.io/badge/macOS-14+-darkcyan?style=flat-square)
 ![](https://img.shields.io/badge/watchOS-7+-darkcyan?style=flat-square)
 ![](https://img.shields.io/badge/tvOS-14+-darkcyan?style=flat-square)
 

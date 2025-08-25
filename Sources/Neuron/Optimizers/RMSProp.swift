@@ -17,6 +17,7 @@ public class RMSProp: BaseOptimizer {
   public init(_ trainable: Trainable,
               device: Device = CPU(),
               learningRate: Tensor.Scalar,
+              batchSize: Int,
               b: Tensor.Scalar = 0.9,
               eps: Tensor.Scalar = .stabilityFactor) {
     self.eps = eps
@@ -29,6 +30,7 @@ public class RMSProp: BaseOptimizer {
     
     super.init(trainable: trainable,
                learningRate: learningRate,
+               batchSize: batchSize,
                l2Normalize: false)
   }
   

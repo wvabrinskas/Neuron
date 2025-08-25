@@ -15,7 +15,7 @@ jobs:
          ./build.sh
         shell: bash
       - name: Upload artifact to Emerge
-        uses: EmergeTools/emerge-upload-action@v1.1.0
+        uses: EmergeTools/emerge-upload-action@v1.2.2
         with:
           artifact_path: Neuron.xcframework.zip
           emerge_api_key: ${{ secrets.EMERGE_API_KEY }}

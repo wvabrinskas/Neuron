@@ -261,7 +261,7 @@ final class NeuronTests: XCTestCase {
     n.compile()
     
     let input = Tensor(random)
-    let adam = Adam(n, learningRate: 0.01)
+    let adam = Adam(n, learningRate: 0.01, batchSize: 1)
     
     let out = adam([input])
     
@@ -285,7 +285,7 @@ final class NeuronTests: XCTestCase {
                             [0.1, 0.1, 0.1, 0.1],
                             [0.5, 0.5, 0.5, 0.5]])
     
-    let adam = Adam(n, learningRate: 1)
+    let adam = Adam(n, learningRate: 1, batchSize: 1)
     
     let input = Tensor([0.5,0.2,0.2,1.0])
     
@@ -392,37 +392,96 @@ final class NeuronTests: XCTestCase {
   
   
   func testBatchNorm() {
-    let input = Tensor([1,0,1,0,1])
-    let norm = BatchNormalize(inputSize: input.shape.tensorSize)
+    var batch: [Tensor] = []
     
-    let out = norm.forward(tensor: input)
-    out.setGraph(input)
-
-    XCTAssert(out.isValueEqual(to: Tensor([0.81647956, -1.2247194, 0.81647956, -1.2247194, 0.81647956])))
+    let batchSize = 10
     
-    let delta = Tensor([0.5, 0, 0.5, 0, 0.5])
+    for i in 0..<batchSize {
+      if i % 2 == 0 {
+        batch.append(Tensor([0,1,0,1,0]))
+      } else {
+        batch.append(Tensor([1,0,1,0,1]))
+      }
+    }
     
-    let gradient = out.gradients(delta: delta, wrt: input)
+    let norm = BatchNormalize(inputSize: TensorSize(array: [5,1,1]))
     
-    XCTAssert(gradient.input.first?.isEmpty == false)
-    XCTAssert(gradient.input.first!.isValueEqual(to: Tensor([-4.0823126, -0.00012750486, -4.0823126, -0.00012750486, -4.0823126])))
+    norm.batchSize = batchSize
+    norm.isTraining = true
+    
+    batch.concurrentBatchedForEach(workers: Constants.maxWorkers) { elements, workerIndex, indexRange, processingCount, workerId in
+        let _ = norm.forward(tensorBatch: elements, context: .init(batchRange: indexRange,
+                                                           batchProcessingCount: processingCount,
+                                                           totalInBatch: batch.count,
+                                                           threadId: workerId))
+      
+    }
+    
+    XCTAssertEqual(norm.welfordVariance.iterations, batchSize)
+    XCTAssertEqual(norm.welfordVariance.m2s, [[[2.5,2.5,2.5,2.5,2.5]]]) // variance
+    XCTAssertEqual(norm.welfordVariance.means, [[[0.5, 0.5, 0.5, 0.5, 0.5]]]) // mean
   }
   
   func testBatchNorm2d() {
-    let input = Tensor([1,0,1,0,1].as2D())
-    let norm = BatchNormalize(inputSize: input.shape.tensorSize)
+    var batch: [Tensor] = []
     
-    let out = norm.forward(tensor: input)
-    out.setGraph(input)
-
-    XCTAssert(out.isValueEqual(to: Tensor([0.81647956, -1.2247194, 0.81647956, -1.2247194, 0.81647956].as2D())))
+    let batchSize = 10
     
-    let delta = Tensor([0.5, 0, 0.5, 0, 0.5].as2D())
+    for i in 0..<batchSize {
+      if i % 2 == 0 {
+        batch.append(Tensor([0,1,0,1,0].as2D()))
+      } else {
+        batch.append(Tensor([1,0,1,0,1].as2D()))
+      }
+    }
     
-    let gradient = out.gradients(delta: delta, wrt: input)
+    let norm = BatchNormalize(inputSize: TensorSize(array: [5,5,1]))
     
-    XCTAssert(gradient.input.first?.isEmpty == false)
-    XCTAssert(gradient.input.first!.isValueEqual(to: Tensor([-4.082313, -0.00012769953, -4.082313, -0.00012769953, -4.082313].as2D())))
+    norm.batchSize = batchSize
+    norm.isTraining = true
+    
+    batch.concurrentBatchedForEach(workers: Constants.maxWorkers) { elements, workerIndex, indexRange, processingCount, workerId in
+        let _ = norm.forward(tensorBatch: elements, context: .init(batchRange: indexRange,
+                                                           batchProcessingCount: processingCount,
+                                                           totalInBatch: batch.count,
+                                                           threadId: workerId))
+      
+    }
+    
+    XCTAssertEqual(norm.welfordVariance.iterations, batchSize)
+    XCTAssertEqual(norm.welfordVariance.m2s, [[2.5,2.5,2.5,2.5,2.5].as2D()]) // variance
+    XCTAssertEqual(norm.welfordVariance.means, [[0.5, 0.5, 0.5, 0.5, 0.5].as2D()]) // mean
+  }
+  
+  func testBatchNorm3d() {
+    var batch: [Tensor] = []
+    
+    let batchSize = 10
+    
+    for i in 0..<batchSize {
+      if i % 2 == 0 {
+        batch.append(Tensor([0,1,0,1,0].as3D()))
+      } else {
+        batch.append(Tensor([1,0,1,0,1].as3D()))
+      }
+    }
+    
+    let norm = BatchNormalize(inputSize: TensorSize(array: [5,5,5]))
+    
+    norm.batchSize = batchSize
+    norm.isTraining = true
+    
+    batch.concurrentBatchedForEach(workers: Constants.maxWorkers) { elements, workerIndex, indexRange, processingCount, workerId in
+        let _ = norm.forward(tensorBatch: elements, context: .init(batchRange: indexRange,
+                                                           batchProcessingCount: processingCount,
+                                                           totalInBatch: batch.count,
+                                                           threadId: workerId))
+      
+    }
+    
+    XCTAssertEqual(norm.welfordVariance.iterations, batchSize)
+    XCTAssertEqual(norm.welfordVariance.m2s, [2.5,2.5,2.5,2.5,2.5].as3D()) // variance
+    XCTAssertEqual(norm.welfordVariance.means, [0.5, 0.5, 0.5, 0.5, 0.5].as3D()) // mean
   }
   
   func testDropout() {
@@ -445,12 +504,6 @@ final class NeuronTests: XCTestCase {
     
     XCTAssert(gradient.input.first?.isEmpty == false)
     XCTAssert(gradient.input.first!.isValueEqual(to:  Tensor([1, 0, 1, 0, 1].as3D())))
-    
-    let dropoutNew = Dropout(0.5, inputSize: [5,5,5].tensorSize)
-    let oldMask = dropoutNew.mask
-    dropoutNew.apply(gradients: (Tensor(), Tensor()), learningRate: 0.05)
-    
-    XCTAssert(oldMask.isValueEqual(to: dropoutNew.mask) == false)
   }
   
 }

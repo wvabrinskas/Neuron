@@ -1,0 +1,29 @@
+---
+description: Use when creating a new file
+globs:
+alwaysApply: true
+---
+
+## General Guidelines
+
+### Code Style:
+- Use descriptive variable and function names
+- Add comprehensive documentation comments
+- Follow Swift naming conventions
+- Use `public` visibility for API classes
+- Use `private` for implementation details
+
+### Error Handling:
+- Validate input dimensions and parameters
+- Provide meaningful error messages
+
+### Testing:
+- Create unit tests for new components
+- Test with different input sizes and batch sizes
+- Verify gradient computations are correct
+- Test serialization/deserialization
+
+### Performance:
+- Use NumSwift operations for mathematical computations
+- Minimize memory allocations in forward passes
+- Consider GPU compatibility when implementing operations

@@ -67,8 +67,9 @@ public struct ExportHelper: ModelBuilder {
       
     }
   }
-
-  internal static func buildModel<T: Trainable>(_ url: URL) -> Result<T, Error> {
+  
+  @_spi(Visualizer)
+  public static func buildModel<T: Trainable>(_ url: URL) -> Result<T, Error> {
     do {
       let data = try Data(contentsOf: url, options: .mappedIfSafe)
       return buildModel(data)

@@ -47,8 +47,10 @@ public protocol ConvolutionalLayer: Layer {
   var padding: NumSwift.ConvPadding { get }
 }
 
+public typealias TensorBatch = [Tensor]
 /// The the object that perform ML operations
 public protocol Layer: AnyObject, Codable {
+  var details: String { get }
   var encodingType: EncodingType { get set }
   var extraEncodables: [String: Codable]? { get }
   var inputSize: TensorSize { get set }
@@ -61,8 +63,10 @@ public protocol Layer: AnyObject, Codable {
   var initializer: Initializer? { get }
   var device: Device { get set }
   var usesOptimizer: Bool { get set }
+  var batchSize: Int { get set }
   @discardableResult
   func forward(tensor: Tensor, context: NetworkContext) -> Tensor
+  func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch
   func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar)
   func exportWeights() throws -> [Tensor]
   func importWeights(_ weights: [Tensor]) throws
@@ -89,6 +93,12 @@ extension Layer {
 }
 
 open class BaseLayer: Layer {
+  public var details: String {
+    """
+    Input: \(formatTensorSize(inputSize)) → Output: \(formatTensorSize(outputSize))
+    """
+  }
+  
   public var encodingType: EncodingType
   public var inputSize: TensorSize = .init() {
     didSet {
@@ -103,6 +113,8 @@ open class BaseLayer: Layer {
   public var isTraining: Bool = true
   public var initializer: Initializer?
   public var device: Device = CPU()
+  public var batchSize: Int = 1
+  
   // defines whether the gradients are run through the optimizer before being applied.
   // this could be useful if a layer manages its own weight updates
   public var usesOptimizer: Bool = true
@@ -135,12 +147,23 @@ open class BaseLayer: Layer {
     // override
   }
   
+  public func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
+    var result: TensorBatch = []
+    
+    for tensor in tensorBatch {
+      result.append(forward(tensor: tensor, context: context))
+    }
+    
+    return result
+  }
+  
   @discardableResult
-  public func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
+  public func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
     // override
     .init()
   }
   
+  // guarenteed to be single threaded operation
   public func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     // override
   }
@@ -180,9 +203,28 @@ open class BaseLayer: Layer {
       throw(LayerErrors.generic(error: "\(encodingType.rawValue.capitalized) expects weights of shape: \(currentShape). Got: \(incomingShape)"))
     }
   }
+  
+  private func formatTensorSize(_ size: TensorSize) -> String {
+    let array = size.asArray
+    if array.count <= 1 {
+      return "\(array.first ?? 0)"
+    }
+    return array.map(String.init).joined(separator: "×")
+  }
+  
 }
 
 open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
+  public override var details: String {
+    super.details +
+    """
+    \n
+    Filters: \(filterCount)
+    Strides: \(strides.rows)x\(strides.columns)
+    Padding: \(padding.asString)
+    """
+  }
+  
   public override var weights: Tensor {
     get {
       var reduce = filters
@@ -299,6 +341,11 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
 }
 
 open class BaseActivationLayer: BaseLayer, ActivationLayer {
+  
+  public override var details: String {
+      ""
+  }
+  
   public let type: Activation
 
   public init(inputSize: TensorSize = TensorSize(array: []),
@@ -342,5 +389,66 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
   
   override public func exportWeights() throws -> [Tensor] {
     [Tensor()]
+  }
+}
+
+extension NumSwift.ConvPadding {
+  var asString: String {
+    switch self {
+    case .valid: return "valid"
+    case .same: return "same"
+    }
+  }
+}
+
+
+
+open class BaseThreadBatchingLayer: BaseLayer {
+  let updateLock = NSLock()
+  @Atomic var iterations = 0
+  
+  open var shouldPerformBatching: Bool {
+    isTraining
+  }
+
+  private let condition = NSCondition()
+
+  public override func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
+    if shouldPerformBatching {
+      
+      condition.lock()
+      
+      for tensor in tensorBatch {
+        iterations += 1
+        performThreadBatchingForwardPass(tensor: tensor, context: context)
+      }
+      
+      let sizeToCheck = if context.totalInBatch != batchSize {
+        context.totalInBatch
+      } else {
+        batchSize
+      }
+      
+      if iterations == sizeToCheck {
+        condition.broadcast()
+      }
+      
+      while iterations < sizeToCheck {
+        condition.wait()
+      }
+      
+      condition.unlock()
+    }
+    
+    return super.forward(tensorBatch: tensorBatch, context: context)
+  }
+  
+  public override func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Tensor.Scalar) {
+    super.apply(gradients: gradients, learningRate: learningRate)
+    iterations = 0
+  }
+  
+  open func performThreadBatchingForwardPass(tensor: Tensor, context: NetworkContext) {
+    fatalError("must override")
   }
 }

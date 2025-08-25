@@ -26,6 +26,9 @@ public protocol Trainable: AnyObject, Codable, CustomDebugStringConvertible {
   /// The device to execute the ML ops and math ops on. Default: CPU()
   var device: Device { get set }
   
+  /// The current batch size. Default: 1
+  var batchSize: Int { get set }
+  
   /// Creates a Trainable object from a `.smodel` file.
   /// - Parameter url: The URL to the `.smodel` file.
   /// - Returns: The network built from the file.
@@ -36,6 +39,11 @@ public protocol Trainable: AnyObject, Codable, CustomDebugStringConvertible {
   /// - Returns: The output of the network
   func predict(_ data: Tensor, context: NetworkContext) -> Tensor
   
+  /// Performs a forward pass on the network
+  /// - Parameter batch: The batch of inputs
+  /// - Returns: An array of outputs
+  func predict(batch: TensorBatch, context: NetworkContext) -> TensorBatch 
+
   /// Compiles the network, getting it ready to be trained.
   func compile()
   
