@@ -195,7 +195,7 @@ open class BaseOptimizer: Optimizer {
         }
         
         if requiresGradients {
-          let lossGradient = lossFunction.derivative(out, correct: labels[index])
+          let lossGradient = lossFunction.derivative(out, correct: Tensor(label))
           let gradient = out.gradients(delta: lossGradient, wrt: input)
           accumulator.insert(gradient)
         }
