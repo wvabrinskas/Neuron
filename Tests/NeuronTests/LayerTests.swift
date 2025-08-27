@@ -12,6 +12,58 @@ import NumSwift
 
 final class LayerTests: XCTestCase {
   
+  func testGlobalAveragePool() {
+    let inputSize: TensorSize = .init(rows: 16, columns: 16, depth: 16)
+    
+    let layer = GlobalAvgPool(inputSize: inputSize)
+    
+    XCTAssertEqual(layer.outputSize, .init(rows: 1, columns: inputSize.depth, depth: 1))
+    
+    let input = Tensor.fillWith(value: 0.5, size: inputSize)
+    
+    let out = layer.forward(tensor: input, context: .init())
+    
+    XCTAssertEqual(TensorSize(array: out.shape).columns, inputSize.depth)
+    
+    let error = Tensor.fillWith(value: 0.1, size: layer.outputSize)
+    
+    let gradients = out.gradients(delta: error, wrt: input)
+    
+    XCTAssertNotNil(gradients.input[safe: 0])
+    
+    let wrtInput = gradients.input[safe: 0]!
+    
+    XCTAssertEqual(TensorSize(array: wrtInput.shape), inputSize)
+    
+    let expectedGradient = Tensor.fillWith(value: 0.1 / (inputSize.rows.asTensorScalar * inputSize.columns.asTensorScalar),
+                                           size: inputSize)
+    
+    let flatGradient = expectedGradient.value.flatten()
+    
+    for g in flatGradient {
+      XCTAssertEqual(g,  0.1 / (inputSize.rows.asTensorScalar * inputSize.columns.asTensorScalar), accuracy: 0.0001)
+    }
+  }
+  
+  func testResNetDecodeEncode() {
+    let inputSize: TensorSize = .init(rows: 16, columns: 16, depth: 1)
+
+    let resNet = ResNet(inputSize: inputSize, filterCount: 8, stride: 1)
+    
+    let expectedWeights = resNet.weights
+    
+    do {
+      let jsonOut = try JSONEncoder().encode(resNet)
+      let jsonIn = try JSONDecoder().decode(ResNet.self, from: jsonOut)
+      
+      let outWeights = jsonIn.weights
+      
+      XCTAssertTrue(expectedWeights.isValueEqual(to: outWeights))
+    } catch {
+      XCTFail(error.localizedDescription)
+    }
+  }
+  
   func testResNet() {
     let inputSize: TensorSize = .init(rows: 64, columns: 64, depth: 3)
 

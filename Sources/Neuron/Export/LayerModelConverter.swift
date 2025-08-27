@@ -58,6 +58,8 @@ public struct LayerModelConverter {
       layer = try getLayer(layer: SeLu.self, container: con)
     case .resNet:
       layer = try getLayer(layer: ResNet.self, container: con)
+    case .globalAvgPool:
+      layer = try getLayer(layer: GlobalAvgPool.self, container: con)
     case .none:
       layer = nil
     }

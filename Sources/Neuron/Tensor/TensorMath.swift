@@ -1,6 +1,6 @@
 //
 //  File.swift
-//  
+//
 //
 //  Created by William Vabrinskas on 6/27/22.
 //
@@ -25,24 +25,24 @@ public extension Float16 {
 public extension Tensor {
   typealias MathBlock = (_ feature: [Scalar]) -> Scalar
   typealias MathAlongBlock = (_ feature: [Scalar], _ value: ([Scalar]?, Scalar?)) -> [Scalar]
-
+  
   /*
-       +--------+
-      /        /|
-     /        Z |
-    +---X----+  |
-    |        |  |
-    |   -1   Y  +
-    |        | /
-    |        |/
-    +--------+
-    Along axis 0 the Tensor of shape AxBxC, where A is the columns, B is the rows, and C is the depth, would perform a mathematical function along the Y axis returning a (Ax1xC) Tensor
-
-    Along axis 1 the Tensor of shape AxBxC, where A is the columns, B is the rows, and C is the depth, would perform a mathematical function along the X axis returning a (1xBxC) Tensor
-
-    Along axis 2 the Tensor of shape AxBxC, where A is the columns, B is the rows, and C is the depth, would perform a mathematical function along the Z axis returning a (AxBx1) Tensor
-
-    Along axis -1 the Tensor of shape AxBxC, where A is the columns, B is the rows, and C is the depth, would perform a mathematical function along the Z axis returning a (1x1x1) Tensor Scalar
+   +--------+
+   /        /|
+   /        Z |
+   +---X----+  |
+   |        |  |
+   |   -1   Y  +
+   |        | /
+   |        |/
+   +--------+
+   Along axis 0 the Tensor of shape AxBxC, where A is the columns, B is the rows, and C is the depth, would perform a mathematical function along the Y axis returning a (Ax1xC) Tensor
+   
+   Along axis 1 the Tensor of shape AxBxC, where A is the columns, B is the rows, and C is the depth, would perform a mathematical function along the X axis returning a (1xBxC) Tensor
+   
+   Along axis 2 the Tensor of shape AxBxC, where A is the columns, B is the rows, and C is the depth, would perform a mathematical function along the Z axis returning a (AxBx1) Tensor
+   
+   Along axis -1 the Tensor of shape AxBxC, where A is the columns, B is the rows, and C is the depth, would perform a mathematical function along the Z axis returning a (1x1x1) Tensor Scalar
    */
   func apply(axis: Int, _ block: MathBlock) -> Tensor {
     let shape = shape
@@ -58,16 +58,16 @@ public extension Tensor {
         var resultRow: [Scalar] = []
         for x in 0..<columns {
           var workingRow: [Scalar] = []
-
+          
           for y in 0..<rows {
             workingRow.append(feature[y][x])
           }
-            
+          
           resultRow.append(block(workingRow))
         }
         featureResults.append([resultRow])
       }
-
+      
       result = featureResults
       
     } else if axis == 1  {
@@ -82,12 +82,12 @@ public extension Tensor {
         
         featureResults.append(result)
       }
-                         
+      
       result = featureResults
-                        
+      
     } else if axis == 2 {
       var featureResults: [[Scalar]] = []
-        
+      
       for r in 0..<rows {
         var results: [Scalar] = []
         for c in 0..<columns {
@@ -133,7 +133,7 @@ public extension Tensor {
   func applyAlong(axis: Int, input: Tensor, _ block: MathAlongBlock) -> Tensor {
     let shape = input.shape
     let size = TensorSize(array: shape)
-
+    
     let selfShape = self.shape
     let selfSize = TensorSize(array: selfShape)
     
@@ -202,7 +202,7 @@ public extension Tensor {
     let out = applyAlong(axis: axis, input: value, block).value
     
     let new = Tensor(out, context: context)
-
+    
     new.setGraph(self)
     new.setGraph(value)
     
@@ -227,10 +227,10 @@ public extension Tensor {
     let out = applyAlong(axis: axis, input: value, block).value
     
     let new = Tensor(out, context: context)
-
+    
     new.setGraph(self)
     new.setGraph(value)
-
+    
     return new
   }
   
@@ -253,10 +253,10 @@ public extension Tensor {
     let out = applyAlong(axis: axis, input: value, block).value
     
     let new = Tensor(out, context: context)
-
+    
     new.setGraph(self)
     new.setGraph(value)
-
+    
     return new
   }
   
@@ -278,10 +278,10 @@ public extension Tensor {
     let out = applyAlong(axis: axis, input: value, block).value
     
     let new = Tensor(out, context: context)
-
+    
     new.setGraph(self)
     new.setGraph(value)
-
+    
     return new
   }
   
@@ -328,7 +328,7 @@ public extension Tensor {
     return apply(axis: axis, block)
   }
   
-  func split(into: Int, axis: Int = 2) -> [Tensor] {    
+  func split(into: Int, axis: Int = 2) -> [Tensor] {
     if axis == 2 { // along depth
       return self.value.batched(into: into).map { Tensor($0) }
     }
@@ -352,7 +352,7 @@ public extension Tensor {
       var result: [Tensor] = []
       for d in 0..<value.count {
         var row: [Tensor] = []
-
+        
         for r in 0..<rows {
           if row.isEmpty {
             let col = value[d][r].batched(into: into).map { Tensor($0) }
@@ -388,7 +388,7 @@ public extension Tensor {
       let sumOSquares = (feature - mean).sumOfSquares
       
       let count = feature.count
-            
+      
       return sumOSquares / Tensor.Scalar(count)
     }
     
@@ -490,7 +490,7 @@ public extension Tensor {
         }
       }
     }
-
+    
     return Tensor(new, context: context)
   }
   
@@ -513,7 +513,7 @@ public extension Tensor {
     
     return Tensor(result, context: context)
   }
-
+  
   static func /(lhs: Scalar, rhs: Tensor) -> Tensor {
     let newTensorValue = lhs / rhs.value
     return Tensor(newTensorValue, context: rhs.context)
@@ -576,7 +576,7 @@ public extension Tensor {
     
     new.setGraph(lhs)
     new.setGraph(rhs)
-
+    
     return new
   }
   
@@ -599,7 +599,7 @@ public extension Tensor {
     
     new.setGraph(lhs)
     new.setGraph(rhs)
-
+    
     return new
   }
   
@@ -622,7 +622,7 @@ public extension Tensor {
     
     new.setGraph(lhs)
     new.setGraph(rhs)
-
+    
     return new
   }
   
@@ -645,7 +645,7 @@ public extension Tensor {
     
     new.setGraph(lhs)
     new.setGraph(rhs)
-
+    
     return new
   }
   
@@ -657,7 +657,7 @@ public extension Tensor {
     
     return Tensor(NumSwift.zerosLike((rows, columns, depth)))
   }
-
+  
   func onesLike() -> Tensor {
     let shape = shape
     let rows = shape[safe: 1, 0]
@@ -706,7 +706,7 @@ extension Array where Element == Tensor {
   
   func gradients(_ deltas: [Tensor], wrt: [Tensor]) -> [Tensor.Gradient] {
     var result = [Tensor.Gradient](repeating: .init(),
-                                      count: deltas.count)
+                                   count: deltas.count)
     
     let workerCount = Constants.maxWorkers
     deltas.concurrentForEach(workers: workerCount) { element, index in
@@ -813,7 +813,25 @@ extension Array where Element == Tensor {
 }
 
 public extension Tensor {
- static func fillWith(value: Tensor.Scalar, size: TensorSize) -> Tensor {
+  static func fillRandom(in range: ClosedRange<Tensor.Scalar> = 0...1, size: TensorSize) -> Tensor {
+    var result: [[[Tensor.Scalar]]]  = []
+    
+    for _ in 0..<size.depth {
+      var row: [[Tensor.Scalar]] = []
+      for _ in 0..<size.rows {
+        var column: [Tensor.Scalar] = []
+        for _ in 0..<size.columns {
+          column.append(Tensor.Scalar.random(in: range))
+        }
+        row.append(column)
+      }
+      result.append(row)
+    }
+    
+    return Tensor(result)
+  }
+  
+  static func fillWith(value: Tensor.Scalar, size: TensorSize) -> Tensor {
     var result: [[[Tensor.Scalar]]]  = []
     
     for _ in 0..<size.depth {
@@ -823,7 +841,7 @@ public extension Tensor {
       }
       result.append(row)
     }
-
+    
     return Tensor(result)
   }
 }
