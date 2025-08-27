@@ -27,9 +27,9 @@ public extension Tensor {
   typealias MathAlongBlock = (_ feature: [Scalar], _ value: ([Scalar]?, Scalar?)) -> [Scalar]
   
   /*
-   +--------+
-   /        /|
-   /        Z |
+      +--------+
+     /        /|
+    /        Z |
    +---X----+  |
    |        |  |
    |   -1   Y  +
