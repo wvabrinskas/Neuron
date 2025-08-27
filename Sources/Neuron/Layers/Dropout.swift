@@ -29,7 +29,6 @@ public final class Dropout: BaseLayer {
     self.chance = max(min(chance, 1.0), 0.0)
     
     super.init(inputSize: inputSize,
-               initializer: nil,
                biasEnabled: false,
                encodingType: .dropout)
   }

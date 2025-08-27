@@ -9,7 +9,6 @@ import NumSwift
 public final class GlobalAvgPool: BaseLayer {
   public init(inputSize: TensorSize = TensorSize(array: [])) {
     super.init(inputSize: inputSize,
-               initializer: nil,
                biasEnabled: false,
                encodingType: .globalAvgPool)
   }

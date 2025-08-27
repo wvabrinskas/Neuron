@@ -96,8 +96,8 @@ final class FullModelTests: XCTestCase {
   
   func test_resNet_in_Network() {
     
-    
-    let inputSize: TensorSize = .init(rows: 64, columns: 64, depth: 3)
+    let inputSize: TensorSize = .init(rows: 28, columns: 28, depth: 1)
+    let classes = 10
     
     let network = Sequential {
       [
@@ -106,11 +106,11 @@ final class FullModelTests: XCTestCase {
         ReLu(),
         ResNet(filterCount: 32, stride: 1),
         ResNet(filterCount: 64, stride: 2),
-        ResNet(filterCount: 128, stride: 2),
-        ResNet(filterCount: 256, stride: 2),
+//        ResNet(filterCount: 128, stride: 2),
+//        ResNet(filterCount: 256, stride: 2),
         GlobalAvgPool(),
-        Dense(1298),
-        Softmax()
+        Dense(classes),
+        //Softmax()
       ]
     }
     

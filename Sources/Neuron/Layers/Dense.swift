@@ -89,8 +89,8 @@ public final class Dense: BaseLayer {
     for _ in 0..<outputSizeCount {
       var weightsForNode: [Tensor.Scalar] = []
       for _ in 0..<inputs {
-        let w = initializer?.calculate(input: inputs,
-                                       out: outputSizeCount) ?? Tensor.Scalar.random(in: -1...1)
+        let w = initializer.calculate(input: inputs,
+                                       out: outputSizeCount)
         weightsForNode.append(w)
       }
       

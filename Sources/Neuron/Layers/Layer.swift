@@ -62,7 +62,7 @@ public protocol Layer: AnyObject, Codable {
   var biasEnabled: Bool { get set }
   var trainable: Bool { get set }
   var isTraining: Bool { get set }
-  var initializer: Initializer? { get }
+  var initializer: Initializer { get }
   var device: Device { get set }
   var usesOptimizer: Bool { get set }
   var batchSize: Int { get set }
@@ -113,7 +113,7 @@ open class BaseLayer: Layer {
   public var biasEnabled: Bool = false
   public var trainable: Bool = true
   public var isTraining: Bool = true
-  public var initializer: Initializer?
+  public var initializer: Initializer
   public var device: Device = CPU()
   public var batchSize: Int = 1
   
@@ -122,11 +122,11 @@ open class BaseLayer: Layer {
   public var usesOptimizer: Bool = true
   
   public init(inputSize: TensorSize? = nil,
-              initializer: InitializerType? = nil,
+              initializer: InitializerType = Constants.defaultInitializer,
               biasEnabled: Bool = false,
               encodingType: EncodingType) {
     self.inputSize = inputSize ?? TensorSize(array: [])
-    self.initializer = initializer?.build()
+    self.initializer = initializer.build()
     self.biasEnabled = biasEnabled
     self.encodingType = encodingType
     
@@ -325,8 +325,8 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
           var filterRow: [Tensor.Scalar] = []
           
           for _ in 0..<filterSize.1 {
-            let weight = initializer?.calculate(input: inputSize.depth * filterSize.rows * filterSize.columns,
-                                                out: inputSize.depth * filterSize.rows * filterSize.columns) ?? Tensor.Scalar.random(in: -1...1)
+            let weight = initializer.calculate(input: inputSize.depth * filterSize.rows * filterSize.columns,
+                                                out: inputSize.depth * filterSize.rows * filterSize.columns)
             filterRow.append(weight)
           }
           
@@ -355,7 +355,6 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
               encodingType: EncodingType) {
     self.type = type
     super.init(inputSize: inputSize,
-               initializer: nil,
                biasEnabled: false,
                encodingType: encodingType)
     

@@ -42,7 +42,6 @@ public final class LayerNormalize: BaseLayer {
     self.gamma = gamma
     
     super.init(inputSize: inputSize,
-               initializer: nil,
                biasEnabled: false,
                encodingType: .layerNormalize)
     

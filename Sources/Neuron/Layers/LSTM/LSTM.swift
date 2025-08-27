@@ -475,9 +475,7 @@ public final class LSTM: BaseLayer {
     cellCache.clear()
   }
 
-  private func initializeWeights() {
-    guard let initializer = self.initializer else { return }
-        
+  private func initializeWeights() {        
     let totalInputSize = inputUnits + hiddenUnits
     let weightSize = TensorSize(rows: totalInputSize,
                                 columns: hiddenUnits,

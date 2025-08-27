@@ -19,7 +19,6 @@ public final class Reshape: BaseLayer {
   public init(to size: TensorSize, inputSize: TensorSize? = nil) {
     reshapeSize = size
     super.init(inputSize: inputSize,
-               initializer: nil,
                biasEnabled: false,
                encodingType: .reshape)
   }

@@ -58,13 +58,14 @@ public final class ResNet: BaseLayer {
   }
   
   public init(inputSize: TensorSize? = nil,
+              initializer: InitializerType = Constants.defaultInitializer,
               filterCount: Int,
               stride: Int = 1) {
     self.filterCount = filterCount
     self.stride = stride
     
     super.init(inputSize: inputSize,
-               initializer: nil,
+               initializer: initializer,
                biasEnabled: false,
                encodingType: .resNet)
   }
@@ -76,7 +77,7 @@ public final class ResNet: BaseLayer {
   override public func onInputSizeSet() {
     /// do something when the input size is set when calling `compile` on `Sequential`
     // build sequential?
-    let initializer = self.initializer?.type ?? .heNormal
+    let initializer = initializer.type
         
     if innerBlockSequential.layers.isEmpty {
       innerBlockSequential.layers = [
@@ -153,7 +154,8 @@ public final class ResNet: BaseLayer {
   public override func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
     // we detach the input tensor because we want to stop at this tensor in respect to this sequential
     // not all the way up the graph to possibly other input layers
-    let blockOut = innerBlockSequential(tensor.detached(), context: context)
+    let detachedInput = tensor.detached()
+    let blockOut = innerBlockSequential(detachedInput, context: context)
     
     // set a copied input so we can separate the input tensors of the two paths.
     // this allows us to pull the gradients wrt to each input
@@ -172,30 +174,28 @@ public final class ResNet: BaseLayer {
     let tensorContext = TensorContext { [accumulator, shortCutAccumulator, shouldProjectInput, innerBlockSequential, shortcutSequential] inputs, gradient in
             
       // backprop all the way through the the sequentials because the graphs are built automatically for us
-      let reluGradients = reLuOut.gradients(delta: gradient, wrt: tensor)
+      let reluGradients = reLuOut.gradients(delta: gradient, wrt: detachedInput)
       let reluGradientsWrtProjectedInput = reLuOut.gradients(delta: gradient, wrt: copiedInputTensor)
       
-      // because the input is used in two paths we can just sum the gradients...
-      let wrtInputs = reluGradients.input[safe: 0, Tensor()] + reluGradientsWrtProjectedInput.input[safe: 0, Tensor()]
-      
-      let blockGradientsInput = Array(reluGradients.input[0..<innerBlockSequential.layers.count])
       let blockGradientsWeights = Array(reluGradients.weights[0..<innerBlockSequential.layers.count])
       let blockGradientsBiases = Array(reluGradients.biases[0..<innerBlockSequential.layers.count])
 
-      accumulator.insert(.init(input: blockGradientsInput,
+      accumulator.insert(.init(input: [], // we dont need these
                                weights: blockGradientsWeights,
                                biases: blockGradientsBiases))
       
       if shouldProjectInput {
-        let shortCutGradientsInput = Array(reluGradientsWrtProjectedInput.input[0..<shortcutSequential.layers.count])
         let shortCutGradientsWeights = Array(reluGradientsWrtProjectedInput.weights[0..<shortcutSequential.layers.count])
         let shortCutGradientsBiases = Array(reluGradientsWrtProjectedInput.biases[0..<shortcutSequential.layers.count])
 
-        shortCutAccumulator.insert(.init(input: shortCutGradientsInput,
+        shortCutAccumulator.insert(.init(input: [], // we dont need these
                                          weights: shortCutGradientsWeights,
                                          biases: shortCutGradientsBiases))
         
       }
+      
+      // because the input is used in two paths we can just sum the gradients...
+      let wrtInputs = reluGradients.input[safe: 0, Tensor()] + 1 // + 1 because wrt to the input skip path is 1
       
       return (wrtInputs, Tensor(), Tensor())
     }
