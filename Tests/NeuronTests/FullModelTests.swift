@@ -122,7 +122,7 @@ final class FullModelTests: XCTestCase {
 
     let out = network(input, context: .init())
         
-    XCTAssertEqual(TensorSize(array: out.shape), .init(array: [1298,1,1]))
+    XCTAssertEqual(TensorSize(array: out.shape), .init(array: [classes,1,1]))
     
 //    let error = Tensor.fillRandom(size: .init(array: [1298,1,1]))
 //    
