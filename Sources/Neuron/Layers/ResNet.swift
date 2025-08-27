@@ -151,32 +151,31 @@ public final class ResNet: BaseLayer {
   }
   
   public override func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
-    let blockOut = innerBlockSequential(tensor, context: context)
+    // we detach the input tensor because we want to stop at this tensor in respect to this sequential
+    // not all the way up the graph to possibly other input layers
+    let blockOut = innerBlockSequential(tensor.detached(), context: context)
+    
     // set a copied input so we can separate the input tensors of the two paths.
     // this allows us to pull the gradients wrt to each input
-    let copiedInputTensor = Tensor(tensor.value)
+    let copiedInputTensor = tensor.copy()
 
     let tensorToAdd = if shouldProjectInput {
       // we project the input here to match the filter depth
       shortcutSequential(copiedInputTensor, context: context)
     } else {
-      tensor
+      copiedInputTensor
     }
 
     let skipOut = blockOut + tensorToAdd
     let reLuOut = outputRelu.forward(tensor: skipOut)
     
     let tensorContext = TensorContext { [accumulator, shortCutAccumulator, shouldProjectInput, innerBlockSequential, shortcutSequential] inputs, gradient in
-      
+            
       // backprop all the way through the the sequentials because the graphs are built automatically for us
       let reluGradients = reLuOut.gradients(delta: gradient, wrt: tensor)
       let reluGradientsWrtProjectedInput = reLuOut.gradients(delta: gradient, wrt: copiedInputTensor)
       
       // because the input is used in two paths we can just sum the gradients...
-      // TODO: I wonder if we could do this automatically in the gradient calculation where there's no WRT so we don't need to do this manually.
-      // that would also potentially solve the multiple gradients at a single layer issue. Ah but only do addition at the joined input.
-      // We would stil have the multiple gradients at a single level problem possibly.
-      // We might need to figure out how it's applied maybe? Is it ALWAYS an addition? I guess why not if both are contributing to the output
       let wrtInputs = reluGradients.input[safe: 0, Tensor()] + reluGradientsWrtProjectedInput.input[safe: 0, Tensor()]
       
       let blockGradientsInput = Array(reluGradients.input[0..<innerBlockSequential.layers.count])

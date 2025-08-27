@@ -275,6 +275,16 @@ public class Tensor: Equatable, Codable {
     return tensor
   }
   
+  /// Remove this Tensor from the graph, copies the value, changes the ID, and optionally removes or keeps the graph context.
+  /// - Returns: Copied Tensor
+  public func copy(keepContext: Bool = false) -> Tensor {
+    guard keepContext == false else {
+      return Tensor(value, context: context)
+    }
+    
+    return Tensor(value)
+  }
+  
   /// Gets the `Tensor.Scalar` value of this Tensors value. This is reserved for Tensor's that have a value of size `[1, 1, 1]` aka a `Scalar` as `[[[Scalar]]]`
   /// - Returns: The scalar value.
   public func asScalar() -> Scalar {
