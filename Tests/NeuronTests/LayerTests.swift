@@ -71,13 +71,13 @@ final class LayerTests: XCTestCase {
     
     let outputSize = resNet.outputSize
 
-    let input = Tensor.fillWith(value: 0.25, size: inputSize)
+    let input = Tensor.fillRandom(size: inputSize)
     
     let out = resNet.forward(tensor: input, context: .init())
         
     XCTAssertEqual(out.shape, outputSize.asArray)
     
-    let error = Tensor.fillWith(value: 0.5, size: outputSize)
+    let error = Tensor.fillRandom(size: outputSize)
     
     let gradients = out.gradients(delta: error)
     

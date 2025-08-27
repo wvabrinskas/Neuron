@@ -16,6 +16,17 @@ public final class ResNet: BaseLayer {
 
   private let filterCount: Int
   private let stride: Int
+  private var training: Bool = true
+  public override var isTraining: Bool {
+    get {
+      super.isTraining
+    }
+    set {
+      innerBlockSequential.isTraining = newValue
+      shortcutSequential.isTraining = newValue
+      super.isTraining = newValue
+    }
+  }
   
   public override var weights: Tensor {
     get {

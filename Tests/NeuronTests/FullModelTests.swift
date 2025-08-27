@@ -101,7 +101,7 @@ final class FullModelTests: XCTestCase {
     
     let network = Sequential {
       [
-        Conv2d(filterCount: 32, inputSize: inputSize, strides: (1,1), padding: .same, filterSize: (3,3)),
+        Conv2d(filterCount: 32, inputSize: inputSize, strides: (1,1), padding: .same, filterSize: (7,7)),
         BatchNormalize(),
         ReLu(),
         ResNet(filterCount: 32, stride: 1),
@@ -109,14 +109,14 @@ final class FullModelTests: XCTestCase {
 //        ResNet(filterCount: 128, stride: 2),
 //        ResNet(filterCount: 256, stride: 2),
         GlobalAvgPool(),
-        Dense(classes),
+        Dense(classes, biasEnabled: true),
         //Softmax()
       ]
     }
+        
+    network.compile()
     
     network.isTraining = true
-    
-    network.compile()
     
     let input = Tensor.fillRandom(size: inputSize)
 
@@ -124,11 +124,11 @@ final class FullModelTests: XCTestCase {
         
     XCTAssertEqual(TensorSize(array: out.shape), .init(array: [classes,1,1]))
     
-//    let error = Tensor.fillRandom(size: .init(array: [1298,1,1]))
-//    
-//    let gradient = out.gradients(delta: error, wrt: input)
-//    
-//    print(gradient)
+    let error = Tensor.fillRandom(size: .init(array: [classes,1,1]))
+    
+    let gradient = out.gradients(delta: error, wrt: input)
+    
+    print(gradient)
   }
   
   func test_setttingPropertyOnTrainable_Doesnt_Reset() {
