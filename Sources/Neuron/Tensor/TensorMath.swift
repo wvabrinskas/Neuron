@@ -195,8 +195,10 @@ public extension Tensor {
       }
     }
     
+    let copied = value.copy()
+    
     let context = TensorContext { inputs, gradient in
-      return (gradient * (1 / value), Tensor(), Tensor())
+      return (gradient * (1 / copied), Tensor(), Tensor())
     }
     
     let out = applyAlong(axis: axis, input: value, block).value
@@ -204,7 +206,7 @@ public extension Tensor {
     let new = Tensor(out, context: context)
     
     new.label = "division"
-
+    
     new.setGraph(self)
     new.setGraph(value)
     
@@ -222,8 +224,10 @@ public extension Tensor {
       }
     }
     
+    let copied = value.copy()
+
     let context = TensorContext { inputs, gradient in
-      return (gradient * value, Tensor(), Tensor())
+      return (gradient * copied, Tensor(), Tensor())
     }
     
     let out = applyAlong(axis: axis, input: value, block).value
@@ -286,7 +290,7 @@ public extension Tensor {
     let new = Tensor(out, context: context)
     
     new.label = "subtraction"
-
+    
     new.setGraph(self)
     new.setGraph(value)
     
@@ -626,8 +630,9 @@ public extension Tensor {
     
     let newTensor = left * right
     
+    let copied = rhs.copy()
     let context = TensorContext { inputs, gradient in
-      return (gradient * rhs, Tensor(), Tensor())
+      return (gradient * copied, Tensor(), Tensor())
     }
     
     let new = Tensor(newTensor, context: context)
@@ -651,14 +656,16 @@ public extension Tensor {
     
     let newTensor = left / right
     
+    let copied = rhs.copy()
     let context = TensorContext { inputs, gradient in
-      return (gradient * (1 / rhs), Tensor(), Tensor())
+      return (gradient * (1 / copied), Tensor(), Tensor())
     }
     
     let new = Tensor(newTensor, context: context)
     
     new.label = "division"
 
+    // causing a memory leak..
     new.setGraph(lhs)
     new.setGraph(rhs)
     

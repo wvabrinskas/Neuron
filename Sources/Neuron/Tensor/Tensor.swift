@@ -216,7 +216,7 @@ public class Tensor: Equatable, Codable {
   /// Sets the input graph to this Tensor
   /// - Parameter tensor: The tensor to insert into the graph
   public func setGraph(_ tensor: Tensor) {
-    self.graph[tensor.id] = tensor
+    graph[tensor.id] = tensor
     graphChain.insert(tensor.id)
     graphChain.formUnion(tensor.graphChain)
   }
