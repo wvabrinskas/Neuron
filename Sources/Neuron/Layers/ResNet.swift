@@ -13,7 +13,7 @@ public final class ResNet: BaseLayer {
   private let outputRelu = ReLu()
   private let accumulator = GradientAccumulator()
   private let shortCutAccumulator = GradientAccumulator()
-
+  
   private let filterCount: Int
   private let stride: Int
   private var training: Bool = true
@@ -44,7 +44,7 @@ public final class ResNet: BaseLayer {
       flatInnerBlockWeights.forEach { t in
         firstTensor = firstTensor.concat(t, axis: 2)
       }
-    
+      
       return firstTensor
     }
     
@@ -59,7 +59,7 @@ public final class ResNet: BaseLayer {
       } else {
         innerBlockCount
       }
-
+      
       // todo: figure out how to apply weights
     }
   }
@@ -84,12 +84,12 @@ public final class ResNet: BaseLayer {
   enum CodingKeys: String, CodingKey {
     case inputSize, type, filterCount, stride, innerBlockSequential, shortcutSequential
   }
-
+  
   override public func onInputSizeSet() {
     /// do something when the input size is set when calling `compile` on `Sequential`
     // build sequential?
     let initializer = initializer.type
-        
+    
     if innerBlockSequential.layers.isEmpty {
       innerBlockSequential.layers = [
         Conv2d(filterCount: filterCount,
@@ -123,7 +123,7 @@ public final class ResNet: BaseLayer {
     
     innerBlockSequential.compile()
     shortcutSequential.compile()
-
+    
     if shouldProjectInput {
       let outputSize = shortcutSequential.layers.last!.outputSize
       outputRelu.inputSize = outputSize
@@ -141,7 +141,7 @@ public final class ResNet: BaseLayer {
     let stride = try container.decodeIfPresent(Int.self, forKey: .stride) ?? 1
     
     self.init(filterCount: filterCount, stride: stride)
-        
+    
     let innerBlockSequential = try container.decodeIfPresent(Sequential.self, forKey: .innerBlockSequential) ?? Sequential()
     let shortcutSequential = try container.decodeIfPresent(Sequential.self, forKey: .shortcutSequential) ?? Sequential()
     
@@ -162,37 +162,99 @@ public final class ResNet: BaseLayer {
     try container.encode(shortcutSequential, forKey: .shortcutSequential)
   }
   
+  public override func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
+    // we need to pass the full batch to BatchNormalize to calculate the global mean on each batch. Just like what happens when it's outside of the optimizer
+    let detachedInputs = tensorBatch.map { $0.detached() }
+    let blockOuts = innerBlockSequential.predict(batch: detachedInputs, context: context)
+    
+    // set a copied input so we can separate the input tensors of the two paths.
+    // this allows us to pull the gradients wrt to each input
+    let copiedInputTensors = tensorBatch.map { $0.copy() }
+    
+    let tensorToAdd = if shouldProjectInput {
+      // we project the input here to match the filter depth
+      shortcutSequential.predict(batch: copiedInputTensors, context: context)
+    } else {
+      copiedInputTensors
+    }
+    
+    let skipOut = blockOuts + tensorToAdd
+    
+    let reLuOuts = outputRelu.forward(tensorBatch: skipOut, context: context)
+    
+    var outs: TensorBatch = []
+    
+    for (i, reLuOut) in reLuOuts.enumerated() {
+      let tensor = tensorBatch[i]
+      let detachedInput = detachedInputs[i]
+      let copiedInputTensor = copiedInputTensors[i]
+      
+      let out = buildForward(input: tensor,
+                             reLuOut: reLuOut,
+                             detachedInput: detachedInput,
+                             copiedInputTensor: copiedInputTensor)
+      outs.append(out)
+    }
+    
+    return outs
+  }
+  
   public override func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
     // we detach the input tensor because we want to stop at this tensor in respect to this sequential
     // not all the way up the graph to possibly other input layers
     let detachedInput = tensor.detached()
-    let blockOut = innerBlockSequential.predict(batch: [detachedInput], context: .init())[safe: 0, Tensor()]
+    let blockOut = innerBlockSequential.predict(batch: [detachedInput], context: context)[safe: 0, Tensor()]
     
     // set a copied input so we can separate the input tensors of the two paths.
     // this allows us to pull the gradients wrt to each input
     let copiedInputTensor = tensor.copy()
-
+    
     let tensorToAdd = if shouldProjectInput {
       // we project the input here to match the filter depth
-      shortcutSequential.predict(batch: [copiedInputTensor], context: .init())[safe: 0, Tensor()]
+      shortcutSequential.predict(batch: [copiedInputTensor], context: context)[safe: 0, Tensor()]
     } else {
       copiedInputTensor
     }
-
+    
     tensorToAdd.label = "tensorToAdd"
     
     let skipOut = blockOut + tensorToAdd
     let reLuOut = outputRelu.forward(tensor: skipOut)
     
+    let out = buildForward(input: tensor,
+                           reLuOut: reLuOut,
+                           detachedInput: detachedInput,
+                           copiedInputTensor: copiedInputTensor)
+    
+    // forward calculation
+    return out
+  }
+  
+  public override func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Tensor.Scalar) {
+    
+    let sequentialGradients = accumulator.accumulate()
+    innerBlockSequential.apply(gradients: sequentialGradients, learningRate: learningRate)
+    accumulator.clear()
+    
+    if shouldProjectInput {
+      let shortCutGradients = shortCutAccumulator.accumulate()
+      shortcutSequential.apply(gradients: shortCutGradients, learningRate: learningRate)
+      shortCutAccumulator.clear()
+    }
+  }
+  
+  // MARK: - Private
+  
+  private func buildForward(input: Tensor, reLuOut: Tensor, detachedInput: Tensor, copiedInputTensor: Tensor) -> Tensor {
     let tensorContext = TensorContext { [accumulator, shortCutAccumulator, shouldProjectInput, innerBlockSequential, shortcutSequential] inputs, gradient in
-            
+      
       // backprop all the way through the the sequentials because the graphs are built automatically for us
       let reluGradients = reLuOut.gradients(delta: gradient, wrt: detachedInput)
       let reluGradientsWrtProjectedInput = reLuOut.gradients(delta: gradient, wrt: copiedInputTensor)
       
       let blockGradientsWeights = Array(reluGradients.weights[0..<innerBlockSequential.layers.count])
       let blockGradientsBiases = Array(reluGradients.biases[0..<innerBlockSequential.layers.count])
-
+      
       accumulator.insert(.init(input: [], // we dont need these
                                weights: blockGradientsWeights,
                                biases: blockGradientsBiases))
@@ -200,7 +262,7 @@ public final class ResNet: BaseLayer {
       if shouldProjectInput {
         let shortCutGradientsWeights = Array(reluGradientsWrtProjectedInput.weights[0..<shortcutSequential.layers.count])
         let shortCutGradientsBiases = Array(reluGradientsWrtProjectedInput.biases[0..<shortcutSequential.layers.count])
-
+        
         shortCutAccumulator.insert(.init(input: [], // we dont need these
                                          weights: shortCutGradientsWeights,
                                          biases: shortCutGradientsBiases))
@@ -220,23 +282,9 @@ public final class ResNet: BaseLayer {
     
     let out = Tensor(reLuOut.value, context: tensorContext)
     
-    out.setGraph(tensor)
+    out.setGraph(input)
     
-    // forward calculation
     return out
-  }
-  
-  public override func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Tensor.Scalar) {
-    
-    let sequentialGradients = accumulator.accumulate()
-    innerBlockSequential.apply(gradients: sequentialGradients, learningRate: learningRate)
-    accumulator.clear()
-
-    if shouldProjectInput {
-      let shortCutGradients = shortCutAccumulator.accumulate()
-      shortcutSequential.apply(gradients: shortCutGradients, learningRate: learningRate)
-      shortCutAccumulator.clear()
-    }
   }
 }
 
