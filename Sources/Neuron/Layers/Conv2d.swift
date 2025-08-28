@@ -201,29 +201,41 @@ public class Conv2d: BaseConvolutionalLayer {
       let fShape: [Int] = filter.shape
       
       //TODO: figure out valid with strides. need to pad right and bottom for filter
+      //let sShape = signal.shape
       //
-      //
-      //      if padding == .valid {
-      //        let filterPadding = NumSwift.ConvPadding.same.extra(inputSize: filterSize,
-      //                                                            filterSize: (sShape[safe: 1, 0], sShape[safe: 0, 0]),
-      //                                                            stride: (1,1))
-      //
-      //        filter = filter.zeroPad(padding: NumSwiftPadding(top: filterPadding.top - (filterSize.rows - 1),
-      //                                                         left: filterPadding.left - (filterSize.rows - 1),
-      //                                                         right: filterPadding.right - (filterSize.rows - 1),
-      //                                                         bottom: filterPadding.bottom - (filterSize.rows - 1)))
-      //        fShape = filter.shape
-      //      }
+//      if padding == .valid {
+//        let filterPadding = NumSwift.ConvPadding.same.extra(inputSize: filterSize,
+//                                                            filterSize: (sShape[safe: 1, 0], sShape[safe: 0, 0]),
+//                                                            stride: (1,1))
+//
+//        filter = filter.zeroPad(padding: NumSwiftPadding(top: filterPadding.top - (filterSize.rows - 1),
+//                                                         left: filterPadding.left - (filterSize.rows - 1),
+//                                                         right: filterPadding.right - (filterSize.rows - 1),
+//                                                         bottom: filterPadding.bottom - (filterSize.rows - 1)))
+//        fShape = filter.shape
+//      }
       
       let newFilterSize = (fShape[safe: 1] ?? 0, fShape[safe: 0] ?? 0)
       
-      let result = device.conv2d(signal: signal,
-                                 filter: filter,
-                                 strides: strides, // should this be strides of the parent?
-                                 padding: .valid,
-                                 filterSize: newFilterSize,
-                                 inputSize: convInputSize,
-                                 outputSize: nil)
+      let result = if filterSize.columns == 1 || filterSize.rows == 1 {
+        device.conv2d(signal: signal,
+                      filter: filter,
+                      strides: strides, // should this be strides of the parent?
+                      padding: .valid,
+                      filterSize: newFilterSize,
+                      inputSize: convInputSize,
+                      outputSize: nil)
+        
+      } else {
+        device.conv2d(signal: signal,
+                      filter: filter,
+                      strides: (1,1), // should this be strides of the parent?
+                      padding: .valid,
+                      filterSize: newFilterSize,
+                      inputSize: convInputSize,
+                      outputSize: nil)
+        
+      }
       
       newGradientsForFilters.append(result)
     }

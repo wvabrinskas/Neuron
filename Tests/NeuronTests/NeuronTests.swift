@@ -201,7 +201,7 @@ final class NeuronTests: XCTestCase {
   func testConv2d_1x1_Filter() {
     let inputSize = TensorSize(array: [28,28,1])
     
-    let filterCount = 1
+    let filterCount = 12
     
     let input = Tensor.fillRandom(size: inputSize)
     
@@ -216,10 +216,15 @@ final class NeuronTests: XCTestCase {
     let out = conv.forward(tensor: input)
     
     let gradients = Tensor.fillRandom(size: conv.outputSize)
+    
+    XCTAssertEqual(conv.outputSize.asArray, [14,14,filterCount])
+
     let backward = out.gradients(delta: gradients, wrt: input)
     
-    print(backward)
-    
+    XCTAssertEqual(backward.weights.first?.shape, [1,1,filterCount])
+
+    // assert that it doesnt crash
+    conv.apply(gradients: (backward.weights[0], backward.biases[0]), learningRate: 0.001)
   }
   
   func testConv2d() {
