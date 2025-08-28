@@ -203,6 +203,8 @@ public extension Tensor {
     
     let new = Tensor(out, context: context)
     
+    new.label = "division"
+
     new.setGraph(self)
     new.setGraph(value)
     
@@ -228,6 +230,8 @@ public extension Tensor {
     
     let new = Tensor(out, context: context)
     
+    new.label = "multiplication"
+
     new.setGraph(self)
     new.setGraph(value)
     
@@ -254,6 +258,8 @@ public extension Tensor {
     
     let new = Tensor(out, context: context)
     
+    new.label = "addition"
+
     new.setGraph(self)
     new.setGraph(value)
     
@@ -279,6 +285,8 @@ public extension Tensor {
     
     let new = Tensor(out, context: context)
     
+    new.label = "subtraction"
+
     new.setGraph(self)
     new.setGraph(value)
     
@@ -574,6 +582,8 @@ public extension Tensor {
     
     let new = Tensor(newTensor, context: context)
     
+    new.label = "addition"
+    
     new.setGraph(lhs)
     new.setGraph(rhs)
     
@@ -597,6 +607,8 @@ public extension Tensor {
     
     let new = Tensor(newTensor, context: context)
     
+    new.label = "subtraction"
+
     new.setGraph(lhs)
     new.setGraph(rhs)
     
@@ -620,6 +632,8 @@ public extension Tensor {
     
     let new = Tensor(newTensor, context: context)
     
+    new.label = "multiplication"
+
     new.setGraph(lhs)
     new.setGraph(rhs)
     
@@ -643,6 +657,8 @@ public extension Tensor {
     
     let new = Tensor(newTensor, context: context)
     
+    new.label = "division"
+
     new.setGraph(lhs)
     new.setGraph(rhs)
     

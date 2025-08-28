@@ -101,16 +101,14 @@ final class FullModelTests: XCTestCase {
     
     let network = Sequential {
       [
-        Conv2d(filterCount: 32, inputSize: inputSize, strides: (1,1), padding: .same, filterSize: (7,7)),
+        Conv2d(filterCount: 32, inputSize: inputSize, strides: (1,1), padding: .same, filterSize: (3,3)),
         BatchNormalize(),
         ReLu(),
         ResNet(filterCount: 32, stride: 1),
         ResNet(filterCount: 64, stride: 2),
-//        ResNet(filterCount: 128, stride: 2),
-//        ResNet(filterCount: 256, stride: 2),
         GlobalAvgPool(),
         Dense(classes, biasEnabled: true),
-        //Softmax()
+        Softmax()
       ]
     }
         
@@ -128,7 +126,7 @@ final class FullModelTests: XCTestCase {
     
     let gradient = out.gradients(delta: error, wrt: input)
     
-    print(gradient)
+    XCTAssertEqual(gradient.input.count, network.layers.count)
   }
   
   func test_setttingPropertyOnTrainable_Doesnt_Reset() {

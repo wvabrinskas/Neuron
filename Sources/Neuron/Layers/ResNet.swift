@@ -166,7 +166,7 @@ public final class ResNet: BaseLayer {
     // we detach the input tensor because we want to stop at this tensor in respect to this sequential
     // not all the way up the graph to possibly other input layers
     let detachedInput = tensor.detached()
-    let blockOut = innerBlockSequential(detachedInput, context: context)
+    let blockOut = innerBlockSequential.predict(batch: [detachedInput], context: .init())[safe: 0, Tensor()]
     
     // set a copied input so we can separate the input tensors of the two paths.
     // this allows us to pull the gradients wrt to each input
@@ -174,11 +174,13 @@ public final class ResNet: BaseLayer {
 
     let tensorToAdd = if shouldProjectInput {
       // we project the input here to match the filter depth
-      shortcutSequential(copiedInputTensor, context: context)
+      shortcutSequential.predict(batch: [copiedInputTensor], context: .init())[safe: 0, Tensor()]
     } else {
       copiedInputTensor
     }
 
+    tensorToAdd.label = "tensorToAdd"
+    
     let skipOut = blockOut + tensorToAdd
     let reLuOut = outputRelu.forward(tensor: skipOut)
     
@@ -205,8 +207,13 @@ public final class ResNet: BaseLayer {
         
       }
       
-      // because the input is used in two paths we can just sum the gradients...
-      let wrtInputs = reluGradients.input[safe: 0, Tensor()] + 1 // + 1 because wrt to the input skip path is 1
+      let gradientToAdd = if shouldProjectInput {
+        reluGradientsWrtProjectedInput.input[safe: 0, Tensor()]
+      } else {
+        gradient
+      }
+      
+      let wrtInputs = reluGradients.input[safe: 0, Tensor()] + gradientToAdd // add gradient FROM skip connection. Direct path for gradients
       
       return (wrtInputs, Tensor(), Tensor())
     }

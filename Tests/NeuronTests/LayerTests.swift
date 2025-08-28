@@ -67,7 +67,7 @@ final class LayerTests: XCTestCase {
   func testResNet() {
     let inputSize: TensorSize = .init(rows: 64, columns: 64, depth: 3)
 
-    let resNet = ResNet(inputSize: inputSize, filterCount: 8, stride: 1)
+    let resNet = ResNet(inputSize: inputSize, filterCount: 3, stride: 1)
     
     let outputSize = resNet.outputSize
 
@@ -85,6 +85,7 @@ final class LayerTests: XCTestCase {
 
     XCTAssertEqual(gradients.input.first?.shape, inputSize.asArray)
     
+    // validate it doesn't crash basically...
     resNet.apply(gradients: (Tensor(), Tensor()), learningRate: 0.01)
   }
   

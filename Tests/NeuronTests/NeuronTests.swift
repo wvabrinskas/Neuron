@@ -453,6 +453,21 @@ final class NeuronTests: XCTestCase {
     XCTAssertEqual(norm.welfordVariance.means, [[0.5, 0.5, 0.5, 0.5, 0.5].as2D()]) // mean
   }
   
+  func testBatchNorm_isZero_withOneSample() {
+    let inputSize = TensorSize(array: [3,1,1])
+    let input = Tensor([1,2,3])
+    let norm = BatchNormalize(inputSize: inputSize)
+    
+    norm.batchSize = 1
+    norm.isTraining = true
+
+    let out = norm.forward(tensorBatch: [input], context: .init())
+
+    XCTAssertNotNil(out.first)
+    
+    XCTAssertEqual(out.first!.value.flatten(), [0,0,0])
+  }
+  
   func testBatchNorm3d() {
     var batch: [Tensor] = []
     

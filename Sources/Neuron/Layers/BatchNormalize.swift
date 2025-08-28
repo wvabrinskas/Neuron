@@ -189,7 +189,13 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     calculateWelfordVariance(inputs: tensor, context: context)
   }
 
+  // this doesnt calculate welfordVariance...
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
+    // if we havn't moved through `forward(tensorBatch)` call we should calculate the input variance
+    if iterations == 0 && context.totalInBatch == 1 {
+      calculateWelfordVariance(inputs: tensor, context: context)
+    }
+    
     let tensorContext = TensorContext { inputs, gradient in
       let backward = self.backward(inputs: inputs,
                                    gradient: gradient.value,
@@ -253,7 +259,6 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     dBeta = [Tensor.Scalar](repeating: 0, count: inputDim)
   }
   
-  // TODO: breakout into separate class
   private func calculateWelfordVariance(inputs: Tensor, context: NetworkContext) {
     updateLock.with {
       welfordVariance.update(inputs)
