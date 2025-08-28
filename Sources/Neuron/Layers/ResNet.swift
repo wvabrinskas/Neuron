@@ -49,17 +49,6 @@ public final class ResNet: BaseLayer {
     }
     
     set {
-      let newWeights = newValue
-      
-      let innerBlockCount = innerBlockSequential.layers.count
-      let shortCutSequentialCount = shortcutSequential.layers.count
-      
-      let totalCount = if shouldProjectInput {
-        innerBlockCount + shortCutSequentialCount
-      } else {
-        innerBlockCount
-      }
-      
       // todo: figure out how to apply weights
     }
   }
@@ -203,7 +192,7 @@ public final class ResNet: BaseLayer {
     // we detach the input tensor because we want to stop at this tensor in respect to this sequential
     // not all the way up the graph to possibly other input layers
     let detachedInput = tensor.detached()
-    let blockOut = innerBlockSequential.predict(batch: [detachedInput], context: context)[safe: 0, Tensor()]
+    let blockOut = innerBlockSequential.predict(batch: [detachedInput], context: .init())[safe: 0, Tensor()]
     
     // set a copied input so we can separate the input tensors of the two paths.
     // this allows us to pull the gradients wrt to each input
@@ -211,7 +200,7 @@ public final class ResNet: BaseLayer {
     
     let tensorToAdd = if shouldProjectInput {
       // we project the input here to match the filter depth
-      shortcutSequential.predict(batch: [copiedInputTensor], context: context)[safe: 0, Tensor()]
+      shortcutSequential.predict(batch: [copiedInputTensor], context: .init())[safe: 0, Tensor()]
     } else {
       copiedInputTensor
     }

@@ -127,6 +127,8 @@ final class FullModelTests: XCTestCase {
     let gradient = out.gradients(delta: error, wrt: input)
     
     XCTAssertEqual(gradient.input.count, network.layers.count)
+    
+    network.apply(gradients: gradient, learningRate: 0.001)
   }
   
   func test_setttingPropertyOnTrainable_Doesnt_Reset() {

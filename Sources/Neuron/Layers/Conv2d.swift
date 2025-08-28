@@ -104,6 +104,7 @@ public class Conv2d: BaseConvolutionalLayer {
     let out = Tensor(conv(tensor), context: context)
     
     out.setGraph(tensor)
+    out.label = "conv2d"
 
     return out
   }
@@ -170,14 +171,12 @@ public class Conv2d: BaseConvolutionalLayer {
     }
     
     let biasGradients = delta.value.map { $0.sum }
-    
+        
     return (Tensor(inputGradients), Tensor(weightGradients), Tensor(biasGradients))
   }
   
   internal func calculateFilterGradients(_ input: Tensor, _ delta: [[Tensor.Scalar]], index: Int) -> Tensor.Data {
     var newGradientsForFilters: Tensor.Data = []
-    var cachedFilterShape: [Int]?
-
     
     let extraPadding = padding.extra(inputSize: (inputSize.rows, inputSize.columns),
                                      filterSize: filterSize,
@@ -199,13 +198,7 @@ public class Conv2d: BaseConvolutionalLayer {
       signal = NumSwiftC.zeroPad(signal: signal, padding: numPadding)
       filter = NumSwiftC.stridePad(signal: filter, strides: strides)
     
-      let fShape: [Int]
-      if let cachedFilterShape {
-        fShape = cachedFilterShape
-      } else {
-        fShape = filter.shape
-        cachedFilterShape = fShape
-      }
+      let fShape: [Int] = filter.shape
       
       //TODO: figure out valid with strides. need to pad right and bottom for filter
       //
@@ -226,7 +219,7 @@ public class Conv2d: BaseConvolutionalLayer {
       
       let result = device.conv2d(signal: signal,
                                  filter: filter,
-                                 strides: (1,1),
+                                 strides: strides, // should this be strides of the parent?
                                  padding: .valid,
                                  filterSize: newFilterSize,
                                  inputSize: convInputSize,

@@ -110,7 +110,7 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
 
   private var cachedNormalizations: ThreadStorage<UUID, [Normalization]> = .init(defaultValue: [])
 
-  private class Normalization {
+  private struct Normalization {
     let value: [[Tensor.Scalar]]
     let std: [[Tensor.Scalar]]
     
@@ -207,7 +207,8 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     let out = Tensor(forward, context: tensorContext)
     
     out.setGraph(tensor)
-
+    out.label = "BatchNorm"
+    
     return out
   }
   
