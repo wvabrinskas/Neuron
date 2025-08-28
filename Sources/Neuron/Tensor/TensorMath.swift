@@ -110,6 +110,20 @@ public extension Tensor {
     return Tensor(result)
   }
   
+  /// Determines the appropriate axis for broadcasting operations between two tensors.
+  /// This helper function is used by the arithmetic operators (+, -, *, /) to determine
+  /// if broadcasting is possible and which axis should be used.
+  /// 
+  /// - Parameters:
+  ///   - selfSize: The size of the first tensor
+  ///   - size: The size of the second tensor
+  /// - Returns: The axis along which broadcasting should be applied, or nil if broadcasting is not possible
+  /// 
+  /// Broadcasting rules:
+  /// - Returns 0 if broadcasting along rows (Y axis)
+  /// - Returns 1 if broadcasting along columns (X axis)  
+  /// - Returns 2 if broadcasting along depth (Z axis)
+  /// - Returns nil if tensors are not compatible for broadcasting
   static func axisToApplyAlong(selfSize: TensorSize, size: TensorSize) -> Int? {
     if size.columns == selfSize.columns,
        size.rows == 1,
@@ -130,6 +144,26 @@ public extension Tensor {
     }
   }
   
+  /// Applies a mathematical operation along a specific axis with broadcasting support.
+  /// This is the core function used by other *Along methods.
+  /// 
+  /// - Parameters:
+  ///   - axis: The axis along which to perform the operation (0, 1, or 2)
+  ///   - input: The tensor to operate with, which will be broadcast along the specified axis
+  ///   - block: The mathematical operation to apply
+  /// - Returns: A new tensor with the result of the operation
+  /// 
+  /// - Warning: When assigning the result to a variable, do not assign to the same variable as one of the input tensors.
+  ///   For example, avoid: `xTensor = xTensor.applyAlong(axis: 0, input: yTensor, operation)`.
+  ///   This results in an infinite loop if you attempt to make the same function call again.
+  ///   Instead, use `.copy()` or `.detached()` on the duplicated tensor to break the cycle.
+  ///   
+  ///   Example of correct usage:
+  ///   ```swift
+  ///   let result = xTensor.applyAlong(axis: 0, input: yTensor, operation)
+  ///   // or
+  ///   xTensor = xTensor.copy().applyAlong(axis: 0, input: yTensor, operation)
+  ///   ```
   func applyAlong(axis: Int, input: Tensor, _ block: MathAlongBlock) -> Tensor {
     let shape = input.shape
     let size = TensorSize(array: shape)
@@ -184,6 +218,24 @@ public extension Tensor {
     return Tensor(featureResults)
   }
   
+  /// Performs element-wise division along a specific axis with broadcasting support.
+  /// 
+  /// - Parameters:
+  ///   - axis: The axis along which to perform the division (0, 1, or 2)
+  ///   - value: The tensor to divide by, which will be broadcast along the specified axis
+  /// - Returns: A new tensor with the result of the division operation
+  /// 
+  /// - Warning: When assigning the result to a variable, do not assign to the same variable as one of the input tensors.
+  ///   For example, avoid: `xTensor = xTensor.divideAlong(axis: 0, value: yTensor)` or `xTensor = xTensor / yTensor`.
+  ///   This results in an infinite loop if you attempt to make the same function call again.
+  ///   Instead, use `.copy()` or `.detached()` on the duplicated tensor to break the cycle.
+  ///   
+  ///   Example of correct usage:
+  ///   ```swift
+  ///   let result = xTensor.divideAlong(axis: 0, value: yTensor)
+  ///   // or
+  ///   xTensor = xTensor.copy().divideAlong(axis: 0, value: yTensor)
+  ///   ```
   func divideAlong(axis: Int, value: Tensor) -> Tensor {
     let block: MathAlongBlock = { feature, value in
       if let valueArray = value.0 {
@@ -213,6 +265,24 @@ public extension Tensor {
     return new
   }
   
+  /// Performs element-wise multiplication along a specific axis with broadcasting support.
+  /// 
+  /// - Parameters:
+  ///   - axis: The axis along which to perform the multiplication (0, 1, or 2)
+  ///   - value: The tensor to multiply, which will be broadcast along the specified axis
+  /// - Returns: A new tensor with the result of the multiplication operation
+  /// 
+  /// - Warning: When assigning the result to a variable, do not assign to the same variable as one of the input tensors.
+  ///   For example, avoid: `xTensor = xTensor.multiplyAlong(axis: 0, value: yTensor)` or `xTensor = xTensor * yTensor`.
+  ///   This results in an infinite loop if you attempt to make the same function call again.
+  ///   Instead, use `.copy()` or `.detached()` on the duplicated tensor to break the cycle.
+  ///   
+  ///   Example of correct usage:
+  ///   ```swift
+  ///   let result = xTensor.multiplyAlong(axis: 0, value: yTensor)
+  ///   // or
+  ///   xTensor = xTensor.copy().multiplyAlong(axis: 0, value: yTensor)
+  ///   ```
   func multiplyAlong(axis: Int, value: Tensor) -> Tensor {
     let block: MathAlongBlock = { feature, value in
       if let valueArray = value.0 {
@@ -242,6 +312,24 @@ public extension Tensor {
     return new
   }
   
+  /// Performs element-wise addition along a specific axis with broadcasting support.
+  /// 
+  /// - Parameters:
+  ///   - axis: The axis along which to perform the addition (0, 1, or 2)
+  ///   - value: The tensor to add, which will be broadcast along the specified axis
+  /// - Returns: A new tensor with the result of the addition operation
+  /// 
+  /// - Warning: When assigning the result to a variable, do not assign to the same variable as one of the input tensors.
+  ///   For example, avoid: `xTensor = xTensor.addAlong(axis: 0, value: yTensor)` or `xTensor = xTensor + yTensor`.
+  ///   This results in an infinite loop if you attempt to make the same function call again.
+  ///   Instead, use `.copy()` or `.detached()` on the duplicated tensor to break the cycle.
+  ///   
+  ///   Example of correct usage:
+  ///   ```swift
+  ///   let result = xTensor.addAlong(axis: 0, value: yTensor)
+  ///   // or
+  ///   xTensor = xTensor.copy().addAlong(axis: 0, value: yTensor)
+  ///   ```
   func addAlong(axis: Int, value: Tensor) -> Tensor {
     let block: MathAlongBlock = { feature, value in
       if let valueArray = value.0 {
@@ -270,6 +358,24 @@ public extension Tensor {
     return new
   }
   
+  /// Performs element-wise subtraction along a specific axis with broadcasting support.
+  /// 
+  /// - Parameters:
+  ///   - axis: The axis along which to perform the subtraction (0, 1, or 2)
+  ///   - value: The tensor to subtract, which will be broadcast along the specified axis
+  /// - Returns: A new tensor with the result of the subtraction operation
+  /// 
+  /// - Warning: When assigning the result to a variable, do not assign to the same variable as one of the input tensors.
+  ///   For example, avoid: `xTensor = xTensor.subtractAlong(axis: 0, value: yTensor)` or `xTensor = xTensor - yTensor`.
+  ///   This results in an infinite loop if you attempt to make the same function call again.
+  ///   Instead, use `.copy()` or `.detached()` on the duplicated tensor to break the cycle.
+  ///   
+  ///   Example of correct usage:
+  ///   ```swift
+  ///   let result = xTensor.subtractAlong(axis: 0, value: yTensor)
+  ///   // or
+  ///   xTensor = xTensor.copy().subtractAlong(axis: 0, value: yTensor)
+  ///   ```
   func subtractAlong(axis: Int, value: Tensor) -> Tensor {
     let block: MathAlongBlock = { feature, value in
       if let valueArray = value.0 {
@@ -569,6 +675,24 @@ public extension Tensor {
     return Tensor(newTensorValue, context: lhs.context)
   }
   
+  /// Performs element-wise addition between two tensors with automatic broadcasting support.
+  /// 
+  /// - Parameters:
+  ///   - lhs: The left-hand side tensor
+  ///   - rhs: The right-hand side tensor
+  /// - Returns: A new tensor with the result of the addition operation
+  /// 
+  /// - Warning: When assigning the result to a variable, do not assign to the same variable as one of the input tensors.
+  ///   For example, avoid: `xTensor = xTensor + yTensor`.
+  ///   This results in an infinite loop if you attempt to make the same function call again.
+  ///   Instead, use `.copy()` or `.detached()` on the duplicated tensor to break the cycle.
+  ///   
+  ///   Example of correct usage:
+  ///   ```swift
+  ///   let result = xTensor + yTensor
+  ///   // or
+  ///   xTensor = xTensor.copy() + yTensor
+  ///   ```
   static func +(lhs: Tensor, rhs: Tensor) -> Tensor {
     let left = lhs.value
     let right = rhs.value
@@ -594,6 +718,24 @@ public extension Tensor {
     return new
   }
   
+  /// Performs element-wise subtraction between two tensors with automatic broadcasting support.
+  /// 
+  /// - Parameters:
+  ///   - lhs: The left-hand side tensor
+  ///   - rhs: The right-hand side tensor
+  /// - Returns: A new tensor with the result of the subtraction operation
+  /// 
+  /// - Warning: When assigning the result to a variable, do not assign to the same variable as one of the input tensors.
+  ///   For example, avoid: `xTensor = xTensor - yTensor`.
+  ///   This results in an infinite loop if you attempt to make the same function call again.
+  ///   Instead, use `.copy()` or `.detached()` on the duplicated tensor to break the cycle.
+  ///   
+  ///   Example of correct usage:
+  ///   ```swift
+  ///   let result = xTensor - yTensor
+  ///   // or
+  ///   xTensor = xTensor.copy() - yTensor
+  ///   ```
   static func -(lhs: Tensor, rhs: Tensor) -> Tensor {
     let left = lhs.value
     let right = rhs.value
@@ -619,6 +761,24 @@ public extension Tensor {
     return new
   }
   
+  /// Performs element-wise multiplication between two tensors with automatic broadcasting support.
+  /// 
+  /// - Parameters:
+  ///   - lhs: The left-hand side tensor
+  ///   - rhs: The right-hand side tensor
+  /// - Returns: A new tensor with the result of the multiplication operation
+  /// 
+  /// - Warning: When assigning the result to a variable, do not assign to the same variable as one of the input tensors.
+  ///   For example, avoid: `xTensor = xTensor * yTensor`.
+  ///   This results in an infinite loop if you attempt to make the same function call again.
+  ///   Instead, use `.copy()` or `.detached()` on the duplicated tensor to break the cycle.
+  ///   
+  ///   Example of correct usage:
+  ///   ```swift
+  ///   let result = xTensor * yTensor
+  ///   // or
+  ///   xTensor = xTensor.copy() * yTensor
+  ///   ```
   static func *(lhs: Tensor, rhs: Tensor) -> Tensor {
     let left = lhs.value
     let right = rhs.value
@@ -645,6 +805,24 @@ public extension Tensor {
     return new
   }
   
+  /// Performs element-wise division between two tensors with automatic broadcasting support.
+  /// 
+  /// - Parameters:
+  ///   - lhs: The left-hand side tensor
+  ///   - rhs: The right-hand side tensor
+  /// - Returns: A new tensor with the result of the division operation
+  /// 
+  /// - Warning: When assigning the result to a variable, do not assign to the same variable as one of the input tensors.
+  ///   For example, avoid: `xTensor = xTensor / yTensor`.
+  ///   This results in an infinite loop if you attempt to make the same function call again.
+  ///   Instead, use `.copy()` or `.detached()` on the duplicated tensor to break the cycle.
+  ///   
+  ///   Example of correct usage:
+  ///   ```swift
+  ///   let result = xTensor / yTensor
+  ///   // or
+  ///   xTensor = xTensor.copy() / yTensor
+  ///   ```
   static func /(lhs: Tensor, rhs: Tensor) -> Tensor {
     let left = lhs.value
     let right = rhs.value
