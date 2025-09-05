@@ -170,8 +170,16 @@ public class Tensor: Equatable, Codable {
   }
   
   /// Prints the current graph all the way to the input.
-  public func printGraph(wrt: Tensor? = nil) {
+  public func printGraph(wrt: Tensor? = nil, deep: Bool = false) {
     var inputs: [UUID: Tensor] = input
+    
+    if let wrt {
+      if graphChain.contains(wrt.id) == false {
+        print("no connection")
+        return
+      }
+    }
+
     
     // print self
     // print children
@@ -186,14 +194,28 @@ public class Tensor: Equatable, Codable {
       var childrenAtLevel: [UUID: Tensor] = [:]
 
       for (k, v) in inputs {
-        outputString.insert("     branch: \(i) \(k): \(v.shape) \(v.label) \n", at: 0)//print("input \(k): ", v)
         childrenAtLevel.merge(v.input) { _, new in
           new
         }
+        
+        if let wrt {
+          if v.graphChain.contains(wrt.id) {
+            outputString.insert("     branch: \(i) \(k): \(v.shape) \(v.label) \n", at: 0)//print("input \(k): ", v)
+          }
+          
+          if wrt.id == v.id {
+            print(outputString.joined())
+            return
+          }
+        } else {
+          outputString.insert("     branch: \(i) \(k): \(v.shape) \(v.label) \n", at: 0)//print("input \(k): ", v)
+        }
+        
         i += 1
       }
       
       outputString.insert("level: \(level) ------ \n", at: 0)
+      
 
       level += 1
       if let wrt, childrenAtLevel.count > 1 {
@@ -201,7 +223,20 @@ public class Tensor: Equatable, Codable {
       } else {
         inputs = childrenAtLevel
       }
+      
+      if deep {
+        inputs.forEach { _, v in
+          v.printGraph(deep: deep)
+        }
+      }
+
     }
+    
+    outputString.append("""
+                        \t\t\t|
+                        \t\t\t|
+                        \t\t\tV
+                        """)
     
     print(outputString.joined())
   }
@@ -234,6 +269,20 @@ public class Tensor: Equatable, Codable {
     
     var gradientsAtLevelToUse: [Tensor] = inputGradients
     var childrenAtLevelToUse: [UUID: Tensor] = input
+    
+    func process(input: Tensor,
+                 gradientToUse: Tensor,
+                 childrenAtLevel: inout [UUID: Tensor],
+                 gradientsAtLevel: inout [Tensor]) {
+      let newGrads = input.getGradients(delta: gradientToUse)
+      
+      inputGradients.insert(contentsOf: newGrads.input, at: 0)
+      weightGradients.insert(contentsOf: newGrads.weight, at: 0)
+      biasGradients.insert(contentsOf: newGrads.bias, at: 0)
+      
+      gradientsAtLevel.append(contentsOf: newGrads.input)
+      input.input.forEach { childrenAtLevel[$0] = $1 }
+    }
 
     while childrenAtLevelToUse.isEmpty == false {
       var gradientsAtLevel: [Tensor] = []
@@ -243,15 +292,24 @@ public class Tensor: Equatable, Codable {
 
       for input in childrenAtLevelToUse.values {
         let gradientToUse = gradientsAtLevelToUse[i]
-      
-        let newGrads = input.getGradients(delta: gradientToUse)
-        
-        inputGradients.insert(contentsOf: newGrads.input, at: 0)
-        weightGradients.insert(contentsOf: newGrads.weight, at: 0)
-        biasGradients.insert(contentsOf: newGrads.bias, at: 0)
-        
-        gradientsAtLevel.append(contentsOf: newGrads.input)
-        input.input.forEach { childrenAtLevel[$0] = $1 }
+
+        if let wrt {
+          if input.graphChain.contains(wrt.id) {
+            process(input: input,
+                    gradientToUse: gradientToUse,
+                    childrenAtLevel: &childrenAtLevel,
+                    gradientsAtLevel: &gradientsAtLevel)
+          }
+          
+          if wrt.id == input.id {
+            return .init(input: inputGradients, weights: weightGradients, biases: biasGradients)
+          }
+        } else {
+          process(input: input,
+                  gradientToUse: gradientToUse,
+                  childrenAtLevel: &childrenAtLevel,
+                  gradientsAtLevel: &gradientsAtLevel)
+        }
         
         i += 1
       }

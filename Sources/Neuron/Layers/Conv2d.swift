@@ -220,7 +220,7 @@ public class Conv2d: BaseConvolutionalLayer {
       let result = if filterSize.columns == 1 || filterSize.rows == 1 {
         device.conv2d(signal: signal,
                       filter: filter,
-                      strides: strides, // should this be strides of the parent?
+                      strides: strides,
                       padding: .valid,
                       filterSize: newFilterSize,
                       inputSize: convInputSize,
@@ -229,7 +229,7 @@ public class Conv2d: BaseConvolutionalLayer {
       } else {
         device.conv2d(signal: signal,
                       filter: filter,
-                      strides: (1,1), // should this be strides of the parent?
+                      strides: (1,1),
                       padding: .valid,
                       filterSize: newFilterSize,
                       inputSize: convInputSize,

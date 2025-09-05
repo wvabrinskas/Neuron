@@ -110,6 +110,10 @@ public final class Sequential: Trainable, Logger {
     predict(data, context: context)
   }
   
+  public func callAsFunction(_ data: TensorBatch, context: NetworkContext) -> TensorBatch {
+    predict(batch: data, context: context)
+  }
+  
   public func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(layers.map { LayerModel(layer: $0) }, forKey: .layers)

@@ -13,6 +13,27 @@ extension XCTestCase {
 
 final class NeuronTests: XCTestCase {
 
+  
+  func test_addition_and_Relu() {
+    let size = TensorSize(array: [5,5,1])
+    let inputL = Tensor.fillWith(value: 1.0, size: size)
+    let inputR = Tensor.fillWith(value: 0.5, size: size)
+    
+    let relu = ReLu(inputSize: size)
+    
+    let add = inputL + inputR
+    
+    let out = relu.forward(tensor: add, context: .init())
+        
+    print(out)
+    
+    let delta = Tensor.fillRandom(size: size)
+    
+    let grads = out.gradients(delta: delta)
+    
+    print(grads)
+  }
+  
   func test_tensor_Subscript() {
     let input: [[Tensor.Scalar]] = [[ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
                               0,  0,  0,  0,  0,  0,  0,  0,  1],

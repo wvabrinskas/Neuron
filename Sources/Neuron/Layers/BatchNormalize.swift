@@ -238,11 +238,11 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     let inputDim = inputSize.depth
     
     if gamma.isEmpty {
-      self.gamma = [Tensor.Scalar](repeating: 1, count: inputDim)
+      gamma = [Tensor.Scalar](repeating: 1, count: inputDim)
     }
     
     if beta.isEmpty {
-      self.beta = [Tensor.Scalar](repeating: 0, count: inputDim)
+      beta = [Tensor.Scalar](repeating: 0, count: inputDim)
     }
   
     if movingMean.isEmpty {

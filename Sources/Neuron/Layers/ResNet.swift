@@ -68,6 +68,9 @@ public final class ResNet: BaseLayer {
                initializer: initializer,
                biasEnabled: false,
                encodingType: .resNet)
+    
+    innerBlockSequential.name = "ResNet-MainPath"
+    shortcutSequential.name = "ResNet-ShortcutPath"
   }
   
   enum CodingKeys: String, CodingKey {
@@ -78,6 +81,9 @@ public final class ResNet: BaseLayer {
     /// do something when the input size is set when calling `compile` on `Sequential`
     // build sequential?
     let initializer = initializer.type
+    
+    // okay so ResNet actually works it's just the backprop of BatchNorm that's ruining everything
+    // batchnorm is causing gradients to drop to 0 or nan. not sure what's happening here.
     
     if innerBlockSequential.layers.isEmpty {
       innerBlockSequential.layers = [
@@ -105,23 +111,21 @@ public final class ResNet: BaseLayer {
                strides: (stride,stride),
                padding: .same,
                filterSize: (1,1),
-               initializer: initializer),
-        BatchNormalize()
+               initializer: initializer)
       ]
     }
     
     innerBlockSequential.compile()
     shortcutSequential.compile()
     
-    if shouldProjectInput {
-      let outputSize = shortcutSequential.layers.last!.outputSize
-      outputRelu.inputSize = outputSize
-      self.outputSize = outputSize
+    let reluInputSize = if shouldProjectInput {
+      shortcutSequential.layers.last?.outputSize ?? inputSize
     } else {
-      outputSize = inputSize
-      outputRelu.inputSize = inputSize
+      inputSize
     }
     
+    outputRelu.inputSize = reluInputSize
+    outputSize = reluInputSize
   }
   
   convenience public required init(from decoder: Decoder) throws {
@@ -221,26 +225,24 @@ public final class ResNet: BaseLayer {
   
   public override func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Tensor.Scalar) {
     
-    let sequentialGradients = accumulator.accumulate()
+    let sequentialGradients = accumulator.accumulate(clearAtEnd: true)
     innerBlockSequential.apply(gradients: sequentialGradients, learningRate: learningRate)
-    accumulator.clear()
     
     if shouldProjectInput {
-      let shortCutGradients = shortCutAccumulator.accumulate()
+      let shortCutGradients = shortCutAccumulator.accumulate(clearAtEnd: true)
       shortcutSequential.apply(gradients: shortCutGradients, learningRate: learningRate)
-      shortCutAccumulator.clear()
     }
   }
   
   // MARK: - Private
   
   private func buildForward(input: Tensor, reLuOut: Tensor, detachedInput: Tensor, copiedInputTensor: Tensor) -> Tensor {
-    let tensorContext = TensorContext { [accumulator, shortCutAccumulator, shouldProjectInput, innerBlockSequential, shortcutSequential] inputs, gradient in
+    let tensorContext = TensorContext { [accumulator, shortCutAccumulator, shouldProjectInput, innerBlockSequential, shortcutSequential, reLuOut] inputs, gradient in
       
       // backprop all the way through the the sequentials because the graphs are built automatically for us
       let reluGradients = reLuOut.gradients(delta: gradient, wrt: detachedInput)
       let reluGradientsWrtProjectedInput = reLuOut.gradients(delta: gradient, wrt: copiedInputTensor)
-      
+            
       let blockGradientsWeights = Array(reluGradients.weights[0..<innerBlockSequential.layers.count])
       let blockGradientsBiases = Array(reluGradients.biases[0..<innerBlockSequential.layers.count])
       
@@ -265,7 +267,6 @@ public final class ResNet: BaseLayer {
       }
       
       let wrtInputs = reluGradients.input[safe: 0, Tensor()] + gradientToAdd // add gradient FROM skip connection. Direct path for gradients
-      
       return (wrtInputs, Tensor(), Tensor())
     }
     
