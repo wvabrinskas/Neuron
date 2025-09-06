@@ -171,8 +171,15 @@ public class Conv2d: BaseConvolutionalLayer {
     }
     
     let biasGradients = delta.value.map { $0.sum }
+    
+    let input = Tensor(inputGradients)
+    input.label = "conv2d-input"
+    let weights = Tensor(weightGradients)
+    weights.label = "conv2d-weight"
+    let biases = Tensor(biasGradients)
+    biases.label = "conv2d-bias"
         
-    return (Tensor(inputGradients), Tensor(weightGradients), Tensor(biasGradients))
+    return (input, weights, biases)
   }
   
   internal func calculateFilterGradients(_ input: Tensor, _ delta: [[Tensor.Scalar]], index: Int) -> Tensor.Data {

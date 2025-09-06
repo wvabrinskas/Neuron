@@ -17,7 +17,9 @@ final class NeuronTests: XCTestCase {
   func test_addition_and_Relu() {
     let size = TensorSize(array: [5,5,1])
     let inputL = Tensor.fillWith(value: 1.0, size: size)
+    inputL.label = "inputL"
     let inputR = Tensor.fillWith(value: 0.5, size: size)
+    inputR.label = "inputR"
     
     let relu = ReLu(inputSize: size)
     
@@ -29,9 +31,14 @@ final class NeuronTests: XCTestCase {
     
     let delta = Tensor.fillRandom(size: size)
     
+    let gradsWRTL = out.gradients(delta: delta, wrt: inputL)
+    let gradsWRTR = out.gradients(delta: delta, wrt: inputR)
     let grads = out.gradients(delta: delta)
     
-    print(grads)
+    XCTAssertEqual(gradsWRTL.input.count, 2)
+    XCTAssertEqual(gradsWRTR.input.count, 2)
+    // 3 because addition adds both inputs (lhs and rhs) to the graph in a single array.
+    XCTAssertEqual(grads.input.count, 3)
   }
   
   func test_tensor_Subscript() {
@@ -499,8 +506,22 @@ final class NeuronTests: XCTestCase {
     }
     
     XCTAssertEqual(norm.welfordVariance.iterations, batchSize)
-    XCTAssertEqual(norm.welfordVariance.m2s, [[2.5,2.5,2.5,2.5,2.5].as2D()]) // variance
-    XCTAssertEqual(norm.welfordVariance.means, [[0.5, 0.5, 0.5, 0.5, 0.5].as2D()]) // mean
+    
+    norm.welfordVariance.m2s.forEach { val in
+      val.forEach { v in
+        v.forEach { scalar in
+          XCTAssertEqual(scalar, 2.5, accuracy: 0.001)
+        }
+      }
+    }
+    
+    norm.welfordVariance.means.forEach { val in
+      val.forEach { v in
+        v.forEach { scalar in
+          XCTAssertEqual(scalar, 0.5, accuracy: 0.001)
+        }
+      }
+    }
   }
   
   func testBatchNorm_isZero_withOneSample() {

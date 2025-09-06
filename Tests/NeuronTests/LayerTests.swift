@@ -67,7 +67,7 @@ final class LayerTests: XCTestCase {
   func testResNet() {
     let inputSize: TensorSize = .init(rows: 64, columns: 64, depth: 3)
 
-    let resNet = ResNet(inputSize: inputSize, filterCount: 3, stride: 1)
+    let resNet = ResNet(inputSize: inputSize, filterCount: 16, stride: 2)
     
     let outputSize = resNet.outputSize
 
@@ -79,7 +79,7 @@ final class LayerTests: XCTestCase {
     
     let error = Tensor.fillRandom(size: outputSize)
     
-    let gradients = out.gradients(delta: error)
+    let gradients = out.gradients(delta: error, wrt: input)
     
     XCTAssertNotNil(gradients.input.first)
 
@@ -183,7 +183,7 @@ final class LayerTests: XCTestCase {
     let branch1Error = Tensor.fillWith(value: 0.5, size: relu3.outputSize)
     let branch1Backwards = out1.gradients(delta: branch1Error, wrt: inputAtDense0)
     
-    XCTAssertEqual(branch1Backwards.input.count, 6)
+    XCTAssertEqual(branch1Backwards.input.count, 5)
     XCTAssertEqual(branch1Backwards.input[0].shape, dense_0.inputSize.asArray)
     
     // branch 2 backwards

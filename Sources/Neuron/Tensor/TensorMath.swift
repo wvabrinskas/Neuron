@@ -342,8 +342,9 @@ public extension Tensor {
     }
     
     let context = TensorContext { inputs, gradient in
-      /// wrt to inputs it's 1
-      return (gradient, Tensor(), Tensor())
+      let copy = gradient.copy()
+      copy.label = "addition"
+      return (copy, Tensor(), Tensor())
     }
     
     let out = applyAlong(axis: axis, input: value, block).value
@@ -705,7 +706,9 @@ public extension Tensor {
     let newTensor = left + right
     
     let context = TensorContext { inputs, gradient in
-      return (gradient, Tensor(), Tensor())
+      let copy = gradient.copy()
+      copy.label = "addition_input_grad"
+      return (copy, Tensor(), Tensor())
     }
     
     let new = Tensor(newTensor, context: context)

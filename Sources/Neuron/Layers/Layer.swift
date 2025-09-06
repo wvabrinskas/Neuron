@@ -372,7 +372,9 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
     
     let context = TensorContext { inputs, gradient in
       let out = self.device.derivate(inputs, self.type).value * gradient.value
-      return (Tensor(out), Tensor(), Tensor())
+      let outTensor = Tensor(out)
+      outTensor.label = self.type.asString() + "_input_grad"
+      return (outTensor, Tensor(), Tensor())
     }
     
     let result = device.activate(tensor, type)

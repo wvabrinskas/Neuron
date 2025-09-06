@@ -196,11 +196,14 @@ public final class ResNet: BaseLayer {
     // we detach the input tensor because we want to stop at this tensor in respect to this sequential
     // not all the way up the graph to possibly other input layers
     let detachedInput = tensor.detached()
+    detachedInput.label = "detachedInput"
     let blockOut = innerBlockSequential.predict(batch: [detachedInput], context: .init())[safe: 0, Tensor()]
+    blockOut.label = "blockOut"
     
     // set a copied input so we can separate the input tensors of the two paths.
     // this allows us to pull the gradients wrt to each input
     let copiedInputTensor = tensor.copy()
+    copiedInputTensor.label = "copiedInputTensor"
     
     let tensorToAdd = if shouldProjectInput {
       // we project the input here to match the filter depth
@@ -241,6 +244,9 @@ public final class ResNet: BaseLayer {
       
       // backprop all the way through the the sequentials because the graphs are built automatically for us
       let reluGradients = reLuOut.gradients(delta: gradient, wrt: detachedInput)
+      
+      // we're getting the gradients for the both children of the addition so that's why we're getting layers + 1
+      // we need to get the gradients for the branch that actually contains the wrt. which i thought we were doing already..
       let reluGradientsWrtProjectedInput = reLuOut.gradients(delta: gradient, wrt: copiedInputTensor)
             
       let blockGradientsWeights = Array(reluGradients.weights[0..<innerBlockSequential.layers.count])

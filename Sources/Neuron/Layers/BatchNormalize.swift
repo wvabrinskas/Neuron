@@ -200,7 +200,10 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
       let backward = self.backward(inputs: inputs,
                                    gradient: gradient.value,
                                    context: context)
-      return (Tensor(backward), Tensor(), Tensor())
+      
+      let result = Tensor(backward)
+      result.label = "BatchNorm"
+      return (result, Tensor(), Tensor())
     }
     
     let forward = normalize3D(inputs: tensor, context: context)
