@@ -66,7 +66,8 @@ public class Classifier {
       var b = 0
       
       if let randomValBatch = validationBatches.randomElement() {
-        
+        optimizer.isTraining = false
+
         let result = trainOn(randomValBatch.data,
                              labels: randomValBatch.labels,
                              validation: true,
@@ -79,12 +80,15 @@ public class Classifier {
         
         accuracyMonitor.append(result.accuracy / 100.0)
         
+        optimizer.isTraining = true
+        
         if accuracyMonitor.isAboveThreshold() {
           self.onAccuracyReached?()
           if killOnAccuracy {
             return
           }
         }
+        
       }
             
       for batch in trainingBatches {

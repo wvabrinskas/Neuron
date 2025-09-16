@@ -264,8 +264,14 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
   }
   
   private func calculateWelfordVariance(inputs: Tensor, context: NetworkContext) {
+    guard isTraining else { return }
+    
     updateLock.with {
       welfordVariance.update(inputs)
+      
+      if welfordVariance.iterations > batchSize {
+        fatalError()
+      }
     }
   }
   
@@ -356,7 +362,7 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
         dGamma[i] += (gradient[i] * normalized).sum
         dBeta[i] += gradient[i].sum
       }
-
+      
       let dxNorm = gradient[i] * gamma[i]
       
       let dx = 1 / N / std * (N * dxNorm -

@@ -258,7 +258,7 @@ public class Tensor: Equatable, Codable {
   
   /// Calculates the gradients in the Tensor graph
   /// - Parameter delta: The gradient to backpropagate w.r.t
-  /// - Parameter wrt: Optional parameter to tell the auto grad which input Tensor in the graph to backprop to. If this isn't provided it will return all inputs at every level of the graph in a single array.
+  /// - Parameter wrt: Optional parameter to tell the auto grad which input Tensor in the graph to backprop to, this is inclusive of the wrt tensor. That tensor's gradients will be calculated as well wrt to its input. If this isn't provided it will return all inputs at every level of the graph in a single array.
   /// - Returns: A Gradient where the the `inputGradients` is the gradient w.r.t each input in the graph at each layer and `weightGradients` is the gradient w.r.t to each parameter at each layer.
   public func gradients(delta: Tensor, wrt: Tensor? = nil) -> Tensor.Gradient {
     
@@ -292,7 +292,7 @@ public class Tensor: Equatable, Codable {
       for (i, input) in childrenAtLevelToUse.values.enumerated() {
                                         
         let gradientToUse = gradientsAtLevelToUse[i]
-
+        
         if let wrt {
           
           // only process the gradients for an input that actually dealt with the wrt tensor

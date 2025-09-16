@@ -133,10 +133,11 @@ public final class Sequential: Trainable, Logger {
     
     var outputTensors = batch
     
-    layers.forEach { layer in
+    layers.forEach { [batch] layer in
       let newTensors = layer.forward(tensorBatch: outputTensors, context: context)
       
-      for (i, tensor) in newTensors.enumerated() {
+      for (i, tensor) in newTensors.enumerated() { [batch]
+        tensor.testNaN()
         if tensor.graph[outputTensors[i].id] == nil {
           tensor.setGraph(outputTensors[i])
         }

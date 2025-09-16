@@ -17,6 +17,7 @@ public final class ResNet: BaseLayer {
   private let filterCount: Int
   private let stride: Int
   private var training: Bool = true
+  
   public override var isTraining: Bool {
     get {
       super.isTraining
@@ -24,7 +25,6 @@ public final class ResNet: BaseLayer {
     set {
       innerBlockSequential.isTraining = newValue
       shortcutSequential.isTraining = newValue
-      super.isTraining = newValue
     }
   }
   
@@ -77,13 +77,13 @@ public final class ResNet: BaseLayer {
     case inputSize, type, filterCount, stride, innerBlockSequential, shortcutSequential
   }
   
+  override public func onBatchSizeSet() {
+    innerBlockSequential.batchSize = batchSize
+    shortcutSequential.batchSize = batchSize
+  }
+  
   override public func onInputSizeSet() {
-    /// do something when the input size is set when calling `compile` on `Sequential`
-    // build sequential?
     let initializer = initializer.type
-    
-    // okay so ResNet actually works it's just the backprop of BatchNorm that's ruining everything
-    // batchnorm is causing gradients to drop to 0 or nan. not sure what's happening here.
     
     if innerBlockSequential.layers.isEmpty {
       innerBlockSequential.layers = [
@@ -126,6 +126,8 @@ public final class ResNet: BaseLayer {
     
     outputRelu.inputSize = reluInputSize
     outputSize = reluInputSize
+    
+    onBatchSizeSet()
   }
   
   convenience public required init(from decoder: Decoder) throws {

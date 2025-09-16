@@ -115,7 +115,11 @@ open class BaseLayer: Layer {
   public var isTraining: Bool = true
   public var initializer: Initializer
   public var device: Device = CPU()
-  public var batchSize: Int = 1
+  public var batchSize: Int = 1 {
+    didSet {
+      onBatchSizeSet()
+    }
+  }
   
   // defines whether the gradients are run through the optimizer before being applied.
   // this could be useful if a layer manages its own weight updates
@@ -172,6 +176,10 @@ open class BaseLayer: Layer {
   
   // MARK: Internal
   public func onInputSizeSet() {
+    // override
+  }
+  
+  public func onBatchSizeSet() {
     // override
   }
   
@@ -409,6 +417,14 @@ extension NumSwift.ConvPadding {
 open class BaseThreadBatchingLayer: BaseLayer {
   let updateLock = NSLock()
   @Atomic var iterations = 0
+  
+  override public var isTraining: Bool {
+    didSet {
+      if isTraining == false {
+        iterations = 0
+      }
+    }
+  }
   
   open var shouldPerformBatching: Bool {
     isTraining
