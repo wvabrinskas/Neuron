@@ -97,6 +97,7 @@ public class Conv2d: BaseConvolutionalLayer {
   }
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
+
     let context = TensorContext { inputs, gradient in
       self.backward(inputs, gradient)
     }
@@ -262,6 +263,7 @@ public class Conv2d: BaseConvolutionalLayer {
     
     for i in 0..<filterCount {
       let filterGradients = weightGradientsBatched[i]
+                  
       filters[i] = filters[i].detached() - Tensor(filterGradients)
     }
     

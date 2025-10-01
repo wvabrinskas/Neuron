@@ -418,6 +418,16 @@ public extension Tensor {
     }
   }
   
+  func testInf() {
+    self.value.forEach { t in
+      t.forEach { r in
+        if r.contains(where: { $0.isInfinite} ) {
+          assertionFailure()
+        }
+      }
+    }
+  }
+  
   func testNaN() {
     self.value.forEach { t in
       t.forEach { r in
