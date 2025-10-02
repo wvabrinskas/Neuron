@@ -37,9 +37,9 @@ public final class Sequential: Trainable, Logger {
       layers.forEach { layer in
         switch device.type {
         case .cpu:
-          layer.device = CPU()
+          layer.device = device
         case .gpu:
-          layer.device = GPU()
+          layer.device = device
         }
       }
     }
@@ -128,7 +128,7 @@ public final class Sequential: Trainable, Logger {
           tensor.setGraph(outputTensors[i])
         }
       }
-
+      
       outputTensors = newTensors
     }
     

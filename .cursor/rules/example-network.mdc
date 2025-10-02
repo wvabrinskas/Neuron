@@ -1,0 +1,89 @@
+---
+description: Shows an example Neuron network.
+globs:
+alwaysApply: false
+---
+```swift
+import Foundation
+import Neuron
+import NumSwift
+import NeuronDatasets
+
+public class NeuronTest {
+  
+  typealias TestNumber = Float
+  
+  func run() async {
+    
+    let initializer: InitializerType = .xavierNormal
+        
+    let batchSize = 32
+    let classes = 10
+    let size = [28,28,1]
+    
+    let network = Sequential {
+      [
+        Conv2d(filterCount: 32,
+               inputSize: TensorSize(array: size),
+               padding: .same,
+               initializer: initializer),
+        ReLu(),
+        BatchNormalize(),
+        MaxPool(),
+        Conv2d(filterCount: 64,
+               padding: .same,
+               initializer: initializer),
+        ReLu(),
+        BatchNormalize(),
+        MaxPool(),
+        Dropout(0.25),
+        Flatten(),
+        Dense(64, initializer: initializer),
+        ReLu(),
+        Dense(classes, initializer: initializer),
+        Softmax()
+      ]
+    }
+    
+    // set device to GPU. Other option is CPU()
+    network.device = GPU()
+    
+    let optim = Adam(network,
+                     learningRate: 0.001,
+                     batchSize: batchSize)
+    
+    let reporter = MetricsReporter(frequency: 1,
+                                   metricsToGather: [.loss,
+                                                     .accuracy,
+                                                     .valAccuracy,
+                                                     .valLoss,
+                                                     .batchTime,
+                                                     .optimizerRunTime])
+    optim.metricsReporter = reporter
+    
+    optim.metricsReporter?.receive = { metrics in
+      let accuracy = metrics[.accuracy] ?? 0
+      let loss = metrics[.loss] ?? 0
+      print("batchTime: ", metrics[.batchTime] ?? 0)
+      print("optimizerRunTime  :", metrics[.optimizerRunTime] ?? 0)
+      print("training -> ", "loss: ", loss, "accuracy: ", accuracy)
+    }
+
+    // MNIST dataset. Image size of 28x28x1.
+    let data = await MNIST().build()
+
+    let classifier = Classifier(optimizer: optim,
+                                epochs: 100,
+                                batchSize: batchSize,
+                                accuracyThreshold: .init(value: 0.90, averageCount: 2),
+                                log: false)
+
+        
+    classifier.onAccuracyReached = {
+      // when accuracy is reached, do something.
+    }
+    
+    classifier.fit(data.training, data.val)
+  }
+}
+```

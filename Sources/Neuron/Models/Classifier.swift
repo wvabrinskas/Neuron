@@ -61,7 +61,7 @@ public class Classifier {
     }
     
     for i in 0..<epochs {
-      let startTime = Date().timeIntervalSince1970
+      let startTime = CFAbsoluteTimeGetCurrent()
 
       var b = 0
       
@@ -111,7 +111,7 @@ public class Classifier {
       }
       
       onEpochCompleted?()
-      print("----epoch \(i) completed: \(Date().timeIntervalSince1970 - startTime)s-----")
+      print("----epoch \(i) completed: \(CFAbsoluteTimeGetCurrent() - startTime)s-----")
     }
     
     optimizer.isTraining = false

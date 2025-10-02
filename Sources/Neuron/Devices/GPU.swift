@@ -11,9 +11,30 @@ import NumSwift
 public class GPU: Device {
   public var qosPriority: DispatchQoS.QoSClass = .default
   public var type: DeviceType = .gpu
+  public var batchSize: Int = 1 {
+    didSet {
+      commandQueue.processingCount = batchSize
+    }
+  }
 
   private let manager = GPUManager.shared
+  private let commandQueue = CommandQueue()
   
+  let metal: NumSwiftMetal = {
+    guard let createdMetal = NumSwiftMetal() else {
+      fatalError("NumSwiftMetal could not be created")
+    }
+    return createdMetal
+  }()
+    
+  public init(qosPriority: DispatchQoS.QoSClass = .default) {
+    self.qosPriority = qosPriority
+    metal.isAsyncMode = true
+    commandQueue.onExecuteQueue = { [metal] in
+     // metal.executePendingCommands()
+    }
+  }
+
   public func transConv2d(signal: [[Tensor.Scalar]],
                           filter: [[Tensor.Scalar]],
                           strides: (Int, Int) = (1,1),
@@ -21,29 +42,9 @@ public class GPU: Device {
                           filterSize: (rows: Int, columns: Int),
                           inputSize: (rows: Int, columns: Int),
                           outputSize: (rows: Int, columns: Int)? = nil) -> [[Tensor.Scalar]] {
-    
-    var calculatedOutputSize: (row: Int, columns: Int) {
-      var rows = inputSize.rows * strides.0
-      var columns = inputSize.columns * strides.1
-      
-      if padding == .valid {
-        rows = (inputSize.rows - 1) * strides.0 + filterSize.rows
-        columns = (inputSize.columns - 1) * strides.1 + filterSize.columns
-      }
-
-      return (rows, columns)
-    }
-    
-    let result = NumSwiftC.transConv2d(signal: signal,
-                                       filter: filter,
-                                       strides: strides,
-                                       padding: padding,
-                                       filterSize: filterSize,
-                                       inputSize: inputSize)
-    
-    return result
+    metal.transconv2d(signal, filter, stride: strides, padding: padding)
   }
-  
+
   public func conv2d(signal: [[Tensor.Scalar]],
                      filter: [[Tensor.Scalar]],
                      strides: (Int, Int) = (1,1),
@@ -52,48 +53,115 @@ public class GPU: Device {
                      inputSize: (rows: Int, columns: Int),
                      outputSize: (rows: Int, columns: Int)? = nil) -> [[Tensor.Scalar]] {
     
-    var calculatedOutputSize: (row: Int, columns: Int) {
-      let paddingValue = padding.extra(inputSize: (inputSize.rows, inputSize.columns), filterSize: filterSize)
-
-      let rows = (((inputSize.rows + (paddingValue.top + paddingValue.bottom)) - (filterSize.rows - 1) - 1) / strides.0) + 1
-      let columns = (((inputSize.columns + (paddingValue.left + paddingValue.right)) - (filterSize.columns - 1) - 1) / strides.1) + 1
-
-      return (rows, columns)
+    let result = commandQueue.enqueue { [metal] result in
+      metal.conv2d(signal, filter,
+                   stride: strides,
+                   padding: padding) { gpuResult in
+        result(gpuResult)
+      }
     }
-    
-    let result = NumSwiftC.conv2d(signal: signal,
-                                  filter: filter,
-                                  strides: strides,
-                                  padding: padding,
-                                  filterSize: filterSize,
-                                  inputSize: inputSize)
-    
+  
     return result
   }
   
   public func activate(_ input: Tensor, _ type: Activation) -> Tensor {
-    let shape = input.shape
-      
-    let flat = input.value.flatten()
-    let activated = self.manager.activate(flat, type)
-
-    let reshaped = activated.reshape(columns: shape[safe: 0, 0]).batched(into: shape[safe: 2, 0])
-
-    return Tensor(reshaped)
+    // for now perform operation on CPU.
+    return CPU().activate(input, type)
+    
+    var result: [[[Tensor.Scalar]]] = []
+    
+    for topValue in input.value {
+      var row: [[Tensor.Scalar]] = []
+      for value in topValue {
+        var leakyReluLimit: Tensor.Scalar = 0
+        switch type {
+        case .leakyRelu(limit: let limit):
+          leakyReluLimit = limit
+        default:
+          break
+        }
+        
+        row.append(metal.activation(value, type: .init(type), limit: leakyReluLimit))
+      }
+      result.append(row)
+    }
+  
+    return Tensor(result)
   }
   
   public func derivate(_ input: Tensor, _ type: Activation) -> Tensor {
-    let shape = input.shape
-      
-    let flat = input.value.flatten()
-    let activated = self.manager.activate(flat, type, derivate: true)
-
-    let reshaped = activated.reshape(columns: shape[safe: 0, 0]).batched(into: shape[safe: 2, 0])
-
-    return Tensor(reshaped)
-  }
+    // for now perform operation on CPU.
+    return CPU().derivate(input, type)
+    
+    var result: [[[Tensor.Scalar]]] = []
+    
+    for topValue in input.value {
+      var row: [[Tensor.Scalar]] = []
+      for value in topValue {
+        var leakyReluLimit: Tensor.Scalar = 0
+        switch type {
+        case .leakyRelu(limit: let limit):
+          leakyReluLimit = limit
+        default:
+          break
+        }
+        
+        row.append(metal.derivative(value, type: .init(type), limit: leakyReluLimit))
+      }
+      result.append(row)
+    }
   
+    return Tensor(result)
+  }
+
   public func matmul(_ a: Tensor, _ b: Tensor) -> Tensor {
-    a.matmul(b)
+  
+    var result: Tensor.Data = []
+    let aShape = TensorSize(array: a.shape)
+    let bShape = TensorSize(array: b.shape)
+    guard aShape.depth == bShape.depth else {
+      fatalError("Matmul failed: incorrect number of channels")
+    }
+    
+    for (i, value) in a.value.enumerated() {
+      let aVal = value
+      let bVal = b.value[i]
+            
+      let out = commandQueue.enqueue { [metal] result in
+        metal.matmul(aVal, bVal) { gpuResult in
+          result(gpuResult)
+        }
+      }
+            
+      result.append(out)
+    }
+    
+    return Tensor(result)
+  }
+}
+
+extension ActivationType {
+  
+  public init(_ activation: Activation) {
+    switch activation {
+    case .geLu:
+      self = .gelu
+    case .leakyRelu:
+      self = .leakyRelu
+    case .reLu:
+      self = .relu
+    case .seLu:
+      self = .selu
+    case .sigmoid:
+      self = .sigmoid
+    case .swish:
+      self = .swish
+    case .tanh:
+      self = .tanh
+    case .softmax:
+      self = .softmax
+    case .none:
+      self = .none
+    }
   }
 }
