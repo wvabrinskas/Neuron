@@ -44,7 +44,7 @@ public final class Flatten: BaseLayer {
   }
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
-    let context = TensorContext { inputs, gradient in
+    let context = TensorContext { inputs, gradient, wrt in
       
       let inputSize = self.inputSize
       let deltas: [Tensor.Scalar] = gradient.value.flatten()

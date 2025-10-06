@@ -250,10 +250,20 @@ public class Tensor: Equatable, Codable {
   
   /// Sets the input graph to this Tensor
   /// - Parameter tensor: The tensor to insert into the graph
-  public func setGraph(_ tensor: Tensor) {
-    graph[tensor.id] = tensor
-    graphChain.insert(tensor.id)
-    graphChain.formUnion(tensor.graphChain)
+  /// - Parameter breakCycles: If true, will create a detached copy of the tensor to prevent reference cycles (default: false)
+  public func setGraph(_ tensor: Tensor, breakCycles: Bool = false) {
+    let tensorToStore = breakCycles ? tensor.detached() : tensor
+    graph[tensorToStore.id] = tensorToStore
+    graphChain.insert(tensorToStore.id)
+    graphChain.formUnion(tensorToStore.graphChain)
+  }
+  
+  /// Sets the input graph with cycle detection - if the tensor already exists in the graph chain, it will be detached
+  /// - Parameter tensor: The tensor to insert into the graph
+  internal func setGraphSafe(_ tensor: Tensor) {
+    // If this tensor is already in our chain or if we're in its chain, break the cycle
+    let shouldBreakCycle = graphChain.contains(tensor.id) || tensor.graphChain.contains(self.id)
+    setGraph(tensor, breakCycles: shouldBreakCycle)
   }
   
   /// Calculates the gradients in the Tensor graph
@@ -365,7 +375,7 @@ public class Tensor: Equatable, Codable {
         }
       }
       
-      let newGrads = context.backpropagate(input, delta)
+      let newGrads = context.backpropagate(input, delta, wrt)
 
       inputGradients.insert(newGrads.input, at: 0)
       weightGradients.insert(newGrads.weight, at: 0)

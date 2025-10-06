@@ -38,7 +38,7 @@ public final class AvgPool: BaseLayer {
   }
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
-    func backwards(input: Tensor, gradient: Tensor) -> (Tensor, Tensor, Tensor) {
+    func backwards(input: Tensor, gradient: Tensor, wrt: Tensor?) -> (Tensor, Tensor, Tensor) {
       var poolingGradients: [[[Tensor.Scalar]]] = []
       
       let rows = inputSize.rows

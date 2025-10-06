@@ -242,7 +242,7 @@ public final class ResNet: BaseLayer {
   // MARK: - Private
   
   private func buildForward(input: Tensor, reLuOut: Tensor, detachedInput: Tensor, copiedInputTensor: Tensor) -> Tensor {
-    let tensorContext = TensorContext { [accumulator, shortCutAccumulator, shouldProjectInput, innerBlockSequential, shortcutSequential, reLuOut] inputs, gradient in
+    let tensorContext = TensorContext { [accumulator, shortCutAccumulator, shouldProjectInput, innerBlockSequential, shortcutSequential, reLuOut] inputs, gradient, wrt in
       
       // it appears that this gradient accumulation is wrong?
       // none of the other layers outside of ResNet have a problem with gradient accumulation

@@ -102,7 +102,7 @@ public final class Dense: BaseLayer {
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     
-    let tensorContext = TensorContext { inputs, gradients in
+    let tensorContext = TensorContext { inputs, gradients, wrt in
       let gradientsFlat: [Tensor.Scalar] = gradients.value.flatten()
       
       let deltas = self.device.matmul(gradients, self.weights.detached())
@@ -126,7 +126,7 @@ public final class Dense: BaseLayer {
     var dotProducts = device.matmul(tensor, Tensor(weightsTransposed))
     
     if biasEnabled {
-      dotProducts = dotProducts.copy() + biases.asScalar()
+      dotProducts = dotProducts + biases.asScalar()
     }
     
     let out = Tensor(dotProducts.value, context: tensorContext)
@@ -138,10 +138,10 @@ public final class Dense: BaseLayer {
   }
   
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
-    weights = weights.copy() - gradients.weights
+    weights = weights - gradients.weights
     
     if biasEnabled {
-      biases = biases.copy() - gradients.biases
+      biases = biases - gradients.biases
     }
   }
 }

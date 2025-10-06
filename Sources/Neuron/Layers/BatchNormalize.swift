@@ -197,7 +197,7 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
       calculateWelfordVariance(inputs: tensor, context: context)
     }
     
-    let tensorContext = TensorContext { inputs, gradient in
+    let tensorContext = TensorContext { inputs, gradient, wrt in
       let backward = self.backward(inputs: inputs,
                                    gradient: gradient.value,
                                    context: context)

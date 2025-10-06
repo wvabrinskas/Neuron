@@ -98,7 +98,7 @@ public class Conv2d: BaseConvolutionalLayer {
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
 
-    let context = TensorContext { inputs, gradient in
+    let context = TensorContext { inputs, gradient, wrt in
       self.backward(inputs, gradient)
     }
     

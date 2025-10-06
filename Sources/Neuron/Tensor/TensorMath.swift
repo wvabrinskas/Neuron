@@ -153,17 +153,8 @@ public extension Tensor {
   ///   - block: The mathematical operation to apply
   /// - Returns: A new tensor with the result of the operation
   /// 
-  /// - Warning: When assigning the result to a variable, do not assign to the same variable as one of the input tensors.
-  ///   For example, avoid: `xTensor = xTensor.applyAlong(axis: 0, input: yTensor, operation)`.
-  ///   This results in an infinite loop if you attempt to make the same function call again.
-  ///   Instead, use `.copy()` or `.detached()` on the duplicated tensor to break the cycle.
-  ///   
-  ///   Example of correct usage:
-  ///   ```swift
-  ///   let result = xTensor.applyAlong(axis: 0, input: yTensor, operation)
-  ///   // or
-  ///   xTensor = xTensor.copy().applyAlong(axis: 0, input: yTensor, operation)
-  ///   ```
+  /// - Note: Self-assignment is supported. Methods using this function automatically detect and prevent
+  ///   reference cycles in the computation graph via `setGraphSafe`.
   func applyAlong(axis: Int, input: Tensor, _ block: MathAlongBlock) -> Tensor {
     let shape = input.shape
     let size = TensorSize(array: shape)
@@ -225,17 +216,8 @@ public extension Tensor {
   ///   - value: The tensor to divide by, which will be broadcast along the specified axis
   /// - Returns: A new tensor with the result of the division operation
   /// 
-  /// - Warning: When assigning the result to a variable, do not assign to the same variable as one of the input tensors.
-  ///   For example, avoid: `xTensor = xTensor.divideAlong(axis: 0, value: yTensor)` or `xTensor = xTensor / yTensor`.
-  ///   This results in an infinite loop if you attempt to make the same function call again.
-  ///   Instead, use `.copy()` or `.detached()` on the duplicated tensor to break the cycle.
-  ///   
-  ///   Example of correct usage:
-  ///   ```swift
-  ///   let result = xTensor.divideAlong(axis: 0, value: yTensor)
-  ///   // or
-  ///   xTensor = xTensor.copy().divideAlong(axis: 0, value: yTensor)
-  ///   ```
+  /// - Note: Self-assignment is now handled automatically. The operation detects and prevents
+  ///   reference cycles in the computation graph, so manual `.copy()` calls are no longer required.
   func divideAlong(axis: Int, value: Tensor) -> Tensor {
     let block: MathAlongBlock = { feature, value in
       if let valueArray = value.0 {
@@ -249,7 +231,7 @@ public extension Tensor {
     
     let copied = value.copy()
     
-    let context = TensorContext { inputs, gradient in
+    let context = TensorContext { inputs, gradient, wrt in
       return (gradient * (1 / copied), Tensor(), Tensor())
     }
     
@@ -259,8 +241,8 @@ public extension Tensor {
     
     new.label = "division"
     
-    new.setGraph(self)
-    new.setGraph(value)
+    new.setGraphSafe(self)
+    new.setGraphSafe(value)
     
     return new
   }
@@ -272,17 +254,8 @@ public extension Tensor {
   ///   - value: The tensor to multiply, which will be broadcast along the specified axis
   /// - Returns: A new tensor with the result of the multiplication operation
   /// 
-  /// - Warning: When assigning the result to a variable, do not assign to the same variable as one of the input tensors.
-  ///   For example, avoid: `xTensor = xTensor.multiplyAlong(axis: 0, value: yTensor)` or `xTensor = xTensor * yTensor`.
-  ///   This results in an infinite loop if you attempt to make the same function call again.
-  ///   Instead, use `.copy()` or `.detached()` on the duplicated tensor to break the cycle.
-  ///   
-  ///   Example of correct usage:
-  ///   ```swift
-  ///   let result = xTensor.multiplyAlong(axis: 0, value: yTensor)
-  ///   // or
-  ///   xTensor = xTensor.copy().multiplyAlong(axis: 0, value: yTensor)
-  ///   ```
+  /// - Note: Self-assignment is now handled automatically. The operation detects and prevents
+  ///   reference cycles in the computation graph, so manual `.copy()` calls are no longer required.
   func multiplyAlong(axis: Int, value: Tensor) -> Tensor {
     let block: MathAlongBlock = { feature, value in
       if let valueArray = value.0 {
@@ -296,7 +269,7 @@ public extension Tensor {
     
     let copied = value.copy()
 
-    let context = TensorContext { inputs, gradient in
+    let context = TensorContext { inputs, gradient, wrt in
       return (gradient * copied, Tensor(), Tensor())
     }
     
@@ -306,8 +279,8 @@ public extension Tensor {
     
     new.label = "multiplication"
 
-    new.setGraph(self)
-    new.setGraph(value)
+    new.setGraphSafe(self)
+    new.setGraphSafe(value)
     
     return new
   }
@@ -319,17 +292,8 @@ public extension Tensor {
   ///   - value: The tensor to add, which will be broadcast along the specified axis
   /// - Returns: A new tensor with the result of the addition operation
   /// 
-  /// - Warning: When assigning the result to a variable, do not assign to the same variable as one of the input tensors.
-  ///   For example, avoid: `xTensor = xTensor.addAlong(axis: 0, value: yTensor)` or `xTensor = xTensor + yTensor`.
-  ///   This results in an infinite loop if you attempt to make the same function call again.
-  ///   Instead, use `.copy()` or `.detached()` on the duplicated tensor to break the cycle.
-  ///   
-  ///   Example of correct usage:
-  ///   ```swift
-  ///   let result = xTensor.addAlong(axis: 0, value: yTensor)
-  ///   // or
-  ///   xTensor = xTensor.copy().addAlong(axis: 0, value: yTensor)
-  ///   ```
+  /// - Note: Self-assignment is now handled automatically. The operation detects and prevents
+  ///   reference cycles in the computation graph, so manual `.copy()` calls are no longer required.
   func addAlong(axis: Int, value: Tensor) -> Tensor {
     let block: MathAlongBlock = { feature, value in
       if let valueArray = value.0 {
@@ -341,7 +305,7 @@ public extension Tensor {
       }
     }
     
-    let context = TensorContext { inputs, gradient in
+    let context = TensorContext { inputs, gradient, wrt in
       let copy = gradient.copy()
       copy.label = "addition"
       return (copy, Tensor(), Tensor())
@@ -353,8 +317,8 @@ public extension Tensor {
     
     new.label = "addition"
 
-    new.setGraph(self)
-    new.setGraph(value)
+    new.setGraphSafe(self)
+    new.setGraphSafe(value)
     
     return new
   }
@@ -366,17 +330,8 @@ public extension Tensor {
   ///   - value: The tensor to subtract, which will be broadcast along the specified axis
   /// - Returns: A new tensor with the result of the subtraction operation
   /// 
-  /// - Warning: When assigning the result to a variable, do not assign to the same variable as one of the input tensors.
-  ///   For example, avoid: `xTensor = xTensor.subtractAlong(axis: 0, value: yTensor)` or `xTensor = xTensor - yTensor`.
-  ///   This results in an infinite loop if you attempt to make the same function call again.
-  ///   Instead, use `.copy()` or `.detached()` on the duplicated tensor to break the cycle.
-  ///   
-  ///   Example of correct usage:
-  ///   ```swift
-  ///   let result = xTensor.subtractAlong(axis: 0, value: yTensor)
-  ///   // or
-  ///   xTensor = xTensor.copy().subtractAlong(axis: 0, value: yTensor)
-  ///   ```
+  /// - Note: Self-assignment is now handled automatically. The operation detects and prevents
+  ///   reference cycles in the computation graph, so manual `.copy()` calls are no longer required.
   func subtractAlong(axis: Int, value: Tensor) -> Tensor {
     let block: MathAlongBlock = { feature, value in
       if let valueArray = value.0 {
@@ -388,7 +343,7 @@ public extension Tensor {
       }
     }
     
-    let context = TensorContext { inputs, gradient in
+    let context = TensorContext { inputs, gradient, wrt in
       return (gradient * -1, Tensor(), Tensor())
     }
     
@@ -398,8 +353,8 @@ public extension Tensor {
     
     new.label = "subtraction"
     
-    new.setGraph(self)
-    new.setGraph(value)
+    new.setGraphSafe(self)
+    new.setGraphSafe(value)
     
     return new
   }
@@ -693,17 +648,8 @@ public extension Tensor {
   ///   - rhs: The right-hand side tensor
   /// - Returns: A new tensor with the result of the addition operation
   /// 
-  /// - Warning: When assigning the result to a variable, do not assign to the same variable as one of the input tensors.
-  ///   For example, avoid: `xTensor = xTensor + yTensor`.
-  ///   This results in an infinite loop if you attempt to make the same function call again.
-  ///   Instead, use `.copy()` or `.detached()` on the duplicated tensor to break the cycle.
-  ///   
-  ///   Example of correct usage:
-  ///   ```swift
-  ///   let result = xTensor + yTensor
-  ///   // or
-  ///   xTensor = xTensor.copy() + yTensor
-  ///   ```
+  /// - Note: Self-assignment is now handled automatically. The operation detects and prevents
+  ///   reference cycles in the computation graph, so manual `.copy()` calls are no longer required.
   static func +(lhs: Tensor, rhs: Tensor) -> Tensor {
     let left = lhs.value
     let right = rhs.value
@@ -715,7 +661,7 @@ public extension Tensor {
     
     let newTensor = left + right
     
-    let context = TensorContext { inputs, gradient in
+    let context = TensorContext { inputs, gradient, wrt in
       let copy = gradient.copy()
       copy.label = "addition_input_grad"
       return (copy, Tensor(), Tensor())
@@ -725,8 +671,8 @@ public extension Tensor {
     
     new.label = "addition"
     
-    new.setGraph(lhs)
-    new.setGraph(rhs)
+    new.setGraphSafe(lhs)
+    new.setGraphSafe(rhs)
     
     return new
   }
@@ -738,17 +684,8 @@ public extension Tensor {
   ///   - rhs: The right-hand side tensor
   /// - Returns: A new tensor with the result of the subtraction operation
   /// 
-  /// - Warning: When assigning the result to a variable, do not assign to the same variable as one of the input tensors.
-  ///   For example, avoid: `xTensor = xTensor - yTensor`.
-  ///   This results in an infinite loop if you attempt to make the same function call again.
-  ///   Instead, use `.copy()` or `.detached()` on the duplicated tensor to break the cycle.
-  ///   
-  ///   Example of correct usage:
-  ///   ```swift
-  ///   let result = xTensor - yTensor
-  ///   // or
-  ///   xTensor = xTensor.copy() - yTensor
-  ///   ```
+  /// - Note: Self-assignment is now handled automatically. The operation detects and prevents
+  ///   reference cycles in the computation graph, so manual `.copy()` calls are no longer required.
   static func -(lhs: Tensor, rhs: Tensor) -> Tensor {
     let left = lhs.value
     let right = rhs.value
@@ -760,16 +697,20 @@ public extension Tensor {
     
     let newTensor = left - right
     
-    let context = TensorContext { inputs, gradient in
-      return (gradient * -1, Tensor(), Tensor())
+    let context = TensorContext { inputs, gradient, wrt in
+      if let wrt, (rhs.graphChain.contains(wrt.id) || rhs.id == wrt.id) {
+        return (gradient * -1, Tensor(), Tensor())
+      }
+
+      return (gradient, Tensor(), Tensor())
     }
     
     let new = Tensor(newTensor, context: context)
     
     new.label = "subtraction"
 
-    new.setGraph(lhs)
-    new.setGraph(rhs)
+    new.setGraphSafe(lhs)
+    new.setGraphSafe(rhs)
     
     return new
   }
@@ -781,17 +722,8 @@ public extension Tensor {
   ///   - rhs: The right-hand side tensor
   /// - Returns: A new tensor with the result of the multiplication operation
   /// 
-  /// - Warning: When assigning the result to a variable, do not assign to the same variable as one of the input tensors.
-  ///   For example, avoid: `xTensor = xTensor * yTensor`.
-  ///   This results in an infinite loop if you attempt to make the same function call again.
-  ///   Instead, use `.copy()` or `.detached()` on the duplicated tensor to break the cycle.
-  ///   
-  ///   Example of correct usage:
-  ///   ```swift
-  ///   let result = xTensor * yTensor
-  ///   // or
-  ///   xTensor = xTensor.copy() * yTensor
-  ///   ```
+  /// - Note: Self-assignment is now handled automatically. The operation detects and prevents
+  ///   reference cycles in the computation graph, so manual `.copy()` calls are no longer required.
   static func *(lhs: Tensor, rhs: Tensor) -> Tensor {
     let left = lhs.value
     let right = rhs.value
@@ -804,7 +736,7 @@ public extension Tensor {
     let newTensor = left * right
     
     let copied = rhs.copy()
-    let context = TensorContext { inputs, gradient in
+    let context = TensorContext { inputs, gradient, wrt in
       return (gradient * copied, Tensor(), Tensor())
     }
     
@@ -812,8 +744,8 @@ public extension Tensor {
     
     new.label = "multiplication"
 
-    new.setGraph(lhs)
-    new.setGraph(rhs)
+    new.setGraphSafe(lhs)
+    new.setGraphSafe(rhs)
     
     return new
   }
@@ -825,17 +757,8 @@ public extension Tensor {
   ///   - rhs: The right-hand side tensor
   /// - Returns: A new tensor with the result of the division operation
   /// 
-  /// - Warning: When assigning the result to a variable, do not assign to the same variable as one of the input tensors.
-  ///   For example, avoid: `xTensor = xTensor / yTensor`.
-  ///   This results in an infinite loop if you attempt to make the same function call again.
-  ///   Instead, use `.copy()` or `.detached()` on the duplicated tensor to break the cycle.
-  ///   
-  ///   Example of correct usage:
-  ///   ```swift
-  ///   let result = xTensor / yTensor
-  ///   // or
-  ///   xTensor = xTensor.copy() / yTensor
-  ///   ```
+  /// - Note: Self-assignment is now handled automatically. The operation detects and prevents
+  ///   reference cycles in the computation graph, so manual `.copy()` calls are no longer required.
   static func /(lhs: Tensor, rhs: Tensor) -> Tensor {
     let left = lhs.value
     let right = rhs.value
@@ -848,7 +771,7 @@ public extension Tensor {
     let newTensor = left / right
     
     let copied = rhs.copy()
-    let context = TensorContext { inputs, gradient in
+    let context = TensorContext { inputs, gradient, wrt  in
       return (gradient * (1 / copied), Tensor(), Tensor())
     }
     
@@ -856,9 +779,8 @@ public extension Tensor {
     
     new.label = "division"
 
-    // causing a memory leak..
-    new.setGraph(lhs)
-    new.setGraph(rhs)
+    new.setGraphSafe(lhs)
+    new.setGraphSafe(rhs)
     
     return new
   }

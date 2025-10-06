@@ -77,7 +77,7 @@ public final class LayerNormalize: BaseLayer {
   }
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
-    let context = TensorContext { inputs, gradient in
+    let context = TensorContext { inputs, gradient, wrt in
       self.backward(inputs: inputs.value, gradient: gradient.value)
     }
     

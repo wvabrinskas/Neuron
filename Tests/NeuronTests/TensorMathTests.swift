@@ -136,7 +136,7 @@ final class TensorMathTests: XCTestCase {
     let fakeInput = Tensor()
     
     let tensor = Tensor(NumSwift.onesLike((5, 5, 1)),
-                        context: .init(backpropagate: { inputs, gradient in
+                        context: .init(backpropagate: { inputs, gradient, wrt in
       
       let fakeGradientWrtFakeInput = gradient * 0.25
       
@@ -186,7 +186,7 @@ final class TensorMathTests: XCTestCase {
     let fakeInput = Tensor()
     
     let tensor = Tensor(NumSwift.onesLike((5, 5, 1)),
-                        context: .init(backpropagate: { inputs, gradient in
+                        context: .init(backpropagate: { inputs, gradient, wrt in
       
       let fakeGradientWrtFakeInput = gradient * 0.25
       
@@ -238,7 +238,7 @@ final class TensorMathTests: XCTestCase {
     let fakeInput = Tensor()
     
     let tensor = Tensor(NumSwift.onesLike((5, 5, 1)),
-                        context: .init(backpropagate: { inputs, gradient in
+                        context: .init(backpropagate: { inputs, gradient, wrt in
       
       let fakeGradientWrtFakeInput = gradient * 0.25
       
@@ -285,7 +285,7 @@ final class TensorMathTests: XCTestCase {
     let fakeInput = Tensor()
     
     let tensor = Tensor(NumSwift.onesLike((5, 5, 1)),
-                        context: .init(backpropagate: { inputs, gradient in
+                        context: .init(backpropagate: { inputs, gradient, wrt in
       
       let fakeGradientWrtFakeInput = gradient * 0.25
       

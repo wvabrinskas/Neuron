@@ -378,7 +378,7 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
   @discardableResult
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     
-    let context = TensorContext { inputs, gradient in
+    let context = TensorContext { inputs, gradient, wrt in
       let out = self.device.derivate(inputs, self.type).value * gradient.value
       let outTensor = Tensor(out)
       outTensor.label = self.type.asString() + "_input_grad"

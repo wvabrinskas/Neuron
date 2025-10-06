@@ -36,7 +36,7 @@ public final class GlobalAvgPool: BaseLayer {
   
   public override func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
     
-    let tensorContext = TensorContext { [inputSize] inputs, gradient in
+    let tensorContext = TensorContext { [inputSize] inputs, gradient, wrt in
       // each input value at a given space only contributed 1 / (row * column) of the output
             
       let flatGradient = gradient.value.flatten()

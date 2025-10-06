@@ -57,7 +57,7 @@ public final class Dropout: BaseLayer {
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let newMask = mask ?? generateMask() // testing purposes only
     
-    let context = TensorContext { [newMask] inputs, gradient in
+    let context = TensorContext { [newMask] inputs, gradient, wrt in
       let outMask = newMask
       let droppedOutGradients = gradient * outMask
       

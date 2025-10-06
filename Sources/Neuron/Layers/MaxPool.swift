@@ -53,7 +53,7 @@ public final class MaxPool: BaseLayer {
   }
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
-    func backwards(input: Tensor, gradient: Tensor) -> (Tensor, Tensor, Tensor) {
+    func backwards(input: Tensor, gradient: Tensor, wrt: Tensor?) -> (Tensor, Tensor, Tensor) {
       let deltas = gradient.value
       var poolingGradients: [[[Tensor.Scalar]]] = []
       
