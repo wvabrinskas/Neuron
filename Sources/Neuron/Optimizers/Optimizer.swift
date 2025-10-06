@@ -170,7 +170,7 @@ open class BaseOptimizer: Optimizer {
                                                                                          processingCount,
                                                                                          workerId in
       
-      let batchLabels: [[Tensor.Scalar]] = labels[indexRange].map { $0.value.flatten() }
+      let batchLabels: [Tensor] = Array(labels[indexRange])
       
       let outs = self.trainable.predict(batch: elements, context: .init(batchRange: indexRange,
                                                                         batchProcessingCount: processingCount,
@@ -183,19 +183,19 @@ open class BaseOptimizer: Optimizer {
         let label = batchLabels[index]
         let input = elements[index]
         
-        let loss = lossFunction.calculate(out, correct: Tensor(label)).sum(axis: -1).asScalar()
+        let loss = lossFunction.calculate(out, correct: label).sum(axis: -1).asScalar()
         losses += loss / Tensor.Scalar(data.count)
         
         if let reporter = self.metricsReporter {
           if validation {
-            accuracy += reporter.calculateValAccuracy(out, label: Tensor(label), binary: label.count == 1, running: false) / Tensor.Scalar(data.count)
+            accuracy += reporter.calculateValAccuracy(out, label: label, binary: label.isScalar(), running: false) / Tensor.Scalar(data.count)
           } else {
-            accuracy += reporter.calculateAccuracy(out, label: Tensor(label), binary: label.count == 1, running: false) / Tensor.Scalar(data.count)
+            accuracy += reporter.calculateAccuracy(out, label: label, binary: label.isScalar(), running: false) / Tensor.Scalar(data.count)
           }
         }
         
         if requiresGradients {
-          let lossGradient = lossFunction.derivative(out, correct: Tensor(label))
+          let lossGradient = lossFunction.derivative(out, correct: label)
           let gradient = out.gradients(delta: lossGradient, wrt: input)
           accumulator.insert(gradient)
         }
