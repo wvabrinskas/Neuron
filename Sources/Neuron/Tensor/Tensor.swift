@@ -356,6 +356,10 @@ public class Tensor: Equatable, Codable {
     return Tensor(value)
   }
   
+  public func isScalar() -> Bool {
+    shape == [1,1,1]
+  }
+  
   /// Gets the `Tensor.Scalar` value of this Tensors value. This is reserved for Tensor's that have a value of size `[1, 1, 1]` aka a `Scalar` as `[[[Scalar]]]`
   /// - Returns: The scalar value.
   public func asScalar() -> Scalar {
