@@ -280,6 +280,10 @@ public class Tensor: Equatable, Codable {
     var gradientsAtLevelToUse: [Tensor] = inputGradients
     var childrenAtLevelToUse: [UUID: Tensor] = input
     
+    if let wrt {
+      childrenAtLevelToUse = childrenAtLevelToUse.filter({ $0.value.graphChain.contains(wrt.id) || $0.value.id == wrt.id })
+    }
+    
     func process(input: Tensor,
                  wrt: Tensor? = nil,
                  gradientToUse: Tensor,

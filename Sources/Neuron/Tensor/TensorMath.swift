@@ -154,7 +154,7 @@ public extension Tensor {
   /// - Returns: A new tensor with the result of the operation
   ///
   /// - Note: Self-assignment is supported. Methods using this function automatically detect and prevent
-  ///   reference cycles in the computation graph via `setGraphSafe`.
+  ///   reference cycles in the computation graph via ` `.
   func applyAlong(axis: Int, input: Tensor, _ block: MathAlongBlock) -> Tensor {
     let shape = input.shape
     let size = TensorSize(array: shape)

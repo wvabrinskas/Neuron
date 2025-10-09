@@ -206,13 +206,13 @@ final class TensorMathTests: XCTestCase {
                                                         count: 5),
                                    count: 1))
     
-    let gradients = out.gradients(delta: error)
+    let gradients = out.gradients(delta: error, wrt: tensor2)
     
     let inputGradient = gradients.input
     
-    XCTAssertNotNil(inputGradient[1])
+    XCTAssertNotNil(inputGradient[0])
     
-    let wrtTensor = inputGradient[1]
+    let wrtTensor = inputGradient[0]
     
     let expectedWrtTensor = Tensor([[[Float]]](repeating: [[Float]](repeating: [Float](repeating: -0.5,
                                                                            count: 5),
@@ -221,11 +221,13 @@ final class TensorMathTests: XCTestCase {
     
     XCTAssertTrue(wrtTensor.isValueEqual(to: expectedWrtTensor))
     
-    XCTAssertNotNil(inputGradient[0])
+    let leftGradients = out.gradients(delta: error, wrt: fakeInput).input
+
+    XCTAssertNotNil(leftGradients[0])
     
-    let wrtFakeInput = inputGradient[0]
+    let wrtFakeInput = leftGradients[0]
     
-    let expected = Tensor([[[Float]]](repeating: [[Float]](repeating: [Float](repeating: -0.125,
+    let expected = Tensor([[[Float]]](repeating: [[Float]](repeating: [Float](repeating: 0.125,
                                                                            count: 5),
                                                         count: 5),
                                    count: 1))
@@ -258,15 +260,18 @@ final class TensorMathTests: XCTestCase {
                                                         count: 5),
                                    count: 1))
     
-    let gradients = out.gradients(delta: error)
+    var gradients = out.gradients(delta: error, wrt: tensor2)
     
-    let inputGradient = gradients.input
+    var inputGradient = gradients.input
     
-    XCTAssertNotNil(inputGradient[1])
+    XCTAssertNotNil(inputGradient[0])
     
-    let wrtTensor = inputGradient[1]
+    let wrtTensor = inputGradient[0]
     
     XCTAssertTrue(wrtTensor.isValueEqual(to: error))
+    
+    gradients = out.gradients(delta: error, wrt: fakeInput)
+    inputGradient = gradients.input
     
     XCTAssertNotNil(inputGradient[0])
     
@@ -303,15 +308,24 @@ final class TensorMathTests: XCTestCase {
                                                         count: 5),
                                    count: 1))
     
-    let gradients = out.gradients(delta: error)
+    var gradients = out.gradients(delta: error, wrt: tensor2)
     
-    let inputGradient = gradients.input
+    var inputGradient = gradients.input
     
-    XCTAssertNotNil(inputGradient[1])
+    XCTAssertNotNil(inputGradient[0])
     
-    let wrtTensor = inputGradient[1]
+    let wrtTensor = inputGradient[0]
     
-    XCTAssertTrue(wrtTensor.isValueEqual(to: error))
+    let expectedGrad = Tensor([[[Float]]](repeating: [[Float]](repeating: [Float](repeating: -0.5,
+                                                                           count: 5),
+                                                        count: 5),
+                                   count: 1))
+    
+    XCTAssertTrue(wrtTensor.isValueEqual(to: expectedGrad))
+    
+    gradients = out.gradients(delta: error, wrt: fakeInput)
+    
+    inputGradient = gradients.input
     
     XCTAssertNotNil(inputGradient[0])
     
