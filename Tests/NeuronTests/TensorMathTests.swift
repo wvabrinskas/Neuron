@@ -131,6 +131,214 @@ final class TensorMathTests: XCTestCase {
     XCTAssertTrue(expectedTwo.isValueEqual(to: resultTwo))
   }
   
+  func test_tensorSum_withGradient() {
+    
+    let fakeInput = Tensor()
+    
+    let tensor = Tensor(NumSwift.onesLike((5, 5, 1)),
+                        context: .init(backpropagate: { inputs, gradient, wrt in
+      
+      let fakeGradientWrtFakeInput = gradient * 0.25
+      
+      return (fakeGradientWrtFakeInput, Tensor(), Tensor())
+    }))
+    
+    tensor.setGraph(fakeInput)
+    
+    let tensor2 = Tensor(NumSwift.onesLike((5, 5, 1)))
+    
+    let out = tensor + tensor2
+    
+    XCTAssertTrue(out.isValueEqual(to: Tensor([[[Float]]](repeating: [[Float]](repeating: [Float](repeating: 2.0,
+                                                                                                  count: 5),
+                                                                               count: 5),
+                                                          count: 1))))
+    
+    let error = Tensor([[[Float]]](repeating: [[Float]](repeating: [Float](repeating: 0.5,
+                                                                           count: 5),
+                                                        count: 5),
+                                   count: 1))
+    
+    let gradients = out.gradients(delta: error)
+    
+    let inputGradient = gradients.input
+    
+    XCTAssertNotNil(inputGradient[1])
+    
+    let wrtTensor = inputGradient[1]
+    
+    XCTAssertTrue(wrtTensor.isValueEqual(to: error))
+    
+    XCTAssertNotNil(inputGradient[0])
+    
+    let wrtFakeInput = inputGradient[0]
+    
+    let expected = Tensor([[[Float]]](repeating: [[Float]](repeating: [Float](repeating: 0.125,
+                                                                           count: 5),
+                                                        count: 5),
+                                   count: 1))
+    
+    XCTAssertTrue(wrtFakeInput.isValueEqual(to: expected))
+  }
+  
+  func test_tensorSubtract_withGradient() {
+    
+    let fakeInput = Tensor()
+    
+    let tensor = Tensor(NumSwift.onesLike((5, 5, 1)),
+                        context: .init(backpropagate: { inputs, gradient, wrt in
+      
+      let fakeGradientWrtFakeInput = gradient * 0.25
+      
+      return (fakeGradientWrtFakeInput, Tensor(), Tensor())
+    }))
+    
+    tensor.setGraph(fakeInput)
+    
+    let tensor2 = Tensor(NumSwift.onesLike((5, 5, 1)))
+    
+    let out = tensor - tensor2
+    
+    XCTAssertTrue(out.isValueEqual(to: Tensor(NumSwift.zerosLike((5, 5, 1)))))
+    
+    let error = Tensor([[[Float]]](repeating: [[Float]](repeating: [Float](repeating: 0.5,
+                                                                           count: 5),
+                                                        count: 5),
+                                   count: 1))
+    
+    let gradients = out.gradients(delta: error, wrt: tensor2)
+    
+    let inputGradient = gradients.input
+    
+    XCTAssertNotNil(inputGradient[0])
+    
+    let wrtTensor = inputGradient[0]
+    
+    let expectedWrtTensor = Tensor([[[Float]]](repeating: [[Float]](repeating: [Float](repeating: -0.5,
+                                                                           count: 5),
+                                                        count: 5),
+                                   count: 1))
+    
+    XCTAssertTrue(wrtTensor.isValueEqual(to: expectedWrtTensor))
+    
+    let leftGradients = out.gradients(delta: error, wrt: fakeInput).input
+
+    XCTAssertNotNil(leftGradients[0])
+    
+    let wrtFakeInput = leftGradients[0]
+    
+    let expected = Tensor([[[Float]]](repeating: [[Float]](repeating: [Float](repeating: 0.125,
+                                                                           count: 5),
+                                                        count: 5),
+                                   count: 1))
+    
+    XCTAssertTrue(wrtFakeInput.isValueEqual(to: expected))
+  }
+  
+  func test_tensorMultiply_withGradient() {
+    
+    let fakeInput = Tensor()
+    
+    let tensor = Tensor(NumSwift.onesLike((5, 5, 1)),
+                        context: .init(backpropagate: { inputs, gradient, wrt in
+      
+      let fakeGradientWrtFakeInput = gradient * 0.25
+      
+      return (fakeGradientWrtFakeInput, Tensor(), Tensor())
+    }))
+    
+    tensor.setGraph(fakeInput)
+    
+    let tensor2 = Tensor(NumSwift.onesLike((5, 5, 1)))
+    
+    let out = tensor * tensor2
+    
+    XCTAssertTrue(out.isValueEqual(to: tensor))
+    
+    let error = Tensor([[[Float]]](repeating: [[Float]](repeating: [Float](repeating: 0.5,
+                                                                           count: 5),
+                                                        count: 5),
+                                   count: 1))
+    
+    var gradients = out.gradients(delta: error, wrt: tensor2)
+    
+    var inputGradient = gradients.input
+    
+    XCTAssertNotNil(inputGradient[0])
+    
+    let wrtTensor = inputGradient[0]
+    
+    XCTAssertTrue(wrtTensor.isValueEqual(to: error))
+    
+    gradients = out.gradients(delta: error, wrt: fakeInput)
+    inputGradient = gradients.input
+    
+    XCTAssertNotNil(inputGradient[0])
+    
+    let wrtFakeInput = inputGradient[0]
+    
+    let expected = Tensor([[[Float]]](repeating: [[Float]](repeating: [Float](repeating: 0.125,
+                                                                           count: 5),
+                                                        count: 5),
+                                   count: 1))
+    
+    XCTAssertTrue(wrtFakeInput.isValueEqual(to: expected))
+  }
+  
+  func test_tensorDivision_withGradient() {
+    
+    let fakeInput = Tensor()
+    
+    let tensor = Tensor(NumSwift.onesLike((5, 5, 1)),
+                        context: .init(backpropagate: { inputs, gradient, wrt in
+      
+      let fakeGradientWrtFakeInput = gradient * 0.25
+      
+      return (fakeGradientWrtFakeInput, Tensor(), Tensor())
+    }))
+    
+    tensor.setGraph(fakeInput)
+    
+    let tensor2 = Tensor(NumSwift.onesLike((5, 5, 1)))
+    
+    let out = tensor / tensor2
+    
+    let error = Tensor([[[Float]]](repeating: [[Float]](repeating: [Float](repeating: 0.5,
+                                                                           count: 5),
+                                                        count: 5),
+                                   count: 1))
+    
+    var gradients = out.gradients(delta: error, wrt: tensor2)
+    
+    var inputGradient = gradients.input
+    
+    XCTAssertNotNil(inputGradient[0])
+    
+    let wrtTensor = inputGradient[0]
+    
+    let expectedGrad = Tensor([[[Float]]](repeating: [[Float]](repeating: [Float](repeating: -0.5,
+                                                                           count: 5),
+                                                        count: 5),
+                                   count: 1))
+    
+    XCTAssertTrue(wrtTensor.isValueEqual(to: expectedGrad))
+    
+    gradients = out.gradients(delta: error, wrt: fakeInput)
+    
+    inputGradient = gradients.input
+    
+    XCTAssertNotNil(inputGradient[0])
+    
+    let wrtFakeInput = inputGradient[0]
+    
+    let expected = Tensor([[[Float]]](repeating: [[Float]](repeating: [Float](repeating: 0.125,
+                                                                           count: 5),
+                                                        count: 5),
+                                   count: 1))
+    
+    XCTAssertTrue(wrtFakeInput.isValueEqual(to: expected))
+  }
+  
   func test_sum() {
     let tensor = Tensor([[[1,1,1],
                          [2,2,2]],

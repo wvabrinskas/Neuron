@@ -25,11 +25,10 @@ public final class Dropout: BaseLayer {
   /// - Parameters:
   ///   - chance: Percent change between 0 and 1 of an input node dropping out
   ///   - inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
-  public init(_ chance: Tensor.Scalar, inputSize: TensorSize = TensorSize(array: [])) {
+  public init(_ chance: Tensor.Scalar, inputSize: TensorSize? = nil) {
     self.chance = max(min(chance, 1.0), 0.0)
     
     super.init(inputSize: inputSize,
-               initializer: nil,
                biasEnabled: false,
                encodingType: .dropout)
   }
@@ -58,7 +57,7 @@ public final class Dropout: BaseLayer {
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let newMask = mask ?? generateMask() // testing purposes only
     
-    let context = TensorContext { [newMask] inputs, gradient in
+    let context = TensorContext { [newMask] inputs, gradient, wrt in
       let outMask = newMask
       let droppedOutGradients = gradient * outMask
       

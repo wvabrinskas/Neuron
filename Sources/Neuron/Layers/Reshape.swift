@@ -16,10 +16,9 @@ public final class Reshape: BaseLayer {
   /// - Parameters:
   ///   - size: The size to reshape to.
   ///   - inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
-  public init(to size: TensorSize, inputSize: TensorSize = TensorSize(array: [])) {
+  public init(to size: TensorSize, inputSize: TensorSize? = nil) {
     reshapeSize = size
     super.init(inputSize: inputSize,
-               initializer: nil,
                biasEnabled: false,
                encodingType: .reshape)
   }
@@ -53,7 +52,7 @@ public final class Reshape: BaseLayer {
   }
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
-    let context = TensorContext { inputs, gradient in
+    let context = TensorContext { inputs, gradient, wrt in
       let value: [Tensor.Scalar] = gradient.value.flatten()
       return (Tensor(value), Tensor(), Tensor())
     }

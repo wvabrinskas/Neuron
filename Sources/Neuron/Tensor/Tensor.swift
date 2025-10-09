@@ -170,8 +170,16 @@ public class Tensor: Equatable, Codable {
   }
   
   /// Prints the current graph all the way to the input.
-  public func printGraph(wrt: Tensor? = nil) {
+  public func printGraph(wrt: Tensor? = nil, deep: Bool = false) {
     var inputs: [UUID: Tensor] = input
+    
+    if let wrt {
+      if graphChain.contains(wrt.id) == false {
+        print("no connection")
+        return
+      }
+    }
+
     
     // print self
     // print children
@@ -186,14 +194,28 @@ public class Tensor: Equatable, Codable {
       var childrenAtLevel: [UUID: Tensor] = [:]
 
       for (k, v) in inputs {
-        outputString.insert("     branch: \(i) \(k): \(v.shape) \(v.label) \n", at: 0)//print("input \(k): ", v)
         childrenAtLevel.merge(v.input) { _, new in
           new
         }
+        
+        if let wrt {
+          if v.graphChain.contains(wrt.id) {
+            outputString.insert("     branch: \(i) \(k): \(v.shape) \(v.label) \n", at: 0)//print("input \(k): ", v)
+          }
+          
+          if wrt.id == v.id {
+            print(outputString.joined())
+            return
+          }
+        } else {
+          outputString.insert("     branch: \(i) \(k): \(v.shape) \(v.label) \n", at: 0)//print("input \(k): ", v)
+        }
+        
         i += 1
       }
       
       outputString.insert("level: \(level) ------ \n", at: 0)
+      
 
       level += 1
       if let wrt, childrenAtLevel.count > 1 {
@@ -201,7 +223,20 @@ public class Tensor: Equatable, Codable {
       } else {
         inputs = childrenAtLevel
       }
+      
+      if deep {
+        inputs.forEach { _, v in
+          v.printGraph(deep: deep)
+        }
+      }
+
     }
+    
+    outputString.append("""
+                        \t\t\t|
+                        \t\t\t|
+                        \t\t\tV
+                        """)
     
     print(outputString.joined())
   }
@@ -215,50 +250,90 @@ public class Tensor: Equatable, Codable {
   
   /// Sets the input graph to this Tensor
   /// - Parameter tensor: The tensor to insert into the graph
-  public func setGraph(_ tensor: Tensor) {
-    self.graph[tensor.id] = tensor
-    graphChain.insert(tensor.id)
-    graphChain.formUnion(tensor.graphChain)
+  /// - Parameter breakCycles: If true, will create a detached copy of the tensor to prevent reference cycles (default: false)
+  public func setGraph(_ tensor: Tensor, breakCycles: Bool = false) {
+    let tensorToStore = breakCycles ? tensor.detached() : tensor
+    graph[tensorToStore.id] = tensorToStore
+    graphChain.insert(tensorToStore.id)
+    graphChain.formUnion(tensorToStore.graphChain)
+  }
+  
+  /// Sets the input graph with cycle detection - if the tensor already exists in the graph chain, it will be detached
+  /// - Parameter tensor: The tensor to insert into the graph
+  internal func setGraphSafe(_ tensor: Tensor) {
+    // If this tensor is already in our chain or if we're in its chain, break the cycle
+    let shouldBreakCycle = graphChain.contains(tensor.id) || tensor.graphChain.contains(self.id)
+    setGraph(tensor, breakCycles: shouldBreakCycle)
   }
   
   /// Calculates the gradients in the Tensor graph
   /// - Parameter delta: The gradient to backpropagate w.r.t
-  /// - Parameter wrt: Optional parameter to tell the auto grad which input Tensor in the graph to backprop to. If this isn't provided it will return all inputs at every level of the graph in a single array.
+  /// - Parameter wrt: Optional parameter to tell the auto grad which input Tensor in the graph to backprop to, this is inclusive of the wrt tensor. That tensor's gradients will be calculated as well wrt to its input. If this isn't provided it will return all inputs at every level of the graph in a single array.
   /// - Returns: A Gradient where the the `inputGradients` is the gradient w.r.t each input in the graph at each layer and `weightGradients` is the gradient w.r.t to each parameter at each layer.
   public func gradients(delta: Tensor, wrt: Tensor? = nil) -> Tensor.Gradient {
     
-    let selfGradients = getGradients(delta: delta)
+    let selfGradients = getGradients(delta: delta, wrt: wrt)
     var inputGradients: [Tensor] = selfGradients.input
     var weightGradients: [Tensor] = selfGradients.weight
     var biasGradients: [Tensor] = selfGradients.bias
     
     var gradientsAtLevelToUse: [Tensor] = inputGradients
     var childrenAtLevelToUse: [UUID: Tensor] = input
+    
+    if let wrt {
+      childrenAtLevelToUse = childrenAtLevelToUse.filter({ $0.value.graphChain.contains(wrt.id) || $0.value.id == wrt.id })
+    }
+    
+    func process(input: Tensor,
+                 wrt: Tensor? = nil,
+                 gradientToUse: Tensor,
+                 childrenAtLevel: inout [UUID: Tensor],
+                 gradientsAtLevel: inout [Tensor]) {
+      let newGrads = input.getGradients(delta: gradientToUse, wrt: wrt)
+      
+      inputGradients.insert(contentsOf: newGrads.input, at: 0)
+      weightGradients.insert(contentsOf: newGrads.weight, at: 0)
+      biasGradients.insert(contentsOf: newGrads.bias, at: 0)
+      
+      gradientsAtLevel.append(contentsOf: newGrads.input)
+      input.input.forEach { childrenAtLevel[$0] = $1 }
+    }
 
     while childrenAtLevelToUse.isEmpty == false {
       var gradientsAtLevel: [Tensor] = []
       var childrenAtLevel: [UUID: Tensor] = [:]
       
-      var i = 0
-
-      for input in childrenAtLevelToUse.values {
+      for (i, input) in childrenAtLevelToUse.values.enumerated() {
+                                        
         let gradientToUse = gradientsAtLevelToUse[i]
-      
-        let newGrads = input.getGradients(delta: gradientToUse)
         
-        inputGradients.insert(contentsOf: newGrads.input, at: 0)
-        weightGradients.insert(contentsOf: newGrads.weight, at: 0)
-        biasGradients.insert(contentsOf: newGrads.bias, at: 0)
-        
-        gradientsAtLevel.append(contentsOf: newGrads.input)
-        input.input.forEach { childrenAtLevel[$0] = $1 }
-        
-        i += 1
+        if let wrt {
+          
+          // only process the gradients for an input that actually dealt with the wrt tensor
+          if input.graphChain.contains(wrt.id) {
+            process(input: input,
+                    wrt: wrt,
+                    gradientToUse: gradientToUse,
+                    childrenAtLevel: &childrenAtLevel,
+                    gradientsAtLevel: &gradientsAtLevel)
+          }
+          
+          if wrt.id == input.id {
+            return .init(input: inputGradients, weights: weightGradients, biases: biasGradients)
+          }
+        } else {
+          process(input: input,
+                  gradientToUse: gradientToUse,
+                  childrenAtLevel: &childrenAtLevel,
+                  gradientsAtLevel: &gradientsAtLevel)
+        }
+
       }
       
       gradientsAtLevelToUse = gradientsAtLevel
       if let wrt, childrenAtLevel.count > 1 {
-        childrenAtLevelToUse = childrenAtLevel.filter({ $0.value.graphChain.contains(wrt.id) || $0.value.graphChain.isEmpty })
+        // check if on the right chain or at the right node
+        childrenAtLevelToUse = childrenAtLevel.filter({ $0.value.graphChain.contains(wrt.id) || $0.value.id == wrt.id })
       } else {
         childrenAtLevelToUse = childrenAtLevel
       }
@@ -275,6 +350,16 @@ public class Tensor: Equatable, Codable {
     return tensor
   }
   
+  /// Remove this Tensor from the graph, copies the value, changes the ID, and optionally removes or keeps the graph context.
+  /// - Returns: Copied Tensor
+  public func copy(keepContext: Bool = false) -> Tensor {
+    guard keepContext == false else {
+      return Tensor(value, context: context)
+    }
+    
+    return Tensor(value)
+  }
+  
   public func isScalar() -> Bool {
     shape == [1,1,1]
   }
@@ -285,14 +370,20 @@ public class Tensor: Equatable, Codable {
     value[safe: 0, [[]]][safe: 0, []][safe: 0, 0]
   }
   
-  func getGradients(delta: Tensor) -> (input: [Tensor], weight: [Tensor], bias: [Tensor]) {
+  func getGradients(delta: Tensor, wrt: Tensor? = nil) -> (input: [Tensor], weight: [Tensor], bias: [Tensor]) {
     var inputGradients: [Tensor] = []
     var weightGradients: [Tensor] = []
     var biasGradients: [Tensor] = []
     
     // backpropogate self
     for input in graph.values {
-      let newGrads = context.backpropagate(input, delta)
+      if input.id != wrt?.id {
+        if let wrt, input.graphChain.contains(wrt.id) == false {
+          continue
+        }
+      }
+      
+      let newGrads = context.backpropagate(input, delta, wrt)
 
       inputGradients.insert(newGrads.input, at: 0)
       weightGradients.insert(newGrads.weight, at: 0)

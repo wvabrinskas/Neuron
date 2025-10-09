@@ -235,7 +235,9 @@ public final class LSTM: BaseLayer {
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     var localCellCache: [Cache] = [setupInitialState()]
     
-    let tensorContext = TensorContext { self.backward(inputs: $0, gradient: $1, cellCache: localCellCache) }
+    let tensorContext = TensorContext { inputs, gradient, wrt in
+      self.backward(inputs: inputs, gradient: gradient, cellCache: localCellCache)
+    }
     
     var out = Tensor(context: tensorContext)
 
@@ -475,9 +477,7 @@ public final class LSTM: BaseLayer {
     cellCache.clear()
   }
 
-  private func initializeWeights() {
-    guard let initializer = self.initializer else { return }
-        
+  private func initializeWeights() {        
     let totalInputSize = inputUnits + hiddenUnits
     let weightSize = TensorSize(rows: totalInputSize,
                                 columns: hiddenUnits,

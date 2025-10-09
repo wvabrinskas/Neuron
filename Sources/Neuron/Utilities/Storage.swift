@@ -9,7 +9,7 @@ import Foundation
 
 public final class ThreadStorage<Key: Hashable, T> {
   private(set) var storage: [Key: T?] = [:]
-  private let lock = NSRecursiveLock()
+  private let lock = NSLock()
   private var inSync = false
   
   var defaultValue: T?

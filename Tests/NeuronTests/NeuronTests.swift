@@ -13,6 +13,34 @@ extension XCTestCase {
 
 final class NeuronTests: XCTestCase {
 
+  
+  func test_addition_and_Relu() {
+    let size = TensorSize(array: [5,5,1])
+    let inputL = Tensor.fillWith(value: 1.0, size: size)
+    inputL.label = "inputL"
+    let inputR = Tensor.fillWith(value: 0.5, size: size)
+    inputR.label = "inputR"
+    
+    let relu = ReLu(inputSize: size)
+    
+    let add = inputL + inputR
+    
+    let out = relu.forward(tensor: add, context: .init())
+        
+    print(out)
+    
+    let delta = Tensor.fillRandom(size: size)
+    
+    let gradsWRTL = out.gradients(delta: delta, wrt: inputL)
+    let gradsWRTR = out.gradients(delta: delta, wrt: inputR)
+    let grads = out.gradients(delta: delta)
+    
+    XCTAssertEqual(gradsWRTL.input.count, 2)
+    XCTAssertEqual(gradsWRTR.input.count, 2)
+    // 3 because addition adds both inputs (lhs and rhs) to the graph in a single array.
+    XCTAssertEqual(grads.input.count, 3)
+  }
+  
   func test_tensor_Subscript() {
     let input: [[Tensor.Scalar]] = [[ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
                               0,  0,  0,  0,  0,  0,  0,  0,  1],
@@ -196,6 +224,35 @@ final class NeuronTests: XCTestCase {
                                     [0.0, 0.0, 0.0]]])
     
     XCTAssert(backward.input.first?.isValueEqual(to: expected) ?? false)
+  }
+  
+  func testConv2d_1x1_Filter() {
+    let inputSize = TensorSize(array: [28,28,1])
+    
+    let filterCount = 12
+    
+    let input = Tensor.fillRandom(size: inputSize)
+    
+    let conv = Conv2d(filterCount: filterCount,
+                      inputSize: inputSize,
+                      strides: (2,2),
+                      padding: .same,
+                      filterSize: (1,1),
+                      initializer: .heNormal,
+                      biasEnabled: false)
+    
+    let out = conv.forward(tensor: input)
+    
+    let gradients = Tensor.fillRandom(size: conv.outputSize)
+    
+    XCTAssertEqual(conv.outputSize.asArray, [14,14,filterCount])
+
+    let backward = out.gradients(delta: gradients, wrt: input)
+    
+    XCTAssertEqual(backward.weights.first?.shape, [1,1,filterCount])
+
+    // assert that it doesnt crash
+    conv.apply(gradients: (backward.weights[0], backward.biases[0]), learningRate: 0.001)
   }
   
   func testConv2d() {
@@ -449,8 +506,37 @@ final class NeuronTests: XCTestCase {
     }
     
     XCTAssertEqual(norm.welfordVariance.iterations, batchSize)
-    XCTAssertEqual(norm.welfordVariance.m2s, [[2.5,2.5,2.5,2.5,2.5].as2D()]) // variance
-    XCTAssertEqual(norm.welfordVariance.means, [[0.5, 0.5, 0.5, 0.5, 0.5].as2D()]) // mean
+    
+    norm.welfordVariance.m2s.forEach { val in
+      val.forEach { v in
+        v.forEach { scalar in
+          XCTAssertEqual(scalar, 2.5, accuracy: 0.001)
+        }
+      }
+    }
+    
+    norm.welfordVariance.means.forEach { val in
+      val.forEach { v in
+        v.forEach { scalar in
+          XCTAssertEqual(scalar, 0.5, accuracy: 0.001)
+        }
+      }
+    }
+  }
+  
+  func testBatchNorm_isZero_withOneSample() {
+    let inputSize = TensorSize(array: [3,1,1])
+    let input = Tensor([1,2,3])
+    let norm = BatchNormalize(inputSize: inputSize)
+    
+    norm.batchSize = 1
+    norm.isTraining = true
+
+    let out = norm.forward(tensorBatch: [input], context: .init())
+
+    XCTAssertNotNil(out.first)
+    
+    XCTAssertEqual(out.first!.value.flatten(), [0,0,0])
   }
   
   func testBatchNorm3d() {

@@ -147,7 +147,7 @@ open class BaseOptimizer: Optimizer {
                   validation: Bool = false,
                   requiresGradients: Bool = true) -> Output {
     
-    isTraining = true
+    isTraining = !validation
         
     metricsReporter?.startTimer(metric: .batchTime)
     let accumulator = GradientAccumulator()

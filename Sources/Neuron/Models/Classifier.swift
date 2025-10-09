@@ -61,12 +61,13 @@ public class Classifier {
     }
     
     for i in 0..<epochs {
-      let startTime = Date().timeIntervalSince1970
+      let startTime = CFAbsoluteTimeGetCurrent()
 
       var b = 0
       
       if let randomValBatch = validationBatches.randomElement() {
-        
+        optimizer.isTraining = false
+
         let result = trainOn(randomValBatch.data,
                              labels: randomValBatch.labels,
                              validation: true,
@@ -79,12 +80,15 @@ public class Classifier {
         
         accuracyMonitor.append(result.accuracy / 100.0)
         
+        optimizer.isTraining = true
+        
         if accuracyMonitor.isAboveThreshold() {
           self.onAccuracyReached?()
           if killOnAccuracy {
             return
           }
         }
+        
       }
             
       for batch in trainingBatches {
@@ -111,7 +115,7 @@ public class Classifier {
       }
       
       onEpochCompleted?()
-      print("----epoch \(i) completed: \(Date().timeIntervalSince1970 - startTime)s-----")
+      print("----epoch \(i) completed: \(CFAbsoluteTimeGetCurrent() - startTime)s-----")
     }
     
     optimizer.isTraining = false
