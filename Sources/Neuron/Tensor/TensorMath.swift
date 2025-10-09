@@ -113,15 +113,15 @@ public extension Tensor {
   /// Determines the appropriate axis for broadcasting operations between two tensors.
   /// This helper function is used by the arithmetic operators (+, -, *, /) to determine
   /// if broadcasting is possible and which axis should be used.
-  /// 
+  ///
   /// - Parameters:
   ///   - selfSize: The size of the first tensor
   ///   - size: The size of the second tensor
   /// - Returns: The axis along which broadcasting should be applied, or nil if broadcasting is not possible
-  /// 
+  ///
   /// Broadcasting rules:
   /// - Returns 0 if broadcasting along rows (Y axis)
-  /// - Returns 1 if broadcasting along columns (X axis)  
+  /// - Returns 1 if broadcasting along columns (X axis)
   /// - Returns 2 if broadcasting along depth (Z axis)
   /// - Returns nil if tensors are not compatible for broadcasting
   static func axisToApplyAlong(selfSize: TensorSize, size: TensorSize) -> Int? {
@@ -146,13 +146,13 @@ public extension Tensor {
   
   /// Applies a mathematical operation along a specific axis with broadcasting support.
   /// This is the core function used by other *Along methods.
-  /// 
+  ///
   /// - Parameters:
   ///   - axis: The axis along which to perform the operation (0, 1, or 2)
   ///   - input: The tensor to operate with, which will be broadcast along the specified axis
   ///   - block: The mathematical operation to apply
   /// - Returns: A new tensor with the result of the operation
-  /// 
+  ///
   /// - Note: Self-assignment is supported. Methods using this function automatically detect and prevent
   ///   reference cycles in the computation graph via `setGraphSafe`.
   func applyAlong(axis: Int, input: Tensor, _ block: MathAlongBlock) -> Tensor {
@@ -210,12 +210,12 @@ public extension Tensor {
   }
   
   /// Performs element-wise division along a specific axis with broadcasting support.
-  /// 
+  ///
   /// - Parameters:
   ///   - axis: The axis along which to perform the division (0, 1, or 2)
   ///   - value: The tensor to divide by, which will be broadcast along the specified axis
   /// - Returns: A new tensor with the result of the division operation
-  /// 
+  ///
   /// - Note: Self-assignment is now handled automatically. The operation detects and prevents
   ///   reference cycles in the computation graph, so manual `.copy()` calls are no longer required.
   func divideAlong(axis: Int, value: Tensor) -> Tensor {
@@ -232,6 +232,13 @@ public extension Tensor {
     let copied = value.copy()
     
     let context = TensorContext { inputs, gradient, wrt in
+      if let wrt, (value.graphChain.contains(wrt.id) || value.id == wrt.id) {
+        
+        let result = gradient * (-1 * (inputs / (copied * copied)))
+        
+        return (result, Tensor(), Tensor())
+      }
+
       return (gradient * (1 / copied), Tensor(), Tensor())
     }
     
@@ -248,12 +255,12 @@ public extension Tensor {
   }
   
   /// Performs element-wise multiplication along a specific axis with broadcasting support.
-  /// 
+  ///
   /// - Parameters:
   ///   - axis: The axis along which to perform the multiplication (0, 1, or 2)
   ///   - value: The tensor to multiply, which will be broadcast along the specified axis
   /// - Returns: A new tensor with the result of the multiplication operation
-  /// 
+  ///
   /// - Note: Self-assignment is now handled automatically. The operation detects and prevents
   ///   reference cycles in the computation graph, so manual `.copy()` calls are no longer required.
   func multiplyAlong(axis: Int, value: Tensor) -> Tensor {
@@ -286,12 +293,12 @@ public extension Tensor {
   }
   
   /// Performs element-wise addition along a specific axis with broadcasting support.
-  /// 
+  ///
   /// - Parameters:
   ///   - axis: The axis along which to perform the addition (0, 1, or 2)
   ///   - value: The tensor to add, which will be broadcast along the specified axis
   /// - Returns: A new tensor with the result of the addition operation
-  /// 
+  ///
   /// - Note: Self-assignment is now handled automatically. The operation detects and prevents
   ///   reference cycles in the computation graph, so manual `.copy()` calls are no longer required.
   func addAlong(axis: Int, value: Tensor) -> Tensor {
@@ -324,12 +331,12 @@ public extension Tensor {
   }
   
   /// Performs element-wise subtraction along a specific axis with broadcasting support.
-  /// 
+  ///
   /// - Parameters:
   ///   - axis: The axis along which to perform the subtraction (0, 1, or 2)
   ///   - value: The tensor to subtract, which will be broadcast along the specified axis
   /// - Returns: A new tensor with the result of the subtraction operation
-  /// 
+  ///
   /// - Note: Self-assignment is now handled automatically. The operation detects and prevents
   ///   reference cycles in the computation graph, so manual `.copy()` calls are no longer required.
   func subtractAlong(axis: Int, value: Tensor) -> Tensor {
@@ -344,7 +351,11 @@ public extension Tensor {
     }
     
     let context = TensorContext { inputs, gradient, wrt in
-      return (gradient * -1, Tensor(), Tensor())
+      if let wrt, (value.graphChain.contains(wrt.id) || value.id == wrt.id) {
+        return (gradient * -1, Tensor(), Tensor())
+      }
+
+      return (gradient, Tensor(), Tensor())
     }
     
     let out = applyAlong(axis: axis, input: value, block).value
@@ -642,12 +653,12 @@ public extension Tensor {
   }
   
   /// Performs element-wise addition between two tensors with automatic broadcasting support.
-  /// 
+  ///
   /// - Parameters:
   ///   - lhs: The left-hand side tensor
   ///   - rhs: The right-hand side tensor
   /// - Returns: A new tensor with the result of the addition operation
-  /// 
+  ///
   /// - Note: Self-assignment is now handled automatically. The operation detects and prevents
   ///   reference cycles in the computation graph, so manual `.copy()` calls are no longer required.
   static func +(lhs: Tensor, rhs: Tensor) -> Tensor {
@@ -678,12 +689,12 @@ public extension Tensor {
   }
   
   /// Performs element-wise subtraction between two tensors with automatic broadcasting support.
-  /// 
+  ///
   /// - Parameters:
   ///   - lhs: The left-hand side tensor
   ///   - rhs: The right-hand side tensor
   /// - Returns: A new tensor with the result of the subtraction operation
-  /// 
+  ///
   /// - Note: Self-assignment is now handled automatically. The operation detects and prevents
   ///   reference cycles in the computation graph, so manual `.copy()` calls are no longer required.
   static func -(lhs: Tensor, rhs: Tensor) -> Tensor {
@@ -716,12 +727,12 @@ public extension Tensor {
   }
   
   /// Performs element-wise multiplication between two tensors with automatic broadcasting support.
-  /// 
+  ///
   /// - Parameters:
   ///   - lhs: The left-hand side tensor
   ///   - rhs: The right-hand side tensor
   /// - Returns: A new tensor with the result of the multiplication operation
-  /// 
+  ///
   /// - Note: Self-assignment is now handled automatically. The operation detects and prevents
   ///   reference cycles in the computation graph, so manual `.copy()` calls are no longer required.
   static func *(lhs: Tensor, rhs: Tensor) -> Tensor {
@@ -751,12 +762,12 @@ public extension Tensor {
   }
   
   /// Performs element-wise division between two tensors with automatic broadcasting support.
-  /// 
+  ///
   /// - Parameters:
   ///   - lhs: The left-hand side tensor
   ///   - rhs: The right-hand side tensor
   /// - Returns: A new tensor with the result of the division operation
-  /// 
+  ///
   /// - Note: Self-assignment is now handled automatically. The operation detects and prevents
   ///   reference cycles in the computation graph, so manual `.copy()` calls are no longer required.
   static func /(lhs: Tensor, rhs: Tensor) -> Tensor {
@@ -772,7 +783,15 @@ public extension Tensor {
     
     let copied = rhs.copy()
     let context = TensorContext { inputs, gradient, wrt  in
+      if let wrt, (rhs.graphChain.contains(wrt.id) || rhs.id == wrt.id) {
+        
+        let result = gradient * (-1 * (inputs / (copied * copied)))
+        
+        return (result, Tensor(), Tensor())
+      }
+
       return (gradient * (1 / copied), Tensor(), Tensor())
+      
     }
     
     let new = Tensor(newTensor, context: context)
