@@ -10,11 +10,11 @@ import NumSwift
 /// Will decrease the size of the input tensor by half using a max pooling technique.
 public final class AvgPool: BaseLayer {
 
-  private let kernelSize: (rows: Int, columns: Int)
+  private var kernelSize: TensorSize
   /// Default initializer for max pooling.
   /// - Parameter inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
   public init(inputSize: TensorSize? = nil, kernelSize: (rows: Int, columns: Int) = (rows: 2, columns: 2)) {
-    self.kernelSize = kernelSize
+    self.kernelSize = .init(rows: kernelSize.rows, columns: kernelSize.columns, depth: 1)
     
     super.init(inputSize: inputSize,
                biasEnabled: false,
@@ -23,6 +23,7 @@ public final class AvgPool: BaseLayer {
   
   enum CodingKeys: String, CodingKey {
     case inputSize,
+         kernelSize,
          type
   }
   
@@ -30,12 +31,14 @@ public final class AvgPool: BaseLayer {
     self.init()
     let container = try decoder.container(keyedBy: CodingKeys.self)
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
+    self.kernelSize = try container.decodeIfPresent(TensorSize.self, forKey: .kernelSize) ?? TensorSize(rows: 2, columns: 2, depth: 1)
   }
   
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(encodingType, forKey: .type)
+    try container.encode(kernelSize, forKey: .kernelSize)
   }
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
