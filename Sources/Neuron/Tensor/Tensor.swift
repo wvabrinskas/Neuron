@@ -252,6 +252,8 @@ public class Tensor: Equatable, Codable {
   /// - Parameter to: Tensor to compare to
   /// - Returns: Bool indicating if the values are equal
   public func isValueEqual(to: Tensor, accuracy: Tensor.Scalar = 0.000001) -> Bool {
+    guard shape == to.shape else { return false }
+    
     for (lhs, rhs) in zip(self.value, to.value) {
       for (lhsElement, rhsElement) in zip(lhs, rhs) {
         for (lhsScalar, rhsScalar) in zip(lhsElement, rhsElement) {
