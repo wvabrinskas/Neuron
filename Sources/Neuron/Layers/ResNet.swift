@@ -100,7 +100,7 @@ public final class ResNet: BaseLayer {
                padding: .same,
                filterSize: (3,3),
                initializer: initializer),
-        BatchNormalize()
+        BatchNormalize(gamma: Array(repeating: 0.0, count: filterCount))
       ]
     }
     
@@ -249,7 +249,7 @@ public final class ResNet: BaseLayer {
       // it's confirmed that the gradients in this layer aren't being accumulated correctly?
       // `gradient` here is actually a normal value
       
-     // gradient.testLarge(limit: 1000)
+      //gradient.testLarge(limit: 1000)
       
       // backprop all the way through the the sequentials because the graphs are built automatically for us
       let reluGradients = reLuOut.gradients(delta: gradient, wrt: detachedInput)

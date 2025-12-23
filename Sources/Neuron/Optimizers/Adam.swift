@@ -145,8 +145,8 @@ public class Adam: BaseOptimizer {
           var delta = learningRate * (mHat / (sqrt(vHat + eps)))
           
           if case .decay(let decay) = weightDecay {
-            let decay = learningRate * decay * weights.value[safe: d, [[]]][safe: r, []][safe: c, 1]
-            delta -= decay
+            let decayLR = learningRate * decay * weights.value[safe: d, [[]]][safe: r, []][safe: c, 1]
+            delta -= decayLR
           }
           
           column.append(delta)
