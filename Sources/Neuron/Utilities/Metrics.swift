@@ -136,7 +136,7 @@ public class MetricsReporter: MetricCalculator {
   
   private var frequency: Int
   private var currentStep: Int = 0
-  private var timers: [Metric: [Date]] = [:]
+  private var timers: [Metric: [CFAbsoluteTime]] = [:]
   
   private var timerQueue = SynchronousOperationQueue(name: "metrics_reporter")
   
@@ -163,10 +163,10 @@ public class MetricsReporter: MetricCalculator {
       guard let self = self else { return }
       
       if var hasTimers = self.timers[metric] {
-        hasTimers.append(Date())
+        hasTimers.append(CFAbsoluteTimeGetCurrent())
         self.timers[metric] = hasTimers
       } else {
-        self.timers[metric] = [Date()]
+        self.timers[metric] = [CFAbsoluteTimeGetCurrent()]
       }
     }
   }
@@ -178,7 +178,7 @@ public class MetricsReporter: MetricCalculator {
       guard let self = self else { return }
       
       if let timer = self.timers[metric] {
-        let result = timer.map { Tensor.Scalar(Date().timeIntervalSince1970 - $0.timeIntervalSince1970) }
+        let result = timer.map { Tensor.Scalar(CFAbsoluteTimeGetCurrent() - $0) }
         let average = result.average
         self.addMetric(value: average,
                        key: metric)

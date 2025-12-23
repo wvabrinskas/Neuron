@@ -41,7 +41,7 @@ public final class LSTM: BaseLayer {
   private var batchLength: Int
   private let returnSequence: Bool
   
-  private var cellCache: ThreadStorage<[Cache]> = .init()
+  private var cellCache: ThreadStorage<Int, [Cache]> = .init(defaultValue: [])
 
   public class LSTMActivations {
     let forgetGate: Tensor
@@ -235,7 +235,9 @@ public final class LSTM: BaseLayer {
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     var localCellCache: [Cache] = [setupInitialState()]
     
-    let tensorContext = TensorContext { self.backward(inputs: $0, gradient: $1, cellCache: localCellCache) }
+    let tensorContext = TensorContext { inputs, gradient, wrt in
+      self.backward(inputs: inputs, gradient: gradient, cellCache: localCellCache)
+    }
     
     var out = Tensor(context: tensorContext)
 
@@ -294,7 +296,7 @@ public final class LSTM: BaseLayer {
       out = new
     }
     
-    self.cellCache.store(localCellCache, at: context.threadId)
+    self.cellCache.store(localCellCache, at: context.indexInBatch)
 
     if returnSequence == false, let last = out.value.last {
       out = Tensor(last, context: tensorContext)
@@ -383,8 +385,11 @@ public final class LSTM: BaseLayer {
       
       let cache = cellCache[index]
       let previousCache = cellCache[safe: index - 1]
+      
+      let delta = Tensor(gradient.value[safe: index] ?? gradient.zerosLike().value[0])
             
-      let activationErrors = cache.outputValue.gradients(delta: Tensor(gradient.value[safe: index] ?? gradient.zerosLike().value[0]))
+      let activationErrors = cache.outputValue.gradients(delta: delta,
+                                                         wrt: cache.activation)
       
       if wrtOutputWeightsDerivatives.isEmpty {
         wrtOutputWeightsDerivatives = activationErrors.weights[safe: 0, Tensor()]
@@ -472,9 +477,7 @@ public final class LSTM: BaseLayer {
     cellCache.clear()
   }
 
-  private func initializeWeights() {
-    guard let initializer = self.initializer else { return }
-        
+  private func initializeWeights() {        
     let totalInputSize = inputUnits + hiddenUnits
     let weightSize = TensorSize(rows: totalInputSize,
                                 columns: hiddenUnits,

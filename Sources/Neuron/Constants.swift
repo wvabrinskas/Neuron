@@ -8,6 +8,8 @@
 import Foundation
 
 public struct Constants {
+  public static var defaultInitializer: InitializerType = .heNormal
+  
   public static var maxWorkers: Int = {
     if let perfCores = getSysctlIntValue("hw.perflevel0.physicalcpu") {
       // find closest power of 2 as batch sizes are usually broken up in powers of 2. Eg. 16, 32, 64

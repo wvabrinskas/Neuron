@@ -89,8 +89,8 @@ public final class Dense: BaseLayer {
     for _ in 0..<outputSizeCount {
       var weightsForNode: [Tensor.Scalar] = []
       for _ in 0..<inputs {
-        let w = initializer?.calculate(input: inputs,
-                                       out: outputSizeCount) ?? Tensor.Scalar.random(in: -1...1)
+        let w = initializer.calculate(input: inputs,
+                                       out: outputSizeCount)
         weightsForNode.append(w)
       }
       
@@ -102,7 +102,7 @@ public final class Dense: BaseLayer {
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     
-    let tensorContext = TensorContext { inputs, gradients in
+    let tensorContext = TensorContext { inputs, gradients, wrt in
       let gradientsFlat: [Tensor.Scalar] = gradients.value.flatten()
       
       let deltas = self.device.matmul(gradients, self.weights.detached())
@@ -138,7 +138,7 @@ public final class Dense: BaseLayer {
   }
   
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
-    weights.value = weights.value - gradients.weights.value
+    weights = weights - gradients.weights
     
     if biasEnabled {
       biases = biases - gradients.biases

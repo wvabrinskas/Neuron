@@ -97,13 +97,15 @@ public class Conv2d: BaseConvolutionalLayer {
   }
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
-    let context = TensorContext { inputs, gradient in
+
+    let context = TensorContext { inputs, gradient, wrt in
       self.backward(inputs, gradient)
     }
     
     let out = Tensor(conv(tensor), context: context)
     
     out.setGraph(tensor)
+    out.label = "conv2d"
 
     return out
   }
@@ -171,13 +173,18 @@ public class Conv2d: BaseConvolutionalLayer {
     
     let biasGradients = delta.value.map { $0.sum }
     
-    return (Tensor(inputGradients), Tensor(weightGradients), Tensor(biasGradients))
+    let input = Tensor(inputGradients)
+    input.label = "conv2d-input"
+    let weights = Tensor(weightGradients)
+    weights.label = "conv2d-weight"
+    let biases = Tensor(biasGradients)
+    biases.label = "conv2d-bias"
+        
+    return (input, weights, biases)
   }
   
   internal func calculateFilterGradients(_ input: Tensor, _ delta: [[Tensor.Scalar]], index: Int) -> Tensor.Data {
     var newGradientsForFilters: Tensor.Data = []
-    var cachedFilterShape: [Int]?
-
     
     let extraPadding = padding.extra(inputSize: (inputSize.rows, inputSize.columns),
                                      filterSize: filterSize,
@@ -199,38 +206,44 @@ public class Conv2d: BaseConvolutionalLayer {
       signal = NumSwiftC.zeroPad(signal: signal, padding: numPadding)
       filter = NumSwiftC.stridePad(signal: filter, strides: strides)
     
-      let fShape: [Int]
-      if let cachedFilterShape {
-        fShape = cachedFilterShape
-      } else {
-        fShape = filter.shape
-        cachedFilterShape = fShape
-      }
+      let fShape: [Int] = filter.shape
       
       //TODO: figure out valid with strides. need to pad right and bottom for filter
+      //let sShape = signal.shape
       //
-      //
-      //      if padding == .valid {
-      //        let filterPadding = NumSwift.ConvPadding.same.extra(inputSize: filterSize,
-      //                                                            filterSize: (sShape[safe: 1, 0], sShape[safe: 0, 0]),
-      //                                                            stride: (1,1))
-      //
-      //        filter = filter.zeroPad(padding: NumSwiftPadding(top: filterPadding.top - (filterSize.rows - 1),
-      //                                                         left: filterPadding.left - (filterSize.rows - 1),
-      //                                                         right: filterPadding.right - (filterSize.rows - 1),
-      //                                                         bottom: filterPadding.bottom - (filterSize.rows - 1)))
-      //        fShape = filter.shape
-      //      }
+//      if padding == .valid {
+//        let filterPadding = NumSwift.ConvPadding.same.extra(inputSize: filterSize,
+//                                                            filterSize: (sShape[safe: 1, 0], sShape[safe: 0, 0]),
+//                                                            stride: (1,1))
+//
+//        filter = filter.zeroPad(padding: NumSwiftPadding(top: filterPadding.top - (filterSize.rows - 1),
+//                                                         left: filterPadding.left - (filterSize.rows - 1),
+//                                                         right: filterPadding.right - (filterSize.rows - 1),
+//                                                         bottom: filterPadding.bottom - (filterSize.rows - 1)))
+//        fShape = filter.shape
+//      }
       
       let newFilterSize = (fShape[safe: 1] ?? 0, fShape[safe: 0] ?? 0)
       
-      let result = device.conv2d(signal: signal,
-                                 filter: filter,
-                                 strides: (1,1),
-                                 padding: .valid,
-                                 filterSize: newFilterSize,
-                                 inputSize: convInputSize,
-                                 outputSize: nil)
+      let result = if filterSize.columns == 1 || filterSize.rows == 1 {
+        device.conv2d(signal: signal,
+                      filter: filter,
+                      strides: strides,
+                      padding: .valid,
+                      filterSize: newFilterSize,
+                      inputSize: convInputSize,
+                      outputSize: nil)
+        
+      } else {
+        device.conv2d(signal: signal,
+                      filter: filter,
+                      strides: (1,1),
+                      padding: .valid,
+                      filterSize: newFilterSize,
+                      inputSize: convInputSize,
+                      outputSize: nil)
+        
+      }
       
       newGradientsForFilters.append(result)
     }
@@ -250,11 +263,12 @@ public class Conv2d: BaseConvolutionalLayer {
     
     for i in 0..<filterCount {
       let filterGradients = weightGradientsBatched[i]
-      filters[i] = filters[i] - Tensor(filterGradients)
+                  
+      filters[i] = filters[i].detached() - Tensor(filterGradients)
     }
     
     if biasEnabled {
-      biases = biases - gradients.biases
+      biases = biases.detached() - gradients.biases.detached()
     }
   }
   

@@ -90,7 +90,7 @@ public final class Embedding: BaseLayer {
   /// - Parameter tensor: Input word as a 3D tensor with size `rows: 1, columns: vocabSize, depth: batchLength`
   /// - Returns: An output 3D tensor of shape `rows: 1, columns: inputUnits, depth: batchLength`
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
-    let context = TensorContext { inputs, gradient in
+    let context = TensorContext { inputs, gradient, wrt in
       var wrtEmbeddings: Tensor = Tensor()
 
       for i in 0..<gradient.value.count {

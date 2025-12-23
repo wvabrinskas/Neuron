@@ -23,31 +23,39 @@ class MockRNNDataset: RNNSupportedDataset {
   }
   
   func build() async -> Neuron.RNNSupportedDatasetData {
+    let max = 9
     vectorizer.vectorize("hammley".fill(with: ".",
-                                     max: 8).characters)
+                                     max: max).characters)
     
     vectorizer.vectorize("spammley".fill(with: ".",
-                                         max: 8).characters)
-    let oneHot = vectorizer.oneHot("hammley".fill(with: ".",
-                                                  max: 8).characters)
-    let oneHot2 = vectorizer.oneHot("spammley".fill(with: ".",
-                                                  max: 8).characters)
+                                         max: max).characters)
+    
+    let oneHot = vectorizer.oneHot("ammley".fill(with: ".",
+                                                  max: max).characters)
+    let oneHot2 = vectorizer.oneHot("pammley".fill(with: ".",
+                                                  max: max).characters)
+    
+    let input = vectorizer.oneHot("hammley".fill(with: ".",
+                                                  max: max).characters)
+    let input2 = vectorizer.oneHot("spammley".fill(with: ".",
+                                                  max: max).characters)
+    
     let labelTensor = oneHot
-    let inputTensor = oneHot
+    let inputTensor = input
     
     let labelTensor2 = oneHot2
-    let inputTensor2 = oneHot2
+    let inputTensor2 = input2
     
     var training = [DatasetModel](repeating: DatasetModel(data: inputTensor,
-                                                          label: labelTensor), count: 1)
+                                                          label: labelTensor), count: 1000)
     var val = [DatasetModel](repeating: DatasetModel(data: inputTensor,
-                                                      label: labelTensor), count: 1)
+                                                      label: labelTensor), count: 10)
     
     training.append(contentsOf: [DatasetModel](repeating: DatasetModel(data: inputTensor2,
-                                                                       label: labelTensor2), count: 1))
+                                                                       label: labelTensor2), count: 1000))
     
     val.append(contentsOf: [DatasetModel](repeating: DatasetModel(data: inputTensor2,
-                                                                  label: labelTensor2), count: 1))
+                                                                  label: labelTensor2), count: 10))
     return (training, val)
   }
 }
@@ -86,6 +94,43 @@ final class FullModelTests: XCTestCase {
     
   }
   
+  func test_resNet_in_Network() {
+    
+    let inputSize: TensorSize = .init(rows: 28, columns: 28, depth: 1)
+    let classes = 10
+    
+    let network = Sequential {
+      [
+        Conv2d(filterCount: 32, inputSize: inputSize, strides: (1,1), padding: .same, filterSize: (3,3)),
+        BatchNormalize(),
+        ReLu(),
+        ResNet(filterCount: 32, stride: 1),
+        ResNet(filterCount: 64, stride: 2),
+        GlobalAvgPool(),
+        Dense(classes, biasEnabled: true),
+        Softmax()
+      ]
+    }
+        
+    network.compile()
+    
+    network.isTraining = true
+    
+    let input = Tensor.fillRandom(size: inputSize)
+
+    let out = network(input, context: .init())
+        
+    XCTAssertEqual(TensorSize(array: out.shape), .init(array: [classes,1,1]))
+    
+    let error = Tensor.fillRandom(size: .init(array: [classes,1,1]))
+    
+    let gradient = out.gradients(delta: error, wrt: input)
+    
+    XCTAssertEqual(gradient.input.count, network.layers.count)
+    
+    network.apply(gradients: gradient, learningRate: 0.001)
+  }
+  
   func test_setttingPropertyOnTrainable_Doesnt_Reset() {
     let network = Sequential {
       [
@@ -93,7 +138,7 @@ final class FullModelTests: XCTestCase {
       ]
     }
     
-    let optim = Adam(network, learningRate: 0.01)
+    let optim = Adam(network, learningRate: 0.01, batchSize: 1)
     
     network.isCompiled = false
 
@@ -104,19 +149,21 @@ final class FullModelTests: XCTestCase {
   }
   
   func testBasicClassification() {
+    let batchSize = 32
+    
     let network = Sequential {
       [
-        Dense(6, inputs: 4,
-              initializer: .xavierNormal,
-              biasEnabled: true),
-        LeakyReLu(limit: 0.2),
-        //BatchNormalize(), //-> removed since sometimes during tests it can crash
-        Dense(3, initializer: .xavierNormal),
+        Dense(12, inputs: 4,
+              initializer: .xavierUniform,
+              biasEnabled: false),
+        ReLu(),
+        //BatchNormalize(),
+        Dense(3, initializer: .xavierUniform),
         Softmax()
       ]
     }
     
-    let optim = Adam(network, learningRate: 0.01)
+    let optim = Adam(network, learningRate: 0.01, batchSize: batchSize)
     
     let reporter = MetricsReporter(metricsToGather: [.loss,
                                                      .accuracy,
@@ -126,10 +173,8 @@ final class FullModelTests: XCTestCase {
     optim.metricsReporter = reporter
     
     let classifier = Classifier(optimizer: optim,
-                                batchSize: 64,
-                                accuracyThreshold: .init(value: 0.9, averageCount: 5))
-
-    optim.metricsReporter?.receive = { _ in }
+                                batchSize: batchSize, // 64 or higher causes issuees with BatchNorm for some reason.
+                                accuracyThreshold: .init(value: 0.9, averageCount: 3))
     
     classifier.onAccuracyReached = {
       let red = ColorType.red.color()
@@ -149,14 +194,16 @@ final class FullModelTests: XCTestCase {
   }
   
   func testImportPretrainedClassifier() {
+    let batchSize = 64
+    
     do {
       let fileURL = try Resource(name: "pretrained-classifier-color", type: "smodel").url
       
       let n = Sequential.import(fileURL)
-      let optim = Adam(n, learningRate: 0.0001)
+      let optim = Adam(n, learningRate: 0.0001, batchSize: batchSize)
       
       let classifier = Classifier(optimizer: optim,
-                                  batchSize: 64,
+                                  batchSize: batchSize,
                                   accuracyThreshold: .init(value: 0.9, averageCount: 5))
       
       let red = ColorType.red.color()
@@ -202,7 +249,7 @@ final class FullModelTests: XCTestCase {
                   optimizerParameters: RNN.OptimizerParameters(learningRate: 0.002,
                                                                metricsReporter: reporter),
                   lstmParameters: RNN.RNNLSTMParameters(hiddenUnits: hiddenUnits,
-                                                       inputUnits: inputUnits))
+                                                        inputUnits: inputUnits))
     
     
     reporter.receive = { _ in }

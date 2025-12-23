@@ -29,9 +29,8 @@ public final class MaxPool: BaseLayer {
   
   /// Default initializer for max pooling.
   /// - Parameter inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
-  public init(inputSize: TensorSize = TensorSize(array: [])) {
+  public init(inputSize: TensorSize? = nil) {
     super.init(inputSize: inputSize,
-               initializer: nil,
                biasEnabled: false,
                encodingType: .maxPool)
   }
@@ -54,7 +53,7 @@ public final class MaxPool: BaseLayer {
   }
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
-    func backwards(input: Tensor, gradient: Tensor) -> (Tensor, Tensor, Tensor) {
+    func backwards(input: Tensor, gradient: Tensor, wrt: Tensor?) -> (Tensor, Tensor, Tensor) {
       let deltas = gradient.value
       var poolingGradients: [[[Tensor.Scalar]]] = []
       

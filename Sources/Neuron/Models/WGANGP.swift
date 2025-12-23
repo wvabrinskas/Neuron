@@ -75,7 +75,8 @@ public class WGANGP: GAN {
       let part3 = interOut.outputs[safe: 0, Tensor()] / normGradients
       let dGradInter = part1 * part2 * part3
       
-      let interpolatedGradients = interOut.outputs[safe: 0, Tensor()].gradients(delta: dGradInter)
+      let interpolatedGradients = interOut.outputs[safe: 0, Tensor()].gradients(delta: dGradInter,
+                                                                                wrt: interSample)
 
       let totalGradients = fakeOut.gradients + realOut.gradients + interpolatedGradients
       
