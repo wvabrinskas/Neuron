@@ -459,11 +459,11 @@ final class LayerTests: XCTestCase {
     
     XCTAssertEqual([2,2,14], out.shape)
     
-    let expected: [[[Tensor.Scalar]]] = [[[Tensor.Scalar]]].init(repeating: [[0.15, 0.85],
-                                                                             [0.15, 0.85]], count: 14)
+    let expected: [[[Tensor.Scalar]]] = [[[Tensor.Scalar]]].init(repeating: [[0.4, 1.1571428],
+                                                                             [0.4, 1.1571428]], count: 14)
     
-    XCTAssertEqual(expected, out.value)
-    
+    XCTAssertTrue(Tensor(expected).isValueEqual(to: out, accuracy: 0.0001))
+
     let delta: [[[Tensor.Scalar]]] = [[[Tensor.Scalar]]].init(repeating: [[0.1, 0.3],
                                                                           [0.1, 0.3]], count: 14)
     
@@ -501,7 +501,7 @@ final class LayerTests: XCTestCase {
                                  [[0.15, 0.35],
                                   [0.15, 0.35]]]
     
-    XCTAssertEqual(expected, out.value)
+    XCTAssertTrue(Tensor(expected).isValueEqual(to: out, accuracy: 0.0001))
     
     let delta: [[[Tensor.Scalar]]] = [[[0.1, 0.3],
                                [0.2, 0.5]],
@@ -527,7 +527,8 @@ final class LayerTests: XCTestCase {
                                            [0.05, 0.05, 0.125, 0.125],
                                            [0.05, 0.05, 0.125, 0.125]]]
 
-    XCTAssertEqual(expectedGradients, gradients.input.first!.value)
+    XCTAssertTrue(Tensor(expectedGradients).isValueEqual(to: gradients.input.first!, accuracy: 0.0001))
+
   }
   
   // MARK: Dense

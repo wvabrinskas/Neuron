@@ -56,22 +56,22 @@ public final class AvgPool: BaseLayer {
           var rowResult: [Tensor.Scalar] = []
 
           var gradientC = 0
-          for c in stride(from: 0, through: columns, by: kernelSize.1) {
+          for c in stride(from: 0, through: columns, by: kernelSize.columns) {
             guard c < columns else {
               continue
             }
             
             let avgPoolGradient = gradient.value[d][gradientR][gradientC]
-            let delta = avgPoolGradient / (Tensor.Scalar(kernelSize.0) * Tensor.Scalar(kernelSize.1))
+            let delta = avgPoolGradient / (Tensor.Scalar(kernelSize.rows) * Tensor.Scalar(kernelSize.columns))
           
-            for _ in 0..<kernelSize.1 {
+            for _ in 0..<kernelSize.columns {
               rowResult.append(delta)
             }
             
             gradientC += 1
           }
           
-          if (r + 1) % kernelSize.0 == 0 {
+          if (r + 1) % kernelSize.rows == 0 {
             gradientR += 1
           }
         
@@ -88,12 +88,7 @@ public final class AvgPool: BaseLayer {
       return (Tensor(poolingGradients), Tensor(), Tensor())
     }
     
-    var results: [[[Tensor.Scalar]]] = []
-
-    tensor.value.forEach { input in
-      let pool = pool(input: input)
-      results.append(pool)
-    }
+    let results: [[[Tensor.Scalar]]] = pool(input: tensor)
 
     let context = TensorContext(backpropagate: backwards)
     let out = Tensor(results, context: context)
@@ -113,42 +108,39 @@ public final class AvgPool: BaseLayer {
     //
   }
   
-  internal func pool(input: [[Tensor.Scalar]]) -> [[Tensor.Scalar]] {
-    var rowResults: [Tensor.Scalar] = []
-    var results: [[Tensor.Scalar]] = []
+  internal func pool(input: Tensor) -> [[[Tensor.Scalar]]] {
+    var results: [[[Tensor.Scalar]]] = []
         
     let rows = inputSize.rows
     let columns = inputSize.columns
             
-    for r in stride(from: 0, through: rows, by: kernelSize.0) {
-      guard r < rows else {
-        continue
-      }
-      rowResults = []
-      
-      for c in stride(from: 0, through: columns, by: kernelSize.1) {
-        guard c < columns else {
+    for d in 0..<inputSize.depth {
+
+      var colResults: [[Tensor.Scalar]] = []
+
+      for r in stride(from: 0, through: rows, by: kernelSize.rows) {
+        guard r < rows else {
           continue
         }
         
-        // TODO: have this be auotmatic based on kernel size. Right now this is hardcoded to 2x2. same as MaxPool
-        let current = input[r][c]
-        let right = input[safe: r + 1]?[c] ?? 0
-        let bottom = input[r][safe: c + 1] ?? 0
-        let diag = input[safe: r + 1]?[safe: c + 1] ?? 0
+        var rowResults: [Tensor.Scalar] = []
+
+        for c in stride(from: 0, through: columns, by: kernelSize.columns) {
+          guard c < columns else {
+            continue
+          }
+          
+          let average = input[c..<c+kernelSize.columns, r..<r+kernelSize.rows, d..<d+1].mean().asScalar()
+          
+          rowResults.append(average)
+        }
         
-        let indiciesToCheck = [current,
-                               right,
-                               bottom,
-                               diag]
-        
-        let avg = indiciesToCheck.average
-        rowResults.append(avg)
+        colResults.append(rowResults)
       }
       
-      results.append(rowResults)
+      results.append(colResults)
     }
-              
+    
     return results
   }
 }
