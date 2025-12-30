@@ -244,22 +244,8 @@ public final class ResNet: BaseLayer {
   private func buildForward(input: Tensor, reLuOut: Tensor, detachedInput: Tensor, copiedInputTensor: Tensor) -> Tensor {
     let tensorContext = TensorContext { [accumulator, shortCutAccumulator, shouldProjectInput, innerBlockSequential, shortcutSequential, reLuOut] inputs, gradient, wrt in
       
-      // it appears that this gradient accumulation is wrong?
-      // none of the other layers outside of ResNet have a problem with gradient accumulation
-      // it's confirmed that the gradients in this layer aren't being accumulated correctly?
-      // `gradient` here is actually a normal value
-      
-      //gradient.testLarge(limit: 1000)
-      
-      // backprop all the way through the the sequentials because the graphs are built automatically for us
       let reluGradients = reLuOut.gradients(delta: gradient, wrt: detachedInput)
-      
-//      for (i, g) in (reluGradients.weights.fullFlatten() as [Tensor]).enumerated() {
-//        g.testLarge(limit: 1000)
-//      }
 
-      // we're getting the gradients for the both children of the addition so that's why we're getting layers + 1
-      // we need to get the gradients for the branch that actually contains the wrt. which i thought we were doing already..
       let reluGradientsWrtProjectedInput = reLuOut.gradients(delta: gradient, wrt: copiedInputTensor)
             
       let blockGradientsWeights = Array(reluGradients.weights[0..<innerBlockSequential.layers.count])
