@@ -280,7 +280,7 @@ public class Tensor: Equatable, Codable {
   /// - Parameter tensor: The tensor to insert into the graph
   internal func setGraphSafe(_ tensor: Tensor) {
     // If this tensor is already in our chain or if we're in its chain, break the cycle
-    let shouldBreakCycle = graphChain.contains(tensor.id) || tensor.graphChain.contains(self.id)
+    let shouldBreakCycle = graphChain.contains(tensor.id) || tensor.graphChain.contains(self.id) || tensor.id == self.id
     setGraph(tensor, breakCycles: shouldBreakCycle)
   }
   
