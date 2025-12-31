@@ -450,6 +450,29 @@ final class LayerTests: XCTestCase {
   }
   
   // MARK: AvgPool
+  func test_avgPool_7x7_kernel_size() {
+    let input: [[[Tensor.Scalar]]] = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.2, 1.3, 1.4, 1.5].as3D()
+    let inputSize = input.shape
+
+    let layer = AvgPool(inputSize: TensorSize(array: inputSize), kernelSize: (7,7))
+    let out = layer.forward(tensor: Tensor(input))
+    
+    XCTAssertEqual([2,2,14], out.shape)
+    
+    let expected: [[[Tensor.Scalar]]] = [[[Tensor.Scalar]]].init(repeating: [[0.4, 1.1571428],
+                                                                             [0.4, 1.1571428]], count: 14)
+    
+    XCTAssertTrue(Tensor(expected).isValueEqual(to: out, accuracy: 0.0001))
+
+    let delta: [[[Tensor.Scalar]]] = [[[Tensor.Scalar]]].init(repeating: [[0.1, 0.3],
+                                                                          [0.1, 0.3]], count: 14)
+    
+    let gradients = out.gradients(delta: Tensor(delta))
+    
+    XCTAssertEqual(inputSize, gradients.input.first!.shape)
+  }
+  
+  
   func test_avgPool() {
     let input: [[[Tensor.Scalar]]] = [[[0.1, 0.2, 0.3, 0.4],
                                [0.1, 0.2, 0.3, 0.4],
@@ -478,7 +501,7 @@ final class LayerTests: XCTestCase {
                                  [[0.15, 0.35],
                                   [0.15, 0.35]]]
     
-    XCTAssertEqual(expected, out.value)
+    XCTAssertTrue(Tensor(expected).isValueEqual(to: out, accuracy: 0.0001))
     
     let delta: [[[Tensor.Scalar]]] = [[[0.1, 0.3],
                                [0.2, 0.5]],
@@ -504,7 +527,8 @@ final class LayerTests: XCTestCase {
                                            [0.05, 0.05, 0.125, 0.125],
                                            [0.05, 0.05, 0.125, 0.125]]]
 
-    XCTAssertEqual(expectedGradients, gradients.input.first!.value)
+    XCTAssertTrue(Tensor(expectedGradients).isValueEqual(to: gradients.input.first!, accuracy: 0.0001))
+
   }
   
   // MARK: Dense

@@ -264,11 +264,11 @@ public class Conv2d: BaseConvolutionalLayer {
     for i in 0..<filterCount {
       let filterGradients = weightGradientsBatched[i]
                   
-      filters[i] = filters[i].detached() - Tensor(filterGradients)
+      filters[i] = filters[i].copy() - Tensor(filterGradients)
     }
     
     if biasEnabled {
-      biases = biases.detached() - gradients.biases.detached()
+      biases = biases.copy() - gradients.biases.copy()
     }
   }
   

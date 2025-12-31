@@ -331,12 +331,12 @@ public final class LSTM: BaseLayer {
       
       gLayers = gLayers.dropLast()
       
-      self.forgetGateWeights = self.forgetGateWeights - Tensor(forgetGateWeightGrads)
-      self.inputGateWeights = self.inputGateWeights - Tensor(inputGateWeightGrads)
-      self.gateGateWeights = self.gateGateWeights - Tensor(gateGateWeightGrads)
-      self.outputGateWeights = self.outputGateWeights - Tensor(outputGateWeightGrads)
+      self.forgetGateWeights = self.forgetGateWeights.copy() - Tensor(forgetGateWeightGrads)
+      self.inputGateWeights = self.inputGateWeights.copy() - Tensor(inputGateWeightGrads)
+      self.gateGateWeights = self.gateGateWeights.copy() - Tensor(gateGateWeightGrads)
+      self.outputGateWeights = self.outputGateWeights.copy() - Tensor(outputGateWeightGrads)
       
-      self.hiddenOutputWeights = self.hiddenOutputWeights - Tensor(hiddenOutputWeightGradients)
+      self.hiddenOutputWeights = self.hiddenOutputWeights.copy() - Tensor(hiddenOutputWeightGradients)
     }
     
     /*
@@ -358,11 +358,11 @@ public final class LSTM: BaseLayer {
        let outputGateBiasGrads = gBiasLayers[safe: 3],
        let hiddenOutputBiasGradients = gBiasLayers[safe: 4] {
       
-      forgetGateBiases = forgetGateBiases - Tensor(forgetGateBiasGrads)
-      inputGateBiases = inputGateBiases - Tensor(inputGateBiasGrads)
-      gateGateBiases = gateGateBiases - Tensor(gateGateBiasGrads)
-      outputGateBiases = outputGateBiases - Tensor(outputGateBiasGrads)
-      hiddenOutputBiases = hiddenOutputBiases - Tensor(hiddenOutputBiasGradients)
+      forgetGateBiases = forgetGateBiases.copy() - Tensor(forgetGateBiasGrads)
+      inputGateBiases = inputGateBiases.copy() - Tensor(inputGateBiasGrads)
+      gateGateBiases = gateGateBiases.copy() - Tensor(gateGateBiasGrads)
+      outputGateBiases = outputGateBiases.copy() - Tensor(outputGateBiasGrads)
+      hiddenOutputBiases = hiddenOutputBiases.copy() - Tensor(hiddenOutputBiasGradients)
     }
 
     reset()
