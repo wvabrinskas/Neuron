@@ -679,7 +679,6 @@ public extension Tensor {
     }
     
     let new = Tensor(newTensor, context: context)
-    
     new.label = "addition"
     
     new.setGraphSafe(lhs)
