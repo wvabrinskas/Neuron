@@ -140,9 +140,9 @@ public final class Embedding: BaseLayer {
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     if trainable {
       if usesOptimizer {
-        weights = weights - gradients.weights
+        weights = weights.copy() - gradients.weights
       } else {
-        weights = weights - learningRate * gradients.weights
+        weights = weights.copy() - learningRate * gradients.weights
       }
     }
   }
