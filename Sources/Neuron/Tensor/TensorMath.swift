@@ -1001,6 +1001,25 @@ public extension Tensor {
 }
 
 public extension Tensor.Gradient {
+  
+  func gradientL2NormClip(_ value: Tensor.Scalar = 1.0) -> Tensor.Gradient {
+    let allWeights = weights.reduce(Tensor()) { partialResult, new in
+      partialResult.concat(new, axis: 2)
+    }
+    
+    let l2Norm = allWeights.l2Norm()  
+
+    guard l2Norm > value else {
+      return self
+    }
+
+    let clipped = value / l2Norm 
+    
+    let mappedWeights = weights.map { $0 * clipped }
+
+    return .init(input: input, weights: mappedWeights, biases: biases)
+  }
+  
   static func applyMultiple(lhs: Tensor.Gradient,
                             rhs: Tensor.Gradient,
                             block: (_ lhs: [Tensor], _ rhs: [Tensor]) -> [Tensor]) -> Tensor.Gradient {

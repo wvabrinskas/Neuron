@@ -456,13 +456,13 @@ public final class LSTM: BaseLayer {
         ect = pce
       }
     }
-    
+
     // merge all weights into a giant 5 depth tensor, shape will be broken here
     let weightDerivatives = wrtLSTMCellInputWeightsDerivatives.concat().concat(wrtOutputWeightsDerivatives, axis: 2)
 
     // merge all biases into a giant 5 depth tensor, shape will be broken here
     let biasDerivatives = wrtLSTMCellInputBiasDerivatives.concat().concat(wrtOutputBiasesDerivatives, axis: 2)
-    
+
     return (wrtEmbeddings, weightDerivatives, biasDerivatives)
   }
   

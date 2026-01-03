@@ -417,6 +417,10 @@ public class Tensor: Equatable, Codable {
     self.value = normalized
   }
   
+  public func l2Norm() -> Scalar {
+    Tensor.Scalar.sqrt(value.sumOfSquares)
+  }
+  
   public func clip(_ val: Scalar = 0.01) {
     value = value.map { $0.map { $0.map { Swift.max(-val, Swift.min(val, $0)) }}}
   }

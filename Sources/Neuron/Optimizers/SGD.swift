@@ -17,7 +17,9 @@ public class SGD: BaseOptimizer {
               device: Device = CPU(),
               learningRate: Tensor.Scalar,
               batchSize: Int,
-              momentum: Tensor.Scalar = 0.9) {
+              momentum: Tensor.Scalar = 0.9,
+              weightClip: Tensor.Scalar? = nil,
+              gradientClip: Tensor.Scalar? = nil) {
     self.momentum = momentum
     
     trainable.compile()
@@ -27,20 +29,21 @@ public class SGD: BaseOptimizer {
     super.init(trainable: trainable,
                learningRate: learningRate,
                batchSize: batchSize,
-               l2Normalize: false)
+               weightClip: weightClip,
+               gradientClip: gradientClip)
   }
   
   public override func step() {
-    let gradients = gradientAccumulator.accumulate()
+    var gradients = gradientAccumulator.accumulate()
 
+    if let clip = gradientClip {
+      gradients = gradients.gradientL2NormClip(clip)
+    }
+    
     for i in 0..<trainable.layers.count {
       let layer = trainable.layers[i]
       let gradient = gradients.weights[i]
       let biasGradient = gradients.biases[i]
-      
-      if l2Normalize {
-        gradient.l2Normalize()
-      }
       
       var sgdGradient = (gradient, biasGradient)
       
@@ -50,7 +53,7 @@ public class SGD: BaseOptimizer {
       
       layer.apply(gradients: sgdGradient, learningRate: learningRate)
       
-      clip(layer: layer)
+      weightClip(layer: layer)
     }
   }
   

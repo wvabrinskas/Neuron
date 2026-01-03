@@ -17,7 +17,9 @@ public final class AdamW: Adam {
               b1: Tensor.Scalar = 0.9,
               b2: Tensor.Scalar = 0.999,
               eps: Tensor.Scalar = .stabilityFactor,
-              weightDecayValue: Tensor.Scalar = 0.004) {
+              weightDecayValue: Tensor.Scalar = 0.004,
+              weightClip: Tensor.Scalar? = nil,
+              gradientClip: Tensor.Scalar? = nil) {
     super.init(trainable,
                device: device,
                learningRate: learningRate,
@@ -25,7 +27,9 @@ public final class AdamW: Adam {
                b1: b1,
                b2: b2,
                eps: eps,
-               weightDecay: .decay(weightDecayValue))
+               weightDecay: .decay(weightDecayValue),
+               weightClip: weightClip,
+               gradientClip: gradientClip)
   }
 }
 
@@ -59,7 +63,9 @@ public class Adam: BaseOptimizer {
               b1: Tensor.Scalar = 0.9,
               b2: Tensor.Scalar = 0.999,
               eps: Tensor.Scalar = .stabilityFactor,
-              weightDecay: WeightDecay = .none) {
+              weightDecay: WeightDecay = .none,
+              weightClip: Tensor.Scalar? = nil,
+              gradientClip: Tensor.Scalar? = nil) {
     self.b1 = b1
     self.b2 = b2
     self.eps = eps
@@ -67,21 +73,22 @@ public class Adam: BaseOptimizer {
     super.init(trainable: trainable,
                learningRate: learningRate,
                batchSize: batchSize,
-               l2Normalize: false)
+               weightClip: weightClip,
+               gradientClip: gradientClip)
     build()
   }
   
   public override func step() {
-    let gradients = gradientAccumulator.accumulate()
+    var gradients = gradientAccumulator.accumulate()
+    
+    if let clip = gradientClip {
+      gradients = gradients.gradientL2NormClip(clip)
+    }
     
     for i in 0..<trainable.layers.count {
       let layer = trainable.layers[i]
       let gradient = gradients.weights[i]
       let biasGradient = gradients.biases[i]
-      
-      if l2Normalize {
-        gradient.l2Normalize()
-      }
       
       var adamGradient: Gradient = (gradient, biasGradient)
       
@@ -89,10 +96,10 @@ public class Adam: BaseOptimizer {
       if layer.trainable, layer.usesOptimizer {
         adamGradient = run(gradient: gradient, biasGradient: biasGradient, index: i, weights: layer.weights)
       }
-      
+            
       layer.apply(gradients: adamGradient, learningRate: learningRate)
       
-      clip(layer: layer)
+      weightClip(layer: layer)
     }
     
     t += 1

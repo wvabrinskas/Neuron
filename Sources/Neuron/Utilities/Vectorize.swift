@@ -143,10 +143,10 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
   
   // MARK: Private
   func formatItem(item: T) -> T {
-    if let i = item as? String {
-      return i.lowercased() as? T ?? item
-    }
-    
+//    if let i = item as? String {
+//      return i.lowercased() as? T ?? item
+//    }
+//    
     return item
   }
 }

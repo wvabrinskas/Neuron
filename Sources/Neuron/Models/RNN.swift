@@ -10,6 +10,7 @@ import NumSwift
 
 public typealias RNNSupportedDatasetData = (training: [DatasetModel], val: [DatasetModel])
 public protocol RNNSupportedDataset {
+  var vocabSize: Int { get }
   func oneHot(_ items: [String]) -> Tensor
   func getWord(for data: Tensor) -> [String]
   func build() async -> RNNSupportedDatasetData
@@ -39,6 +40,7 @@ public class RNN: Classifier {
     let b2: Tensor.Scalar
     let eps: Tensor.Scalar
     let weightDecay: Adam.WeightDecay
+    let gradientClipping: Tensor.Scalar?
     let metricsReporter: MetricsReporter?
     
     public init(learningRate: Tensor.Scalar,
@@ -46,6 +48,7 @@ public class RNN: Classifier {
                 b2: Tensor.Scalar = 0.999,
                 eps: Tensor.Scalar = .stabilityFactor,
                 weightDecay: Adam.WeightDecay = .none,
+                gradientClipping: Tensor.Scalar? = 1.0, // default to 1.0 for gradient clipping, seems to be a good default
                 metricsReporter: MetricsReporter? = nil) {
       self.learningRate = learningRate
       self.b1 = b1
@@ -53,6 +56,7 @@ public class RNN: Classifier {
       self.eps = eps
       self.metricsReporter = metricsReporter
       self.weightDecay = weightDecay
+      self.gradientClipping = gradientClipping
     }
   }
   
@@ -67,7 +71,7 @@ public class RNN: Classifier {
                 epochs: Int,
                 accuracyThreshold: AccuracyThreshold = .init(value: 0.9, averageCount: 5),
                 killOnAccuracy: Bool = true,
-                lossFunction: LossFunction = .binaryCrossEntropySoftmax) {
+                lossFunction: LossFunction = .crossEntropySoftmax) {
       self.batchSize = batchSize
       self.epochs = epochs
       self.accuracyThreshold = accuracyThreshold
@@ -115,10 +119,9 @@ public class RNN: Classifier {
                          b1: optimizerParameters.b1,
                          b2: optimizerParameters.b2,
                          eps: optimizerParameters.eps,
-                         weightDecay: optimizerParameters.weightDecay)
-    
-    optimizer.metricsReporter = optimizerParameters.metricsReporter
-    
+                         weightDecay: optimizerParameters.weightDecay,
+                         gradientClip: optimizerParameters.gradientClipping)
+      
     super.init(optimizer: optimizer,
                epochs: classifierParameters.epochs,
                batchSize: classifierParameters.batchSize,
@@ -231,7 +234,7 @@ public class RNN: Classifier {
   private func compile(dataset: RNNSupportedDatasetData) {
     guard let first = dataset.training.first else { fatalError("Could not build network with dataset") }
     
-    let vocabSize = first.data.shape[0]
+    let vocabSize = self.dataset.vocabSize
     let wordLength = first.data.shape[2]
     
     self.vocabSize = vocabSize

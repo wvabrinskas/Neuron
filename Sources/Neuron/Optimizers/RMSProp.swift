@@ -19,7 +19,9 @@ public class RMSProp: BaseOptimizer {
               learningRate: Tensor.Scalar,
               batchSize: Int,
               b: Tensor.Scalar = 0.9,
-              eps: Tensor.Scalar = .stabilityFactor) {
+              eps: Tensor.Scalar = .stabilityFactor,
+              weightClip: Tensor.Scalar? = nil,
+              gradientClip: Tensor.Scalar? = nil) {
     self.eps = eps
     self.b = b
 
@@ -31,22 +33,23 @@ public class RMSProp: BaseOptimizer {
     super.init(trainable: trainable,
                learningRate: learningRate,
                batchSize: batchSize,
-               l2Normalize: false)
+               weightClip: weightClip,
+               gradientClip: gradientClip)
   }
   
   public override func step() {
-    let gradients = gradientAccumulator.accumulate()
+    var gradients = gradientAccumulator.accumulate()
+    
+    if let clip = gradientClip {
+      gradients = gradients.gradientL2NormClip(clip)
+    }
     
     for i in 0..<trainable.layers.count {
       let layer = trainable.layers[i]
       
       let gradient = gradients.weights[i]
       let biasGradient = gradients.biases[i]
-      
-      if l2Normalize {
-        gradient.l2Normalize()
-      }
-
+  
       var adamGradient = (gradient, biasGradient)
       
       if layer.trainable, layer.usesOptimizer {
@@ -55,7 +58,7 @@ public class RMSProp: BaseOptimizer {
       
       layer.apply(gradients: adamGradient, learningRate: learningRate)
       
-      clip(layer: layer)
+      weightClip(layer: layer)
     }
   }
   

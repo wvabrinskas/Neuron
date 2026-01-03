@@ -12,6 +12,8 @@ import NumSwift
 
 
 class MockRNNDataset: RNNSupportedDataset {
+  var vocabSize: Int = 0
+  
   func oneHot(_ items: [String]) -> Neuron.Tensor {
     vectorizer.oneHot(items)
   }
@@ -39,6 +41,8 @@ class MockRNNDataset: RNNSupportedDataset {
                                                   max: max).characters)
     let input2 = vectorizer.oneHot("spammley".fill(with: ".",
                                                   max: max).characters)
+    
+    vocabSize = vectorizer.inverseVector.count
     
     let labelTensor = oneHot
     let inputTensor = input
@@ -230,8 +234,8 @@ final class FullModelTests: XCTestCase {
       return
     }
 
-    let inputUnits = 50
-    let hiddenUnits = 100
+    let inputUnits = 32
+    let hiddenUnits = 128
     
     let reporter = MetricsReporter(frequency: 1,
                                    metricsToGather: [.loss,
@@ -242,11 +246,12 @@ final class FullModelTests: XCTestCase {
     
     let rnn = RNN(returnSequence: true,
                   dataset: MockRNNDataset(),
-                  classifierParameters: RNN.ClassifierParameters(batchSize: 16,
+                  classifierParameters: RNN.ClassifierParameters(batchSize: 32,
                                                                  epochs: 1000,
                                                                  accuracyThreshold: .init(value: 0.8, averageCount: 5),
                                                                  killOnAccuracy: false),
-                  optimizerParameters: RNN.OptimizerParameters(learningRate: 0.002,
+                  optimizerParameters: RNN.OptimizerParameters(learningRate: 0.0001,
+                                                               gradientClipping: 1.0,
                                                                metricsReporter: reporter),
                   lstmParameters: RNN.RNNLSTMParameters(hiddenUnits: hiddenUnits,
                                                         inputUnits: inputUnits))
