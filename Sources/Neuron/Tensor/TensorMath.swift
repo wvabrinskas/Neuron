@@ -1006,18 +1006,31 @@ public extension Tensor.Gradient {
     let allWeights = weights.reduce(Tensor()) { partialResult, new in
       partialResult.concat(new, axis: 2)
     }
+
+    let allBiases = biases.reduce(Tensor()) { partialResult, new in
+      partialResult.concat(new, axis: 2)
+    } 
     
     let l2Norm = allWeights.l2Norm()  
+    let l2NormBias = allBiases.l2Norm() 
 
-    guard l2Norm > value else {
-      return self
+    if l2Norm > value {
+      let scalingFactor = value / l2Norm 
+      
+      let mappedWeights = weights.map { $0 * scalingFactor }
+
+      return .init(input: input, weights: mappedWeights, biases: biases)
     }
 
-    let clipped = value / l2Norm 
-    
-    let mappedWeights = weights.map { $0 * clipped }
+    if l2NormBias > value {
+      let scalingFactor = value / l2NormBias 
+      
+      let mappedBiases = biases.map { $0 * scalingFactor }
 
-    return .init(input: input, weights: mappedWeights, biases: biases)
+      return .init(input: input, weights: weights, biases: mappedBiases)
+    }
+
+    return self
   }
   
   static func applyMultiple(lhs: Tensor.Gradient,
