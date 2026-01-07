@@ -233,7 +233,7 @@ public final class LSTM: BaseLayer {
   /// `(rows: 1, columns: vocabSize, depth: batchLength)` or just the last output of the sequence of size
   /// `(rows: 1, columns: vocabSize, depth: 1)`
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
-    var localCellCache: [Cache] = [setupInitialState()]
+    var localCellCache: [Cache] = []
 
     let tensorContext = TensorContext { inputs, gradient, wrt in
       self.backward(inputs: inputs, gradient: gradient, cellCache: localCellCache)
@@ -248,7 +248,7 @@ public final class LSTM: BaseLayer {
     for index in range {
       
       // get embeddings from input
-      let getEmbeddings = Tensor(tensor.value[safe: index] ?? NumSwift.zerosLike((rows: 1, columns: vocabSize))) //use first vector
+      let getEmbeddings = Tensor(tensor.value[safe: index] ?? NumSwift.zerosLike((rows: 1, columns: inputUnits))) //use first vector
       
       let cell = LSTMCell(hidden: hiddenUnits,
                           input: inputUnits,
@@ -297,8 +297,6 @@ public final class LSTM: BaseLayer {
       out = new
     }
     
-   // cellCache.store(localCellCache, at: context.indexInBatch)
-
     if returnSequence == false, let last = out.value.last {
       out = Tensor(last, context: tensorContext)
     }
@@ -382,12 +380,12 @@ public final class LSTM: BaseLayer {
 
     var wrtEmbeddings: Tensor = Tensor()
         
-    for index in (1..<cellCache.count).reversed() {
+    for index in (0..<cellCache.count).reversed() {
       
       let cache = cellCache[index]
       let previousCache = cellCache[safe: index - 1]
       
-      let delta = Tensor(gradient.value[safe: index - 1] ?? gradient.zerosLike().value[0])
+      let delta = Tensor(gradient.value[safe: index] ?? gradient.zerosLike().value[0])
             
       let activationErrors = cache.outputValue.gradients(delta: delta,
                                                          wrt: cache.activation)

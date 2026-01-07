@@ -25,7 +25,7 @@ public final class Embedding: BaseLayer {
     self.batchLength = batchLength
     
     super.init(inputSize: TensorSize(rows: 1,
-                                     columns: vocabSize,
+                                     columns: 1,
                                      depth: batchLength),
                initializer: initializer, biasEnabled: false,
                encodingType: .embedding)
@@ -119,7 +119,7 @@ public final class Embedding: BaseLayer {
       indicies.append(index)
       
       guard let lookup = weights.value[safe: index] else {
-        break
+        fatalError()
       }
       
       outValue.append(lookup)
@@ -130,7 +130,7 @@ public final class Embedding: BaseLayer {
     out.label = String(describing: self)
   
     out.setGraph(tensor)
-    
+
     return out
   }
   
