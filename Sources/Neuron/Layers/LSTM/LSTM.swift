@@ -270,7 +270,6 @@ public final class LSTM: BaseLayer {
                                     cache: cache)
       
       // used mainly for prediction and shouldn't be used in back propogation unless there's a gradient associated with it
-      
       let outputCellParameters = OutputCell.Parameters(hiddenOutputWeights: hiddenOutputWeights.detached(),
                                                        hiddenOutputBiases: hiddenOutputBiases.detached(),
                                                        activationMatrix: cellOutput.activationMatrix.detached(),
@@ -386,7 +385,7 @@ public final class LSTM: BaseLayer {
       let cache = cellCache[index]
       let previousCache = cellCache[safe: index - 1]
       
-      let delta = Tensor(gradient.value[safe: index] ?? gradient.zerosLike().value[0])
+      let delta = Tensor(gradient.value[safe: index - 1] ?? gradient.zerosLike().value[0])
             
       let activationErrors = cache.outputValue.gradients(delta: delta,
                                                          wrt: cache.activation)
@@ -512,13 +511,13 @@ public final class LSTM: BaseLayer {
   }
   
   private func initializeBiases() {
-    let biases = Tensor(NumSwift.zerosLike((rows: 1, columns: 1, depth: 1)))
+    let biases = Tensor(NumSwift.zerosLike((rows: 1, columns: hiddenUnits, depth: 1)))
     self.outputGateBiases = biases.detached()
     self.forgetGateBiases = biases.detached()
     self.gateGateBiases = biases.detached()
     self.inputGateBiases = biases.detached()
-    
-    self.hiddenOutputBiases = Tensor(NumSwift.zerosLike((rows: 1, columns: 1, depth: 1)))
+
+    self.hiddenOutputBiases = Tensor(NumSwift.zerosLike((rows: 1, columns: vocabSize, depth: 1)))
   }
   
   private func setupInitialState() -> Cache {

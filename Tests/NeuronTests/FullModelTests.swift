@@ -159,9 +159,9 @@ final class FullModelTests: XCTestCase {
       [
         Dense(12, inputs: 4,
               initializer: .xavierUniform,
-              biasEnabled: false),
+              biasEnabled: true),
         ReLu(),
-        //BatchNormalize(),
+        BatchNormalize(),
         Dense(3, initializer: .xavierUniform),
         Softmax()
       ]
@@ -229,13 +229,13 @@ final class FullModelTests: XCTestCase {
   
   /// LSTM test example
   func test_LSTM_Forward_Example() async {
-    guard isGithubCI == false else {
-      XCTAssertTrue(true)
-      return
-    }
+    // guard isGithubCI == false else {
+    //   XCTAssertTrue(true)
+    //   return
+    // }
 
-    let inputUnits = 32
-    let hiddenUnits = 128
+    let inputUnits = 50
+    let hiddenUnits = 100
     
     let reporter = MetricsReporter(frequency: 1,
                                    metricsToGather: [.loss,
@@ -246,12 +246,12 @@ final class FullModelTests: XCTestCase {
     
     let rnn = RNN(returnSequence: true,
                   dataset: MockRNNDataset(),
-                  classifierParameters: RNN.ClassifierParameters(batchSize: 32,
+                  classifierParameters: RNN.ClassifierParameters(batchSize: 16,
                                                                  epochs: 1000,
                                                                  accuracyThreshold: .init(value: 0.8, averageCount: 5),
                                                                  killOnAccuracy: false),
-                  optimizerParameters: RNN.OptimizerParameters(learningRate: 0.0001,
-                                                               gradientClipping: 1.0,
+                  optimizerParameters: RNN.OptimizerParameters(learningRate: 0.002,
+                                                               gradientClipping: 5.0,
                                                                metricsReporter: reporter),
                   lstmParameters: RNN.RNNLSTMParameters(hiddenUnits: hiddenUnits,
                                                         inputUnits: inputUnits))

@@ -11,7 +11,7 @@ import NumSwift
 public class SGD: BaseOptimizer {
   private let momentum: Tensor.Scalar
   private var v: [Tensor.Data] = []
-  private var vb: [[Tensor.Scalar]] = []
+  private var vb: [Tensor.Data] = []
 
   public init(_ trainable: Trainable,
               device: Device = CPU(),
@@ -24,7 +24,7 @@ public class SGD: BaseOptimizer {
     
     trainable.compile()
     v = [[[[Tensor.Scalar]]]].init(repeating: [], count: trainable.layers.count)
-    vb = [[Tensor.Scalar]].init(repeating: [], count: trainable.layers.count)
+    vb = [Tensor.Data].init(repeating: [], count: trainable.layers.count)
     
     super.init(trainable: trainable,
                learningRate: learningRate,
@@ -64,31 +64,38 @@ public class SGD: BaseOptimizer {
     let depth = shape[safe: 2] ?? 0
     let i = index
     
-    let flatBias = biasGradient.value.flatten()
+    let biasShape = biasGradient.shape
+    let biasRows = biasShape[safe: 1] ?? 0
+    let biasColumns = biasShape[safe: 0] ?? 0
+    let biasDepth = biasShape[safe: 2] ?? 0
 
     if v[i].isEmpty {
       v[i] = NumSwift.zerosLike((rows, columns, depth))
-      vb[i] = [Tensor.Scalar].init(repeating: 0, count: flatBias.count)
     }
     
     let gradientValue = gradient.value
-    
-    for d in 0..<gradientValue.count {
-      let depthGradient = gradientValue[d]
-      for r in 0..<depthGradient.count {
-        let rowGradient = depthGradient[r]
-        for c in 0..<rowGradient.count {
-          v[i][d][r][c] = momentum * v[i][d][r][c] + learningRate * gradientValue[d][r][c]
-        }
-      }
-      
+    apply(to: &v[i], gradient: gradientValue)
+
+    if vb[i].isEmpty {
+      vb[i] = NumSwift.zerosLike((biasRows, biasColumns, biasDepth))
     }
           
-    for d in 0..<flatBias.count {
-      vb[i][d] = momentum * vb[i][d] + learningRate * flatBias[d]
-    }
-    
+    let biasValue = biasGradient.value
+    apply(to: &vb[i], gradient: biasValue)
+
     return (Tensor(v[i]), Tensor(vb[i]))
+  }
+
+  private func apply(to: inout Tensor.Data, gradient: Tensor.Data) {
+    for d in 0..<gradient.count {
+      let depth = gradient[d]
+      for r in 0..<depth.count {
+        let row = depth[r]
+        for c in 0..<row.count {
+          to[d][r][c] = momentum * to[d][r][c] + learningRate * gradient[d][r][c]
+        }
+      }
+    }
   }
   
   public override func reset() {

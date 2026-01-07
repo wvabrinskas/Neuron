@@ -114,19 +114,19 @@ class LSTMCell {
     let concat = tensor.concat(previousActivationMatrix)
     
     // forget gate
-    let fa = device.matmul(concat, fgw) + parameters.forgetGateBiases.asScalar()
+    let fa = device.matmul(concat, fgw) + parameters.forgetGateBiases
     let faOut = Sigmoid().forward(tensor: fa, context: context)
     
     // input gate
-    let ia = device.matmul(concat, igw) + parameters.inputGateBiases.asScalar()
+    let ia = device.matmul(concat, igw) + parameters.inputGateBiases
     let iaOut = Sigmoid().forward(tensor: ia, context: context)
     
     // gate gate
-    let ga = device.matmul(concat, ggw) + parameters.gateGateBiases.asScalar()
+    let ga = device.matmul(concat, ggw) + parameters.gateGateBiases
     let gaOut = Tanh().forward(tensor: ga, context: context)
     
     // output gate
-    let oa = device.matmul(concat, ogw) + parameters.outputGateBiases.asScalar() // Could be Dense layers
+    let oa = device.matmul(concat, ogw) + parameters.outputGateBiases // Could be Dense layers
     let oaOut = Sigmoid().forward(tensor: oa, context: context)
     
     let cellMemoryMatrix = (faOut * previousCellMatrix) + (iaOut * gaOut)
@@ -156,7 +156,7 @@ class LSTMCell {
 
     let lstm = cache.lstm
     let cellActivation = cache.cell
-    let previousCellActivaion = previousCache?.cell ?? cache.cell.onesLike() // if there's no previous state use 0s. Might need to come up with a better solution so we dont have to re-do this
+    let previousCellActivaion = previousCache?.cell ?? cache.cell.zerosLike() // if there's no previous state use 0s. Might need to come up with a better solution so we dont have to re-do this
     
     let tanActivationOfCellActivation = Tanh().forward(tensor: cellActivation)
     
@@ -230,10 +230,12 @@ class LSTMCell {
   
   private func backwarsWRTBiases(lstmError: Errors.LSTMError,
                                  batchSize: Int) -> ParameterDerivatives {
-    let outputGateBiasesUpdate = lstmError.eo.sum(axis: 1)
-    let inputGateBiasesUpdate = lstmError.ei.sum(axis: 1)
-    let gateGateBiasesUpdate = lstmError.eg.sum(axis: 1)
-    let forgetGateBiasesUpdate = lstmError.ef.sum(axis: 1)
+    // No summation needed - gate errors are already per-hidden-unit
+    // Each hidden unit gets its own bias gradient
+    let outputGateBiasesUpdate = lstmError.eo
+    let inputGateBiasesUpdate = lstmError.ei
+    let gateGateBiasesUpdate = lstmError.eg
+    let forgetGateBiasesUpdate = lstmError.ef
 
     return .init(dForgetGate: forgetGateBiasesUpdate,
                  dInputGate: inputGateBiasesUpdate,

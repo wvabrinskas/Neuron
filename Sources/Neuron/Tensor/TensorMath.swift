@@ -1001,7 +1001,6 @@ public extension Tensor {
 }
 
 public extension Tensor.Gradient {
-  
   func gradientL2NormClip(_ value: Tensor.Scalar = 1.0) -> Tensor.Gradient {
     let allWeights = weights.reduce(Tensor()) { partialResult, new in
       partialResult.concat(new, axis: 2)

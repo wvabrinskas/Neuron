@@ -11,7 +11,7 @@ import NumSwift
 public class RMSProp: BaseOptimizer {
   private var b: Tensor.Scalar = 0.9
   private var v: [Tensor.Data] = []
-  private var vb: [[Tensor.Scalar]] = []
+  private var vb: [Tensor.Data] = []
   private var eps: Tensor.Scalar = .stabilityFactor
 
   public init(_ trainable: Trainable,
@@ -26,7 +26,7 @@ public class RMSProp: BaseOptimizer {
     self.b = b
 
     v = [[[[Tensor.Scalar]]]].init(repeating: [], count: trainable.layers.count)
-    vb = [[Tensor.Scalar]].init(repeating: [], count: trainable.layers.count)
+    vb = [[[[Tensor.Scalar]]]].init(repeating: [], count: trainable.layers.count)
     
     trainable.compile()
     
@@ -75,49 +75,48 @@ public class RMSProp: BaseOptimizer {
     let depth = shape[safe: 2] ?? 0
     let i = index
     
-    let flatBias = biasGradient.value.flatten()
-
-    var result: [[[Tensor.Scalar]]] = NumSwift.zerosLike((rows, columns, depth))
-    var biases: [Tensor.Scalar] = .init(repeating: 0, count: flatBias.count)
-    
     if vb[i].isEmpty || v[i].isEmpty {
       v[i] = NumSwift.zerosLike((rows, columns, depth))
-      vb[i] = [Tensor.Scalar].init(repeating: 0, count: flatBias.count)
+      vb[i] = NumSwift.zerosLike((rows, columns, depth))
     }
     
     let gradientValue = gradient.value
+    let result = apply(to: &v[i], gradient: gradientValue)
     
-    for d in 0..<gradientValue.count {
-      let depthGradient = gradientValue[d]
+    let biasGradientValue = biasGradient.value
+    let biasResult = apply(to: &vb[i], gradient: biasGradientValue)
+    
+    return (Tensor(result), Tensor(biasResult))
+  }
+
+  private func apply(to: inout Tensor.Data, gradient: Tensor.Data) -> [[[Tensor.Scalar]]] {
+    var result: [[[Tensor.Scalar]]] = []
+    
+    for d in 0..<gradient.count {
+      var row: [[Tensor.Scalar]] = []
+
+      let depthGradient = gradient[d]
       for r in 0..<depthGradient.count {
+
+        var column: [Tensor.Scalar] = []
+
         let rowGradient = depthGradient[r]
         for c in 0..<rowGradient.count {
-          v[i][d][r][c] = b * v[i][d][r][c] + (1 - b) * Tensor.Scalar.pow(gradientValue[d][r][c], 2)
+          to[d][r][c] = b * to[d][r][c] + (1 - b) * Tensor.Scalar.pow(gradient[d][r][c], 2)
           
-          let vdw = v[i][d][r][c]
+          let vdw = to[d][r][c]
           let alpha = learningRate
-          let dw = gradientValue[d][r][c]
+          let dw = gradient[d][r][c]
           
           let delta = (alpha / (sqrt(vdw + eps))) * dw
           
-          result[d][r][c] = delta
+          column.append(delta)
         }
+        row.append(column)
       }
+      result.append(row)
     }
-      
-    
-    for d in 0..<flatBias.count {
-      // bias gradients are performed at a depth level
-      let biasGradient = flatBias[d]
-      vb[i][d] = b * vb[i][d] + (1 - b) * Tensor.Scalar.pow(biasGradient, 2)
-      let vdb = vb[i][d]
-      let alpha = learningRate
-      let db = biasGradient
-      
-      let deltaB = (alpha / (sqrt(vdb + eps))) * db
-      biases[d] = deltaB
-    }
-    
-    return (Tensor(result), Tensor(biases))
+
+    return result
   }
 }
