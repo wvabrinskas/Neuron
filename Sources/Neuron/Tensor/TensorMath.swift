@@ -1013,12 +1013,15 @@ public extension Tensor.Gradient {
     let l2Norm = allWeights.l2Norm()  
     let l2NormBias = allBiases.l2Norm() 
 
+    var biases = biases
+    var weights = weights
+
     if l2Norm > value {
       let scalingFactor = value / l2Norm 
       
       let mappedWeights = weights.map { $0 * scalingFactor }
 
-      return .init(input: input, weights: mappedWeights, biases: biases)
+      weights = mappedWeights
     }
 
     if l2NormBias > value {
@@ -1026,10 +1029,10 @@ public extension Tensor.Gradient {
       
       let mappedBiases = biases.map { $0 * scalingFactor }
 
-      return .init(input: input, weights: weights, biases: mappedBiases)
+      biases = mappedBiases
     }
 
-    return self
+    return .init(input: input, weights: weights, biases: biases)
   }
   
   static func applyMultiple(lhs: Tensor.Gradient,

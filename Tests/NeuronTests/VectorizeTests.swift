@@ -75,7 +75,7 @@ final class VectorTests: XCTestCase {
   }
   
   func test_one_Hot_words_unvectorize() {
-    let vectorizer = Vectorizer<String>()
+    let vectorizer = Vectorizer<String>(startAndEndingEncoding: true)
     
     let sentence = "The wide road shimmered in the hot sun"
     let words = sentence.components(separatedBy: " ")
@@ -101,7 +101,7 @@ final class VectorTests: XCTestCase {
   }
   
   func test_one_Hot_words() {
-    let vectorizer = Vectorizer<String>()
+    let vectorizer = Vectorizer<String>(startAndEndingEncoding: true)
     
     let sentence = "The wide road shimmered in the hot sun"
     let words = sentence.components(separatedBy: " ")
@@ -123,7 +123,7 @@ final class VectorTests: XCTestCase {
   }
   
   func test_String_Vectorize_Start() {
-    let vectorizer = Vectorizer<String>()
+    let vectorizer = Vectorizer<String>(startAndEndingEncoding: true)
     
     let sentence = "The wide road shimmered in the hot sun"
     let words = sentence.components(separatedBy: " ")
@@ -134,7 +134,7 @@ final class VectorTests: XCTestCase {
   }
   
   func test_String_Vectorize_End() {
-    let vectorizer = Vectorizer<String>()
+    let vectorizer = Vectorizer<String>(startAndEndingEncoding: true)
     
     let sentence = "The wide road shimmered in the hot sun"
     let words = sentence.components(separatedBy: " ")

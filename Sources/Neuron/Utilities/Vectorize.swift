@@ -19,9 +19,9 @@ public protocol Vectorizing {
   associatedtype Item: VectorizableItem
   typealias Vector = [Item: Int]
   typealias InverseVector = [Int: Item]
-  /// Value that indicate starting of a vactor
+  /// Value that indicate starting of a vector
   var start: Int { get }
-  /// Value that indicate ending of a vactor
+  /// Value that indicate ending of a vector
   var end: Int { get }
   /// The current full vector storage of every value passed in keyed by the `Item`
   var vector: Vector { get }
@@ -50,11 +50,26 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
 
   /// max index is the first index we can use to identify words
   /// this means we reserve the start and end indicies labels
-  private var maxIndex: Int = 2
+  private var maxIndex: Int = 0
   
   private var maxItemLength: Int = 0
   
-  public init() {}
+  lazy var maxIndexAdjustment: Int = if startAndEndingEncoding {
+    2
+  } else {
+    0
+  }
+  
+  /// if set to true this will vectorize the input with an offset of `maxIndex` to reserve the first two vectors for start and end vectors
+  private let startAndEndingEncoding: Bool
+  
+  public init(startAndEndingEncoding: Bool = false) {
+    self.startAndEndingEncoding = startAndEndingEncoding
+    
+    if startAndEndingEncoding {
+      maxIndex = 2
+    }
+  }
   
   
   /// One hot vectorizes a input that has already been vectorized.
@@ -65,12 +80,12 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
     var result: Tensor.Data = []
     
     for i in 0..<items.count {
-      var vectorized: [Tensor.Scalar] = [Tensor.Scalar](repeating: 0, count: maxIndex - 2)
+      var vectorized: [Tensor.Scalar] = [Tensor.Scalar](repeating: 0, count: max(0, maxIndex - maxIndexAdjustment))
       
       let item = formatItem(item: items[i])
       
       if let inVector = vector[item] {
-        let adjustedIndex = max(0, inVector - 2) // offset by 2 since we saved the first two indexes for start and end labels
+        let adjustedIndex = max(0, inVector - maxIndexAdjustment) // offset by 2 since we saved the first two indexes for start and end labels
         
         if adjustedIndex < vectorized.count {
           vectorized[adjustedIndex] = 1.asTensorScalar
@@ -87,7 +102,7 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
   public func vectorize(_ items: [T], format: VectorFormat = .none) -> [Int] {
     var vectorized: [Int] = []
     
-    if format == .start {
+    if format == .start, startAndEndingEncoding {
       vectorized = [start]
     }
     
@@ -107,7 +122,7 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
     
     maxIndex = lastKey
     
-    if format == .end {
+    if format == .end, startAndEndingEncoding {
       vectorized.append(end)
     }
 
@@ -119,7 +134,7 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
     
     vector.value.forEach { v in
       if let indexOfHot = v[0].firstIndex(of: 1) {
-        if let s = inverseVector[Int(indexOfHot + 2)] {
+        if let s = inverseVector[Int(indexOfHot + maxIndexAdjustment)] {
           items.append(s)
         }
       }

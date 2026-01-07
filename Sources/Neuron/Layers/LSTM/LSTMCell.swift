@@ -101,15 +101,15 @@ class LSTMCell {
   func forward(tensor: Tensor,
                context: NetworkContext,
                parameters: Parameters,
-               cache: LSTM.Cache) -> Activations {
+               previousCache: LSTM.Cache) -> Activations {
     
     let fgw = parameters.forgetGateWeights
     let igw = parameters.inputGateWeights
     let ogw = parameters.outputGateWeights
     let ggw = parameters.gateGateWeights
     
-    let previousActivationMatrix = cache.activation
-    let previousCellMatrix = cache.cell
+    let previousActivationMatrix = previousCache.activation
+    let previousCellMatrix = previousCache.cell
     
     let concat = tensor.concat(previousActivationMatrix)
     

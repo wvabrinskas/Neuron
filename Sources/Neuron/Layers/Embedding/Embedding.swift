@@ -30,13 +30,13 @@ public final class Embedding: BaseLayer {
                initializer: initializer, biasEnabled: false,
                encodingType: .embedding)
     
-    self.outputSize = TensorSize(array: [inputUnits, 1, batchLength])
+    self.outputSize = TensorSize(rows: 1, columns: inputUnits, depth: batchLength)
 
-    let weights = initializer.build().calculate(size: TensorSize(rows: vocabSize,
-                                                              columns: inputUnits,
-                                                              depth: 1),
-                                                input: batchLength * vocabSize,
-                                                out: batchLength)
+    let weights = initializer.build().calculate(size: TensorSize(rows: 1,
+                                                                 columns: inputUnits,
+                                                                 depth: vocabSize),
+                                                input: batchLength * inputUnits,
+                                                out: inputUnits * vocabSize)
     
     self.weights = weights
     // manages its own weight updates
@@ -90,50 +90,47 @@ public final class Embedding: BaseLayer {
   /// - Parameter tensor: Input word as a 3D tensor with size `rows: 1, columns: vocabSize, depth: batchLength`
   /// - Returns: An output 3D tensor of shape `rows: 1, columns: inputUnits, depth: batchLength`
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
+    var indicies: [Int] = []
+    let weightShape = weights.shape
+    
     let context = TensorContext { inputs, gradient, wrt in
-      var wrtEmbeddings: Tensor = Tensor()
-
-      for i in 0..<gradient.value.count {
-        let gradientAtIndex = gradient.value[i]
-        
-        let embeddingError = Tensor(gradientAtIndex)
-        
-        let inputsTransposed = Tensor(NumSwiftC.tranpose(inputs.value[i],
-                                                   size: (rows: self.inputSize.rows,
-                                                          columns: self.inputSize.columns)))
-        
-        let dEmbedding = inputsTransposed.matmul(embeddingError)
-        
-        if wrtEmbeddings.isEmpty {
-          wrtEmbeddings = dEmbedding
+      var wrtEmbeddings: Tensor.Data = Tensor.fillWith(value: 0, size: TensorSize(array: weightShape)).value
+            
+      for (i, index) in indicies.enumerated() {
+        if let current = wrtEmbeddings[safe: index] {
+          wrtEmbeddings[index] = current + gradient.value[safe: i, [[0]]]
         } else {
-          let dEmbed = wrtEmbeddings + dEmbedding
-          wrtEmbeddings = dEmbed
+          wrtEmbeddings[index] = gradient.value[safe: i, [[0]]]
         }
       }
 
-      return (Tensor(), wrtEmbeddings, Tensor())
+      let result = Tensor(wrtEmbeddings)
+      
+      result.label = "Embedding gradients"
+      
+      return (Tensor(), result, Tensor())
     }
     
-    var out = Tensor(context: context)
-
-    for d in 0..<batchLength {
-      if tensor.value.count < d {
-        let concatOut = out.concat(Tensor(NumSwift.zerosLike((rows: 1, columns: inputUnits))), axis: 2)
-        out = concatOut
-        continue
+    var outValue: Tensor.Data = []
+    
+    for sequence in tensor.value {
+      let flat = Tensor(sequence).asScalar()
+      let index = Int(flat)
+      indicies.append(index)
+      
+      guard let lookup = weights.value[safe: index] else {
+        break
       }
       
-      let word = Tensor(tensor.value[safe: d] ?? out.value[safe: d] ?? NumSwift.zerosLike((rows: 1, columns: vocabSize)))
-      let getEmbeddings = device.matmul(word, weights.detached())
-      
-      let concatOut = out.concat(getEmbeddings, axis: 2)
-      out = concatOut
+      outValue.append(lookup)
     }
     
+    let out = Tensor(outValue, context: context)
+    
     out.label = String(describing: self)
-
+  
     out.setGraph(tensor)
+    
     return out
   }
   

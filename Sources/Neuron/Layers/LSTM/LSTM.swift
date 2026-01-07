@@ -234,7 +234,7 @@ public final class LSTM: BaseLayer {
   /// `(rows: 1, columns: vocabSize, depth: 1)`
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     var localCellCache: [Cache] = [setupInitialState()]
-    
+
     let tensorContext = TensorContext { inputs, gradient, wrt in
       self.backward(inputs: inputs, gradient: gradient, cellCache: localCellCache)
     }
@@ -246,7 +246,6 @@ public final class LSTM: BaseLayer {
     /// What happens to the prediction after we extend pass the batchLength?
     /// we need to truncate the input data if this happens to fit the expected window length
     for index in range {
-      guard let cache = localCellCache[safe: index] else { break }
       
       // get embeddings from input
       let getEmbeddings = Tensor(tensor.value[safe: index] ?? NumSwift.zerosLike((rows: 1, columns: vocabSize))) //use first vector
@@ -264,19 +263,21 @@ public final class LSTM: BaseLayer {
                                                gateGateBiases: gateGateBiases.detached(),
                                                outputGateBiases: outputGateBiases.detached())
 
+      let previousCache = localCellCache[safe: index - 1, setupInitialState()]
+      
       let cellOutput = cell.forward(tensor: getEmbeddings,
-                                    context: context,
-                                    parameters: cellParameters,
-                                    cache: cache)
+                                                          context: context,
+                                                          parameters: cellParameters,
+                                                          previousCache: previousCache) // needs to be previous cache
       
       // used mainly for prediction and shouldn't be used in back propogation unless there's a gradient associated with it
       let outputCellParameters = OutputCell.Parameters(hiddenOutputWeights: hiddenOutputWeights.detached(),
-                                                       hiddenOutputBiases: hiddenOutputBiases.detached(),
-                                                       activationMatrix: cellOutput.activationMatrix.detached(),
-                                                       vocabSize: vocabSize,
-                                                       hiddenSize: hiddenUnits)
+                                                                              hiddenOutputBiases: hiddenOutputBiases.detached(),
+                                                                              activationMatrix: cellOutput.activationMatrix.detached(),
+                                                                              vocabSize: vocabSize,
+                                                                              hiddenSize: hiddenUnits)
       
-      let outputCell = cache.output ?? OutputCell(device: device, parameters: outputCellParameters)
+      let outputCell = OutputCell(device: device, parameters: outputCellParameters)
 
       
       // TODO: Figure out what to do with this. we might have to store this as well in the cache.
@@ -289,13 +290,14 @@ public final class LSTM: BaseLayer {
                                output: outputCell,
                                outputValue: outputCellOutput) // don't detach we'll use for backprop
       
+      // we don't want to append here.
       localCellCache.append(newCellCache)
       
       let new = out.concat(outputCellOutput, axis: 2)
       out = new
     }
     
-    self.cellCache.store(localCellCache, at: context.indexInBatch)
+   // cellCache.store(localCellCache, at: context.indexInBatch)
 
     if returnSequence == false, let last = out.value.last {
       out = Tensor(last, context: tensorContext)
@@ -348,7 +350,7 @@ public final class LSTM: BaseLayer {
      
      hiddenOutputWeightBiases = 4
      */
-    let gBiasLayers = gradients.biases.value.flatten()
+    let gBiasLayers = gradients.biases.value
 
     if biasEnabled,
        let forgetGateBiasGrads = gBiasLayers[safe: 0],
@@ -379,7 +381,7 @@ public final class LSTM: BaseLayer {
     var wrtLSTMCellInputBiasDerivatives: LSTMCell.ParameterDerivatives = .init()
 
     var wrtEmbeddings: Tensor = Tensor()
-          
+        
     for index in (1..<cellCache.count).reversed() {
       
       let cache = cellCache[index]
@@ -513,21 +515,25 @@ public final class LSTM: BaseLayer {
   private func initializeBiases() {
     let biases = Tensor(NumSwift.zerosLike((rows: 1, columns: hiddenUnits, depth: 1)))
     self.outputGateBiases = biases.detached()
-    self.forgetGateBiases = biases.detached()
     self.gateGateBiases = biases.detached()
     self.inputGateBiases = biases.detached()
+    // Initialize forget gate bias to 1.0 to help gradient flow
+    // This encourages the LSTM to remember information by default
+    self.forgetGateBiases = Tensor(NumSwift.onesLike((rows: 1, columns: hiddenUnits, depth: 1)))
 
     self.hiddenOutputBiases = Tensor(NumSwift.zerosLike((rows: 1, columns: vocabSize, depth: 1)))
   }
   
   private func setupInitialState() -> Cache {
-    let a = Tensor(NumSwift.zerosLike((rows: 1, columns: hiddenUnits, depth: batchLength)))
-    let c = Tensor(NumSwift.zerosLike((rows: 1, columns: hiddenUnits, depth: batchLength)))
+    let zeroTensor = Tensor(NumSwift.zerosLike((rows: 1, columns: hiddenUnits, depth: 1)))
     
-    let og =  Tensor(NumSwift.zerosLike((rows: 1, columns: hiddenUnits, depth: 1)))
-    let ig =  Tensor(NumSwift.zerosLike((rows: 1, columns: hiddenUnits, depth: 1)))
-    let fg =  Tensor(NumSwift.zerosLike((rows: 1, columns: hiddenUnits, depth: 1)))
-    let gg =  Tensor(NumSwift.zerosLike((rows: 1, columns: hiddenUnits, depth: 1)))
+    let a = zeroTensor.copy()
+    let c = zeroTensor.copy()
+    
+    let og =  zeroTensor.copy()
+    let ig =  zeroTensor.copy()
+    let fg =  zeroTensor.copy()
+    let gg =  zeroTensor.copy()
 
     let embedding =  Tensor(NumSwift.zerosLike((rows: 1, columns: inputUnits, depth: 1)))
     let output =  Tensor(NumSwift.zerosLike((rows: 1, columns: vocabSize, depth: 1)))

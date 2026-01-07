@@ -12,6 +12,7 @@ public typealias RNNSupportedDatasetData = (training: [DatasetModel], val: [Data
 public protocol RNNSupportedDataset {
   var vocabSize: Int { get }
   func oneHot(_ items: [String]) -> Tensor
+  func vectorize(_ items: [String]) -> Tensor
   func getWord(for data: Tensor) -> [String]
   func build() async -> RNNSupportedDatasetData
 }
@@ -121,6 +122,8 @@ public class RNN: Classifier {
                          eps: optimizerParameters.eps,
                          weightDecay: optimizerParameters.weightDecay,
                          gradientClip: optimizerParameters.gradientClipping)
+
+    optimizer.metricsReporter = optimizerParameters.metricsReporter
       
     super.init(optimizer: optimizer,
                epochs: classifierParameters.epochs,
@@ -167,8 +170,8 @@ public class RNN: Classifier {
       var batch: [[[Tensor.Scalar]]]
       
       if let with {
-        let oneHotWith = dataset.oneHot([with])
-        batch = oneHotWith.value
+        let vectorized = dataset.vectorize([with])
+        batch = vectorized.value
         name += with
 
       } else {
@@ -235,7 +238,7 @@ public class RNN: Classifier {
     guard let first = dataset.training.first else { fatalError("Could not build network with dataset") }
     
     let vocabSize = self.dataset.vocabSize
-    let wordLength = first.data.shape[2]
+    let wordLength = first.data.shape[2] // expect int vectorized array where each value is an index into the vocab size. TODO: enforce this
     
     self.vocabSize = vocabSize
     self.wordLength = wordLength

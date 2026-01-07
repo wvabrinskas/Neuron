@@ -251,7 +251,7 @@ final class FullModelTests: XCTestCase {
                                                                  accuracyThreshold: .init(value: 0.8, averageCount: 5),
                                                                  killOnAccuracy: false),
                   optimizerParameters: RNN.OptimizerParameters(learningRate: 0.002,
-                                                               gradientClipping: 5.0,
+                                                               gradientClipping: 10.0,
                                                                metricsReporter: reporter),
                   lstmParameters: RNN.RNNLSTMParameters(hiddenUnits: hiddenUnits,
                                                         inputUnits: inputUnits))
