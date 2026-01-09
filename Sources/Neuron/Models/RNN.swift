@@ -41,7 +41,6 @@ public class RNN: Classifier {
     let b2: Tensor.Scalar
     let eps: Tensor.Scalar
     let weightDecay: Adam.WeightDecay
-    let gradientClipping: Tensor.Scalar?
     let metricsReporter: MetricsReporter?
     
     public init(learningRate: Tensor.Scalar,
@@ -49,7 +48,6 @@ public class RNN: Classifier {
                 b2: Tensor.Scalar = 0.999,
                 eps: Tensor.Scalar = .stabilityFactor,
                 weightDecay: Adam.WeightDecay = .none,
-                gradientClipping: Tensor.Scalar? = 1.0, // default to 1.0 for gradient clipping, seems to be a good default
                 metricsReporter: MetricsReporter? = nil) {
       self.learningRate = learningRate
       self.b1 = b1
@@ -57,7 +55,6 @@ public class RNN: Classifier {
       self.eps = eps
       self.metricsReporter = metricsReporter
       self.weightDecay = weightDecay
-      self.gradientClipping = gradientClipping
     }
   }
   
@@ -121,7 +118,7 @@ public class RNN: Classifier {
                          b2: optimizerParameters.b2,
                          eps: optimizerParameters.eps,
                          weightDecay: optimizerParameters.weightDecay,
-                         gradientClip: optimizerParameters.gradientClipping)
+                         gradientClip: nil)
 
     optimizer.metricsReporter = optimizerParameters.metricsReporter
       

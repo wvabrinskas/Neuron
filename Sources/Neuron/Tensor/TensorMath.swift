@@ -1001,6 +1001,12 @@ public extension Tensor {
 }
 
 public extension Tensor.Gradient {
+  
+  func l2NomalizeWeightsAndBiases() {
+    weights.forEach { $0.l2Normalize() }
+    biases.forEach { $0.l2Normalize() }
+  }
+  
   func gradientL2NormClip(_ value: Tensor.Scalar = 1.0) -> Tensor.Gradient {
     let allWeights = weights.reduce(Tensor()) { partialResult, new in
       partialResult.concat(new, axis: 2)

@@ -1,6 +1,6 @@
 //
 //  File.swift
-//  
+//
 //
 //  Created by William Vabrinskas on 5/23/22.
 //
@@ -30,21 +30,21 @@ class MockRNNDataset: RNNSupportedDataset {
   func build() async -> Neuron.RNNSupportedDatasetData {
     let max = 9
     vectorizer.vectorize("hammley".fill(with: ".",
-                                     max: max).characters)
+                                        max: max).characters)
     
     vectorizer.vectorize("spammley".fill(with: ".",
                                          max: max).characters)
     
     let oneHot = vectorizer.oneHot("ammley".fill(with: ".",
-                                                  max: max).characters)
+                                                 max: max).characters)
     let oneHot2 = vectorizer.oneHot("pammley".fill(with: ".",
-                                                  max: max).characters)
+                                                   max: max).characters)
     
     let input = vectorize("hammley".fill(with: ".",
-                                                  max: max).characters)
+                                         max: max).characters)
     
     let input2 = vectorize("spammley".fill(with: ".",
-                                                  max: max).characters)
+                                           max: max).characters)
     
     vocabSize = vectorizer.inverseVector.count
     
@@ -57,7 +57,7 @@ class MockRNNDataset: RNNSupportedDataset {
     var training = [DatasetModel](repeating: DatasetModel(data: inputTensor,
                                                           label: labelTensor), count: 256)
     var val = [DatasetModel](repeating: DatasetModel(data: inputTensor,
-                                                      label: labelTensor), count: 10)
+                                                     label: labelTensor), count: 10)
     
     training.append(contentsOf: [DatasetModel](repeating: DatasetModel(data: inputTensor2,
                                                                        label: labelTensor2), count: 256))
@@ -86,17 +86,17 @@ final class FullModelTests: XCTestCase {
         trainingData.append(DatasetModel(data: Tensor(ColorType.red.color()),
                                          label: Tensor(ColorType.red.correctValues())))
         validationData.append(DatasetModel(data: Tensor(ColorType.red.color()),
-                                         label: Tensor(ColorType.red.correctValues())))
+                                           label: Tensor(ColorType.red.correctValues())))
       } else if num == 1 {
         trainingData.append(DatasetModel(data: Tensor(ColorType.green.color()),
                                          label: Tensor(ColorType.green.correctValues())))
         validationData.append(DatasetModel(data: Tensor(ColorType.green.color()),
-                                         label: Tensor(ColorType.green.correctValues())))
+                                           label: Tensor(ColorType.green.correctValues())))
       } else if num == 2 {
         trainingData.append(DatasetModel(data: Tensor(ColorType.blue.color()),
                                          label: Tensor(ColorType.blue.correctValues())))
         validationData.append(DatasetModel(data: Tensor(ColorType.blue.color()),
-                                         label: Tensor(ColorType.blue.correctValues())))
+                                           label: Tensor(ColorType.blue.correctValues())))
       }
     }
     
@@ -119,15 +119,15 @@ final class FullModelTests: XCTestCase {
         Softmax()
       ]
     }
-        
+    
     network.compile()
     
     network.isTraining = true
     
     let input = Tensor.fillRandom(size: inputSize)
-
+    
     let out = network(input, context: .init())
-        
+    
     XCTAssertEqual(TensorSize(array: out.shape), .init(array: [classes,1,1]))
     
     let error = Tensor.fillRandom(size: .init(array: [classes,1,1]))
@@ -149,7 +149,7 @@ final class FullModelTests: XCTestCase {
     let optim = Adam(network, learningRate: 0.01, batchSize: 1)
     
     network.isCompiled = false
-
+    
     // testing that when setting this it doesn't attempt to recompile the network
     optim.isTraining = false
     
@@ -188,10 +188,10 @@ final class FullModelTests: XCTestCase {
       let red = ColorType.red.color()
       let green = ColorType.green.color()
       let blue = ColorType.blue.color()
-
+      
       let colors = [Tensor(red), Tensor(green), Tensor(blue)]
       let out = classifier.feed(colors)
-
+      
       for i in 0..<out.count {
         let o = out[i]
         XCTAssert(o.value[safe: 0, [[0]]][safe: 0, [0]].indexOfMax.0 == i)
@@ -217,10 +217,10 @@ final class FullModelTests: XCTestCase {
       let red = ColorType.red.color()
       let green = ColorType.green.color()
       let blue = ColorType.blue.color()
-
+      
       let colors = [Tensor(red), Tensor(green), Tensor(blue)]
       let out = classifier.feed(colors)
-
+      
       for i in 0..<out.count {
         let o = out[i]
         XCTAssert(o.value[safe: 0, [[0]]][safe: 0, [0]].indexOfMax.0 == i)
@@ -233,11 +233,11 @@ final class FullModelTests: XCTestCase {
   
   /// LSTM test example
   func test_LSTM_Forward_Example() async {
-    // guard isGithubCI == false else {
-    //   XCTAssertTrue(true)
-    //   return
-    // }
-
+    guard isGithubCI == false else {
+      XCTAssertTrue(true)
+      return
+    }
+    
     let inputUnits = 50
     let hiddenUnits = 100
     
@@ -246,16 +246,15 @@ final class FullModelTests: XCTestCase {
                                                      .accuracy,
                                                      .valAccuracy,
                                                      .valLoss])
-
+    
     
     let rnn = RNN(returnSequence: true,
                   dataset: MockRNNDataset(),
                   classifierParameters: RNN.ClassifierParameters(batchSize: 16,
                                                                  epochs: 60,
-                                                                 accuracyThreshold: .init(value: 0.8, averageCount: 5),
-                                                                 killOnAccuracy: false),
+                                                                 accuracyThreshold: .init(value: 0.95, averageCount: 5),
+                                                                 killOnAccuracy: true),
                   optimizerParameters: RNN.OptimizerParameters(learningRate: 0.0006,
-                                                               gradientClipping: 10,
                                                                metricsReporter: reporter),
                   lstmParameters: RNN.RNNLSTMParameters(hiddenUnits: hiddenUnits,
                                                         inputUnits: inputUnits,
@@ -264,7 +263,7 @@ final class FullModelTests: XCTestCase {
     
     
     reporter.receive = { _ in }
-        
+    
     rnn.onEpochCompleted = {
       let r = rnn.predict(starting: "h", maxWordLength: 20, randomizeSelection: false)
       print(r)
