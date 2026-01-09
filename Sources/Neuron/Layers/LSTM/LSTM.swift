@@ -252,7 +252,8 @@ public final class LSTM: BaseLayer {
       
       let cell = LSTMCell(hidden: hiddenUnits,
                           input: inputUnits,
-                          vocabSize: vocabSize)
+                          vocabSize: vocabSize,
+                          biasEnabled: biasEnabled)
       
       let cellParameters = LSTMCell.Parameters(forgetGateWeights: forgetGateWeights.detached(),
                                                inputGateWeights: inputGateWeights.detached(),
@@ -277,7 +278,7 @@ public final class LSTM: BaseLayer {
                                                                               vocabSize: vocabSize,
                                                                               hiddenSize: hiddenUnits)
       
-      let outputCell = OutputCell(device: device, parameters: outputCellParameters)
+      let outputCell = OutputCell(device: device, biasEnabled: biasEnabled, parameters: outputCellParameters)
 
       
       // TODO: Figure out what to do with this. we might have to store this as well in the cache.
@@ -408,6 +409,7 @@ public final class LSTM: BaseLayer {
       let cell = LSTMCell(hidden: self.hiddenUnits,
                           input: self.inputUnits,
                           vocabSize: self.vocabSize,
+                          biasEnabled: biasEnabled,
                           device: self.device)
       
       let backward = cell.backward(cache: cache,
@@ -462,7 +464,15 @@ public final class LSTM: BaseLayer {
     // merge all biases into a giant 5 depth tensor, shape will be broken here
     let biasDerivatives = wrtLSTMCellInputBiasDerivatives.concat().concat(wrtOutputBiasesDerivatives, axis: 2)
 
-    return (wrtEmbeddings, weightDerivatives, biasDerivatives)
+    // Normalize gradients by sequence length to prevent explosion
+    // This is standard practice for RNNs - gradients are accumulated across timesteps,
+    // so we normalize by the number of timesteps to get average gradients
+    let sequenceLength = Tensor.Scalar(cellCache.count)
+    let normalizedWeightDerivatives = weightDerivatives / sequenceLength
+    let normalizedBiasDerivatives = biasDerivatives / sequenceLength
+    let normalizedEmbeddings = wrtEmbeddings / sequenceLength
+
+    return (normalizedEmbeddings, normalizedWeightDerivatives, normalizedBiasDerivatives)
   }
   
   override public func onInputSizeSet() {

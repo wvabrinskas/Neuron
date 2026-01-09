@@ -13,7 +13,7 @@ class LSTMCell {
   let input: Int
   let vocabSize: Int
   let device: Device
-  
+  let biasEnabled: Bool
   struct Parameters {
     var forgetGateWeights: Tensor
     var inputGateWeights: Tensor
@@ -91,11 +91,13 @@ class LSTMCell {
   init(hidden: Int,
        input: Int,
        vocabSize: Int,
+       biasEnabled: Bool,
        device: Device = CPU()) {
     self.hidden = hidden
     self.input = input
     self.device = device
     self.vocabSize = vocabSize
+    self.biasEnabled = biasEnabled
   }
   
   func forward(tensor: Tensor,
@@ -114,19 +116,32 @@ class LSTMCell {
     let concat = tensor.concat(previousActivationMatrix)
     
     // forget gate
-    let fa = device.matmul(concat, fgw) + parameters.forgetGateBiases
+    var fa = device.matmul(concat, fgw)
+    if biasEnabled {
+      fa = fa.copy() + parameters.forgetGateBiases
+    }
+
     let faOut = Sigmoid().forward(tensor: fa, context: context)
     
     // input gate
-    let ia = device.matmul(concat, igw) + parameters.inputGateBiases
+    var ia = device.matmul(concat, igw)
+    if biasEnabled {
+      ia = ia.copy() + parameters.inputGateBiases
+    }
     let iaOut = Sigmoid().forward(tensor: ia, context: context)
     
     // gate gate
-    let ga = device.matmul(concat, ggw) + parameters.gateGateBiases
+    var ga = device.matmul(concat, ggw)
+    if biasEnabled {
+      ga = ga.copy() + parameters.gateGateBiases
+    }
     let gaOut = Tanh().forward(tensor: ga, context: context)
     
     // output gate
-    let oa = device.matmul(concat, ogw) + parameters.outputGateBiases // Could be Dense layers
+    var oa = device.matmul(concat, ogw)
+    if biasEnabled {
+      oa = oa.copy() + parameters.outputGateBiases
+    }
     let oaOut = Sigmoid().forward(tensor: oa, context: context)
     
     let cellMemoryMatrix = (faOut * previousCellMatrix) + (iaOut * gaOut)
@@ -218,7 +233,7 @@ class LSTMCell {
                                                 activation: cache.activation,
                                                 batchSize: batchSize)
     
-    let biasDerivatives = backwarsWRTBiases(lstmError: errors,
+    let biasDerivatives = backwardsWRTBiases(lstmError: errors,
                                             batchSize: batchSize)
     
     return (inputs: Errors(previousActivationError: prevActivationError,
@@ -228,7 +243,7 @@ class LSTMCell {
             biases: biasDerivatives)
   }
   
-  private func backwarsWRTBiases(lstmError: Errors.LSTMError,
+  private func backwardsWRTBiases(lstmError: Errors.LSTMError,
                                  batchSize: Int) -> ParameterDerivatives {
     // No summation needed - gate errors are already per-hidden-unit
     // Each hidden unit gets its own bias gradient

@@ -39,6 +39,8 @@ public final class Embedding: BaseLayer {
                                                 out: inputUnits * vocabSize)
     
     self.weights = weights
+    self.weights.label = "Embedding weights"
+
     // manages its own weight updates
     self.usesOptimizer = true
   }
@@ -93,7 +95,7 @@ public final class Embedding: BaseLayer {
     var indicies: [Int] = []
     let weightShape = weights.shape
     
-    let context = TensorContext { inputs, gradient, wrt in
+    let context = TensorContext { [weightShape] inputs, gradient, wrt in
       var wrtEmbeddings: Tensor.Data = Tensor.fillWith(value: 0, size: TensorSize(array: weightShape)).value
             
       for (i, index) in indicies.enumerated() {
@@ -119,7 +121,7 @@ public final class Embedding: BaseLayer {
       indicies.append(index)
       
       guard let lookup = weights.value[safe: index] else {
-        fatalError()
+        fatalError("Could not find embedding for index: \(index)")
       }
       
       outValue.append(lookup)
@@ -142,5 +144,7 @@ public final class Embedding: BaseLayer {
         weights = weights.copy() - learningRate * gradients.weights
       }
     }
+
+    weights.label = "Embedding weights"
   }
 }

@@ -12,17 +12,16 @@ import NumSwift
 
 
 class MockRNNDataset: RNNSupportedDataset {
-  public func vectorize(_ items: [String]) -> Tensor {
-    Tensor(items.map { [[Tensor.Scalar(vectorizer.vector[$0, default: 0])]] })
-  }
-  
+  let vectorizer = Vectorizer<String>()
   var vocabSize: Int = 0
   
   func oneHot(_ items: [String]) -> Neuron.Tensor {
     vectorizer.oneHot(items)
   }
   
-  let vectorizer = Vectorizer<String>()
+  func vectorize(_ items: [String]) -> Tensor {
+    Tensor(items.map { [[Tensor.Scalar(vectorizer.vector[$0, default: 0])]] })
+  }
   
   func getWord(for data: Neuron.Tensor) -> [String] {
     return vectorizer.unvectorizeOneHot(data)
@@ -56,12 +55,12 @@ class MockRNNDataset: RNNSupportedDataset {
     let inputTensor2 = input2
     
     var training = [DatasetModel](repeating: DatasetModel(data: inputTensor,
-                                                          label: labelTensor), count: 1000)
+                                                          label: labelTensor), count: 256)
     var val = [DatasetModel](repeating: DatasetModel(data: inputTensor,
                                                       label: labelTensor), count: 10)
     
     training.append(contentsOf: [DatasetModel](repeating: DatasetModel(data: inputTensor2,
-                                                                       label: labelTensor2), count: 1000))
+                                                                       label: labelTensor2), count: 256))
     
     val.append(contentsOf: [DatasetModel](repeating: DatasetModel(data: inputTensor2,
                                                                   label: labelTensor2), count: 10))
@@ -252,14 +251,16 @@ final class FullModelTests: XCTestCase {
     let rnn = RNN(returnSequence: true,
                   dataset: MockRNNDataset(),
                   classifierParameters: RNN.ClassifierParameters(batchSize: 16,
-                                                                 epochs: 1000,
+                                                                 epochs: 60,
                                                                  accuracyThreshold: .init(value: 0.8, averageCount: 5),
                                                                  killOnAccuracy: false),
-                  optimizerParameters: RNN.OptimizerParameters(learningRate: 0.002,
-                                                               gradientClipping: 1.0,
+                  optimizerParameters: RNN.OptimizerParameters(learningRate: 0.0006,
+                                                               gradientClipping: 10,
                                                                metricsReporter: reporter),
                   lstmParameters: RNN.RNNLSTMParameters(hiddenUnits: hiddenUnits,
-                                                        inputUnits: inputUnits))
+                                                        inputUnits: inputUnits,
+                                                        embeddingInitializer: .xavierNormal,
+                                                        lstmInitializer: .xavierNormal))
     
     
     reporter.receive = { _ in }
