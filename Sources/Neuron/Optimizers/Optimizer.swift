@@ -16,9 +16,9 @@ public protocol Optimizer: AnyObject {
   var learningRate: Tensor.Scalar { get }
   var isTraining: Bool { get set }
   var device: Device { get set }
-  var l2Normalize: Bool { get }
   var metricsReporter: MetricsReporter? { get set }
-  var clip: Tensor.Scalar? { get set }
+  var weightClip: Tensor.Scalar? { get set }
+  var gradientClip: Tensor.Scalar? { get set }
   var gradientAccumulator: GradientAccumulator { get }
   var decayFunction: DecayFunction? { get set }
   var batchSize: Int { get }
@@ -68,22 +68,23 @@ open class BaseOptimizer: Optimizer {
       }
     }
   }
-  public var l2Normalize: Bool
+
   public var metricsReporter: MetricsReporter?
   public var gradientAccumulator: GradientAccumulator = .init()
-  public var clip: Tensor.Scalar?
+  public var weightClip: Tensor.Scalar?
+  public var gradientClip: Tensor.Scalar?
   private var localLearningRate: Tensor.Scalar
   
   public init(trainable: Trainable,
               learningRate: Tensor.Scalar,
               batchSize: Int,
-              l2Normalize: Bool,
               metricsReporter: MetricsReporter? = nil,
-              clip: Tensor.Scalar? = nil) {
+              weightClip: Tensor.Scalar? = nil,
+              gradientClip: Tensor.Scalar? = nil) {
     self.trainable = trainable
-    self.l2Normalize = l2Normalize
     self.metricsReporter = metricsReporter
-    self.clip = clip
+    self.weightClip = weightClip
+    self.gradientClip = gradientClip
     self.localLearningRate = learningRate
     self.batchSize = batchSize
     self.learningRate = learningRate
@@ -102,8 +103,15 @@ open class BaseOptimizer: Optimizer {
     decayFunction?.reset()
   }
   
-  func clip(layer: Layer) {
-    if let clip = clip {
+  func gradientClip(_ gradients: Optimizer.Gradient) {
+    if let clip = gradientClip {
+      gradients.biases.clip(clip)
+      gradients.weights.clip(clip)
+    }
+  }
+  
+  func weightClip(layer: Layer) {
+    if let clip = weightClip {
       if let con = layer as? ConvolutionalLayer {
         con.filters.forEach { $0.clip(clip) }
       } else {

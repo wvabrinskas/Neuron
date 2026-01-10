@@ -1001,6 +1001,46 @@ public extension Tensor {
 }
 
 public extension Tensor.Gradient {
+  
+  func l2NomalizeWeightsAndBiases() {
+    weights.forEach { $0.l2Normalize() }
+    biases.forEach { $0.l2Normalize() }
+  }
+  
+  func gradientL2NormClip(_ value: Tensor.Scalar = 1.0) -> Tensor.Gradient {
+    let allWeights = weights.reduce(Tensor()) { partialResult, new in
+      partialResult.concat(new, axis: 2)
+    }
+
+    let allBiases = biases.reduce(Tensor()) { partialResult, new in
+      partialResult.concat(new, axis: 2)
+    } 
+    
+    let l2Norm = allWeights.l2Norm()  
+    let l2NormBias = allBiases.l2Norm() 
+
+    var biases = biases
+    var weights = weights
+
+    if l2Norm > value {
+      let scalingFactor = value / l2Norm 
+      
+      let mappedWeights = weights.map { $0 * scalingFactor }
+
+      weights = mappedWeights
+    }
+
+    if l2NormBias > value {
+      let scalingFactor = value / l2NormBias 
+      
+      let mappedBiases = biases.map { $0 * scalingFactor }
+
+      biases = mappedBiases
+    }
+
+    return .init(input: input, weights: weights, biases: biases)
+  }
+  
   static func applyMultiple(lhs: Tensor.Gradient,
                             rhs: Tensor.Gradient,
                             block: (_ lhs: [Tensor], _ rhs: [Tensor]) -> [Tensor]) -> Tensor.Gradient {
