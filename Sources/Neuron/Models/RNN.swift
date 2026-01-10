@@ -210,7 +210,10 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
         runningChar = unvec
         name += unvec
         
-        batch.append([v])
+        // vectorize again to append to batch
+        let vectorizedLetter = dataset.vectorize([unvec]).value[safe: 0, []]
+        
+        batch.append(vectorizedLetter)
       }
       
       names.append(name)
