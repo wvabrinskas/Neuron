@@ -93,11 +93,12 @@ public final class Embedding: BaseLayer {
   /// - Returns: An output 3D tensor of shape `rows: 1, columns: inputUnits, depth: batchLength`
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     var indicies: [Int] = []
-    let weightShape = weights.shape
     
-    let context = TensorContext { [weightShape] inputs, gradient, wrt in
-      var wrtEmbeddings: Tensor.Data = Tensor.fillWith(value: 0, size: TensorSize(array: weightShape)).value
-            
+    let context = TensorContext { [inputUnits, vocabSize] inputs, gradient, wrt in
+      var wrtEmbeddings: Tensor.Data = Tensor.fillWith(value: 0, size: TensorSize(rows: 1,
+                                                                                  columns: inputUnits,
+                                                                                  depth: vocabSize)).value
+      
       for (i, index) in indicies.enumerated() {
         if let current = wrtEmbeddings[safe: index] {
           wrtEmbeddings[index] = current + gradient.value[safe: i, [[0]]]
