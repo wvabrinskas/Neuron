@@ -396,7 +396,7 @@ public final class LSTM: BaseLayer {
     var wrtLSTMCellInputWeightsDerivatives: LSTMCell.ParameterDerivatives = .init()
     var wrtLSTMCellInputBiasDerivatives: LSTMCell.ParameterDerivatives = .init()
     
-    var wrtEmbeddings: Tensor = Tensor()
+    var wrtEmbeddings: Tensor.Data = []
     
     for index in (0..<cellCache.count).reversed() {
       
@@ -462,10 +462,9 @@ public final class LSTM: BaseLayer {
       let embeddingError = backward.inputs.embeddingError
       
       if wrtEmbeddings.isEmpty {
-        wrtEmbeddings = embeddingError
+        wrtEmbeddings = embeddingError.value
       } else {
-        let dEmbed = wrtEmbeddings.concat(embeddingError, axis: 2)
-        wrtEmbeddings = dEmbed
+        wrtEmbeddings.insert(contentsOf: embeddingError.value, at: 0)
       }
       
       if let pae = previousActivationError.value[safe: 0],
@@ -474,7 +473,7 @@ public final class LSTM: BaseLayer {
         ect = pce
       }
     }
-    
+        
     // merge all weights into a giant 5 depth tensor, shape will be broken here
     let weightDerivatives = wrtLSTMCellInputWeightsDerivatives.concat().concat(wrtOutputWeightsDerivatives, axis: 2)
     
@@ -486,7 +485,7 @@ public final class LSTM: BaseLayer {
     // so we normalize by the number of timesteps to get average gradients
     var normalizedWeightDerivatives = weightDerivatives
     var normalizedBiasDerivatives = biasDerivatives
-    var normalizedEmbeddings = wrtEmbeddings
+    var normalizedEmbeddings = Tensor(wrtEmbeddings)
     
     let sequenceLength = Tensor.Scalar(cellCache.count)
 

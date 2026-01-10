@@ -413,7 +413,7 @@ public class Tensor: Equatable, Codable {
   
   public func l2Normalize() {
     let flatValue: Tensor.Scalar = value.sumOfSquares
-    let normalized = value / Tensor.Scalar.sqrt(flatValue)
+    let normalized = value / Tensor.Scalar.sqrt(flatValue + Tensor.Scalar.stabilityFactor)
     self.value = normalized
   }
   
