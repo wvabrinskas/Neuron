@@ -138,7 +138,10 @@ class LSTMCell {
     let gaOut = Tanh().forward(tensor: ga, context: context)
     
     // output gate
-    let oa = device.matmul(concat, ogw) + parameters.outputGateBiases // Could be Dense layers
+    var oa = device.matmul(concat, ogw) // Could be Dense layers
+    if biasEnabled {
+      oa = oa.copy() + parameters.outputGateBiases
+    }
     let oaOut = Sigmoid().forward(tensor: oa, context: context)
     
     let cellMemoryMatrix = (faOut * previousCellMatrix) + (iaOut * gaOut)

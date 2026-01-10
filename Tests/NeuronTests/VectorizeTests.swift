@@ -77,7 +77,7 @@ final class VectorTests: XCTestCase {
   func test_one_Hot_words_unvectorize() {
     let vectorizer = Vectorizer<String>(startAndEndingEncoding: true)
     
-    let sentence = "The wide road shimmered in the hot sun"
+    let sentence = "the wide road shimmered in the hot sun"
     let words = sentence.components(separatedBy: " ")
     
     vectorizer.vectorize(words, format: .start)
@@ -97,7 +97,7 @@ final class VectorTests: XCTestCase {
     
     let unvectorized = vectorizer.unvectorizeOneHot(oneHot).joined(separator: " ")
     
-    XCTAssertEqual(sentence.lowercased(), unvectorized)
+    XCTAssertEqual(sentence, unvectorized)
   }
   
   func test_one_Hot_words() {
@@ -110,22 +110,22 @@ final class VectorTests: XCTestCase {
     
     let oneHot = vectorizer.oneHot(words)
     
-    let expected = Tensor([[[1, 0, 0, 0, 0, 0, 0]],
-                           [[0, 1, 0, 0, 0, 0, 0]],
-                           [[0, 0, 1, 0, 0, 0, 0]],
-                           [[0, 0, 0, 1, 0, 0, 0]],
-                           [[0, 0, 0, 0, 1, 0, 0]],
-                           [[1, 0, 0, 0, 0, 0, 0]],
-                           [[0, 0, 0, 0, 0, 1, 0]],
-                           [[0, 0, 0, 0, 0, 0, 1]]])
+    let expected = Tensor([[[1, 0, 0, 0, 0, 0, 0, 0]],
+                           [[0, 1, 0, 0, 0, 0, 0, 0]],
+                           [[0, 0, 1, 0, 0, 0, 0, 0]],
+                           [[0, 0, 0, 1, 0, 0, 0, 0]],
+                           [[0, 0, 0, 0, 1, 0, 0, 0]],
+                           [[0, 0, 0, 0, 0, 1, 0, 0]],
+                           [[0, 0, 0, 0, 0, 0, 1, 0]],
+                           [[0, 0, 0, 0, 0, 0, 0, 1]]])
     
-    XCTAssertTrue(oneHot.isValueEqual(to: expected))
+    XCTAssertEqual(expected.value, oneHot.value)
   }
   
   func test_String_Vectorize_Start() {
     let vectorizer = Vectorizer<String>(startAndEndingEncoding: true)
     
-    let sentence = "The wide road shimmered in the hot sun"
+    let sentence = "the wide road shimmered in the hot sun"
     let words = sentence.components(separatedBy: " ")
     
     let vector = vectorizer.vectorize(words, format: .start)
@@ -136,7 +136,7 @@ final class VectorTests: XCTestCase {
   func test_String_Vectorize_End() {
     let vectorizer = Vectorizer<String>(startAndEndingEncoding: true)
     
-    let sentence = "The wide road shimmered in the hot sun"
+    let sentence = "the wide road shimmered in the hot sun"
     let words = sentence.components(separatedBy: " ")
     
     let vector = vectorizer.vectorize(words, format: .end)
@@ -147,41 +147,41 @@ final class VectorTests: XCTestCase {
   func test_String_Vectorize() {
     let vectorizer = Vectorizer<String>()
     
-    let sentence = "The wide road shimmered in the hot sun"
+    let sentence = "the wide road shimmered in the hot sun"
     let words = sentence.components(separatedBy: " ")
     
     let vector = vectorizer.vectorize(words)
     
-    XCTAssertEqual([2, 3, 4, 5, 6, 2, 7, 8], vector)
+    XCTAssertEqual([0, 1, 2, 3, 4, 0, 5, 6], vector)
   }
   
   func test_String_Vectorize_More_words() {
     let vectorizer = Vectorizer<String>()
     
-    let sentence = "The wide road shimmered in the hot sun"
+    let sentence = "the wide road shimmered in the hot sun"
     let words = sentence.components(separatedBy: " ")
     
     let vector = vectorizer.vectorize(words)
     
-    XCTAssertEqual([2, 3, 4, 5, 6, 2, 7, 8], vector)
+    XCTAssertEqual([0, 1, 2, 3, 4, 0, 5, 6], vector)
     
-    let secondSentence = "The big cat is hot"
+    let secondSentence = "the big cat is hot"
     let secondWords = secondSentence.components(separatedBy: " ")
 
     let secondVector = vectorizer.vectorize(secondWords)
 
-    XCTAssertEqual([2, 9, 10, 11, 7], secondVector)
+    XCTAssertEqual([0, 7, 8, 9, 5], secondVector)
   }
   
   func test_unvectorize() {
     let vectorizer = Vectorizer<String>()
     
-    let sentence = "The wide road shimmered in the hot sun"
+    let sentence = "the wide road shimmered in the hot sun"
     let words = sentence.components(separatedBy: " ")
     
     let vector = vectorizer.vectorize(words)
     
-    XCTAssertEqual([2, 3, 4, 5, 6, 2, 7, 8], vector)
+    XCTAssertEqual([0, 1, 2, 3, 4, 0, 5, 6], vector)
     
     let unvector = vectorizer.unvectorize(vector)
     

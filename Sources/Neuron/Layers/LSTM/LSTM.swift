@@ -484,10 +484,17 @@ public final class LSTM: BaseLayer {
     // Normalize gradients by sequence length to prevent explosion
     // This is standard practice for RNNs - gradients are accumulated across timesteps,
     // so we normalize by the number of timesteps to get average gradients
+    var normalizedWeightDerivatives = weightDerivatives
+    var normalizedBiasDerivatives = biasDerivatives
+    var normalizedEmbeddings = wrtEmbeddings
+    
     let sequenceLength = Tensor.Scalar(cellCache.count)
-    let normalizedWeightDerivatives = weightDerivatives / sequenceLength
-    let normalizedBiasDerivatives = biasDerivatives / sequenceLength
-    let normalizedEmbeddings = wrtEmbeddings / sequenceLength
+
+    if sequenceLength > 1 {
+      normalizedBiasDerivatives = normalizedBiasDerivatives.copy() / sequenceLength
+      normalizedWeightDerivatives = normalizedWeightDerivatives.copy() / sequenceLength
+      normalizedEmbeddings = normalizedEmbeddings.copy() / sequenceLength
+    }
     
     return (normalizedEmbeddings, normalizedWeightDerivatives, normalizedBiasDerivatives)
   }

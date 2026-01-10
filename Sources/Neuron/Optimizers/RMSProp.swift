@@ -75,9 +75,15 @@ public class RMSProp: BaseOptimizer {
     let depth = shape[safe: 2] ?? 0
     let i = index
     
+    
+    let biasShape = biasGradient.shape
+    let biasRows = biasShape[safe: 1] ?? 0
+    let biasColumns = biasShape[safe: 0] ?? 0
+    let biasDepth = biasShape[safe: 2] ?? 0
+    
     if vb[i].isEmpty || v[i].isEmpty {
       v[i] = NumSwift.zerosLike((rows, columns, depth))
-      vb[i] = NumSwift.zerosLike((rows, columns, depth))
+      vb[i] = NumSwift.zerosLike((biasRows, biasColumns, biasDepth))
     }
     
     let gradientValue = gradient.value
