@@ -538,7 +538,7 @@ final class LayerTests: XCTestCase {
                       initializer: .heNormal,
                       biasEnabled: true)
     
-    XCTAssertEqual(dense.biases.shape, [1, 1, 1])
+    XCTAssertEqual(dense.biases.shape, [20, 1, 1])
   }
   
   func test_Dense_importWeights_valid() {
@@ -688,7 +688,7 @@ final class LayerTests: XCTestCase {
     }
     
     let testName = "anna".fill(with: ".", max: batchLength)
-    let oneHot = vectorizer.oneHot(testName.characters)
+    let oneHot = Tensor([testName].map { [[Tensor.Scalar(vectorizer.vector[$0, default: 0])]] })
     
     let inputUnits = 10
     let hiddenUnits = 256
