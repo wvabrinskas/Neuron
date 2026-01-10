@@ -10,14 +10,16 @@ import NumSwift
 
 public typealias RNNSupportedDatasetData = (training: [DatasetModel], val: [DatasetModel])
 public protocol RNNSupportedDataset {
+  associatedtype Item: Hashable
+  
   var vocabSize: Int { get }
-  func oneHot(_ items: [String]) -> Tensor
-  func vectorize(_ items: [String]) -> Tensor
-  func getWord(for data: Tensor) -> [String]
+  func oneHot(_ items: [Item]) -> Tensor
+  func vectorize(_ items: [Item]) -> Tensor
+  func getWord(for data: Tensor, oneHot: Bool) -> [Item]
   func build() async -> RNNSupportedDatasetData
 }
 
-public class RNN: Classifier {
+public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item == String {
   public struct RNNLSTMParameters {
     let hiddenUnits: Int
     let inputUnits: Int
@@ -78,7 +80,7 @@ public class RNN: Classifier {
     }
   }
   
-  private let dataset: RNNSupportedDataset
+  private let dataset: Dataset
   private var lstm: LSTM?
   private var embedding: Embedding?
   private var vocabSize: Int = 0
@@ -94,7 +96,7 @@ public class RNN: Classifier {
   
   public init(device: Device = CPU(),
               returnSequence: Bool = true,
-              dataset: RNNSupportedDataset,
+              dataset: Dataset,
               classifierParameters: ClassifierParameters,
               optimizerParameters: OptimizerParameters,
               lstmParameters: RNNLSTMParameters,
@@ -172,23 +174,20 @@ public class RNN: Classifier {
         name += with
 
       } else {
-        var localWord = [Tensor.Scalar](repeating: 0, count: vocabSize)
-        let index = Int.random(in: 0..<vocabSize)
-        
-        localWord[index] = 1.0
-        
-        batch = [[localWord]]
+        let index = Int.random(in: 0..<vocabSize).asTensorScalar
+              
+        batch = [[[index]]]
         
         // append random letter
-        let unvec = dataset.getWord(for: Tensor(batch)).joined()
+        let unvec = dataset.getWord(for: Tensor(batch), oneHot: false).joined()
         name += unvec
       }
 
       while runningChar != endingMark && name.count < maxWordLength {
         
+        // still 1 hot encoding
         let out = optimizer.predict([Tensor(batch)])
         
-        // output: (col: vocabSize, rows: 1, depth: batchLength)
         guard let flat = out[safe: 0]?.value[safe: batch.count - 1]?.first else {
           break
         }
@@ -204,7 +203,9 @@ public class RNN: Classifier {
         
         v[indexToChoose] = 1
         
-        let unvec = dataset.getWord(for: Tensor(v)).joined()
+        // one hot because we're predicting based on the output which is trained on the labels which are expected to be one-hot encoded
+        // TODO: how do we enforce this? 
+        let unvec = dataset.getWord(for: Tensor(v), oneHot: true).joined()
         
         runningChar = unvec
         name += unvec
@@ -235,6 +236,7 @@ public class RNN: Classifier {
     guard let first = dataset.training.first else { fatalError("Could not build network with dataset") }
     
     let vocabSize = self.dataset.vocabSize
+    // average length of the word
     let wordLength = first.data.shape[2] // expect int vectorized array where each value is an index into the vocab size. TODO: enforce this
     
     self.vocabSize = vocabSize

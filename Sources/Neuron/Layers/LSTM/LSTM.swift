@@ -1,6 +1,6 @@
 //
 //  File.swift
-//  
+//
 //
 //  Created by William Vabrinskas on 6/2/23.
 //
@@ -19,22 +19,22 @@ public final class LSTM: BaseLayer {
       }
     }
   }
-
+  
   public var forgetGateWeights: Tensor = Tensor()
   public var forgetGateBiases: Tensor = Tensor()
-
+  
   public var inputGateWeights: Tensor = Tensor()
   public var inputGateBiases: Tensor = Tensor()
-
+  
   public var gateGateWeights: Tensor = Tensor()
   public var gateGateBiases: Tensor = Tensor()
-
+  
   public var outputGateWeights: Tensor = Tensor()
   public var outputGateBiases: Tensor = Tensor()
-
+  
   public var hiddenOutputWeights: Tensor = Tensor()
   public var hiddenOutputBiases: Tensor = Tensor()
-    
+  
   private var hiddenUnits: Int
   private var vocabSize: Int
   private var inputUnits: Int
@@ -42,7 +42,7 @@ public final class LSTM: BaseLayer {
   private let returnSequence: Bool
   
   private var cellCache: ThreadStorage<Int, [Cache]> = .init(defaultValue: [])
-
+  
   public class LSTMActivations {
     let forgetGate: Tensor
     let inputGate: Tensor
@@ -103,7 +103,7 @@ public final class LSTM: BaseLayer {
       self.outputValue = outputValue ?? self.outputValue
     }
   }
-
+  
   
   /// Default initializer
   /// - Parameters:
@@ -121,8 +121,8 @@ public final class LSTM: BaseLayer {
               hiddenUnits: Int,
               vocabSize: Int) {
     let inputSize = TensorSize(rows: 1,
-                                columns: vocabSize,
-                                depth: batchLength)
+                               columns: vocabSize,
+                               depth: batchLength)
     self.hiddenUnits = hiddenUnits
     self.vocabSize = vocabSize
     self.inputUnits = inputUnits
@@ -167,12 +167,12 @@ public final class LSTM: BaseLayer {
     let vocabSize = try container.decodeIfPresent(Int.self, forKey: .vocabSize) ?? 0
     let inputUnits = try container.decodeIfPresent(Int.self, forKey: .inputUnits) ?? 0
     let batchLength = try container.decodeIfPresent(Int.self, forKey: .batchLength) ?? 0
-
+    
     self.init(inputUnits: inputUnits,
               batchLength: batchLength,
               hiddenUnits: hiddenUnits,
               vocabSize: vocabSize)
-
+    
     self.biasEnabled = try container.decodeIfPresent(Bool.self, forKey: .biasEnabled) ?? false
     self.outputSize = try container.decodeIfPresent(TensorSize.self, forKey: .outputSize) ?? TensorSize(array: [])
     self.forgetGateWeights = try container.decodeIfPresent(Tensor.self, forKey: .forgetGateWeights) ?? Tensor()
@@ -234,15 +234,15 @@ public final class LSTM: BaseLayer {
   /// `(rows: 1, columns: vocabSize, depth: 1)`
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     var localCellCache: [Cache] = []
-
+    
     let tensorContext = TensorContext { inputs, gradient, wrt in
       self.backward(inputs: inputs, gradient: gradient, cellCache: localCellCache)
     }
     
     var out = Tensor(context: tensorContext)
-
+    
     let range = 0..<batchLength
-        
+    
     /// What happens to the prediction after we extend pass the batchLength?
     /// we need to truncate the input data if this happens to fit the expected window length
     for index in range {
@@ -263,27 +263,27 @@ public final class LSTM: BaseLayer {
                                                inputGateBiases: inputGateBiases.detached(),
                                                gateGateBiases: gateGateBiases.detached(),
                                                outputGateBiases: outputGateBiases.detached())
-
+      
       let previousCache = localCellCache[safe: index - 1, setupInitialState()]
       
       let cellOutput = cell.forward(tensor: getEmbeddings,
-                                                          context: context,
-                                                          parameters: cellParameters,
-                                                          previousCache: previousCache) // needs to be previous cache
+                                    context: context,
+                                    parameters: cellParameters,
+                                    previousCache: previousCache) // needs to be previous cache
       
       // used mainly for prediction and shouldn't be used in back propogation unless there's a gradient associated with it
       let outputCellParameters = OutputCell.Parameters(hiddenOutputWeights: hiddenOutputWeights.detached(),
-                                                                              hiddenOutputBiases: hiddenOutputBiases.detached(),
-                                                                              activationMatrix: cellOutput.activationMatrix.detached(),
-                                                                              vocabSize: vocabSize,
-                                                                              hiddenSize: hiddenUnits)
+                                                       hiddenOutputBiases: hiddenOutputBiases.detached(),
+                                                       activationMatrix: cellOutput.activationMatrix.detached(),
+                                                       vocabSize: vocabSize,
+                                                       hiddenSize: hiddenUnits)
       
       let outputCell = OutputCell(device: device, biasEnabled: biasEnabled, parameters: outputCellParameters)
-
+      
       
       // TODO: Figure out what to do with this. we might have to store this as well in the cache.
       let outputCellOutput = outputCell.forward(parameters: outputCellParameters)
-          
+      
       let newCellCache = Cache(lstm: LSTMActivations(activations: cellOutput),
                                cell: cellOutput.cellMemoryMatrix.detached(),
                                activation: cellOutput.activationMatrix.detached(),
@@ -291,7 +291,6 @@ public final class LSTM: BaseLayer {
                                output: outputCell,
                                outputValue: outputCellOutput) // don't detach we'll use for backprop
       
-      // we don't want to append here.
       localCellCache.append(newCellCache)
       
       let new = out.concat(outputCellOutput, axis: 2)
@@ -320,7 +319,7 @@ public final class LSTM: BaseLayer {
      
      hiddenOutputWeightGradients = 4
      */
-
+    
     var gLayers = gradients.weights.value.reshape(columns: 1)
     
     if let forgetGateWeightGrads = gLayers[safe: 0],
@@ -336,7 +335,7 @@ public final class LSTM: BaseLayer {
       let gateGateWeightGrads = Tensor(gateGateWeightGrads)
       let outputGateWeightGrads = Tensor(outputGateWeightGrads)
       let hiddenOutputWeightGradients = Tensor(hiddenOutputWeightGradients)
-
+      
       forgetGateWeightGrads.l2Normalize()
       inputGateWeightGrads.l2Normalize()
       gateGateWeightGrads.l2Normalize()
@@ -362,7 +361,7 @@ public final class LSTM: BaseLayer {
      hiddenOutputWeightBiases = 4
      */
     let gBiasLayers = gradients.biases.value
-
+    
     if biasEnabled,
        let forgetGateBiasGrads = gBiasLayers[safe: 0],
        let inputGateBiasGrads = gBiasLayers[safe: 1],
@@ -382,7 +381,7 @@ public final class LSTM: BaseLayer {
       outputGateBiases = outputGateBiases.copy() - outputGateBiasGrads
       hiddenOutputBiases = hiddenOutputBiases.copy() - hiddenOutputBiasGradients
     }
-
+    
     reset()
   }
   
@@ -396,16 +395,16 @@ public final class LSTM: BaseLayer {
     var wrtOutputBiasesDerivatives: Tensor = Tensor()
     var wrtLSTMCellInputWeightsDerivatives: LSTMCell.ParameterDerivatives = .init()
     var wrtLSTMCellInputBiasDerivatives: LSTMCell.ParameterDerivatives = .init()
-
+    
     var wrtEmbeddings: Tensor = Tensor()
-        
+    
     for index in (0..<cellCache.count).reversed() {
       
       let cache = cellCache[index]
       let previousCache = cellCache[safe: index - 1]
       
       let delta = Tensor(gradient.value[safe: index] ?? gradient.zerosLike().value[0])
-            
+      
       let activationErrors = cache.outputValue.gradients(delta: delta,
                                                          wrt: cache.activation)
       
@@ -423,7 +422,7 @@ public final class LSTM: BaseLayer {
       
       let nextActivationError = eat
       let activationOutputError = activationErrors.input[safe: 0, Tensor()].value[0]
-
+      
       let cell = LSTMCell(hidden: self.hiddenUnits,
                           input: self.inputUnits,
                           vocabSize: self.vocabSize,
@@ -475,13 +474,13 @@ public final class LSTM: BaseLayer {
         ect = pce
       }
     }
-
+    
     // merge all weights into a giant 5 depth tensor, shape will be broken here
     let weightDerivatives = wrtLSTMCellInputWeightsDerivatives.concat().concat(wrtOutputWeightsDerivatives, axis: 2)
-
+    
     // merge all biases into a giant 5 depth tensor, shape will be broken here
     let biasDerivatives = wrtLSTMCellInputBiasDerivatives.concat().concat(wrtOutputBiasesDerivatives, axis: 2)
-
+    
     // Normalize gradients by sequence length to prevent explosion
     // This is standard practice for RNNs - gradients are accumulated across timesteps,
     // so we normalize by the number of timesteps to get average gradients
@@ -489,7 +488,7 @@ public final class LSTM: BaseLayer {
     let normalizedWeightDerivatives = weightDerivatives / sequenceLength
     let normalizedBiasDerivatives = biasDerivatives / sequenceLength
     let normalizedEmbeddings = wrtEmbeddings / sequenceLength
-
+    
     return (normalizedEmbeddings, normalizedWeightDerivatives, normalizedBiasDerivatives)
   }
   
@@ -499,12 +498,12 @@ public final class LSTM: BaseLayer {
                             columns: vocabSize,
                             depth: returnSequence ? batchLength : 1)
   }
-
+  
   private func reset() {
     cellCache.clear()
   }
-
-  private func initializeWeights() {        
+  
+  private func initializeWeights() {
     let totalInputSize = inputUnits + hiddenUnits
     let weightSize = TensorSize(rows: totalInputSize,
                                 columns: hiddenUnits,
@@ -546,7 +545,7 @@ public final class LSTM: BaseLayer {
     // Initialize forget gate bias to 1.0 to help gradient flow
     // This encourages the LSTM to remember information by default
     self.forgetGateBiases = Tensor(NumSwift.onesLike((rows: 1, columns: hiddenUnits, depth: 1)))
-
+    
     self.hiddenOutputBiases = Tensor(NumSwift.zerosLike((rows: 1, columns: vocabSize, depth: 1)))
   }
   
@@ -560,10 +559,10 @@ public final class LSTM: BaseLayer {
     let ig =  zeroTensor.copy()
     let fg =  zeroTensor.copy()
     let gg =  zeroTensor.copy()
-
+    
     let embedding =  Tensor(NumSwift.zerosLike((rows: 1, columns: inputUnits, depth: 1)))
     let output =  Tensor(NumSwift.zerosLike((rows: 1, columns: vocabSize, depth: 1)))
-
+    
     let initialCache = Cache(lstm: .init(forgetGate: fg,
                                          inputGate: ig,
                                          outputGate: og,
@@ -572,8 +571,8 @@ public final class LSTM: BaseLayer {
                              activation: a,
                              embedding: embedding,
                              outputValue: output)
-
+    
     return initialCache
   }
-
+  
 }
