@@ -147,10 +147,11 @@ public class Classifier {
                        validation: Bool = false,
                        requiresGradients: Bool = true) -> Optimizer.Output {
     optimizer.fit(batch,
-                     labels: labels,
-                     lossFunction: lossFunction,
-                     validation: validation,
-                     requiresGradients: requiresGradients)
+                  labels: labels,
+                  wrt: nil,
+                  lossFunction: lossFunction,
+                  validation: validation,
+                  requiresGradients: requiresGradients)
   }
 
 }
