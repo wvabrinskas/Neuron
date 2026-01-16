@@ -12,14 +12,6 @@ import NumSwift
 /// preceeded by an `Embedding` layer as that's the expected input rather than the raw
 /// text input itself.
 public final class LSTM: BaseLayer {
-  public override var isTraining: Bool {
-    willSet {
-      if newValue == false {
-        reset()
-      }
-    }
-  }
-  
   public var forgetGateWeights: Tensor = Tensor()
   public var forgetGateBiases: Tensor = Tensor()
   
@@ -40,8 +32,6 @@ public final class LSTM: BaseLayer {
   private var inputUnits: Int
   private var batchLength: Int
   private let returnSequence: Bool
-  
-  private var cellCache: ThreadStorage<Int, [Cache]> = .init(defaultValue: [])
   
   public class LSTMActivations {
     let forgetGate: Tensor
@@ -381,8 +371,6 @@ public final class LSTM: BaseLayer {
       outputGateBiases = outputGateBiases.copy() - outputGateBiasGrads
       hiddenOutputBiases = hiddenOutputBiases.copy() - hiddenOutputBiasGradients
     }
-    
-    reset()
   }
   
   // MARK: Private
@@ -503,10 +491,6 @@ public final class LSTM: BaseLayer {
     outputSize = TensorSize(rows: 1,
                             columns: vocabSize,
                             depth: returnSequence ? batchLength : 1)
-  }
-  
-  private func reset() {
-    cellCache.clear()
   }
   
   private func initializeWeights() {

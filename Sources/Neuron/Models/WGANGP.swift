@@ -9,7 +9,7 @@ import Foundation
 import NumSwift
 import Numerics
 
-public class WGANGP: GAN {
+open class WGANGP: GAN {
   public override var realLabel: Tensor.Scalar { -1.0 }
   public override var fakeLabel: Tensor.Scalar { 1.0 }
   public var lambda: Tensor.Scalar = 0.1
@@ -100,7 +100,9 @@ public class WGANGP: GAN {
     generator.zeroGradients()
     let fake = getGenerated(.real, count: batchSize)
         
-    let fakeOut = trainOn(fake.data, labels: fake.labels)
+    let fakeOut = trainOn(fake.data,
+                          labels: fake.labels,
+                          wrt: fake.wrt)
     
     // these gradients have the discriminator gradients as well. Maybe we can speed it up by removing them somehow?
     generator.apply(fakeOut.gradients)

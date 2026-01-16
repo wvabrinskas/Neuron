@@ -30,6 +30,7 @@ public protocol Optimizer: AnyObject {
   func reset()
   func fit(_ data: [Tensor],
            labels: [Tensor],
+           wrt: TensorBatch?,
            lossFunction: LossFunction,
            validation: Bool,
            requiresGradients: Bool) -> Output
@@ -41,6 +42,7 @@ open class BaseOptimizer: Optimizer {
   public var decayFunction: DecayFunction?
   public var trainable: Trainable
   public var batchSize: Int
+  public var passthroughGradientCalculation: Bool = false
   public var learningRate: Tensor.Scalar {
     get {
       if let decayFunction {
@@ -150,10 +152,17 @@ open class BaseOptimizer: Optimizer {
   }
   
   open func fit(_ data: TensorBatch,
-                  labels: TensorBatch,
-                  lossFunction: LossFunction,
-                  validation: Bool = false,
-                  requiresGradients: Bool = true) -> Output {
+                labels: TensorBatch,
+                wrt: TensorBatch? = nil,
+                lossFunction: LossFunction,
+                validation: Bool = false,
+                requiresGradients: Bool = true) -> Output {
+    
+    if let wrt {
+      guard wrt.count == data.count else {
+        fatalError("The number of wrt inputs (\(wrt.count)) does not match the number of training examples (\(data.count)).")
+      }
+    }
     
     isTraining = !validation
         
@@ -187,9 +196,15 @@ open class BaseOptimizer: Optimizer {
       
       outputs[workerIndex] = outs
       
+      let wrtBatch: TensorBatch? = if let wrt {
+        Array(wrt[indexRange])
+      } else {
+        nil
+      }
+      
       for (index, out) in outs.enumerated() {
         let label = batchLabels[index]
-        let input = elements[index]
+        let input = wrtBatch?[index] ?? elements[index]
         
         let loss = lossFunction.calculate(out, correct: label).sum(axis: -1).asScalar()
         losses += loss / Tensor.Scalar(data.count)

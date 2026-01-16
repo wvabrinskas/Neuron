@@ -7,20 +7,6 @@
 
 import Foundation
 
-public extension Collection {
-  func prettyPrint() {
-    var currentElement: Any = self
-    
-    while let current = currentElement as? Array<Any> {
-      if let next = current.first {
-        currentElement = next
-      } else {
-        break
-      }
-    }
-  }
-}
-
 public extension NSRecursiveLock {
   @discardableResult
   func with<T>(_ block: () throws -> T) rethrows -> T {

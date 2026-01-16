@@ -48,7 +48,11 @@ public class Tensor: Equatable, Codable {
   public var label: String = ""
   
   /// Generic id
-  public var id: UUID = UUID()
+  public var id: UUID = UUID() {
+    didSet {
+      
+    }
+  }
   
   /// Actual numerical value of the Tensor
   public private(set) var value: Data {
