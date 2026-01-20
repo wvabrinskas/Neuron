@@ -8,7 +8,7 @@
 import Foundation
 import NumSwift
 
-public class WGAN: GAN {
+open class WGAN: GAN {
   public override var realLabel: Tensor.Scalar { -1.0 }
   public override var fakeLabel: Tensor.Scalar { 1.0 }
   
@@ -20,7 +20,7 @@ public class WGAN: GAN {
     let fake = getGenerated(.fake, detatch: true, count: batchSize)
     let fakeOutput = trainOn(fake.data, labels: fake.labels)
 
-    let realOutput = trainOn(real, labels: labels)
+    let realOutput = trainOn(real, labels: labels, wrt: fake.wrt)
     
     discriminator.apply(fakeOutput.gradients + realOutput.gradients)
     

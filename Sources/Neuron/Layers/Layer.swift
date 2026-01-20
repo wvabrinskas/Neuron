@@ -30,6 +30,8 @@ public enum EncodingType: String, Codable {
        embedding,
        avgPool,
        selu,
+       resNet,
+       globalAvgPool,
        none
 }
 
@@ -60,10 +62,11 @@ public protocol Layer: AnyObject, Codable {
   var biasEnabled: Bool { get set }
   var trainable: Bool { get set }
   var isTraining: Bool { get set }
-  var initializer: Initializer? { get }
+  var initializer: Initializer { get }
   var device: Device { get set }
   var usesOptimizer: Bool { get set }
   var batchSize: Int { get set }
+  @discardableResult
   func forward(tensor: Tensor, context: NetworkContext) -> Tensor
   func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch
   func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar)
@@ -110,26 +113,35 @@ open class BaseLayer: Layer {
   public var biasEnabled: Bool = false
   public var trainable: Bool = true
   public var isTraining: Bool = true
-  public var initializer: Initializer?
+  public var initializer: Initializer
   public var device: Device = CPU()
-  public var batchSize: Int = 1
+  public var batchSize: Int = 1 {
+    didSet {
+      onBatchSizeSet()
+    }
+  }
   
   // defines whether the gradients are run through the optimizer before being applied.
   // this could be useful if a layer manages its own weight updates
   public var usesOptimizer: Bool = true
   
   public init(inputSize: TensorSize? = nil,
-              initializer: InitializerType? = nil,
+              initializer: InitializerType = Constants.defaultInitializer,
               biasEnabled: Bool = false,
               encodingType: EncodingType) {
     self.inputSize = inputSize ?? TensorSize(array: [])
-    self.initializer = initializer?.build()
+    self.initializer = initializer.build()
     self.biasEnabled = biasEnabled
     self.encodingType = encodingType
     
     if inputSize != nil {
       onInputSizeSet()
     }
+  }
+  
+  @discardableResult
+  open func callAsFunction(_ tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
+    forward(tensor: tensor, context: context)
   }
   
   required convenience public init(from decoder: Decoder) throws {
@@ -151,6 +163,7 @@ open class BaseLayer: Layer {
     return result
   }
   
+  @discardableResult
   public func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
     // override
     .init()
@@ -163,6 +176,10 @@ open class BaseLayer: Layer {
   
   // MARK: Internal
   public func onInputSizeSet() {
+    // override
+  }
+  
+  public func onBatchSizeSet() {
     // override
   }
   
@@ -316,8 +333,8 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
           var filterRow: [Tensor.Scalar] = []
           
           for _ in 0..<filterSize.1 {
-            let weight = initializer?.calculate(input: inputSize.depth * filterSize.rows * filterSize.columns,
-                                                out: inputSize.depth * filterSize.rows * filterSize.columns) ?? Tensor.Scalar.random(in: -1...1)
+            let weight = initializer.calculate(input: inputSize.depth * filterSize.rows * filterSize.columns,
+                                                out: inputSize.depth * filterSize.rows * filterSize.columns)
             filterRow.append(weight)
           }
           
@@ -341,12 +358,11 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
   
   public let type: Activation
 
-  public init(inputSize: TensorSize = TensorSize(array: []),
+  public init(inputSize: TensorSize? = nil,
               type: Activation,
               encodingType: EncodingType) {
     self.type = type
     super.init(inputSize: inputSize,
-               initializer: nil,
                biasEnabled: false,
                encodingType: encodingType)
     
@@ -359,11 +375,14 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
               encodingType: .none)
   }
   
+  @discardableResult
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     
-    let context = TensorContext { inputs, gradient in
+    let context = TensorContext { inputs, gradient, wrt in
       let out = self.device.derivate(inputs, self.type).value * gradient.value
-      return (Tensor(out), Tensor(), Tensor())
+      let outTensor = Tensor(out)
+      outTensor.label = self.type.asString() + "_input_grad"
+      return (outTensor, Tensor(), Tensor())
     }
     
     let result = device.activate(tensor, type)
@@ -371,7 +390,7 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
     out.label = type.asString()
 
     out.setGraph(tensor)
-
+    
     return out
   }
   
@@ -398,6 +417,14 @@ extension NumSwift.ConvPadding {
 open class BaseThreadBatchingLayer: BaseLayer {
   let updateLock = NSLock()
   @Atomic var iterations = 0
+  
+  override public var isTraining: Bool {
+    didSet {
+      if isTraining == false {
+        iterations = 0
+      }
+    }
+  }
   
   open var shouldPerformBatching: Bool {
     isTraining

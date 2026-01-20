@@ -13,7 +13,7 @@ class LSTMCell {
   let input: Int
   let vocabSize: Int
   let device: Device
-  
+  let biasEnabled: Bool
   struct Parameters {
     var forgetGateWeights: Tensor
     var inputGateWeights: Tensor
@@ -91,42 +91,57 @@ class LSTMCell {
   init(hidden: Int,
        input: Int,
        vocabSize: Int,
+       biasEnabled: Bool,
        device: Device = CPU()) {
     self.hidden = hidden
     self.input = input
     self.device = device
     self.vocabSize = vocabSize
+    self.biasEnabled = biasEnabled
   }
   
   func forward(tensor: Tensor,
                context: NetworkContext,
                parameters: Parameters,
-               cache: LSTM.Cache) -> Activations {
+               previousCache: LSTM.Cache) -> Activations {
     
     let fgw = parameters.forgetGateWeights
     let igw = parameters.inputGateWeights
     let ogw = parameters.outputGateWeights
     let ggw = parameters.gateGateWeights
     
-    let previousActivationMatrix = cache.activation
-    let previousCellMatrix = cache.cell
+    let previousActivationMatrix = previousCache.activation
+    let previousCellMatrix = previousCache.cell
     
     let concat = tensor.concat(previousActivationMatrix)
     
     // forget gate
-    let fa = device.matmul(concat, fgw) + parameters.forgetGateBiases.asScalar()
+    var fa = device.matmul(concat, fgw)
+    if biasEnabled {
+      fa = fa.copy() + parameters.forgetGateBiases
+    }
+
     let faOut = Sigmoid().forward(tensor: fa, context: context)
     
     // input gate
-    let ia = device.matmul(concat, igw) + parameters.inputGateBiases.asScalar()
+    var ia = device.matmul(concat, igw)
+    if biasEnabled {
+      ia = ia.copy() + parameters.inputGateBiases
+    }
     let iaOut = Sigmoid().forward(tensor: ia, context: context)
     
     // gate gate
-    let ga = device.matmul(concat, ggw) + parameters.gateGateBiases.asScalar()
+    var ga = device.matmul(concat, ggw)
+    if biasEnabled {
+      ga = ga.copy() + parameters.gateGateBiases
+    }
     let gaOut = Tanh().forward(tensor: ga, context: context)
     
     // output gate
-    let oa = device.matmul(concat, ogw) + parameters.outputGateBiases.asScalar() // Could be Dense layers
+    var oa = device.matmul(concat, ogw) // Could be Dense layers
+    if biasEnabled {
+      oa = oa.copy() + parameters.outputGateBiases
+    }
     let oaOut = Sigmoid().forward(tensor: oa, context: context)
     
     let cellMemoryMatrix = (faOut * previousCellMatrix) + (iaOut * gaOut)
@@ -156,7 +171,7 @@ class LSTMCell {
 
     let lstm = cache.lstm
     let cellActivation = cache.cell
-    let previousCellActivaion = previousCache?.cell ?? cache.cell.onesLike() // if there's no previous state use 0s. Might need to come up with a better solution so we dont have to re-do this
+    let previousCellActivaion = previousCache?.cell ?? cache.cell.zerosLike() // if there's no previous state use 0s. Might need to come up with a better solution so we dont have to re-do this
     
     let tanActivationOfCellActivation = Tanh().forward(tensor: cellActivation)
     
@@ -218,7 +233,7 @@ class LSTMCell {
                                                 activation: cache.activation,
                                                 batchSize: batchSize)
     
-    let biasDerivatives = backwarsWRTBiases(lstmError: errors,
+    let biasDerivatives = backwardsWRTBiases(lstmError: errors,
                                             batchSize: batchSize)
     
     return (inputs: Errors(previousActivationError: prevActivationError,
@@ -228,12 +243,14 @@ class LSTMCell {
             biases: biasDerivatives)
   }
   
-  private func backwarsWRTBiases(lstmError: Errors.LSTMError,
+  private func backwardsWRTBiases(lstmError: Errors.LSTMError,
                                  batchSize: Int) -> ParameterDerivatives {
-    let outputGateBiasesUpdate = lstmError.eo.sum(axis: 1)
-    let inputGateBiasesUpdate = lstmError.ei.sum(axis: 1)
-    let gateGateBiasesUpdate = lstmError.eg.sum(axis: 1)
-    let forgetGateBiasesUpdate = lstmError.ef.sum(axis: 1)
+    // No summation needed - gate errors are already per-hidden-unit
+    // Each hidden unit gets its own bias gradient
+    let outputGateBiasesUpdate = lstmError.eo
+    let inputGateBiasesUpdate = lstmError.ei
+    let gateGateBiasesUpdate = lstmError.eg
+    let forgetGateBiasesUpdate = lstmError.ef
 
     return .init(dForgetGate: forgetGateBiasesUpdate,
                  dInputGate: inputGateBiasesUpdate,

@@ -36,17 +36,18 @@ public final class LayerNormalize: BaseLayer {
   public init(epsilon: Tensor.Scalar = .stabilityFactor,
               gamma: Tensor = .init(),
               beta: Tensor = .init(),
-              inputSize: TensorSize = TensorSize(array: [])) {
+              inputSize: TensorSize? = nil) {
     self.epsilon = epsilon
     self.beta = beta
     self.gamma = gamma
     
     super.init(inputSize: inputSize,
-               initializer: nil,
                biasEnabled: false,
                encodingType: .layerNormalize)
     
-    self.outputSize = inputSize
+    if let inputSize {
+      self.outputSize = inputSize
+    }
     
     setupTrainables()
   }
@@ -76,7 +77,7 @@ public final class LayerNormalize: BaseLayer {
   }
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
-    let context = TensorContext { inputs, gradient in
+    let context = TensorContext { inputs, gradient, wrt in
       self.backward(inputs: inputs.value, gradient: gradient.value)
     }
     

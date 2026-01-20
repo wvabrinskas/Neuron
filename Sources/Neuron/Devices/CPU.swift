@@ -34,27 +34,12 @@ public struct CPU: Device {
                           filterSize: (rows: Int, columns: Int),
                           inputSize: (rows: Int, columns: Int),
                           outputSize: (rows: Int, columns: Int)? = nil) -> [[Tensor.Scalar]] {
-    
-    var calculatedOutputSize: (row: Int, columns: Int) {
-      var rows = inputSize.rows * strides.0
-      var columns = inputSize.columns * strides.1
-      
-      if padding == .valid {
-        rows = (inputSize.rows - 1) * strides.0 + filterSize.rows
-        columns = (inputSize.columns - 1) * strides.1 + filterSize.columns
-      }
-
-      return (rows, columns)
-    }
-    
-    let result = NumSwiftC.transConv2d(signal: signal,
-                                       filter: filter,
-                                       strides: strides,
-                                       padding: padding,
-                                       filterSize: filterSize,
-                                       inputSize: inputSize)
-    
-    return result
+    NumSwiftC.transConv2d(signal: signal,
+                          filter: filter,
+                          strides: strides,
+                          padding: padding,
+                          filterSize: filterSize,
+                          inputSize: inputSize)
   }
   
   /// Calculates the convolution of the given inputs
@@ -74,24 +59,12 @@ public struct CPU: Device {
                      filterSize: (rows: Int, columns: Int),
                      inputSize: (rows: Int, columns: Int),
                      outputSize: (rows: Int, columns: Int)? = nil) -> [[Tensor.Scalar]] {
-    
-    var calculatedOutputSize: (row: Int, columns: Int) {
-      let paddingValue = padding.extra(inputSize: (inputSize.rows, inputSize.columns), filterSize: filterSize)
-
-      let rows = (((inputSize.rows + (paddingValue.top + paddingValue.bottom)) - (filterSize.rows - 1) - 1) / strides.0) + 1
-      let columns = (((inputSize.columns + (paddingValue.left + paddingValue.right)) - (filterSize.columns - 1) - 1) / strides.1) + 1
-
-      return (rows, columns)
-    }
-    
-    let result = NumSwiftC.conv2d(signal: signal,
-                                  filter: filter,
-                                  strides: strides,
-                                  padding: padding,
-                                  filterSize: filterSize,
-                                  inputSize: inputSize)
-    
-    return result
+    NumSwiftC.conv2d(signal: signal,
+                     filter: filter,
+                     strides: strides,
+                     padding: padding,
+                     filterSize: filterSize,
+                     inputSize: inputSize)
   }
   
   /// Performs an activation function

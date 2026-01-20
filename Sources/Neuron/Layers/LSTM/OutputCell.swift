@@ -23,14 +23,15 @@ class OutputCell {
   }
   
   init(device: Device = CPU(),
+       biasEnabled: Bool,
        parameters: Parameters) {
     self.device = device
-    
-    dense = Dense(parameters.vocabSize)
+
+    dense = Dense(parameters.vocabSize, biasEnabled: biasEnabled)
     dense.weights = parameters.hiddenOutputWeights
     dense.biases = parameters.hiddenOutputBiases
     dense.inputSize = TensorSize(array: [parameters.hiddenSize, 1, 1])
-  
+
     softmax = Softmax(inputSize: dense.outputSize)
   }
 

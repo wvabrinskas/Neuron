@@ -8,7 +8,7 @@
 import Foundation
 import NumSwift
 
-public class GAN {
+open class GAN {
   public enum TrainingType: String {
     case real, fake
   }
@@ -181,7 +181,11 @@ public class GAN {
     generator.zeroGradients()
     
     let generatedData = getGenerated(.real, count: batchSize)
-    let output = trainOn(generatedData.data, labels: generatedData.labels)
+    
+    // this only gets the gradients wrt to this generated data, which stops at the input of the discriminator
+    let output = trainOn(generatedData.data,
+                         labels: generatedData.labels,
+                         wrt: generatedData.wrt)
     
     let loss = output.loss
     generator.metricsReporter?.update(metric: .generatorLoss, value: loss)
@@ -192,20 +196,28 @@ public class GAN {
   
   internal func trainOn(_ batch: [Tensor],
                         labels: [Tensor],
+                        wrt: TensorBatch? = nil,
                         requiresGradients: Bool = true) -> Optimizer.Output {
     discriminator.fit(batch,
                       labels: labels,
+                      wrt: wrt,
                       lossFunction: lossFunction,
                       validation: false,
                       requiresGradients: requiresGradients)
   }
   
-  internal func getGenerated(_ label: TrainingType, detatch: Bool = false, count: Int) -> (data: [Tensor], labels: [Tensor]) {
+  internal func getGenerated(_ label: TrainingType, detatch: Bool = false, count: Int) -> (data: [Tensor],
+                                                                                           labels: [Tensor],
+                                                                                           wrt: TensorBatch) {
     var fakeData: [Tensor] = [Tensor](repeating: Tensor(), count: count)
     var fakeLabels: [Tensor] = [Tensor](repeating: Tensor(), count: count)
+    var wrt: TensorBatch = [Tensor](repeating: Tensor(), count: count)
 
     Array(0..<count).concurrentForEach(workers: Constants.maxWorkers) { _, index in
-      var sample = self.generator([self.noise()])[safe: 0, Tensor()]
+      
+      let noise = self.noise()
+      
+      var sample = self.generator([noise])[safe: 0, Tensor()]
       
       if detatch {
         sample = sample.detached()
@@ -213,7 +225,6 @@ public class GAN {
       
       let localLabelValue = label == .fake ? self.fakeLabel : self.realLabel
       var dataLabel = Tensor([localLabelValue])
-      var training = sample
       //assuming the label is 1.0 or greater
       //we need to reverse if label is <= 0
       if let noise = self.discriminatorNoiseFactor, noise > 0, noise < 1 {
@@ -221,16 +232,15 @@ public class GAN {
         let factor = min(1.0, max(0.0, noise))
         let min = min(localLabelValue, abs(localLabelValue - factor))
         let max = max(localLabelValue, abs(localLabelValue - factor))
-        
-        training = sample
         dataLabel = Tensor([Tensor.Scalar.random(in: (min...max))])
       }
       
-      fakeData[index] = training
+      fakeData[index] = sample
       fakeLabels[index] = dataLabel
+      wrt[index] = noise
     }
 
-    return (fakeData, fakeLabels)
+    return (fakeData, fakeLabels, wrt)
   }
 
   private func splitDataset(_ data: [DatasetModel]) -> (data: [Tensor], labels: [Tensor]) {

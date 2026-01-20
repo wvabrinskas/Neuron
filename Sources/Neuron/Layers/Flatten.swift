@@ -12,9 +12,8 @@ import NumSwift
 public final class Flatten: BaseLayer {
   /// Default initializer for Flatten layer.
   /// - Parameter inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
-  public init(inputSize: TensorSize = TensorSize(array: [])) {
+  public init(inputSize: TensorSize? = nil) {
     super.init(inputSize: inputSize,
-               initializer: nil,
                biasEnabled: false,
                encodingType: .flatten)
   }
@@ -45,7 +44,7 @@ public final class Flatten: BaseLayer {
   }
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
-    let context = TensorContext { inputs, gradient in
+    let context = TensorContext { inputs, gradient, wrt in
       
       let inputSize = self.inputSize
       let deltas: [Tensor.Scalar] = gradient.value.flatten()
@@ -58,6 +57,8 @@ public final class Flatten: BaseLayer {
     
     let flatten: [Tensor.Scalar] = tensor.value.flatten()
     let flat = Tensor(flatten, context: context)
+    
+    flat.setGraph(tensor)
     
     return flat
   }

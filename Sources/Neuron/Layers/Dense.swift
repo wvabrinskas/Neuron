@@ -75,7 +75,7 @@ public final class Dense: BaseLayer {
     precondition(inputSize.rows == 1 && inputSize.depth == 1, "Dense expects Tensor dimensions of Nx1x1 where N is the columns, got: \(inputSize)")
     
     initializeWeights(inputs: inputSize.columns)
-    self.biases = Tensor([Tensor.Scalar](repeating: 0, count: outputSize.depth))
+    self.biases = Tensor([Tensor.Scalar](repeating: 0, count: outputSize.columns))
   }
   
   private func initializeWeights(inputs: Int) {
@@ -89,8 +89,8 @@ public final class Dense: BaseLayer {
     for _ in 0..<outputSizeCount {
       var weightsForNode: [Tensor.Scalar] = []
       for _ in 0..<inputs {
-        let w = initializer?.calculate(input: inputs,
-                                       out: outputSizeCount) ?? Tensor.Scalar.random(in: -1...1)
+        let w = initializer.calculate(input: inputs,
+                                       out: outputSizeCount)
         weightsForNode.append(w)
       }
       
@@ -102,7 +102,7 @@ public final class Dense: BaseLayer {
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     
-    let tensorContext = TensorContext { inputs, gradients in
+    let tensorContext = TensorContext { inputs, gradients, wrt in
       let gradientsFlat: [Tensor.Scalar] = gradients.value.flatten()
       
       let deltas = self.device.matmul(gradients, self.weights.detached())
@@ -115,7 +115,7 @@ public final class Dense: BaseLayer {
         weightGradients.append(inputsFlat * delta)
       }
 
-      return (deltas, Tensor(weightGradients), gradients.sum(axis: -1))
+      return (deltas, Tensor(weightGradients), gradients)
     }
     
     //THIS WAS A MAJOR BUG POINT. DO NOT SWITCH ROWS AND COLUMNS HERE BY ACCIDENT - Billy 05-20-2022
@@ -126,7 +126,7 @@ public final class Dense: BaseLayer {
     var dotProducts = device.matmul(tensor, Tensor(weightsTransposed))
     
     if biasEnabled {
-      dotProducts = dotProducts + biases.asScalar()
+      dotProducts = dotProducts.copy() + biases
     }
     
     let out = Tensor(dotProducts.value, context: tensorContext)
@@ -138,10 +138,10 @@ public final class Dense: BaseLayer {
   }
   
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
-    weights = weights - gradients.weights
+    weights = weights.copy() - gradients.weights
     
     if biasEnabled {
-      biases = biases - gradients.biases
+      biases = biases.copy() - gradients.biases
     }
   }
 }

@@ -26,7 +26,7 @@ public final class WelfordVariance {
   
   public func update(_ inputs: Tensor) {
     iterations += 1
-
+    
     for i in 0..<inputs.value.count {
       let delta = inputs.value[i] - means[i]
       let delta2Means = means[i] + (delta / iterations.asTensorScalar)

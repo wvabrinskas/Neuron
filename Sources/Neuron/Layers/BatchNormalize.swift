@@ -108,9 +108,7 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
   private var dBeta: [Tensor.Scalar] = []
   internal let welfordVariance = WelfordVariance()
 
-  private var cachedNormalizations: ThreadStorage<UUID, [Normalization]> = .init(defaultValue: [])
-
-  private class Normalization {
+  private struct Normalization {
     let value: [[Tensor.Scalar]]
     let std: [[Tensor.Scalar]]
     
@@ -133,7 +131,7 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
               momentum: Tensor.Scalar = 0.99,
               movingMean: Tensor.Data = [],
               movingVariance: Tensor.Data = [],
-              inputSize: TensorSize = TensorSize(array: [])) {
+              inputSize: TensorSize? = nil) {
     self.gamma = gamma
     self.beta = beta
     self.movingVariance = movingVariance
@@ -145,7 +143,10 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     
     setupTrainables()
     resetDeltas()
-    welfordVariance.setInputSize(inputSize)
+    
+    if let inputSize {
+      welfordVariance.setInputSize(inputSize)
+    }
   }
   
   public enum CodingKeys: String, CodingKey {
@@ -186,25 +187,39 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     calculateWelfordVariance(inputs: tensor, context: context)
   }
 
+  // this doesnt calculate welfordVariance...
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
-    let tensorContext = TensorContext { inputs, gradient in
-      let backward = self.backward(inputs: inputs,
-                                   gradient: gradient.value,
-                                   context: context)
-      return (Tensor(backward), Tensor(), Tensor())
-    }
+    // if we havn't moved through `forward(tensorBatch)` call we should calculate the input variance
     
     let forward = normalize3D(inputs: tensor, context: context)
-    let out = Tensor(forward, context: tensorContext)
+    let normalizations = forward.normalized
+
+    if iterations == 0 && context.totalInBatch == 1 {
+      calculateWelfordVariance(inputs: tensor, context: context)
+    }
+    
+    let tensorContext = TensorContext { inputs, gradient, wrt in
+      let backward = self.backward(inputs: inputs,
+                                   gradient: gradient.value,
+                                   context: context,
+                                   normalizations: normalizations)
+      
+      let result = Tensor(backward)
+      result.label = "BatchNorm"
+      return (result, Tensor(), Tensor())
+    }
+    
+    let out = Tensor(forward.output, context: tensorContext)
     
     out.setGraph(tensor)
-
+    out.label = "BatchNorm"
+    
     return out
   }
   
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     super.apply(gradients: gradients, learningRate: learningRate)
-    
+        
     let avgDGamma = dGamma / welfordVariance.iterations.asTensorScalar
     let avgDBeta = dBeta / welfordVariance.iterations.asTensorScalar
     
@@ -213,7 +228,6 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     
     resetDeltas()
     welfordVariance.reset()
-    cachedNormalizations.clear()
   }
   
   override public func onInputSizeSet() {
@@ -228,11 +242,11 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     let inputDim = inputSize.depth
     
     if gamma.isEmpty {
-      self.gamma = [Tensor.Scalar](repeating: 1, count: inputDim)
+      gamma = [Tensor.Scalar](repeating: 1, count: inputDim)
     }
     
     if beta.isEmpty {
-      self.beta = [Tensor.Scalar](repeating: 0, count: inputDim)
+      beta = [Tensor.Scalar](repeating: 0, count: inputDim)
     }
   
     if movingMean.isEmpty {
@@ -250,14 +264,19 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     dBeta = [Tensor.Scalar](repeating: 0, count: inputDim)
   }
   
-  // TODO: breakout into separate class
   private func calculateWelfordVariance(inputs: Tensor, context: NetworkContext) {
+    guard isTraining else { return }
+    
     updateLock.with {
       welfordVariance.update(inputs)
+      
+      if welfordVariance.iterations > batchSize {
+        fatalError()
+      }
     }
   }
   
-  private func normalize3D(inputs:  Tensor, context: NetworkContext) -> [[[Tensor.Scalar]]] {
+  private func normalize3D(inputs:  Tensor, context: NetworkContext) -> (output: Tensor.Data, normalized: [BatchNormalize.Normalization])  {
     var forward: [[[Tensor.Scalar]]] = []
 
     var normalizedInputs: [Normalization] = []
@@ -289,11 +308,11 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
       forward.append(output)
     }
     
-    if isTraining {
-      cachedNormalizations[inputs.id] = normalizedInputs
-    }
-    
-    return forward
+//    if isTraining {
+//      cachedNormalizations[inputs.id] = normalizedInputs
+//    }
+//
+    return (forward, normalizedInputs)
   }
   
   private func normalize2D(inputs: [[Tensor.Scalar]],
@@ -316,16 +335,17 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
   
   private func backward(inputs: Tensor,
                         gradient: [[[Tensor.Scalar]]],
-                        context: NetworkContext) -> [[[Tensor.Scalar]]] {
+                        context: NetworkContext,
+                        normalizations: [BatchNormalize.Normalization]) -> [[[Tensor.Scalar]]] {
     var backward: [[[Tensor.Scalar]]] = []
     
-    let cachedNormalization = cachedNormalizations[inputs.id]
+    //let cachedNormalization = cachedNormalizations[inputs.id]
     
     for i in 0..<inputs.value.count {
-      let N = Tensor.Scalar(gradient[i].count)
+      let N = Tensor.Scalar(context.totalInBatch)
       
-      var normalized = cachedNormalization?[safe: i]?.value
-      var std = cachedNormalization?[safe: i]?.std
+      var normalized = normalizations[safe: i]?.value
+      var std = normalizations[safe: i]?.std
       
       if normalized == nil || std == nil {
         let (_, _, nStd, nNormalized) = normalize2D(inputs: inputs.value[i],
@@ -344,7 +364,7 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
         dGamma[i] += (gradient[i] * normalized).sum
         dBeta[i] += gradient[i].sum
       }
-
+      
       let dxNorm = gradient[i] * gamma[i]
       
       let dx = 1 / N / std * (N * dxNorm -
