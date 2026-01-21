@@ -65,52 +65,64 @@ public class GPU: Device {
   }
   
   public func activate(_ input: Tensor, _ type: Activation) -> Tensor {
-    // for now perform operation on CPU.
-    return CPU().activate(input, type)
-    
-    var result: [[[Tensor.Scalar]]] = []
-    
-    for topValue in input.value {
-      var row: [[Tensor.Scalar]] = []
-      for value in topValue {
-        var leakyReluLimit: Tensor.Scalar = 0
-        switch type {
-        case .leakyRelu(limit: let limit):
-          leakyReluLimit = limit
-        default:
-          break
-        }
-        
-        row.append(metal.activation(value, type: .init(type), limit: leakyReluLimit))
-      }
-      result.append(row)
+    // Flatten entire tensor to 1D array for single GPU call
+    let flatInput = input.value.flatMap { $0.flatMap { $0 } }
+
+    // Handle leaky ReLU limit
+    var leakyReluLimit: Tensor.Scalar = 0
+    if case .leakyRelu(let limit) = type {
+      leakyReluLimit = limit
     }
-  
+
+    // Single GPU call for ALL elements at once using NumSwiftMetal
+    let flatResult = metal.activation(flatInput, type: .init(type), limit: leakyReluLimit)
+
+    // Reshape [Scalar] back to [[[Scalar]]] using original tensor shape
+    let shape = input.shape  // [columns, rows, depth]
+    var result: [[[Tensor.Scalar]]] = []
+    var index = 0
+
+    for _ in 0..<shape[2] {  // depth
+      var depthSlice: [[Tensor.Scalar]] = []
+      for _ in 0..<shape[1] {  // rows
+        let row = Array(flatResult[index..<(index + shape[0])])  // columns
+        depthSlice.append(row)
+        index += shape[0]
+      }
+      result.append(depthSlice)
+    }
+
     return Tensor(result)
   }
   
   public func derivate(_ input: Tensor, _ type: Activation) -> Tensor {
-    // for now perform operation on CPU.
-    return CPU().derivate(input, type)
-    
-    var result: [[[Tensor.Scalar]]] = []
-    
-    for topValue in input.value {
-      var row: [[Tensor.Scalar]] = []
-      for value in topValue {
-        var leakyReluLimit: Tensor.Scalar = 0
-        switch type {
-        case .leakyRelu(limit: let limit):
-          leakyReluLimit = limit
-        default:
-          break
-        }
-        
-        row.append(metal.derivative(value, type: .init(type), limit: leakyReluLimit))
-      }
-      result.append(row)
+    // Flatten entire tensor to 1D array for single GPU call
+    let flatInput = input.value.flatMap { $0.flatMap { $0 } }
+
+    // Handle leaky ReLU limit
+    var leakyReluLimit: Tensor.Scalar = 0
+    if case .leakyRelu(let limit) = type {
+      leakyReluLimit = limit
     }
-  
+
+    // Single GPU call for ALL elements at once using NumSwiftMetal (derivate)
+    let flatResult = metal.derivative(flatInput, type: .init(type), limit: leakyReluLimit)
+
+    // Reshape [Scalar] back to [[[Scalar]]] using original tensor shape
+    let shape = input.shape  // [columns, rows, depth]
+    var result: [[[Tensor.Scalar]]] = []
+    var index = 0
+
+    for _ in 0..<shape[2] {  // depth
+      var depthSlice: [[Tensor.Scalar]] = []
+      for _ in 0..<shape[1] {  // rows
+        let row = Array(flatResult[index..<(index + shape[0])])  // columns
+        depthSlice.append(row)
+        index += shape[0]
+      }
+      result.append(depthSlice)
+    }
+
     return Tensor(result)
   }
 
