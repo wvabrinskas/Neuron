@@ -103,19 +103,11 @@ public final class Dense: BaseLayer {
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     
     let tensorContext = TensorContext { inputs, gradients, wrt in
-      let gradientsFlat: [Tensor.Scalar] = gradients.value.flatten()
-      
       let deltas = self.device.matmul(gradients, self.weights.detached())
-      
-      let inputsFlat = inputs.value[safe: 0]?[safe: 0] ?? []
-      var weightGradients: [[Tensor.Scalar]] = []
-      
-      for i in 0..<self.nodes {
-        let delta = gradientsFlat[i]
-        weightGradients.append(inputsFlat * delta)
-      }
 
-      return (deltas, Tensor(weightGradients), gradients)
+      let weightGradients = self.device.matmul(gradients.transposed(), inputs)
+
+      return (deltas, weightGradients, gradients)
     }
     
     //THIS WAS A MAJOR BUG POINT. DO NOT SWITCH ROWS AND COLUMNS HERE BY ACCIDENT - Billy 05-20-2022
