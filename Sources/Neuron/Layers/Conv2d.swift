@@ -273,14 +273,14 @@ public class Conv2d: BaseConvolutionalLayer {
   }
   
   internal func conv(_ input: Tensor) -> [[[Tensor.Scalar]]] {
-    var results: [[[Tensor.Scalar]]] = []
-    
     let flatBias: [Tensor.Scalar] = biases.value.flatten()
     
-    for f in 0..<filterCount {
+    var results: [[[Tensor.Scalar]]] = Array(repeating: [], count: filterCount)
+
+    Array(0..<filterCount).concurrentForEach(workers: Constants.maxWorkers) { _, f in
       var convolved: [[Tensor.Scalar]] = [] // maybe do concurrentForEach here too
 
-      for i in 0..<inputSize.depth {
+      for i in 0..<self.inputSize.depth {
         let currentFilter = self.filters[f].value[i]
         let currentInput = input.value[i]
         
@@ -304,9 +304,9 @@ public class Conv2d: BaseConvolutionalLayer {
         convolved = convolved + bias
       }
       
-      results.append(convolved)
+      results[f] = convolved
     }
-
+  
     return results
   }
   
