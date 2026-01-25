@@ -72,14 +72,36 @@ public class GPU: Device {
   }
   
   public func activate(_ input: Tensor, _ type: Activation) -> Tensor {
-    let shape = input.shape
+    
+    func defaultBlock() -> Tensor {
+      let shape = input.shape
+        
+      let flat = input.value.flatten()
+      let activated = self.manager.activate(flat, type)
+
+      let reshaped = activated.reshape(columns: shape[safe: 0, 0]).batched(into: shape[safe: 2, 0])
+
+      return Tensor(reshaped)
+    }
+        
+    #if arch(arm64) || arch(x86_64)
+    // Use SIMD for small tensors (e.g., early CNN layers)
+    if SIMDStrategy.shouldUseSIMD(shape: input.shape) {
       
-    let flat = input.value.flatten()
-    let activated = self.manager.activate(flat, type)
-
-    let reshaped = activated.reshape(columns: shape[safe: 0, 0]).batched(into: shape[safe: 2, 0])
-
-    return Tensor(reshaped)
+      let activated: Tensor = switch type {
+      case .reLu:
+        input.reluSIMD()
+      case .tanh:
+        input.tanhSIMD()
+      default:
+        defaultBlock()
+      }
+      
+      return activated
+    }
+    #endif
+    
+    return defaultBlock()
   }
   
   public func derivate(_ input: Tensor, _ type: Activation) -> Tensor {

@@ -670,6 +670,35 @@ public extension Tensor {
       return lhs.addAlong(axis: axis, value: rhs)
     }
     
+    #if arch(arm64) || arch(x86_64)
+    // Use SIMD for small tensors
+    if SIMDStrategy.shouldUseSIMD(shape: lhs.shape) {
+      let depth = lhs.shape[2]
+      
+      let result: Tensor
+      if depth == 3 {
+        result = lhs.addSIMD3(rhs)
+      } else if depth == 4 {
+        result = lhs.addSIMD4(rhs)
+      } else {
+        // Generic SIMD
+        result = lhs.applyElementWiseSIMD(rhs, operation: (+))
+      }
+      
+      let context = TensorContext { inputs, gradient, wrt in
+        let copy = gradient.copy()
+        copy.label = "addition_input_grad"
+        return (copy, Tensor(), Tensor())
+      }
+      
+      let output = Tensor(result.value, context: context)
+      output.label = "addition"
+      output.setGraphSafe(lhs)
+      output.setGraphSafe(rhs)
+      return output
+    }
+    #endif
+    
     let newTensor = left + right
     
     let context = TensorContext { inputs, gradient, wrt in
@@ -704,6 +733,38 @@ public extension Tensor {
                                           size: TensorSize(array: rhs.shape)) {
       return lhs.subtractAlong(axis: axis, value: rhs)
     }
+    
+    #if arch(arm64) || arch(x86_64)
+    // Use SIMD for small tensors
+    if SIMDStrategy.shouldUseSIMD(shape: lhs.shape) {
+      let depth = lhs.shape[2]
+      
+      let result: Tensor
+      if depth == 3 {
+        result = lhs.subtractSIMD3(rhs)
+      } else if depth == 4 {
+        result = lhs.subtractSIMD4(rhs)
+      } else {
+        // Generic SIMD
+        result = lhs.applyElementWiseSIMD(rhs, operation: (-))
+      }
+      
+      let context = TensorContext { inputs, gradient, wrt in
+        if let wrt, (rhs.graphChain.contains(wrt.id) || rhs.id == wrt.id) {
+          return (gradient * -1, Tensor(), Tensor())
+        }
+
+        return (gradient, Tensor(), Tensor())
+      }
+      
+      let output = Tensor(result.value, context: context)
+      output.label = "subtraction"
+      output.setGraphSafe(lhs)
+      output.setGraphSafe(rhs)
+      return output
+    }
+    #endif
+
     
     let newTensor = left - right
     
@@ -742,6 +803,34 @@ public extension Tensor {
                                           size: TensorSize(array: rhs.shape)) {
       return lhs.multiplyAlong(axis: axis, value: rhs)
     }
+        
+    #if arch(arm64) || arch(x86_64)
+    // Use SIMD for small tensors
+    if SIMDStrategy.shouldUseSIMD(shape: lhs.shape) {
+      let depth = lhs.shape[2]
+      
+      let result: Tensor
+      if depth == 3 {
+        result = lhs.multiplySIMD3(rhs)
+      } else if depth == 4 {
+        result = lhs.multiplySIMD4(rhs)
+      } else {
+        // Generic SIMD
+        result = lhs.applyElementWiseSIMD(rhs, operation: (*))
+      }
+      
+      let copied = rhs.copy()
+      let context = TensorContext { inputs, gradient, wrt in
+        return (gradient * copied, Tensor(), Tensor())
+      }
+      
+      let output = Tensor(result.value, context: context)
+      output.label = "multiplication"
+      output.setGraphSafe(lhs)
+      output.setGraphSafe(rhs)
+      return output
+    }
+    #endif
     
     let newTensor = left * right
     
@@ -777,6 +866,42 @@ public extension Tensor {
                                           size: TensorSize(array: rhs.shape)) {
       return lhs.divideAlong(axis: axis, value: rhs)
     }
+        
+    #if arch(arm64) || arch(x86_64)
+    // Use SIMD for small tensors
+    if SIMDStrategy.shouldUseSIMD(shape: lhs.shape) {
+      let depth = lhs.shape[2]
+      
+      let result: Tensor
+      if depth == 3 {
+        result = lhs.divideSIMD3(rhs)
+      } else if depth == 4 {
+        result = lhs.divideSIMD4(rhs)
+      } else {
+        // Generic SIMD
+        result = lhs.applyElementWiseSIMD(rhs, operation: (/))
+      }
+      
+      let copied = rhs.copy()
+      let context = TensorContext { inputs, gradient, wrt  in
+        if let wrt, (rhs.graphChain.contains(wrt.id) || rhs.id == wrt.id) {
+          
+          let result = gradient * (-1 * (inputs / (copied * copied)))
+          
+          return (result, Tensor(), Tensor())
+        }
+
+        return (gradient * (1 / copied), Tensor(), Tensor())
+        
+      }
+      
+      let output = Tensor(result.value, context: context)
+      output.label = "division"
+      output.setGraphSafe(lhs)
+      output.setGraphSafe(rhs)
+      return output
+    }
+    #endif
     
     let newTensor = left / right
     
