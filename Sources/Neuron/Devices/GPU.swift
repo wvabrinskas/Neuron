@@ -93,6 +93,16 @@ public class GPU: Device {
         input.reluSIMD()
       case .tanh:
         input.tanhSIMD()
+      case .sigmoid:
+        input.sigmoidSIMD()
+      case .leakyRelu(let limit):
+        input.leakyReluSIMD(limit: limit)
+      case .swish:
+        input.swishSIMD()
+      case .seLu:
+        input.seLuSIMD()
+      case .geLu:
+        input.geLuSIMD()
       default:
         defaultBlock()
       }

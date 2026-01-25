@@ -119,7 +119,7 @@ public final class Sequential: Trainable, Logger {
     try container.encode(layers.map { LayerModel(layer: $0) }, forKey: .layers)
   }
   
-  public func apply(gradients: Tensor.Gradient, learningRate: Float) {
+  public func apply(gradients: Tensor.Gradient, learningRate: Tensor.Scalar) {
     for i in 0..<layers.count {
       let layer = layers[i]
       let gradient = gradients.weights[i]
