@@ -931,9 +931,9 @@ extension Tensor {
             Scalar(value[d][r][c+3])
           )
           
-          // Fast tanh approximation: x / (1 + |x|)
-          let absVec = simd_abs(vec)
-          let denom = SIMD4<Scalar>(repeating: 1) + absVec
+          // (e^x - e^-x) / (e^x + e^-x)
+          let num = _simd_exp_f4(vec) - _simd_exp_f4(-vec)
+          let denom = _simd_exp_f4(vec) + _simd_exp_f4(-vec)
           vec = vec / denom
           
           rowResult.append(Scalar(vec.x))
