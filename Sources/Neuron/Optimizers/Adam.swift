@@ -160,33 +160,49 @@ public class Adam: BaseOptimizer {
                      decay: Bool = false,
                      weights: Tensor) -> Tensor.Data {
 
+    // Hoist loop-invariant computations
+    let oneMinusB1 = 1 - b1
+    let oneMinusB2 = 1 - b2
+    let mCorrectionFactor = 1 / (1 - Tensor.Scalar.pow(b1, Tensor.Scalar(t)))
+    let vCorrectionFactor = 1 / (1 - Tensor.Scalar.pow(b2, Tensor.Scalar(t)))
+    let weightsValue = weights.value
+    let shouldDecay: Tensor.Scalar? = decay ? {
+      if case .decay(let d) = weightDecay { return d }
+      return nil
+    }() : nil
+
     var result: [[[Tensor.Scalar]]] = []
+    result.reserveCapacity(gradient.count)
 
     for d in 0..<gradient.count {
-      let depthValue = gradient[d]
-      var row: [[Tensor.Scalar]] = []
-      for r in 0..<depthValue.count {
-        let rowValue = depthValue[r]
+      let depthGrad = gradient[d]
+      var rowResult: [[Tensor.Scalar]] = []
+      rowResult.reserveCapacity(depthGrad.count)
+      for r in 0..<depthGrad.count {
+        let rowGrad = depthGrad[r]
+        let count = rowGrad.count
         var column: [Tensor.Scalar] = []
-        for c in 0..<rowValue.count {
-          m[d][r][c] = b1 * m[d][r][c] + (1 - b1) * gradient[d][r][c]
-          v[d][r][c] = b2 * v[d][r][c] + (1 - b2) * Tensor.Scalar.pow(gradient[d][r][c], 2)
+        column.reserveCapacity(count)
+        for c in 0..<count {
+          let g = rowGrad[c]
+          m[d][r][c] = b1 * m[d][r][c] + oneMinusB1 * g
+          v[d][r][c] = b2 * v[d][r][c] + oneMinusB2 * (g * g)
 
-          let mHat = m[d][r][c] / (1 - Tensor.Scalar.pow(b1, Tensor.Scalar(t)))
-          let vHat = v[d][r][c] / (1 - Tensor.Scalar.pow(b2, Tensor.Scalar(t)))
+          let mHat = m[d][r][c] * mCorrectionFactor
+          let vHat = v[d][r][c] * vCorrectionFactor
 
           var delta = learningRate * (mHat / (sqrt(vHat + eps)))
-          
-          if decay, case .decay(let decay) = weightDecay {
-            let decayLR = learningRate * decay * weights.value[safe: d, [[]]][safe: r, []][safe: c, 1]
+
+          if let decayValue = shouldDecay {
+            let decayLR = learningRate * decayValue * weightsValue[safe: d, [[]]][safe: r, []][safe: c, 1]
             delta -= decayLR
           }
 
           column.append(delta)
         }
-        row.append(column)
+        rowResult.append(column)
       }
-      result.append(row)
+      result.append(rowResult)
     }
 
     return result

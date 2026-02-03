@@ -114,7 +114,9 @@ public class Conv2d: BaseConvolutionalLayer {
     let flippedTransposed = filters.map { flip180($0) }.transposed() as [[[[Tensor.Scalar]]]]
     
     var weightGradients: [[[Tensor.Scalar]]] = []
+    weightGradients.reserveCapacity(filterCount * inputSize.depth)
     var inputGradients: [[[Tensor.Scalar]]] = []
+    inputGradients.reserveCapacity(inputSize.depth)
 
     var cachedDeltaShape: [Int]?
     
@@ -263,12 +265,12 @@ public class Conv2d: BaseConvolutionalLayer {
     
     for i in 0..<filterCount {
       let filterGradients = weightGradientsBatched[i]
-                  
-      filters[i] = filters[i].copy() - Tensor(filterGradients)
+
+      filters[i] = Tensor(filters[i].value - filterGradients)
     }
-    
+
     if biasEnabled {
-      biases = biases.copy() - gradients.biases.copy()
+      biases = Tensor(biases.value - gradients.biases.value)
     }
   }
   

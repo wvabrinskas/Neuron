@@ -475,7 +475,7 @@ final class NeuronTests: XCTestCase {
     }
     
     XCTAssertEqual(norm.welfordVariance.iterations, batchSize)
-    XCTAssertEqual(norm.welfordVariance.m2s, [[[2.5,2.5,2.5,2.5,2.5]]]) // variance
+    XCTAssertTrue(Tensor(norm.welfordVariance.m2s).isValueEqual(to: Tensor([[[2.5,2.5,2.5,2.5,2.5]]]), accuracy: 0.00001)) // variance
     XCTAssertEqual(norm.welfordVariance.means, [[[0.5, 0.5, 0.5, 0.5, 0.5]]]) // mean
   }
   
