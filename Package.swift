@@ -18,6 +18,7 @@ let package = Package(
       .package(url: "https://github.com/wvabrinskas/NumSwift.git", from: "2.0.18"),
       .package(url: "https://github.com/wvabrinskas/Logger.git", from: "1.0.6"),
       .package(url: "https://github.com/apple/swift-numerics", from: "1.0.0"),
+      .package(url: "https://github.com/apple/swift-atomics.git", from: "1.2.0"),
       //.package(url: "https://github.com/apple/swift-docc-plugin", branch: "main")
     ],
     targets: [
@@ -27,6 +28,7 @@ let package = Package(
               "NumSwift",
               "Logger",
               .product(name: "Numerics", package: "swift-numerics"),
+              .product(name: "Atomics", package: "swift-atomics")
             ],
             resources: [ .process("Resources") ]),
         .testTarget(

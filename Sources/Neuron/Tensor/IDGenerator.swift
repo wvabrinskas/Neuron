@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Atomics
 
 protocol IDGenerating {
   associatedtype ID: TensorID
@@ -44,11 +45,10 @@ final class UUIDIDGenerator: IDGenerating {
 
 final class UInt64IDGenerator: IDGenerating {
   static let shared = UInt64IDGenerator()
-  private var nextID: UInt64 = 0
-  
+  private let nextID = ManagedAtomic<UInt64>(0)
+
   func generate() -> UInt64 {
-    defer { nextID &+= 1 }
-    return nextID
+    return nextID.loadThenWrappingIncrement(ordering: .relaxed)
   }
 }
 
