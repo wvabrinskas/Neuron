@@ -37,10 +37,27 @@ internal extension ModelBuilder {
     do {
       let model = try JSONDecoder().decode(TViewModel.self, from: jsonData)
       return .success(model)
+    } catch let DecodingError.keyNotFound(key, context) {
+      print("❌ Key not found:", key.stringValue)
+      print("CodingPath:", context.codingPath.map(\.stringValue))
+      print("Debug:", context.debugDescription)
+    } catch let DecodingError.typeMismatch(type, context) {
+      print("❌ Type mismatch for:", type)
+      print("CodingPath:", context.codingPath.map(\.stringValue))
+      print("Debug:", context.debugDescription)
+    } catch let DecodingError.valueNotFound(value, context) {
+      print("❌ Value not found for:", value)
+      print("CodingPath:", context.codingPath.map(\.stringValue))
+      print("Debug:", context.debugDescription)
+    } catch let DecodingError.dataCorrupted(context) {
+      print("❌ Data corrupted")
+      print("CodingPath:", context.codingPath.map(\.stringValue))
+      print("Debug:", context.debugDescription)
     } catch {
-      print(error.localizedDescription)
-      return .failure(error)
+      print("❌ Other error:", error)
     }
+    
+    return .failure(BuildError.emptyJson)
   }
   
   static func build<TViewModel: Decodable>(_ json: [AnyHashable : Any]?) -> Result<TViewModel?, Error> {

@@ -20,7 +20,7 @@ public final class MaxPool: BaseLayer {
       lhs.tensorId == rhs.tensorId
     }
     
-    var tensorId: UUID
+    var tensorId: Tensor.ID
     var indicies: [[PoolingIndex]]
   }
   
@@ -118,7 +118,7 @@ public final class MaxPool: BaseLayer {
     outputSize = TensorSize(array: [inputSize.columns / 2, inputSize.rows / 2, inputSize.depth])
   }
   
-  private func setGradients(indicies: [[PoolingIndex]], id: UUID) {
+  private func setGradients(indicies: [[PoolingIndex]], id: Tensor.ID) {
     self.poolingGradients.append(PoolingGradient(tensorId: id, indicies: indicies))
   }
   
