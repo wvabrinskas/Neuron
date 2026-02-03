@@ -946,7 +946,8 @@ extension Tensor {
         
         while c < cols {
           let x = Scalar(value[d][r][c])
-          rowResult.append(Scalar(x / (1 + abs(x))))
+          let result = (Scalar.exp(x) - Scalar.exp(-x)) / ((Scalar.exp(x) + Scalar.exp(-x)))
+          rowResult.append(result)
           c += 1
         }
         
