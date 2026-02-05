@@ -10,8 +10,8 @@ import NumSwift
 
 public class SGD: BaseOptimizer {
   private let momentum: Tensor.Scalar
-  private var v: [Tensor.Data] = []
-  private var vb: [Tensor.Data] = []
+  private var v: [ContiguousArray<Tensor.Scalar>] = []
+  private var vb: [ContiguousArray<Tensor.Scalar>] = []
 
   public init(_ trainable: Trainable,
               device: Device = CPU(),
@@ -23,8 +23,8 @@ public class SGD: BaseOptimizer {
     self.momentum = momentum
     
     trainable.compile()
-    v = [[[[Tensor.Scalar]]]].init(repeating: [], count: trainable.layers.count)
-    vb = [Tensor.Data].init(repeating: [], count: trainable.layers.count)
+    v = [ContiguousArray<Tensor.Scalar>].init(repeating: ContiguousArray(), count: trainable.layers.count)
+    vb = [ContiguousArray<Tensor.Scalar>].init(repeating: ContiguousArray(), count: trainable.layers.count)
     
     super.init(trainable: trainable,
                learningRate: learningRate,
@@ -58,43 +58,27 @@ public class SGD: BaseOptimizer {
   }
   
   private func run(gradient: Tensor, biasGradient: Tensor, index: Int) -> Optimizer.Gradient {
-    let shape = gradient.shape
-    let rows = shape[safe: 1] ?? 0
-    let columns = shape[safe: 0] ?? 0
-    let depth = shape[safe: 2] ?? 0
     let i = index
-    
-    let biasShape = biasGradient.shape
-    let biasRows = biasShape[safe: 1] ?? 0
-    let biasColumns = biasShape[safe: 0] ?? 0
-    let biasDepth = biasShape[safe: 2] ?? 0
 
     if v[i].isEmpty {
-      v[i] = NumSwift.zerosLike((rows, columns, depth))
+      v[i] = ContiguousArray<Tensor.Scalar>(repeating: 0, count: gradient.storage.count)
     }
     
-    let gradientValue = gradient.value
-    apply(to: &v[i], gradient: gradientValue)
+    apply(to: &v[i], gradient: gradient.storage)
 
     if vb[i].isEmpty {
-      vb[i] = NumSwift.zerosLike((biasRows, biasColumns, biasDepth))
+      vb[i] = ContiguousArray<Tensor.Scalar>(repeating: 0, count: biasGradient.storage.count)
     }
           
-    let biasValue = biasGradient.value
-    apply(to: &vb[i], gradient: biasValue)
+    apply(to: &vb[i], gradient: biasGradient.storage)
 
-    return (Tensor(v[i]), Tensor(vb[i]))
+    return (Tensor(storage: ContiguousArray(v[i]), size: gradient._size),
+            Tensor(storage: ContiguousArray(vb[i]), size: biasGradient._size))
   }
 
-  private func apply(to: inout Tensor.Data, gradient: Tensor.Data) {
-    for d in 0..<gradient.count {
-      let depth = gradient[d]
-      for r in 0..<depth.count {
-        let row = depth[r]
-        for c in 0..<row.count {
-          to[d][r][c] = momentum * to[d][r][c] + learningRate * gradient[d][r][c]
-        }
-      }
+  private func apply(to: inout ContiguousArray<Tensor.Scalar>, gradient: ContiguousArray<Tensor.Scalar>) {
+    for i in 0..<gradient.count {
+      to[i] = momentum * to[i] + learningRate * gradient[i]
     }
   }
   

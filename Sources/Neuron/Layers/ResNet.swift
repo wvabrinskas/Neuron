@@ -275,7 +275,7 @@ public final class ResNet: BaseLayer {
       return (wrtInputs, Tensor(), Tensor())
     }
     
-    let out = Tensor(reLuOut.value, context: tensorContext)
+    let out = Tensor(storage: ContiguousArray(reLuOut.storage), size: reLuOut._size, context: tensorContext)
     
     out.setGraph(input)
     

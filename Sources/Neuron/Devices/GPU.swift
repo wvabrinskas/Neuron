@@ -74,12 +74,10 @@ public class GPU: Device {
   public func activate(_ input: Tensor, _ type: Activation) -> Tensor {
     
     func defaultBlock() -> Tensor {
-      let shape = input.shape
-        
-      let flat = input.value.flatten()
+      let flat = Array(input.storage)
       let activated = self.manager.activate(flat, type)
 
-      let reshaped = activated.reshape(columns: shape[safe: 0, 0]).batched(into: shape[safe: 2, 0])
+      let reshaped = activated.reshape(columns: input._size.columns).batched(into: input._size.depth)
 
       return Tensor(reshaped)
     }
@@ -115,12 +113,10 @@ public class GPU: Device {
   }
   
   public func derivate(_ input: Tensor, _ type: Activation) -> Tensor {
-    let shape = input.shape
-      
-    let flat = input.value.flatten()
+    let flat = Array(input.storage)
     let activated = self.manager.activate(flat, type, derivate: true)
 
-    let reshaped = activated.reshape(columns: shape[safe: 0, 0]).batched(into: shape[safe: 2, 0])
+    let reshaped = activated.reshape(columns: input._size.columns).batched(into: input._size.depth)
 
     return Tensor(reshaped)
   }

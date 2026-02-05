@@ -16,7 +16,11 @@ open class WGANGP: GAN {
 
   private struct GradientPenalty {
     static func calculate(gradient: Tensor) -> Tensor {
-      let norm = sqrt(gradient.value.sumOfSquares + .stabilityFactor) - 1
+      var sumOfSquares: Tensor.Scalar = 0
+      for i in 0..<gradient.storage.count {
+        sumOfSquares += gradient.storage[i] * gradient.storage[i]
+      }
+      let norm = sqrt(sumOfSquares + .stabilityFactor) - 1
       return Tensor(Tensor.Scalar.pow(norm, 2))
     }
     
@@ -70,7 +74,7 @@ open class WGANGP: GAN {
       let criticCost = fakeOutput - realOutput
       let criticLoss = criticCost + self.lambda * penalty
           
-      let part1 = Tensor.Scalar(2 / fakeOutput.value.count) * self.lambda
+      let part1 = Tensor.Scalar(2 / fakeOutput._size.depth) * self.lambda
       let part2 = normGradients - 1
       let part3 = interOut.outputs[safe: 0, Tensor()] / normGradients
       let dGradInter = part1 * part2 * part3
@@ -117,11 +121,8 @@ open class WGANGP: GAN {
     
     for i in 0..<real.count {
       let epsilon = Tensor.Scalar.random(in: 0...1)
-      let realImage = real[i].value
-      let fakeImage = fake[i].value
-
-      let inter = (realImage * epsilon) + (( 1 - epsilon) * fakeImage)
-      interpolated.append(Tensor(inter))
+      let inter = real[i] * epsilon + (Tensor.Scalar(1) - epsilon) * fake[i]
+      interpolated.append(inter)
       labels.append(Tensor(1.0))
     }
     

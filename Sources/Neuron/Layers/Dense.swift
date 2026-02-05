@@ -121,7 +121,7 @@ public final class Dense: BaseLayer {
       dotProducts = dotProducts.copy() + biases
     }
     
-    let out = Tensor(dotProducts.value, context: tensorContext)
+    let out = Tensor(storage: ContiguousArray(dotProducts.storage), size: dotProducts._size, context: tensorContext)
     out.label = "Dense"
     
     out.setGraph(tensor)
@@ -130,10 +130,10 @@ public final class Dense: BaseLayer {
   }
   
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
-    weights = Tensor(weights.value - gradients.weights.value)
+    weights = weights - gradients.weights
 
     if biasEnabled {
-      biases = Tensor(biases.value - gradients.biases.value)
+      biases = biases - gradients.biases
     }
   }
 }

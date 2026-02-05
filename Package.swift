@@ -15,7 +15,7 @@ let package = Package(
             targets: ["Neuron"])
     ],
     dependencies: [
-      .package(url: "https://github.com/wvabrinskas/NumSwift.git", from: "2.0.18"),
+      .package(path: "../NumSwift"),
       .package(url: "https://github.com/wvabrinskas/Logger.git", from: "1.0.6"),
       .package(url: "https://github.com/apple/swift-numerics", from: "1.0.0"),
       .package(url: "https://github.com/apple/swift-atomics.git", from: "1.2.0"),

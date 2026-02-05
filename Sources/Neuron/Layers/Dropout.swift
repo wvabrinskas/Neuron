@@ -72,7 +72,7 @@ public final class Dropout: BaseLayer {
       droppedOut = tensor * (1 - chance)
     }
 
-    let out = Tensor(droppedOut.value, context: context)
+    let out = Tensor(storage: ContiguousArray(droppedOut.storage), size: droppedOut._size, context: context)
     
     out.setGraph(tensor)
     
@@ -89,25 +89,16 @@ public final class Dropout: BaseLayer {
   }
   
   private func generateMask() -> Tensor {
-    var maskTensor: [[[Tensor.Scalar]]] = []
-
-    for _ in 0..<inputSize.depth {
-      var row: [[Tensor.Scalar]] = []
-      for _ in 0..<inputSize.rows {
-        var col: [Tensor.Scalar] = []
-
-        for _ in 0..<inputSize.columns {
-          let random = Tensor.Scalar.random(in: 0...1)
-          let item: Tensor.Scalar = random <= chance ? 0 : (1 / (1 - chance))
-          col.append(item)
-        
-        }
-        row.append(col)
-      }
-      maskTensor.append(row)
+    let total = inputSize.columns * inputSize.rows * inputSize.depth
+    var maskStorage = ContiguousArray<Tensor.Scalar>(repeating: 0, count: total)
+    let scale: Tensor.Scalar = 1 / (1 - chance)
+    
+    for i in 0..<total {
+      let random = Tensor.Scalar.random(in: 0...1)
+      maskStorage[i] = random <= chance ? 0 : scale
     }
     
-    return Tensor(maskTensor)
+    return Tensor(storage: maskStorage, size: inputSize)
   }
   
 }

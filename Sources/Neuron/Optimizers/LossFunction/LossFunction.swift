@@ -22,22 +22,37 @@ public enum LossFunction {
       fatalError("predicted shape does not match correct shape")
     }
     
-    let depth = predicted.value.count
-    var result: [[[Tensor.Scalar]]] = []
-    for d in 0..<depth{
-      var depthResult: [[Tensor.Scalar]] = []
-      var rowResult: [Tensor.Scalar] = []
-      for r in 0..<predicted.value[d].count {
-        let p = predicted.value[d][r]
-        let c = correct.value[d][r]
-        let loss = calculate(p, correct: c) / Tensor.Scalar(depth)
-        rowResult.append(loss)
+    let size = predicted._size
+    let depth = size.depth
+    let rows = size.rows
+    let cols = size.columns
+    
+    // Build result using flat storage
+    var resultStorage = ContiguousArray<Tensor.Scalar>(repeating: 0, count: depth * 1 * rows)
+    let depthScalar = Tensor.Scalar(depth)
+    
+    for d in 0..<depth {
+      let depthOffset = d * rows * cols
+      for r in 0..<rows {
+        let rowOffset = depthOffset + r * cols
+        
+        // Extract row slices for predicted and correct
+        var p = [Tensor.Scalar](repeating: 0, count: cols)
+        var c = [Tensor.Scalar](repeating: 0, count: cols)
+        for col in 0..<cols {
+          p[col] = predicted.storage[rowOffset + col]
+          c[col] = correct.storage[rowOffset + col]
+        }
+        
+        let loss = calculate(p, correct: c) / depthScalar
+        // Result shape: [depth][1][rows] → flat index: d * 1 * rows + 0 * rows + r
+        resultStorage[d * rows + r] = loss
       }
-      depthResult.append(rowResult)
-      result.append(depthResult)
     }
     
-    return Tensor(result)
+    // Output shape: each depth has 1 row with `rows` columns (matching how rows map to loss values)
+    let resultSize = TensorSize(rows: 1, columns: rows, depth: depth)
+    return Tensor(storage: resultStorage, size: resultSize)
     
   }
 

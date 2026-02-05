@@ -51,16 +51,14 @@ public enum Activation: Codable, Equatable {
   /// - Parameter input: Input Tensor value to run through the activation function
   /// - Returns: The result of the calculation
   public func activate(input: Tensor) -> Tensor {
-    let result = input.value.map { $0.map { $0.map { activate(input: $0) }}}
-    return Tensor(result)
+    return input.map { activate(input: $0) }
   }
   
   /// Runs the derivative of the activation function based on the case of self.
   /// - Parameter input: Input Tensor into the calculation
   /// - Returns: The result of the calculation
   public func derivate(_ input: Tensor) -> Tensor {
-    let result = input.value.map { $0.map { $0.map { derivative(input: $0) }}}
-    return Tensor(result)
+    return input.map { derivative(input: $0) }
   }
   
   /// Runs the activation function calculation based on the case of self.
