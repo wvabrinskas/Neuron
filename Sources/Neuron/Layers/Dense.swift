@@ -111,11 +111,9 @@ public final class Dense: BaseLayer {
     }
     
     //THIS WAS A MAJOR BUG POINT. DO NOT SWITCH ROWS AND COLUMNS HERE BY ACCIDENT - Billy 05-20-2022
-    let weightsTransposed: [[Tensor.Scalar]] = NumSwiftC.tranpose(weights.value[safe: 0] ?? [],
-                                                                  size: (rows: outputSize.columns,
-                                                                         columns: inputSize.columns))
+    let weightsTransposed = weights.transposed()
     
-    var dotProducts = device.matmul(tensor, Tensor(weightsTransposed))
+    var dotProducts = device.matmul(tensor, weightsTransposed)
     
     if biasEnabled {
       dotProducts = dotProducts.copy() + biases

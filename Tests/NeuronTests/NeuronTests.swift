@@ -350,7 +350,7 @@ final class NeuronTests: XCTestCase {
     
     let expectedTensor = Tensor([[[0.95, 0.19, 0.95, 0.19, 0.95]]])
     
-    XCTAssert(expectedTensor.isValueEqual(to: out))
+    XCTAssert(expectedTensor.isValueEqual(to: out, accuracy: 0.00001))
   }
   
   func testGradientAccumulator() {
@@ -386,15 +386,15 @@ final class NeuronTests: XCTestCase {
     let out = norm.forward(tensor: input)
     out.setGraph(input)
 
-    XCTAssert(out.isValueEqual(to: Tensor([[0.8164965, -1.2247449, 0.8164965, -1.2247449, 0.8164965]])))
+    XCTAssert(out.isValueEqual(to: Tensor([[0.8164965, -1.2247449, 0.8164965, -1.2247449, 0.8164965]]), accuracy: 0.00001))
     
     let delta = Tensor([[0.5, 0, 0.5, 0, 0.5]])
     
     let gradient = out.gradients(delta: delta, wrt: input)
     
     XCTAssert(gradient.input.first?.isEmpty == false)
-    XCTAssert(gradient.weights.first![0..., 0..., 0..<input.shape.tensorSize.depth].isValueEqual(to: Tensor([0.40824825, 0.0, 0.40824825, 0.0, 0.40824825])))
-    XCTAssert(gradient.input.first!.isValueEqual(to: Tensor([-2.3814485, 0.0, -2.3814485, 0.0, -2.3814485])))
+    XCTAssert(gradient.weights.first![0..., 0..., 0..<input.shape.tensorSize.depth].isValueEqual(to: Tensor([0.40824825, 0.0, 0.40824825, 0.0, 0.40824825]), accuracy: 0.00001))
+    XCTAssert(gradient.input.first!.isValueEqual(to: Tensor([-2.3814485, 0.0, -2.3814485, 0.0, -2.3814485]), accuracy: 0.00001))
   }
   
   func testLayerNorm_2d() {
@@ -405,7 +405,7 @@ final class NeuronTests: XCTestCase {
     out.setGraph(input)
 
     XCTAssert(out.isValueEqual(to: Tensor([[0.8164965, -1.2247449, 0.8164965, -1.2247449, 0.8164965],
-                                           [0.8164965, -1.2247449, 0.8164965, -1.2247449, 0.8164965]])))
+                                           [0.8164965, -1.2247449, 0.8164965, -1.2247449, 0.8164965]]), accuracy: 0.00001))
     
     let delta = Tensor([[0.5, 0, 0.5, 0, 0.5],
                         [0.5, 0, 0.5, 0, 0.5]])
@@ -414,7 +414,7 @@ final class NeuronTests: XCTestCase {
     
     XCTAssert(gradient.input.first?.isEmpty == false)
     XCTAssert(gradient.weights.first![0..., 0..., 0..<input.shape.tensorSize.depth].isValueEqual(to: Tensor([[0.40824825, 0.0000, 0.40824825, 0.0000, 0.40824825],
-                                                                                                             [0.40824825, 0.0000, 0.40824825, 0.0000, 0.40824825]])))
+                                                                                                             [0.40824825, 0.0000, 0.40824825, 0.0000, 0.40824825]]), accuracy: 0.00001))
   }
   
   

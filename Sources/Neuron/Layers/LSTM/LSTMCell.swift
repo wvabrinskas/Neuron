@@ -208,10 +208,10 @@ class LSTMCell {
     let ogw = parameters.outputGateWeights
     let ggw = parameters.gateGateWeights
     
-    var embedActivationError = ef.matmul(Tensor(fgw.value.transpose2d()))
-    embedActivationError = embedActivationError + (ei.matmul(Tensor(igw.value.transpose2d())))
-    embedActivationError = embedActivationError + (eo.matmul(Tensor(ogw.value.transpose2d())))
-    embedActivationError = embedActivationError + (eg.matmul(Tensor(ggw.value.transpose2d())))
+    var embedActivationError = ef.matmul(fgw.transposed())
+    embedActivationError = embedActivationError + (ei.matmul(igw.transposed()))
+    embedActivationError = embedActivationError + (eo.matmul(ogw.transposed()))
+    embedActivationError = embedActivationError + (eg.matmul(ggw.transposed()))
     
     let fgwShape = fgw.shape
     let inputHiddenUnits = fgwShape[safe: 1] ?? 0
@@ -263,9 +263,7 @@ class LSTMCell {
                                    activation: Tensor,
                                    batchSize: Int) -> ParameterDerivatives {
     
-    let transposed = embedding.concat(activation).value.transpose2d()
-    
-    let concat = Tensor(transposed)
+    let concat = embedding.concat(activation).transposed()
     
     let ef = lstmError.ef
     let ei = lstmError.ei

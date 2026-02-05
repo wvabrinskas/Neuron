@@ -367,11 +367,7 @@ public extension Tensor {
   }
   
   func sum() -> Scalar {
-    var total: Scalar = 0
-    for i in 0..<storage.count {
-      total += storage[i]
-    }
-    return total
+    return NumSwiftFlat.sum(storage)
   }
   
   func testLarge(limit: Scalar) {
@@ -402,12 +398,42 @@ public extension Tensor {
   }
   
   func matmul(_ with: Tensor) -> Tensor {
-    // Uses existing NumSwift nested-array matmul for compatibility.
-    // NumSwiftFlat.matmul is available for flat-storage matmul when layers
-    // are migrated in Phase 3.
-    let A = value
-    let B = with.value
-    return Tensor(A.matmul(B))
+    let aSize = self._size
+    let bSize = with._size
+    
+    precondition(aSize.columns == bSize.rows, "A columns (\(aSize.columns)) must equal B rows (\(bSize.rows))")
+    precondition(aSize.depth == bSize.depth, "A depth (\(aSize.depth)) must equal B depth (\(bSize.depth))")
+    
+    let depth = aSize.depth
+    let aRows = aSize.rows
+    let aCols = aSize.columns
+    let bCols = bSize.columns
+    let bRows = bSize.rows
+    let aSliceSize = aRows * aCols
+    let bSliceSize = bRows * bCols
+    let cSliceSize = aRows * bCols
+    
+    var result = ContiguousArray<Scalar>(repeating: 0, count: cSliceSize * depth)
+    
+    for d in 0..<depth {
+      let aStart = d * aSliceSize
+      let bStart = d * bSliceSize
+      let cStart = d * cSliceSize
+      
+      let aSlice = ContiguousArray(storage[aStart..<(aStart + aSliceSize)])
+      let bSlice = ContiguousArray(with.storage[bStart..<(bStart + bSliceSize)])
+      
+      let cSlice = NumSwiftFlat.matmul(aSlice, bSlice,
+                                        aRows: aRows, aCols: aCols,
+                                        bRows: bRows, bCols: bCols)
+      
+      for i in 0..<cSliceSize {
+        result[cStart + i] = cSlice[i]
+      }
+    }
+    
+    let outSize = TensorSize(rows: aRows, columns: bCols, depth: depth)
+    return Tensor(storage: result, size: outSize)
   }
   
   func sumOfSquares(axis: Int = -1) -> Tensor {
@@ -416,11 +442,7 @@ public extension Tensor {
     }
     
     if axis == -1 {
-      var total: Scalar = 0
-      for i in 0..<storage.count {
-        total += storage[i] * storage[i]
-      }
-      return Tensor(total)
+      return Tensor(NumSwiftFlat.sumOfSquares(storage))
     }
     
     return apply(axis: axis, block)
@@ -516,10 +538,8 @@ public extension Tensor {
   }
   
   func sqrt(adding: Tensor.Scalar = .stabilityFactor) -> Tensor {
-    var result = ContiguousArray<Scalar>(repeating: 0, count: storage.count)
-    for i in 0..<storage.count {
-      result[i] = Tensor.Scalar.sqrt(storage[i] + adding)
-    }
+    let shifted = NumSwiftFlat.add(storage, scalar: adding)
+    let result = NumSwiftFlat.sqrt(shifted)
     return Tensor(storage: result, size: _size, context: context)
   }
   
@@ -534,14 +554,10 @@ public extension Tensor {
     }
     
     if axis == -1 {
-      let meanVal = self.mean(axis: -1).asScalar()
-      let count = storage.count
-      var sumOfSquares: Scalar = 0
-      for i in 0..<count {
-        let diff = storage[i] - meanVal
-        sumOfSquares += diff * diff
-      }
-      return Tensor(sumOfSquares / Scalar(count))
+      let meanVal = NumSwiftFlat.mean(storage)
+      let centered = NumSwiftFlat.subtract(storage, scalar: meanVal)
+      let sumSq = NumSwiftFlat.sumOfSquares(centered)
+      return Tensor(sumSq / Scalar(storage.count))
     }
     
     return apply(axis: axis, block)
@@ -553,13 +569,8 @@ public extension Tensor {
     }
     
     if axis == -1 {
-      let count = storage.count
-      guard count > 0 else { return Tensor(Scalar(0)) }
-      var total: Scalar = 0
-      for i in 0..<count {
-        total += storage[i]
-      }
-      return Tensor(total / Scalar(count))
+      guard !storage.isEmpty else { return Tensor(Scalar(0)) }
+      return Tensor(NumSwiftFlat.mean(storage))
     }
     
     return apply(axis: axis, block)
@@ -567,11 +578,7 @@ public extension Tensor {
   
   func sum(axis: Int = -1) -> Tensor {
     if axis == -1 {
-      var total: Scalar = 0
-      for i in 0..<storage.count {
-        total += storage[i]
-      }
-      return Tensor(total)
+      return Tensor(NumSwiftFlat.sum(storage))
     } else {
       return apply(axis: axis) { feature in
         feature.sum
@@ -618,11 +625,7 @@ public extension Tensor {
     }
     
     if axis == -1 {
-      var sumSq: Scalar = 0
-      for i in 0..<storage.count {
-        sumSq += storage[i] * storage[i]
-      }
-      return Tensor(Tensor.Scalar.sqrt(sumSq))
+      return Tensor(Tensor.Scalar.sqrt(NumSwiftFlat.sumOfSquares(storage)))
     }
     
     return apply(axis: axis, block)
@@ -755,15 +758,9 @@ public extension Tensor {
   }
   
   func l2Normalized() -> Tensor {
-    var sumSq: Scalar = 0
-    for i in 0..<storage.count {
-      sumSq += storage[i] * storage[i]
-    }
+    let sumSq = NumSwiftFlat.sumOfSquares(storage)
     let divisor = Scalar.sqrt(sumSq)
-    var result = ContiguousArray<Scalar>(repeating: 0, count: storage.count)
-    for i in 0..<storage.count {
-      result[i] = storage[i] / divisor
-    }
+    let result = NumSwiftFlat.divide(storage, scalar: divisor)
     return Tensor(storage: result, size: _size, context: context)
   }
   
@@ -776,59 +773,31 @@ public extension Tensor {
   }
   
   static func /(lhs: Scalar, rhs: Tensor) -> Tensor {
-    var result = ContiguousArray<Scalar>(repeating: 0, count: rhs.storage.count)
-    for i in 0..<rhs.storage.count {
-      result[i] = lhs / rhs.storage[i]
-    }
-    return Tensor(storage: result, size: rhs._size, context: rhs.context)
+    return Tensor(storage: NumSwiftFlat.divide(scalar: lhs, rhs.storage), size: rhs._size, context: rhs.context)
   }
   
   static func *(lhs: Scalar, rhs: Tensor) -> Tensor {
-    var result = ContiguousArray<Scalar>(repeating: 0, count: rhs.storage.count)
-    for i in 0..<rhs.storage.count {
-      result[i] = lhs * rhs.storage[i]
-    }
-    return Tensor(storage: result, size: rhs._size, context: rhs.context)
+    return Tensor(storage: NumSwiftFlat.multiply(rhs.storage, scalar: lhs), size: rhs._size, context: rhs.context)
   }
   
   static func -(lhs: Scalar, rhs: Tensor) -> Tensor {
-    var result = ContiguousArray<Scalar>(repeating: 0, count: rhs.storage.count)
-    for i in 0..<rhs.storage.count {
-      result[i] = lhs - rhs.storage[i]
-    }
-    return Tensor(storage: result, size: rhs._size, context: rhs.context)
+    return Tensor(storage: NumSwiftFlat.subtract(scalar: lhs, rhs.storage), size: rhs._size, context: rhs.context)
   }
   
   static func /(lhs: Tensor, rhs: Scalar) -> Tensor {
-    var result = ContiguousArray<Scalar>(repeating: 0, count: lhs.storage.count)
-    for i in 0..<lhs.storage.count {
-      result[i] = lhs.storage[i] / rhs
-    }
-    return Tensor(storage: result, size: lhs._size, context: lhs.context)
+    return Tensor(storage: NumSwiftFlat.divide(lhs.storage, scalar: rhs), size: lhs._size, context: lhs.context)
   }
   
   static func *(lhs: Tensor, rhs: Scalar) -> Tensor {
-    var result = ContiguousArray<Scalar>(repeating: 0, count: lhs.storage.count)
-    for i in 0..<lhs.storage.count {
-      result[i] = lhs.storage[i] * rhs
-    }
-    return Tensor(storage: result, size: lhs._size, context: lhs.context)
+    return Tensor(storage: NumSwiftFlat.multiply(lhs.storage, scalar: rhs), size: lhs._size, context: lhs.context)
   }
   
   static func -(lhs: Tensor, rhs: Scalar) -> Tensor {
-    var result = ContiguousArray<Scalar>(repeating: 0, count: lhs.storage.count)
-    for i in 0..<lhs.storage.count {
-      result[i] = lhs.storage[i] - rhs
-    }
-    return Tensor(storage: result, size: lhs._size, context: lhs.context)
+    return Tensor(storage: NumSwiftFlat.subtract(lhs.storage, scalar: rhs), size: lhs._size, context: lhs.context)
   }
   
   static func +(lhs: Tensor, rhs: Scalar) -> Tensor {
-    var result = ContiguousArray<Scalar>(repeating: 0, count: lhs.storage.count)
-    for i in 0..<lhs.storage.count {
-      result[i] = lhs.storage[i] + rhs
-    }
-    return Tensor(storage: result, size: lhs._size, context: lhs.context)
+    return Tensor(storage: NumSwiftFlat.add(lhs.storage, scalar: rhs), size: lhs._size, context: lhs.context)
   }
   
   /// Performs element-wise addition between two tensors with automatic broadcasting support.
@@ -838,11 +807,8 @@ public extension Tensor {
       return lhs.addAlong(axis: axis, value: rhs)
     }
     
-    // Direct flat storage element-wise add (auto-vectorized by compiler)
-    var result = ContiguousArray<Scalar>(repeating: 0, count: lhs.storage.count)
-    for i in 0..<lhs.storage.count {
-      result[i] = lhs.storage[i] + rhs.storage[i]
-    }
+    // Accelerate-backed flat element-wise add
+    let result = NumSwiftFlat.add(lhs.storage, rhs.storage)
     
     let context = TensorContext { inputs, gradient, wrt in
       let copy = gradient.copy()
@@ -866,11 +832,8 @@ public extension Tensor {
       return lhs.subtractAlong(axis: axis, value: rhs)
     }
     
-    // Direct flat storage element-wise subtract (auto-vectorized by compiler)
-    var result = ContiguousArray<Scalar>(repeating: 0, count: lhs.storage.count)
-    for i in 0..<lhs.storage.count {
-      result[i] = lhs.storage[i] - rhs.storage[i]
-    }
+    // Accelerate-backed flat element-wise subtract
+    let result = NumSwiftFlat.subtract(lhs.storage, rhs.storage)
     
     let context = TensorContext { inputs, gradient, wrt in
       if let wrt, (rhs.graphChain.contains(wrt.id) || rhs.id == wrt.id) {
@@ -896,11 +859,8 @@ public extension Tensor {
       return lhs.multiplyAlong(axis: axis, value: rhs)
     }
     
-    // Direct flat storage element-wise multiply (auto-vectorized by compiler)
-    var result = ContiguousArray<Scalar>(repeating: 0, count: lhs.storage.count)
-    for i in 0..<lhs.storage.count {
-      result[i] = lhs.storage[i] * rhs.storage[i]
-    }
+    // Accelerate-backed flat element-wise multiply
+    let result = NumSwiftFlat.multiply(lhs.storage, rhs.storage)
     
     let copied = rhs.copy()
     let context = TensorContext { inputs, gradient, wrt in
@@ -923,11 +883,8 @@ public extension Tensor {
       return lhs.divideAlong(axis: axis, value: rhs)
     }
     
-    // Direct flat storage element-wise divide (auto-vectorized by compiler)
-    var result = ContiguousArray<Scalar>(repeating: 0, count: lhs.storage.count)
-    for i in 0..<lhs.storage.count {
-      result[i] = lhs.storage[i] / rhs.storage[i]
-    }
+    // Accelerate-backed flat element-wise divide
+    let result = NumSwiftFlat.divide(lhs.storage, rhs.storage)
     
     let copied = rhs.copy()
     let context = TensorContext { inputs, gradient, wrt  in
@@ -965,18 +922,24 @@ public extension Tensor {
     let rows = _size.rows
     let depth = _size.depth
     
-    // Transpose swaps columns and rows
+    // Transpose swaps columns and rows per depth slice
     let newSize = TensorSize(rows: columns, columns: rows, depth: depth)
-    var result = ContiguousArray<Scalar>(repeating: 0, count: storage.count)
+    let sliceSize = rows * columns
     
+    if depth == 1 {
+      // Single depth: one Accelerate call
+      let result = NumSwiftFlat.transpose(storage, rows: rows, columns: columns)
+      return Tensor(storage: result, size: newSize, context: context)
+    }
+    
+    // Multiple depth slices: transpose each separately
+    var result = ContiguousArray<Scalar>(repeating: 0, count: storage.count)
     for d in 0..<depth {
-      for r in 0..<rows {
-        for c in 0..<columns {
-          // src[d][r][c] -> dst[d][c][r]
-          let srcIdx = d * rows * columns + r * columns + c
-          let dstIdx = d * columns * rows + c * rows + r
-          result[dstIdx] = storage[srcIdx]
-        }
+      let start = d * sliceSize
+      let slice = ContiguousArray(storage[start..<(start + sliceSize)])
+      let transposed = NumSwiftFlat.transpose(slice, rows: rows, columns: columns)
+      for i in 0..<sliceSize {
+        result[start + i] = transposed[i]
       }
     }
     
