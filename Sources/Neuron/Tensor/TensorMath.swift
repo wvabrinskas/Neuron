@@ -636,10 +636,10 @@ public extension Tensor {
   func concat(_ tensor: Tensor, axis: Int = 1) -> Tensor {
     // Handle empty tensors
     if isEmpty {
-      return Tensor(tensor.storage, size: tensor.size, context: context)
+      return Tensor(Tensor.Value(tensor.storage), size: tensor.size, context: context)
     }
     if tensor.isEmpty {
-      return Tensor(storage, size: size, context: context)
+      return Tensor(Tensor.Value(storage), size: size, context: context)
     }
     
     let selfCols = size.columns
@@ -651,9 +651,10 @@ public extension Tensor {
     
     if axis == -1 {
       // Flatten concat
+      var result = storage
+      result.append(contentsOf: tensor.storage)
       let totalCols = storage.count + tensor.storage.count
-      storage.append(contentsOf: tensor.storage)
-      return Tensor(storage, size: TensorSize(rows: 1, columns: totalCols, depth: 1), context: context)
+      return Tensor(result, size: TensorSize(rows: 1, columns: totalCols, depth: 1), context: context)
     }
     
     if axis == 2 {
@@ -662,11 +663,10 @@ public extension Tensor {
       
       if selfRows == otherRows && selfCols == otherCols {
         // Fast path: same spatial dimensions, just append depth slices
-        
         let newSize = TensorSize(rows: selfRows, columns: selfCols, depth: newDepth)
-        storage.append(contentsOf: tensor.storage)
-        
-        return Tensor(storage, size: newSize, context: context)
+        var result = storage
+        result.append(contentsOf: tensor.storage)
+        return Tensor(result, size: newSize, context: context)
       } else {
         // Ragged concat: different spatial dims per depth slice, normalize via max dims
         let maxRows = max(selfRows, otherRows)
@@ -753,7 +753,7 @@ public extension Tensor {
       return Tensor(result, size: newSize, context: context)
     }
     
-    return Tensor(storage, size: size, context: context)
+    return Tensor(Tensor.Value(storage), size: size, context: context)
   }
   
   func l2Normalized() -> Tensor {
