@@ -128,10 +128,10 @@ public final class Dense: BaseLayer {
   }
   
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
-    weights = weights - gradients.weights
+    weights = weights.copy() - gradients.weights
 
     if biasEnabled {
-      biases = biases - gradients.biases
+      biases = biases.copy() - gradients.biases
     }
   }
 }

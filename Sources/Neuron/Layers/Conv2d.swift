@@ -299,11 +299,11 @@ public class Conv2d: BaseConvolutionalLayer {
       )
       let gradTensor = Tensor(gradStorage,
                                size: TensorSize(rows: filterSize.rows, columns: filterSize.columns, depth: slicesPerFilter))
-      filters[i] = filters[i] - gradTensor
+      filters[i] = filters[i].copy() - gradTensor
     }
 
     if biasEnabled {
-      biases = biases - gradients.biases
+      biases = biases.copy() - gradients.biases
     }
   }
   

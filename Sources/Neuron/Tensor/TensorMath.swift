@@ -244,6 +244,7 @@ public extension Tensor {
     
     new.label = "division"
     
+    // TODO: Somewhere something is calling this on divide or mult or add or sub and causing a memory leak...
     new.setGraphSafe(self)
     new.setGraphSafe(value)
     

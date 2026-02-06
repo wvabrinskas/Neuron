@@ -54,8 +54,7 @@ public final class MaxPool: BaseLayer {
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     func backwards(input: Tensor, gradient: Tensor, wrt: Tensor?) -> (Tensor, Tensor, Tensor) {
-      var outStorage = Tensor.Value(repeating: 0,
-                                                       count: self.inputSize.rows * self.inputSize.columns * self.inputSize.depth)
+      var outStorage = Tensor.Value(repeating: 0, count: self.inputSize.rows * self.inputSize.columns * self.inputSize.depth)
       
       // operation is performed first then returned
       queue.addSynchronousOperation { [weak self] in
@@ -84,10 +83,11 @@ public final class MaxPool: BaseLayer {
         }
       }
       
-      if outStorage.allSatisfy({ $0 == 0 }) && !gradient.isEmpty {
+      if poolingGradients.isEmpty {
         return (gradient, Tensor(), Tensor())
       }
       
+     // print(outStorage.count, inputSize.columns * inputSize.rows * inputSize.depth)
       return (Tensor(outStorage, size: self.inputSize), Tensor(), Tensor())
     }
     
