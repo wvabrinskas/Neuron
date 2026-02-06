@@ -39,7 +39,8 @@ Before development, install Xcode templates:
 ### Core Components
 
 #### Tensor (Sources/Neuron/Tensor/)
-- **Tensor**: The fundamental 3D array structure (`[[[Scalar]]]`) for all computations
+- **Tensor**: The fundamental tensor type backed by flat `ContiguousArray<Scalar>` storage with `TensorSize` metadata
+- **Tensor.value**: Legacy nested `[[[Scalar]]]` view (reconstructed on access); prefer `storage` + `size` in hot paths
 - **TensorContext**: Holds backpropagation function for gradient computation
 - **TensorSize**: Defines tensor dimensions as `(columns, rows, depth)`
 - Supports automatic gradient calculation via `.gradients(delta:wrt:)` method
@@ -295,6 +296,11 @@ optimizer.metricsReporter?.receive = { metrics in
 - Thread-safe via `SynchronousOperationQueue` with barrier blocks
 
 ### Memory Management Best Practices
+
+#### Allocation Minimization
+- Prefer operations that avoid intermediate allocations (use flat storage when possible).
+- Reuse buffers in hot paths; avoid per-iteration `Array`/`Tensor.Value` slicing.
+- Pre-allocate when output size is known (especially in recurrent loops).
 
 #### Array Capacity Management
 The codebase uses `keepingCapacity: true` extensively to avoid reallocation:
