@@ -651,11 +651,9 @@ public extension Tensor {
     
     if axis == -1 {
       // Flatten concat
-      var result = Tensor.Value(repeating: 0, count: storage.count + tensor.storage.count)
-      for i in 0..<storage.count { result[i] = storage[i] }
-      for i in 0..<tensor.storage.count { result[storage.count + i] = tensor.storage[i] }
       let totalCols = storage.count + tensor.storage.count
-      return Tensor(result, size: TensorSize(rows: 1, columns: totalCols, depth: 1), context: context)
+      storage.append(contentsOf: tensor.storage)
+      return Tensor(storage, size: TensorSize(rows: 1, columns: totalCols, depth: 1), context: context)
     }
     
     if axis == 2 {
@@ -664,11 +662,11 @@ public extension Tensor {
       
       if selfRows == otherRows && selfCols == otherCols {
         // Fast path: same spatial dimensions, just append depth slices
+        
         let newSize = TensorSize(rows: selfRows, columns: selfCols, depth: newDepth)
-        var result = Tensor.Value(repeating: 0, count: selfCols * selfRows * newDepth)
-        for i in 0..<storage.count { result[i] = storage[i] }
-        for i in 0..<tensor.storage.count { result[storage.count + i] = tensor.storage[i] }
-        return Tensor(result, size: newSize, context: context)
+        storage.append(contentsOf: tensor.storage)
+        
+        return Tensor(storage, size: newSize, context: context)
       } else {
         // Ragged concat: different spatial dims per depth slice, normalize via max dims
         let maxRows = max(selfRows, otherRows)

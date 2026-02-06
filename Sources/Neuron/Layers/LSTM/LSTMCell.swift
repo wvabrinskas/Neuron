@@ -189,7 +189,7 @@ class LSTMCell {
     let ia = lstm.inputGate
     let ga = lstm.gateGate
     var ei = cellError * ia
-    ei = (ei * ia) * (1 - ia)
+    ei = (ei.copy() * ia) * (1 - ia)
 
     // gate gate error
     var eg = cellError * ia
