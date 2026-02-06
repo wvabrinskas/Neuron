@@ -380,14 +380,14 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     
     let context = TensorContext { inputs, gradient, wrt in
-      let out = self.device.derivate(inputs, self.type).value * gradient.value
-      let outTensor = Tensor(out)
+      let derivResult = self.device.derivate(inputs, self.type)
+      let outTensor = derivResult * gradient
       outTensor.label = self.type.asString() + "_input_grad"
       return (outTensor, Tensor(), Tensor())
     }
     
     let result = device.activate(tensor, type)
-    let out = Tensor(result.value, context: context)
+    let out = Tensor(storage: ContiguousArray(result.storage), size: result._size, context: context)
     out.label = type.asString()
 
     out.setGraph(tensor)

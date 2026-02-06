@@ -131,10 +131,13 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
   
   public func unvectorizeOneHot(_ vector: Tensor) -> [T] {
     var items: [T] = []
+    let cols = vector._size.columns
     
-    vector.value.forEach { v in
-      if let indexOfHot = v[0].firstIndex(of: 1) {
-        if let s = inverseVector[Int(indexOfHot + maxIndexAdjustment)] {
+    for d in 0..<vector.depthSliceCount {
+      let slice = vector.depthSlice(d)
+      // Find the index of the "hot" (1.0) value in the first row
+      if let indexOfHot = slice.firstIndex(of: 1) {
+        if let s = inverseVector[Int(indexOfHot) + maxIndexAdjustment] {
           items.append(s)
         }
       }

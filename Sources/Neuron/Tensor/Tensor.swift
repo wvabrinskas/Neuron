@@ -63,6 +63,42 @@ public class Tensor: Equatable, Codable {
   /// The shape metadata (columns, rows, depth)
   public internal(set) var _size: TensorSize
   
+  // MARK: - Depth Slice Access
+  
+  /// Number of depth slices (equivalent to `value.count` without constructing nested array).
+  public var depthSliceCount: Int { _size.depth }
+  
+  /// Extracts one depth slice as a flat row-major `ContiguousArray` directly from storage.
+  /// Each slice has `rows * columns` elements.
+  /// - Parameter d: The depth index (0-based)
+  /// - Returns: A flat contiguous array of the depth slice
+  public func depthSlice(_ d: Int) -> ContiguousArray<Scalar> {
+    let sliceSize = _size.rows * _size.columns
+    let start = d * sliceSize
+    return ContiguousArray(storage[start..<(start + sliceSize)])
+  }
+  
+  /// Writes a flat depth slice back into storage.
+  /// - Parameters:
+  ///   - d: The depth index (0-based)
+  ///   - data: The flat row-major data to write (must have rows * columns elements)
+  public func setDepthSlice(_ d: Int, _ data: ContiguousArray<Scalar>) {
+    let sliceSize = _size.rows * _size.columns
+    let start = d * sliceSize
+    for i in 0..<sliceSize {
+      storage[start + i] = data[i]
+    }
+  }
+  
+  /// Creates a new Tensor from a single depth slice of this tensor.
+  /// The result has depth=1 and the same rows/columns.
+  public func depthSliceTensor(_ d: Int) -> Tensor {
+    let sliceSize = _size.rows * _size.columns
+    let start = d * sliceSize
+    let sliceStorage = ContiguousArray(storage[start..<(start + sliceSize)])
+    return Tensor(storage: sliceStorage, size: TensorSize(rows: _size.rows, columns: _size.columns, depth: 1))
+  }
+  
   /// Backward-compatible access to the tensor data as a 3D nested array `[[[Scalar]]]`.
   /// - Note: The getter reconstructs the nested array from flat storage. For performance-critical
   ///   code, prefer using `storage` and `_size` directly.

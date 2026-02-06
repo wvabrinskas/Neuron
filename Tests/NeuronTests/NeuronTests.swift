@@ -475,8 +475,13 @@ final class NeuronTests: XCTestCase {
     }
     
     XCTAssertEqual(norm.welfordVariance.iterations, batchSize)
-    XCTAssertTrue(Tensor(norm.welfordVariance.m2s).isValueEqual(to: Tensor([[[2.5,2.5,2.5,2.5,2.5]]]), accuracy: 0.00001)) // variance
-    XCTAssertEqual(norm.welfordVariance.means, [[[0.5, 0.5, 0.5, 0.5, 0.5]]]) // mean
+    // m2s and means are now [ContiguousArray<Scalar>] (one flat slice per depth)
+    norm.welfordVariance.m2s.forEach { slice in
+      slice.forEach { scalar in XCTAssertEqual(scalar, 2.5, accuracy: 0.00001) }
+    }
+    norm.welfordVariance.means.forEach { slice in
+      slice.forEach { scalar in XCTAssertEqual(scalar, 0.5, accuracy: 0.00001) }
+    }
   }
   
   func testBatchNorm2d() {
@@ -507,19 +512,15 @@ final class NeuronTests: XCTestCase {
     
     XCTAssertEqual(norm.welfordVariance.iterations, batchSize)
     
-    norm.welfordVariance.m2s.forEach { val in
-      val.forEach { v in
-        v.forEach { scalar in
-          XCTAssertEqual(scalar, 2.5, accuracy: 0.001)
-        }
+    norm.welfordVariance.m2s.forEach { slice in
+      slice.forEach { scalar in
+        XCTAssertEqual(scalar, 2.5, accuracy: 0.001)
       }
     }
     
-    norm.welfordVariance.means.forEach { val in
-      val.forEach { v in
-        v.forEach { scalar in
-          XCTAssertEqual(scalar, 0.5, accuracy: 0.001)
-        }
+    norm.welfordVariance.means.forEach { slice in
+      slice.forEach { scalar in
+        XCTAssertEqual(scalar, 0.5, accuracy: 0.001)
       }
     }
   }
@@ -566,8 +567,12 @@ final class NeuronTests: XCTestCase {
     }
     
     XCTAssertEqual(norm.welfordVariance.iterations, batchSize)
-    XCTAssertEqual(norm.welfordVariance.m2s, [2.5,2.5,2.5,2.5,2.5].as3D()) // variance
-    XCTAssertEqual(norm.welfordVariance.means, [0.5, 0.5, 0.5, 0.5, 0.5].as3D()) // mean
+    norm.welfordVariance.m2s.forEach { slice in
+      slice.forEach { scalar in XCTAssertEqual(scalar, 2.5, accuracy: 0.001) }
+    }
+    norm.welfordVariance.means.forEach { slice in
+      slice.forEach { scalar in XCTAssertEqual(scalar, 0.5, accuracy: 0.001) }
+    }
   }
   
   func testDropout() {

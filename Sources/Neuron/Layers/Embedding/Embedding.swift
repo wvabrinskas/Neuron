@@ -95,43 +95,52 @@ public final class Embedding: BaseLayer {
     var indicies: [Int] = []
     
     let context = TensorContext { [inputUnits, vocabSize] inputs, gradient, wrt in
-      var wrtEmbeddings: Tensor.Data = Tensor.fillWith(value: 0, size: TensorSize(rows: 1,
-                                                                                  columns: inputUnits,
-                                                                                  depth: vocabSize)).value
+      let sliceSize = inputUnits
+      let embSize = TensorSize(rows: 1, columns: inputUnits, depth: vocabSize)
+      var embStorage = ContiguousArray<Tensor.Scalar>(repeating: 0, count: sliceSize * vocabSize)
       
       for (i, index) in indicies.enumerated() {
-        if let current = wrtEmbeddings[safe: index] {
-          wrtEmbeddings[index] = current + gradient.value[safe: i, [[0]]]
-        } else {
-          wrtEmbeddings[index] = gradient.value[safe: i, [[0]]]
+        guard index < vocabSize, i < gradient.depthSliceCount else { continue }
+        let gradSlice = gradient.depthSlice(i)
+        let offset = index * sliceSize
+        for j in 0..<min(gradSlice.count, sliceSize) {
+          embStorage[offset + j] += gradSlice[j]
         }
       }
 
-      let result = Tensor(wrtEmbeddings)
-      
+      let result = Tensor(storage: embStorage, size: embSize)
       result.label = "Embedding gradients"
       
       return (Tensor(), result, Tensor())
     }
     
-    var outValue: Tensor.Data = []
+    // Build output by looking up each input's embedding from weights
+    let weightDepth = weights.depthSliceCount
+    let sliceSize = weights._size.rows * weights._size.columns
+    var outSlices = [ContiguousArray<Tensor.Scalar>]()
     
-    for sequence in tensor.value {
-      let flat = Tensor(sequence).asScalar()
-      let index = Int(flat)
+    for d in 0..<tensor.depthSliceCount {
+      let slice = tensor.depthSlice(d)
+      let scalar = slice.isEmpty ? Tensor.Scalar(0) : slice[0]
+      let index = Int(scalar)
       indicies.append(index)
       
-      guard let lookup = weights.value[safe: index] else {
+      guard index >= 0 && index < weightDepth else {
         fatalError("Could not find embedding for index: \(index)")
       }
       
-      outValue.append(lookup)
+      outSlices.append(weights.depthSlice(index))
     }
     
-    let out = Tensor(outValue, context: context)
+    // Assemble output tensor
+    var outStorage = ContiguousArray<Tensor.Scalar>()
+    outStorage.reserveCapacity(sliceSize * outSlices.count)
+    outSlices.forEach { outStorage.append(contentsOf: $0) }
+    
+    let outSize = TensorSize(rows: weights._size.rows, columns: weights._size.columns, depth: outSlices.count)
+    let out = Tensor(storage: outStorage, size: outSize, context: context)
     
     out.label = String(describing: self)
-  
     out.setGraph(tensor)
 
     return out

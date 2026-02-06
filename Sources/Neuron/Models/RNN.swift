@@ -166,31 +166,36 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
       var name: String = ""
       var runningChar: String = ""
           
-      var batch: [[[Tensor.Scalar]]]
+      var batchTensor: Tensor
       
       if let with {
-        let vectorized = dataset.vectorize([with])
-        batch = vectorized.value
+        batchTensor = dataset.vectorize([with])
         name += with
 
       } else {
         let index = Int.random(in: 0..<vocabSize).asTensorScalar
               
-        batch = [[[index]]]
+        batchTensor = Tensor([[[index]]])
         
         // append random letter
-        let unvec = dataset.getWord(for: Tensor(batch), oneHot: false).joined()
+        let unvec = dataset.getWord(for: batchTensor, oneHot: false).joined()
         name += unvec
       }
 
       while runningChar != endingMark && name.count < maxWordLength {
         
         // still 1 hot encoding
-        let out = optimizer.predict([Tensor(batch)])
+        let out = optimizer.predict([batchTensor])
         
-        guard let flat = out[safe: 0]?.value[safe: batch.count - 1]?.first else {
+        guard let outTensor = out[safe: 0],
+              outTensor.depthSliceCount > 0 else {
           break
         }
+        
+        // Get the last depth slice (last timestep output)
+        let lastDepthIdx = batchTensor.depthSliceCount - 1
+        let lastSlice = outTensor.depthSlice(min(lastDepthIdx, outTensor.depthSliceCount - 1))
+        let flat = Array(lastSlice)
       
         var v: [Tensor.Scalar] = [Tensor.Scalar](repeating: 0, count: flat.count)
         
@@ -210,10 +215,12 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
         runningChar = unvec
         name += unvec
         
-        // vectorize again to append to batch
-        let vectorizedLetter = dataset.vectorize([unvec]).value[safe: 0, []]
-        
-        batch.append(vectorizedLetter)
+        // vectorize again to append to batch using Tensor concat
+        let vectorizedLetter = dataset.vectorize([unvec])
+        if vectorizedLetter.depthSliceCount > 0 {
+          let letterSlice = vectorizedLetter.depthSliceTensor(0)
+          batchTensor = batchTensor.concat(letterSlice, axis: 2)
+        }
       }
       
       names.append(name)

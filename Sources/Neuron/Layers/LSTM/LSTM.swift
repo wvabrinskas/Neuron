@@ -237,8 +237,10 @@ public final class LSTM: BaseLayer {
     /// we need to truncate the input data if this happens to fit the expected window length
     for index in range {
       
-      // get embeddings from input
-      let getEmbeddings = Tensor(tensor.value[safe: index] ?? NumSwift.zerosLike((rows: 1, columns: inputUnits))) //use first vector
+      // get embeddings from input - use depth slice instead of .value
+      let getEmbeddings: Tensor = index < tensor.depthSliceCount
+        ? tensor.depthSliceTensor(index)
+        : Tensor(NumSwift.zerosLike((rows: 1, columns: inputUnits)))
       
       let cell = LSTMCell(hidden: hiddenUnits,
                           input: inputUnits,
@@ -287,8 +289,10 @@ public final class LSTM: BaseLayer {
       out = new
     }
     
-    if returnSequence == false, let last = out.value.last {
-      out = Tensor(last, context: tensorContext)
+    if returnSequence == false, out.depthSliceCount > 0 {
+      let lastSlice = out.depthSlice(out.depthSliceCount - 1)
+      let lastSize = TensorSize(rows: out._size.rows, columns: out._size.columns, depth: 1)
+      out = Tensor(storage: lastSlice, size: lastSize, context: tensorContext)
     }
     
     out.label = String(describing: self)
@@ -310,21 +314,16 @@ public final class LSTM: BaseLayer {
      hiddenOutputWeightGradients = 4
      */
     
-    var gLayers = gradients.weights.value.reshape(columns: 1)
+    // Split weight gradients along depth (each gate's weights are one depth slice)
+    let gLayerTensors = gradients.weights.split(into: 1, axis: 2)
     
-    if let forgetGateWeightGrads = gLayers[safe: 0],
-       let inputGateWeightGrads = gLayers[safe: 1],
-       let gateGateWeightGrads = gLayers[safe: 2],
-       let outputGateWeightGrads = gLayers[safe: 3],
-       let hiddenOutputWeightGradients = gLayers[safe: 4]?[..<hiddenUnits, 0..<vocabSize, 0...]  {
+    if gLayerTensors.count >= 5,
+       let forgetGateWeightGrads = gLayerTensors[safe: 0],
+       let inputGateWeightGrads = gLayerTensors[safe: 1],
+       let gateGateWeightGrads = gLayerTensors[safe: 2],
+       let outputGateWeightGrads = gLayerTensors[safe: 3] {
       
-      gLayers = gLayers.dropLast()
-      
-      let forgetGateWeightGrads = Tensor(forgetGateWeightGrads)
-      let inputGateWeightGrads = Tensor(inputGateWeightGrads)
-      let gateGateWeightGrads = Tensor(gateGateWeightGrads)
-      let outputGateWeightGrads = Tensor(outputGateWeightGrads)
-      let hiddenOutputWeightGradients = Tensor(hiddenOutputWeightGradients)
+      let hiddenOutputWeightGradients = gLayerTensors[4][..<hiddenUnits, 0..<vocabSize, 0...]
       
       forgetGateWeightGrads.l2Normalize()
       inputGateWeightGrads.l2Normalize()
@@ -350,20 +349,15 @@ public final class LSTM: BaseLayer {
      
      hiddenOutputWeightBiases = 4
      */
-    let gBiasLayers = gradients.biases.value
+    let gBiasLayerTensors = gradients.biases.split(into: 1, axis: 2)
     
     if biasEnabled,
-       let forgetGateBiasGrads = gBiasLayers[safe: 0],
-       let inputGateBiasGrads = gBiasLayers[safe: 1],
-       let gateGateBiasGrads = gBiasLayers[safe: 2],
-       let outputGateBiasGrads = gBiasLayers[safe: 3],
-       let hiddenOutputBiasGradients = gBiasLayers[safe: 4] {
-      
-      let forgetGateBiasGrads = Tensor(forgetGateBiasGrads)
-      let inputGateBiasGrads = Tensor(inputGateBiasGrads)
-      let gateGateBiasGrads = Tensor(gateGateBiasGrads)
-      let outputGateBiasGrads = Tensor(outputGateBiasGrads)
-      let hiddenOutputBiasGradients = Tensor(hiddenOutputBiasGradients)
+       gBiasLayerTensors.count >= 5,
+       let forgetGateBiasGrads = gBiasLayerTensors[safe: 0],
+       let inputGateBiasGrads = gBiasLayerTensors[safe: 1],
+       let gateGateBiasGrads = gBiasLayerTensors[safe: 2],
+       let outputGateBiasGrads = gBiasLayerTensors[safe: 3],
+       let hiddenOutputBiasGradients = gBiasLayerTensors[safe: 4] {
       
       forgetGateBiases = forgetGateBiases.copy() - forgetGateBiasGrads
       inputGateBiases = inputGateBiases.copy() - inputGateBiasGrads
@@ -375,6 +369,7 @@ public final class LSTM: BaseLayer {
   
   // MARK: Private
   private func backward(inputs: Tensor, gradient: Tensor, cellCache: [Cache]) -> TensorContext.TensorBackpropResult {
+    // eat and ect are kept as [[Scalar]] for LSTMCell.backward interface compatibility
     var eat: [[Tensor.Scalar]] = NumSwift.zerosLike((rows: 1,
                                                      columns: self.hiddenUnits))
     var ect: [[Tensor.Scalar]] = eat
@@ -384,14 +379,17 @@ public final class LSTM: BaseLayer {
     var wrtLSTMCellInputWeightsDerivatives: LSTMCell.ParameterDerivatives = .init()
     var wrtLSTMCellInputBiasDerivatives: LSTMCell.ParameterDerivatives = .init()
     
-    var wrtEmbeddings: Tensor.Data = []
+    var wrtEmbeddingsTensor = Tensor()
     
     for index in (0..<cellCache.count).reversed() {
       
       let cache = cellCache[index]
       let previousCache = cellCache[safe: index - 1]
       
-      let delta = Tensor(gradient.value[safe: index] ?? gradient.zerosLike().value[0])
+      // Get delta for this timestep from gradient depth slices
+      let delta: Tensor = index < gradient.depthSliceCount
+        ? gradient.depthSliceTensor(index)
+        : gradient.zerosLike().depthSliceTensor(0)
       
       let activationErrors = cache.outputValue.gradients(delta: delta,
                                                          wrt: cache.activation)
@@ -409,7 +407,13 @@ public final class LSTM: BaseLayer {
       }
       
       let nextActivationError = eat
-      let activationOutputError = activationErrors.input[safe: 0, Tensor()].value[0]
+      // Convert Tensor depthSlice to [[Scalar]] for LSTMCell interface
+      let activationInputTensor = activationErrors.input[safe: 0, Tensor()]
+      let actSlice = activationInputTensor.depthSlice(0)
+      let cols = activationInputTensor._size.columns
+      let activationOutputError: [[Tensor.Scalar]] = stride(from: 0, to: actSlice.count, by: cols).map {
+        Array(actSlice[$0..<min($0 + cols, actSlice.count)])
+      }
       
       let cell = LSTMCell(hidden: self.hiddenUnits,
                           input: self.inputUnits,
@@ -449,16 +453,21 @@ public final class LSTM: BaseLayer {
       
       let embeddingError = backward.inputs.embeddingError
       
-      if wrtEmbeddings.isEmpty {
-        wrtEmbeddings = embeddingError.value
+      // Accumulate embeddings using Tensor concat (prepend for reversed order)
+      if wrtEmbeddingsTensor.isEmpty {
+        wrtEmbeddingsTensor = embeddingError
       } else {
-        wrtEmbeddings.insert(contentsOf: embeddingError.value, at: 0)
+        wrtEmbeddingsTensor = embeddingError.concat(wrtEmbeddingsTensor, axis: 2)
       }
       
-      if let pae = previousActivationError.value[safe: 0],
-         let pce = previousCellError.value[safe: 0] {
-        eat = pae
-        ect = pce
+      // Convert Tensor depth slices to [[Scalar]] for LSTMCell interface
+      if previousActivationError.depthSliceCount > 0 && previousCellError.depthSliceCount > 0 {
+        let paeSlice = previousActivationError.depthSlice(0)
+        let pceSlice = previousCellError.depthSlice(0)
+        let paeCols = previousActivationError._size.columns
+        let pceCols = previousCellError._size.columns
+        eat = stride(from: 0, to: paeSlice.count, by: paeCols).map { Array(paeSlice[$0..<min($0 + paeCols, paeSlice.count)]) }
+        ect = stride(from: 0, to: pceSlice.count, by: pceCols).map { Array(pceSlice[$0..<min($0 + pceCols, pceSlice.count)]) }
       }
     }
         
@@ -473,7 +482,7 @@ public final class LSTM: BaseLayer {
     // so we normalize by the number of timesteps to get average gradients
     var normalizedWeightDerivatives = weightDerivatives
     var normalizedBiasDerivatives = biasDerivatives
-    var normalizedEmbeddings = Tensor(wrtEmbeddings)
+    var normalizedEmbeddings = wrtEmbeddingsTensor
     
     let sequenceLength = Tensor.Scalar(cellCache.count)
 

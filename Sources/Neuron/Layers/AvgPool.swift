@@ -43,55 +43,51 @@ public final class AvgPool: BaseLayer {
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     func backwards(input: Tensor, gradient: Tensor, wrt: Tensor?) -> (Tensor, Tensor, Tensor) {
-      var poolingGradients: [[[Tensor.Scalar]]] = []
+      let rows = self.inputSize.rows
+      let columns = self.inputSize.columns
+      let kRows = self.kernelSize.rows
+      let kCols = self.kernelSize.columns
+      let kernelArea = Tensor.Scalar(kRows * kCols)
+      let gradCols = gradient._size.columns
       
-      let rows = inputSize.rows
-      let columns = inputSize.columns
-                    
-      for d in 0..<inputSize.depth {
+      var outStorage = ContiguousArray<Tensor.Scalar>(repeating: 0, count: rows * columns * self.inputSize.depth)
+      
+      for d in 0..<self.inputSize.depth {
+        let gradSlice = gradient.depthSlice(d)
+        let depthOffset = d * rows * columns
         var gradientR = 0
         
-        var results: [[Tensor.Scalar]] = []
         for r in 0..<rows {
-          var rowResult: [Tensor.Scalar] = []
-
           var gradientC = 0
-          for c in stride(from: 0, through: columns, by: kernelSize.columns) {
-            guard c < columns else {
-              continue
-            }
+          for c in stride(from: 0, to: columns, by: kCols) {
+            let avgPoolGradient = gradSlice[gradientR * gradCols + gradientC]
+            let delta = avgPoolGradient / kernelArea
             
-            let avgPoolGradient = gradient.value[d][gradientR][gradientC]
-            let delta = avgPoolGradient / (Tensor.Scalar(kernelSize.rows) * Tensor.Scalar(kernelSize.columns))
-          
-            for _ in 0..<kernelSize.columns {
-              rowResult.append(delta)
+            for kc in 0..<kCols {
+              if c + kc < columns {
+                outStorage[depthOffset + r * columns + c + kc] = delta
+              }
             }
             
             gradientC += 1
           }
           
-          if (r + 1) % kernelSize.rows == 0 {
+          if (r + 1) % kRows == 0 {
             gradientR += 1
           }
-        
-          results.append(rowResult)
         }
-        
-        poolingGradients.append(results)
-      }
-
-      if poolingGradients.isEmpty {
-        return (gradient, Tensor(), Tensor())
       }
       
-      return (Tensor(poolingGradients), Tensor(), Tensor())
+      return (Tensor(storage: outStorage, size: self.inputSize), Tensor(), Tensor())
     }
     
-    let results: [[[Tensor.Scalar]]] = pool(input: tensor)
+    let outStorage = poolFlat(input: tensor)
+    let outRows = inputSize.rows / kernelSize.rows
+    let outCols = inputSize.columns / kernelSize.columns
+    let outSize = TensorSize(rows: outRows, columns: outCols, depth: inputSize.depth)
 
     let context = TensorContext(backpropagate: backwards)
-    let out = Tensor(results, context: context)
+    let out = Tensor(storage: outStorage, size: outSize, context: context)
     
     out.setGraph(tensor)
     
@@ -108,37 +104,38 @@ public final class AvgPool: BaseLayer {
     //
   }
   
-  internal func pool(input: Tensor) -> [[[Tensor.Scalar]]] {
-    var results: [[[Tensor.Scalar]]] = []
-        
+  internal func poolFlat(input: Tensor) -> ContiguousArray<Tensor.Scalar> {
     let rows = inputSize.rows
     let columns = inputSize.columns
-            
+    let kRows = kernelSize.rows
+    let kCols = kernelSize.columns
+    let kernelArea = Tensor.Scalar(kRows * kCols)
+    let outRows = rows / kRows
+    let outCols = columns / kCols
+    
+    var results = ContiguousArray<Tensor.Scalar>(repeating: 0, count: outRows * outCols * inputSize.depth)
+    
     for d in 0..<inputSize.depth {
-
-      var colResults: [[Tensor.Scalar]] = []
-
-      for r in stride(from: 0, through: rows, by: kernelSize.rows) {
-        guard r < rows else {
-          continue
-        }
-        
-        var rowResults: [Tensor.Scalar] = []
-
-        for c in stride(from: 0, through: columns, by: kernelSize.columns) {
-          guard c < columns else {
-            continue
-          }
-          
-          let average = input[c..<c+kernelSize.columns, r..<r+kernelSize.rows, d..<d+1].mean().asScalar()
-          
-          rowResults.append(average)
-        }
-        
-        colResults.append(rowResults)
-      }
+      let slice = input.depthSlice(d)
+      let depthOffset = d * outRows * outCols
+      var outIdx = 0
       
-      results.append(colResults)
+      for r in stride(from: 0, to: rows, by: kRows) {
+        for c in stride(from: 0, to: columns, by: kCols) {
+          var sum: Tensor.Scalar = 0
+          for kr in 0..<kRows {
+            for kc in 0..<kCols {
+              let sr = r + kr
+              let sc = c + kc
+              if sr < rows && sc < columns {
+                sum += slice[sr * columns + sc]
+              }
+            }
+          }
+          results[depthOffset + outIdx] = sum / kernelArea
+          outIdx += 1
+        }
+      }
     }
     
     return results
