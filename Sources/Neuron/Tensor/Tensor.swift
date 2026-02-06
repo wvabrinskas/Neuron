@@ -32,7 +32,7 @@ public class Tensor: Equatable, Codable {
   /// The legacy nested-array type for tensor data. Prefer using `storage` and `size` for new code.
   public typealias Data = [[[Scalar]]]
   public typealias Value = ContiguousArray<Scalar>
-  public typealias ID = UInt64
+  public typealias ID = UUID
   
   /// Gradient object returned from `gradient` calculation on the Tensor. Contains gradients w.r.t to the `input`, w.r.t to the `weights`, and w.r.t to the `biases`
   public struct Gradient {
@@ -380,7 +380,7 @@ public class Tensor: Equatable, Codable {
   }
   
   private func setId() {
-    self.id = IDGenerator.shared.explicitInt64()
+    self.id = IDGenerator.shared.explicitUUID()
   }
   
   // MARK: - Nested Array Reconstruction

@@ -91,10 +91,9 @@ public final class TransConv2d: Conv2d {
     }
     
     // Bias gradients: sum of each depth slice of input
-    var biasStorage = Tensor.Value(repeating: 0, count: inputDepth)
-    for d in 0..<inputDepth {
-      biasStorage[d] = NumSwiftFlat.sum(input.depthSlice(d))
-    }
+    let biasStorage = Tensor.Value((0..<delta.size.depth).map { NumSwiftFlat.sum(delta.depthSlice($0)) })
+    let biasesTensor = Tensor(biasStorage, size: biases.size)
+    biasesTensor.label = "transconv2d-bias"
     
     // Assemble input gradients tensor
     let inputSliceSize = inputSize.rows * inputSize.columns
@@ -120,7 +119,7 @@ public final class TransConv2d: Conv2d {
     
     return (Tensor(inputStorage, size: inputSize),
             Tensor(wStorage, size: TensorSize(rows: fRows, columns: fCols, depth: weightGradientSlices.count)),
-            Tensor(biasStorage, size: TensorSize(rows: 1, columns: inputDepth, depth: 1)))
+            biasesTensor)
   }
   
   internal override func calculateFilterGradientsFlat(_ input: Tensor,
