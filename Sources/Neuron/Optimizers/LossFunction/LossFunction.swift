@@ -52,7 +52,7 @@ public enum LossFunction {
     
     // Output shape: each depth has 1 row with `rows` columns (matching how rows map to loss values)
     let resultSize = TensorSize(rows: 1, columns: rows, depth: depth)
-    return Tensor(storage: resultStorage, size: resultSize)
+    return Tensor(resultStorage, size: resultSize)
     
   }
 

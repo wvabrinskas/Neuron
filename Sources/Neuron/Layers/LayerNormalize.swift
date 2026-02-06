@@ -82,7 +82,7 @@ public final class LayerNormalize: BaseLayer {
     }
     
     let forwardStorage = normalizeFlat(inputs: tensor)
-    let out = Tensor(storage: forwardStorage, size: tensor._size, context: context)
+    let out = Tensor(forwardStorage, size: tensor._size, context: context)
     out.setGraph(tensor)
     return out
   }
@@ -172,10 +172,10 @@ public final class LayerNormalize: BaseLayer {
     var dBetaStorage = ContiguousArray<Tensor.Scalar>()
     dBetaSlices.forEach { dBetaStorage.append(contentsOf: $0) }
     
-    let dGammaTensor = Tensor(storage: dGammaStorage, size: TensorSize(rows: inputSize.rows, columns: inputSize.columns, depth: depth))
-    let dBetaTensor = Tensor(storage: dBetaStorage, size: TensorSize(rows: inputSize.rows, columns: inputSize.columns, depth: depth))
+    let dGammaTensor = Tensor(dGammaStorage, size: TensorSize(rows: inputSize.rows, columns: inputSize.columns, depth: depth))
+    let dBetaTensor = Tensor(dBetaStorage, size: TensorSize(rows: inputSize.rows, columns: inputSize.columns, depth: depth))
     
-    return (Tensor(storage: dInputStorage, size: inputs._size),
+    return (Tensor(dInputStorage, size: inputs._size),
             dGammaTensor.concat(dBetaTensor, axis: 2),
             Tensor())
   }

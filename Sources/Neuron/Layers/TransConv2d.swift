@@ -118,9 +118,9 @@ public final class TransConv2d: Conv2d {
       }
     }
     
-    return (Tensor(storage: inputStorage, size: inputSize),
-            Tensor(storage: wStorage, size: TensorSize(rows: fRows, columns: fCols, depth: weightGradientSlices.count)),
-            Tensor(storage: biasStorage, size: TensorSize(rows: 1, columns: inputDepth, depth: 1)))
+    return (Tensor(inputStorage, size: inputSize),
+            Tensor(wStorage, size: TensorSize(rows: fRows, columns: fCols, depth: weightGradientSlices.count)),
+            Tensor(biasStorage, size: TensorSize(rows: 1, columns: inputDepth, depth: 1)))
   }
   
   internal override func calculateFilterGradientsFlat(_ input: Tensor,

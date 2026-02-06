@@ -96,7 +96,7 @@ public class Tensor: Equatable, Codable {
     let sliceSize = _size.rows * _size.columns
     let start = d * sliceSize
     let sliceStorage = ContiguousArray(storage[start..<(start + sliceSize)])
-    return Tensor(storage: sliceStorage, size: TensorSize(rows: _size.rows, columns: _size.columns, depth: 1))
+    return Tensor(sliceStorage, size: TensorSize(rows: _size.rows, columns: _size.columns, depth: 1))
   }
   
   /// Backward-compatible access to the tensor data as a 3D nested array `[[[Scalar]]]`.
@@ -212,7 +212,7 @@ public class Tensor: Equatable, Codable {
       }
     }
     
-    return Tensor(storage: result, size: newSize, context: context)
+    return Tensor(result, size: newSize, context: context)
   }
   
   // MARK: - Initializers
@@ -369,7 +369,7 @@ public class Tensor: Equatable, Codable {
   ///   - storage: Flat contiguous array of scalar values
   ///   - size: Shape metadata (columns, rows, depth)
   ///   - context: Backpropagation context
-  public init(storage: ContiguousArray<Scalar>, size: TensorSize, context: TensorContext = TensorContext()) {
+  public init(_ storage: ContiguousArray<Scalar>, size: TensorSize, context: TensorContext = TensorContext()) {
     self.storage = storage
     self._size = size
     self.context = context
@@ -612,7 +612,7 @@ public class Tensor: Equatable, Codable {
   /// Remove this Tensor from the graph.
   /// - Returns: Detached Tensor
   public func detached() -> Tensor {
-    let tensor = Tensor(storage: ContiguousArray(storage), size: _size, context: TensorContext())
+    let tensor = Tensor(ContiguousArray(storage), size: _size, context: TensorContext())
     tensor.id = self.id
     return tensor
   }
@@ -621,10 +621,10 @@ public class Tensor: Equatable, Codable {
   /// - Returns: Copied Tensor
   public func copy(keepContext: Bool = false) -> Tensor {
     guard keepContext == false else {
-      return Tensor(storage: ContiguousArray(storage), size: _size, context: context)
+      return Tensor(ContiguousArray(storage), size: _size, context: context)
     }
     
-    return Tensor(storage: ContiguousArray(storage), size: _size)
+    return Tensor(ContiguousArray(storage), size: _size)
   }
   
   public func isScalar() -> Bool {
@@ -945,13 +945,13 @@ public extension Tensor {
       storage[i] = Tensor.Scalar.random(in: range)
     }
     
-    return Tensor(storage: storage, size: size)
+    return Tensor(storage, size: size)
   }
   
   static func fillWith(value: Tensor.Scalar, size: TensorSize) -> Tensor {
     let count = size.columns * size.rows * size.depth
     let storage = ContiguousArray<Tensor.Scalar>(repeating: value, count: count)
-    return Tensor(storage: storage, size: size)
+    return Tensor(storage, size: size)
   }
 }
 

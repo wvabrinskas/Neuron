@@ -51,7 +51,7 @@ public final class GlobalAvgPool: BaseLayer {
         }
       }
       
-      return (Tensor(storage: outStorage, size: inputSize), Tensor(), Tensor())
+      return (Tensor(outStorage, size: inputSize), Tensor(), Tensor())
     }
     
     // Compute mean of each depth slice directly from flat storage
@@ -71,7 +71,7 @@ public final class GlobalAvgPool: BaseLayer {
 
     // forward calculation - output is (depth, 1, 1)
     let outSize = TensorSize(rows: 1, columns: size.depth, depth: 1)
-    let out = Tensor(storage: outValues, size: outSize, context: tensorContext)
+    let out = Tensor(outValues, size: outSize, context: tensorContext)
     
     out.setGraph(tensor)
     

@@ -108,7 +108,7 @@ public final class Embedding: BaseLayer {
         }
       }
 
-      let result = Tensor(storage: embStorage, size: embSize)
+      let result = Tensor(embStorage, size: embSize)
       result.label = "Embedding gradients"
       
       return (Tensor(), result, Tensor())
@@ -138,7 +138,7 @@ public final class Embedding: BaseLayer {
     outSlices.forEach { outStorage.append(contentsOf: $0) }
     
     let outSize = TensorSize(rows: weights._size.rows, columns: weights._size.columns, depth: outSlices.count)
-    let out = Tensor(storage: outStorage, size: outSize, context: context)
+    let out = Tensor(outStorage, size: outSize, context: context)
     
     out.label = String(describing: self)
     out.setGraph(tensor)

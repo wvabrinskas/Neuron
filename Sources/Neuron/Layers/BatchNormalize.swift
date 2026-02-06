@@ -204,7 +204,7 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
       return (backward, Tensor(), Tensor())
     }
     
-    let out = Tensor(storage: forward.output, size: tensor._size, context: tensorContext)
+    let out = Tensor(forward.output, size: tensor._size, context: tensorContext)
     
     out.setGraph(tensor)
     out.label = "BatchNorm"
@@ -378,7 +378,7 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
       for j in 0..<sliceSize { outStorage[outOffset + j] = dx[j] }
     }
     
-    return Tensor(storage: outStorage, size: inputs._size)
+    return Tensor(outStorage, size: inputs._size)
   }
   
 }

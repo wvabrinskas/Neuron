@@ -292,7 +292,7 @@ public final class LSTM: BaseLayer {
     if returnSequence == false, out.depthSliceCount > 0 {
       let lastSlice = out.depthSlice(out.depthSliceCount - 1)
       let lastSize = TensorSize(rows: out._size.rows, columns: out._size.columns, depth: 1)
-      out = Tensor(storage: lastSlice, size: lastSize, context: tensorContext)
+      out = Tensor(lastSlice, size: lastSize, context: tensorContext)
     }
     
     out.label = String(describing: self)

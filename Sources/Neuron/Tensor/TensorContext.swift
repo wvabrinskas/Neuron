@@ -14,7 +14,7 @@ public struct TensorContext: Codable {
   
   public init(backpropagate: TensorContextFunction? = nil) {
     let defaultFunction = { (input: Tensor, gradient: Tensor, wrt: Tensor?) in
-      return (Tensor(storage: ContiguousArray(gradient.storage), size: gradient._size), Tensor(), Tensor())
+      return (Tensor(ContiguousArray(gradient.storage), size: gradient._size), Tensor(), Tensor())
     }
     
     self.backpropagate = backpropagate ?? defaultFunction

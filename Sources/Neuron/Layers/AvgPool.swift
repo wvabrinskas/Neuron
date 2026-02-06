@@ -78,7 +78,7 @@ public final class AvgPool: BaseLayer {
         }
       }
       
-      return (Tensor(storage: outStorage, size: self.inputSize), Tensor(), Tensor())
+      return (Tensor(outStorage, size: self.inputSize), Tensor(), Tensor())
     }
     
     let outStorage = poolFlat(input: tensor)
@@ -87,7 +87,7 @@ public final class AvgPool: BaseLayer {
     let outSize = TensorSize(rows: outRows, columns: outCols, depth: inputSize.depth)
 
     let context = TensorContext(backpropagate: backwards)
-    let out = Tensor(storage: outStorage, size: outSize, context: context)
+    let out = Tensor(outStorage, size: outSize, context: context)
     
     out.setGraph(tensor)
     

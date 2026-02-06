@@ -88,7 +88,7 @@ public final class MaxPool: BaseLayer {
         return (gradient, Tensor(), Tensor())
       }
       
-      return (Tensor(storage: outStorage, size: self.inputSize), Tensor(), Tensor())
+      return (Tensor(outStorage, size: self.inputSize), Tensor(), Tensor())
     }
     
     let rows = inputSize.rows
@@ -118,7 +118,7 @@ public final class MaxPool: BaseLayer {
           
     let context = TensorContext(backpropagate: backwards)
     let outSize = TensorSize(rows: outRows, columns: outCols, depth: inputSize.depth)
-    let out = Tensor(storage: outStorage, size: outSize, context: context)
+    let out = Tensor(outStorage, size: outSize, context: context)
     
     out.setGraph(tensor)
     

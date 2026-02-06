@@ -104,7 +104,7 @@ public class Conv2d: BaseConvolutionalLayer {
     
     let outStorage = conv(tensor)
     let outSize = TensorSize(rows: outputSize.rows, columns: outputSize.columns, depth: filterCount)
-    let out = Tensor(storage: outStorage, size: outSize, context: context)
+    let out = Tensor(outStorage, size: outSize, context: context)
     
     out.setGraph(tensor)
     out.label = "conv2d"
@@ -214,7 +214,7 @@ public class Conv2d: BaseConvolutionalLayer {
       }
     }
     
-    let inputTensor = Tensor(storage: inputStorage, size: inputSize)
+    let inputTensor = Tensor(inputStorage, size: inputSize)
     inputTensor.label = "conv2d-input"
     
     // Assemble weight gradients tensor
@@ -227,10 +227,10 @@ public class Conv2d: BaseConvolutionalLayer {
       }
     }
     let wSize = TensorSize(rows: fRows, columns: fCols, depth: weightGradientSlices.count)
-    let weightsTensor = Tensor(storage: wStorage, size: wSize)
+    let weightsTensor = Tensor(wStorage, size: wSize)
     weightsTensor.label = "conv2d-weight"
     
-    let biasesTensor = Tensor(storage: biasStorage, size: TensorSize(rows: 1, columns: filterCount, depth: 1))
+    let biasesTensor = Tensor(biasStorage, size: TensorSize(rows: 1, columns: filterCount, depth: 1))
     biasesTensor.label = "conv2d-bias"
         
     return (inputTensor, weightsTensor, biasesTensor)
@@ -297,7 +297,7 @@ public class Conv2d: BaseConvolutionalLayer {
       let gradStorage = ContiguousArray<Tensor.Scalar>(
         weightGradTensor.storage[(startDepth * sliceSize)..<((startDepth + slicesPerFilter) * sliceSize)]
       )
-      let gradTensor = Tensor(storage: gradStorage,
+      let gradTensor = Tensor(gradStorage,
                                size: TensorSize(rows: filterSize.rows, columns: filterSize.columns, depth: slicesPerFilter))
       filters[i] = filters[i] - gradTensor
     }

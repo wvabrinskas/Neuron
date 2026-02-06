@@ -79,7 +79,7 @@ public class RMSProp: BaseOptimizer {
     let result = apply(to: &v[i], gradient: gradient.storage)
     let biasResult = apply(to: &vb[i], gradient: biasGradient.storage)
     
-    return (Tensor(storage: result, size: gradient._size), Tensor(storage: biasResult, size: biasGradient._size))
+    return (Tensor(result, size: gradient._size), Tensor(biasResult, size: biasGradient._size))
   }
 
   private func apply(to: inout ContiguousArray<Tensor.Scalar>, gradient: ContiguousArray<Tensor.Scalar>) -> ContiguousArray<Tensor.Scalar> {

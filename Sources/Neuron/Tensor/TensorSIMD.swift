@@ -20,7 +20,7 @@ extension Tensor {
     for i in 0..<storage.count {
       result[i] = Swift.max(0, storage[i])
     }
-    return Tensor(storage: result, size: _size, context: context)
+    return Tensor(result, size: _size, context: context)
   }
   
   /// Fast Tanh on flat storage (auto-vectorized)
@@ -32,7 +32,7 @@ extension Tensor {
       let expNeg = Scalar.exp(-x)
       result[i] = (expPos - expNeg) / (expPos + expNeg)
     }
-    return Tensor(storage: result, size: _size, context: context)
+    return Tensor(result, size: _size, context: context)
   }
   
   /// Fast Sigmoid on flat storage (auto-vectorized)
@@ -41,7 +41,7 @@ extension Tensor {
     for i in 0..<storage.count {
       result[i] = 1 / (1 + Scalar.exp(-storage[i]))
     }
-    return Tensor(storage: result, size: _size, context: context)
+    return Tensor(result, size: _size, context: context)
   }
   
   /// Fast LeakyReLU on flat storage (auto-vectorized)
@@ -51,7 +51,7 @@ extension Tensor {
       let x = storage[i]
       result[i] = x >= 0 ? x : limit * x
     }
-    return Tensor(storage: result, size: _size, context: context)
+    return Tensor(result, size: _size, context: context)
   }
   
   /// Fast Swish on flat storage (auto-vectorized)
@@ -62,7 +62,7 @@ extension Tensor {
       let sig = 1 / (1 + Scalar.exp(-x))
       result[i] = x * sig
     }
-    return Tensor(storage: result, size: _size, context: context)
+    return Tensor(result, size: _size, context: context)
   }
   
   /// Fast SELU on flat storage (auto-vectorized)
@@ -74,7 +74,7 @@ extension Tensor {
       let x = storage[i]
       result[i] = x > 0 ? lambda * x : lambda * alpha * (Scalar.exp(x) - 1)
     }
-    return Tensor(storage: result, size: _size, context: context)
+    return Tensor(result, size: _size, context: context)
   }
   
   /// Fast GELU on flat storage (auto-vectorized)
@@ -85,7 +85,7 @@ extension Tensor {
       let x = storage[i]
       result[i] = x * (1 + Scalar.erf(x / sqrt2)) * 0.5
     }
-    return Tensor(storage: result, size: _size, context: context)
+    return Tensor(result, size: _size, context: context)
   }
 }
 

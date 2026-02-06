@@ -55,11 +55,11 @@ public final class Reshape: BaseLayer {
     let context = TensorContext { inputs, gradient, wrt in
       // Reshape gradient back to flat (the input was flattened)
       let flatSize = TensorSize(rows: 1, columns: gradient.storage.count, depth: 1)
-      return (Tensor(storage: ContiguousArray(gradient.storage), size: flatSize), Tensor(), Tensor())
+      return (Tensor(ContiguousArray(gradient.storage), size: flatSize), Tensor(), Tensor())
     }
     
     // Reshape: reinterpret the flat storage with the new shape
-    let out = Tensor(storage: ContiguousArray(tensor.storage), size: reshapeSize, context: context)
+    let out = Tensor(ContiguousArray(tensor.storage), size: reshapeSize, context: context)
     
     out.setGraph(tensor)
 

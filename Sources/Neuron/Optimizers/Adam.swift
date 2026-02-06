@@ -144,7 +144,7 @@ public class Adam: BaseOptimizer {
                        weights: weights.storage,
                        size: biasGradient._size)
     
-    return (Tensor(storage: result, size: gradient._size), Tensor(storage: biases, size: biasGradient._size))
+    return (Tensor(result, size: gradient._size), Tensor(biases, size: biasGradient._size))
   }
 
   private func apply(m: inout ContiguousArray<Tensor.Scalar>,
