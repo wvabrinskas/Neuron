@@ -121,7 +121,7 @@ public class Conv2d: BaseConvolutionalLayer {
     
     // Build flipped-transposed kernel table as flat arrays
     // flippedKernels[f * filterCount + i] = flip180 of filters[i] depth slice f
-    var flippedKernels = [ContiguousArray<Tensor.Scalar>](repeating: ContiguousArray(), count: inputDepth * filterCount)
+    var flippedKernels = [Tensor.Value](repeating: Tensor.Value(), count: inputDepth * filterCount)
     for i in 0..<filterCount {
       for f in 0..<inputDepth {
         let kernel = filters[i].depthSlice(f)
@@ -133,11 +133,11 @@ public class Conv2d: BaseConvolutionalLayer {
     let deltaCols = delta.size.columns
     
     // Weight gradients: flat storage for filterCount * inputDepth depth slices
-    var weightGradientSlices = [ContiguousArray<Tensor.Scalar>]()
+    var weightGradientSlices = [Tensor.Value]()
     weightGradientSlices.reserveCapacity(filterCount * inputDepth)
     
     // Input gradients: one flat slice per input depth channel
-    var inputGradientSlices = [ContiguousArray<Tensor.Scalar>?](repeating: nil, count: inputDepth)
+    var inputGradientSlices = [Tensor.Value?](repeating: nil, count: inputDepth)
     
     var cachedStridePadShape: (rows: Int, columns: Int)?
     
@@ -197,14 +197,14 @@ public class Conv2d: BaseConvolutionalLayer {
     }
     
     // Bias gradients: sum of each depth slice of delta
-    var biasStorage = ContiguousArray<Tensor.Scalar>(repeating: 0, count: filterCount)
+    var biasStorage = Tensor.Value(repeating: 0, count: filterCount)
     for d in 0..<filterCount {
       biasStorage[d] = NumSwiftFlat.sum(delta.depthSlice(d))
     }
     
     // Assemble input gradients tensor
     let inputSliceSize = inputSize.rows * inputSize.columns
-    var inputStorage = ContiguousArray<Tensor.Scalar>(repeating: 0, count: inputSliceSize * inputDepth)
+    var inputStorage = Tensor.Value(repeating: 0, count: inputSliceSize * inputDepth)
     for f in 0..<inputDepth {
       if let slice = inputGradientSlices[f] {
         let start = f * inputSliceSize
@@ -219,7 +219,7 @@ public class Conv2d: BaseConvolutionalLayer {
     
     // Assemble weight gradients tensor
     let wSliceSize = fRows * fCols
-    var wStorage = ContiguousArray<Tensor.Scalar>(repeating: 0, count: wSliceSize * weightGradientSlices.count)
+    var wStorage = Tensor.Value(repeating: 0, count: wSliceSize * weightGradientSlices.count)
     for (idx, slice) in weightGradientSlices.enumerated() {
       let start = idx * wSliceSize
       for j in 0..<min(slice.count, wSliceSize) {
@@ -237,10 +237,10 @@ public class Conv2d: BaseConvolutionalLayer {
   }
   
   internal func calculateFilterGradientsFlat(_ input: Tensor,
-                                              _ delta: ContiguousArray<Tensor.Scalar>,
+                                              _ delta: Tensor.Value,
                                               deltaSize: (rows: Int, columns: Int),
-                                              index: Int) -> [ContiguousArray<Tensor.Scalar>] {
-    var results = [ContiguousArray<Tensor.Scalar>]()
+                                              index: Int) -> [Tensor.Value] {
+    var results = [Tensor.Value]()
     results.reserveCapacity(inputSize.depth)
     
     let extraPadding = padding.extra(inputSize: (inputSize.rows, inputSize.columns),
@@ -294,7 +294,7 @@ public class Conv2d: BaseConvolutionalLayer {
     for i in 0..<filterCount {
       // Extract this filter's gradient slices and build a tensor
       let startDepth = i * slicesPerFilter
-      let gradStorage = ContiguousArray<Tensor.Scalar>(
+      let gradStorage = Tensor.Value(
         weightGradTensor.storage[(startDepth * sliceSize)..<((startDepth + slicesPerFilter) * sliceSize)]
       )
       let gradTensor = Tensor(gradStorage,
@@ -307,15 +307,15 @@ public class Conv2d: BaseConvolutionalLayer {
     }
   }
   
-  internal func conv(_ input: Tensor) -> ContiguousArray<Tensor.Scalar> {
+  internal func conv(_ input: Tensor) -> Tensor.Value {
     let outRows = outputSize.rows
     let outCols = outputSize.columns
     let outSliceSize = outRows * outCols
     
-    var resultStorage = ContiguousArray<Tensor.Scalar>(repeating: 0, count: outSliceSize * filterCount)
+    var resultStorage = Tensor.Value(repeating: 0, count: outSliceSize * filterCount)
 
     Array(0..<filterCount).concurrentForEach(workers: Constants.maxWorkers) { _, f in
-      var convolved = ContiguousArray<Tensor.Scalar>(repeating: 0, count: outSliceSize)
+      var convolved = Tensor.Value(repeating: 0, count: outSliceSize)
 
       for i in 0..<self.inputSize.depth {
         let currentFilter = self.filters[f].depthSlice(i)
@@ -353,8 +353,8 @@ public class Conv2d: BaseConvolutionalLayer {
     return resultStorage
   }
   
-  internal func flip180Flat(_ filter: Tensor) -> [ContiguousArray<Tensor.Scalar>] {
-    var result = [ContiguousArray<Tensor.Scalar>]()
+  internal func flip180Flat(_ filter: Tensor) -> [Tensor.Value] {
+    var result = [Tensor.Value]()
     result.reserveCapacity(filter.depthSliceCount)
     let fRows = filter.size.rows
     let fCols = filter.size.columns

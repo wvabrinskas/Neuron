@@ -50,7 +50,7 @@ public final class AvgPool: BaseLayer {
       let kernelArea = Tensor.Scalar(kRows * kCols)
       let gradCols = gradient.size.columns
       
-      var outStorage = ContiguousArray<Tensor.Scalar>(repeating: 0, count: rows * columns * self.inputSize.depth)
+      var outStorage = Tensor.Value(repeating: 0, count: rows * columns * self.inputSize.depth)
       
       for d in 0..<self.inputSize.depth {
         let gradSlice = gradient.depthSlice(d)
@@ -104,7 +104,7 @@ public final class AvgPool: BaseLayer {
     //
   }
   
-  internal func poolFlat(input: Tensor) -> ContiguousArray<Tensor.Scalar> {
+  internal func poolFlat(input: Tensor) -> Tensor.Value {
     let rows = inputSize.rows
     let columns = inputSize.columns
     let kRows = kernelSize.rows
@@ -113,7 +113,7 @@ public final class AvgPool: BaseLayer {
     let outRows = rows / kRows
     let outCols = columns / kCols
     
-    var results = ContiguousArray<Tensor.Scalar>(repeating: 0, count: outRows * outCols * inputSize.depth)
+    var results = Tensor.Value(repeating: 0, count: outRows * outCols * inputSize.depth)
     
     for d in 0..<inputSize.depth {
       let slice = input.depthSlice(d)

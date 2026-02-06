@@ -28,7 +28,7 @@ public enum LossFunction {
     let cols = size.columns
     
     // Build result using flat storage
-    var resultStorage = ContiguousArray<Tensor.Scalar>(repeating: 0, count: depth * 1 * rows)
+    var resultStorage = Tensor.Value(repeating: 0, count: depth * 1 * rows)
     let depthScalar = Tensor.Scalar(depth)
     
     for d in 0..<depth {

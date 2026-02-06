@@ -10,8 +10,8 @@ import NumSwift
 
 public class RMSProp: BaseOptimizer {
   private var b: Tensor.Scalar = 0.9
-  private var v: [ContiguousArray<Tensor.Scalar>] = []
-  private var vb: [ContiguousArray<Tensor.Scalar>] = []
+  private var v: [Tensor.Value] = []
+  private var vb: [Tensor.Value] = []
   private var eps: Tensor.Scalar = .stabilityFactor
 
   public init(_ trainable: Trainable,
@@ -25,8 +25,8 @@ public class RMSProp: BaseOptimizer {
     self.eps = eps
     self.b = b
 
-    v = [ContiguousArray<Tensor.Scalar>].init(repeating: ContiguousArray(), count: trainable.layers.count)
-    vb = [ContiguousArray<Tensor.Scalar>].init(repeating: ContiguousArray(), count: trainable.layers.count)
+    v = [Tensor.Value].init(repeating: Tensor.Value(), count: trainable.layers.count)
+    vb = [Tensor.Value].init(repeating: Tensor.Value(), count: trainable.layers.count)
     
     trainable.compile()
     
@@ -72,8 +72,8 @@ public class RMSProp: BaseOptimizer {
     let i = index
     
     if vb[i].isEmpty || v[i].isEmpty {
-      v[i] = ContiguousArray<Tensor.Scalar>(repeating: 0, count: gradient.storage.count)
-      vb[i] = ContiguousArray<Tensor.Scalar>(repeating: 0, count: biasGradient.storage.count)
+      v[i] = Tensor.Value(repeating: 0, count: gradient.storage.count)
+      vb[i] = Tensor.Value(repeating: 0, count: biasGradient.storage.count)
     }
     
     let result = apply(to: &v[i], gradient: gradient.storage)
@@ -82,10 +82,10 @@ public class RMSProp: BaseOptimizer {
     return (Tensor(result, size: gradient.size), Tensor(biasResult, size: biasGradient.size))
   }
 
-  private func apply(to: inout ContiguousArray<Tensor.Scalar>, gradient: ContiguousArray<Tensor.Scalar>) -> ContiguousArray<Tensor.Scalar> {
+  private func apply(to: inout Tensor.Value, gradient: Tensor.Value) -> Tensor.Value {
     let count = gradient.count
     let oneMinusB = 1 - b
-    var result = ContiguousArray<Tensor.Scalar>(repeating: 0, count: count)
+    var result = Tensor.Value(repeating: 0, count: count)
 
     for i in 0..<count {
       let g = gradient[i]

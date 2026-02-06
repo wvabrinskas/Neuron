@@ -54,7 +54,7 @@ public final class MaxPool: BaseLayer {
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     func backwards(input: Tensor, gradient: Tensor, wrt: Tensor?) -> (Tensor, Tensor, Tensor) {
-      var outStorage = ContiguousArray<Tensor.Scalar>(repeating: 0,
+      var outStorage = Tensor.Value(repeating: 0,
                                                        count: self.inputSize.rows * self.inputSize.columns * self.inputSize.depth)
       
       // operation is performed first then returned
@@ -99,7 +99,7 @@ public final class MaxPool: BaseLayer {
     var currentIndicies: [[PoolingIndex]] = []
     currentIndicies.reserveCapacity(inputSize.depth)
     
-    var outStorage = ContiguousArray<Tensor.Scalar>(repeating: 0, count: outRows * outCols * inputSize.depth)
+    var outStorage = Tensor.Value(repeating: 0, count: outRows * outCols * inputSize.depth)
 
     for d in 0..<inputSize.depth {
       let slice = tensor.depthSlice(d)
@@ -138,8 +138,8 @@ public final class MaxPool: BaseLayer {
     poolingGradients.removeAll(keepingCapacity: true)
   }
   
-  internal func poolFlat(input: ContiguousArray<Tensor.Scalar>, rows: Int, columns: Int) -> (ContiguousArray<Tensor.Scalar>, [PoolingIndex]) {
-    var results = ContiguousArray<Tensor.Scalar>()
+  internal func poolFlat(input: Tensor.Value, rows: Int, columns: Int) -> (Tensor.Value, [PoolingIndex]) {
+    var results = Tensor.Value()
     var pooledIndicies: [PoolingIndex] = []
     
     func safeGet(_ r: Int, _ c: Int) -> Tensor.Scalar {

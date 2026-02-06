@@ -52,7 +52,7 @@ public extension Tensor {
     if axis == 0 {
       // Reduce along rows -> output (columns x 1 x depth)
       let outSize = TensorSize(rows: 1, columns: columns, depth: depth)
-      var outStorage = ContiguousArray<Scalar>(repeating: 0, count: columns * depth)
+      var outStorage = Tensor.Value(repeating: 0, count: columns * depth)
       
       for d in 0..<depth {
         for c in 0..<columns {
@@ -70,7 +70,7 @@ public extension Tensor {
     } else if axis == 1 {
       // Reduce along columns -> output (1 x rows x depth)
       let outSize = TensorSize(rows: rows, columns: 1, depth: depth)
-      var outStorage = ContiguousArray<Scalar>(repeating: 0, count: rows * depth)
+      var outStorage = Tensor.Value(repeating: 0, count: rows * depth)
       
       for d in 0..<depth {
         for r in 0..<rows {
@@ -85,7 +85,7 @@ public extension Tensor {
     } else if axis == 2 {
       // Reduce along depth -> output (columns x rows x 1)
       let outSize = TensorSize(rows: rows, columns: columns, depth: 1)
-      var outStorage = ContiguousArray<Scalar>(repeating: 0, count: columns * rows)
+      var outStorage = Tensor.Value(repeating: 0, count: columns * rows)
       
       for r in 0..<rows {
         for c in 0..<columns {
@@ -101,7 +101,7 @@ public extension Tensor {
       return Tensor(outStorage, size: outSize)
     }
     
-    return Tensor(ContiguousArray(storage), size: size)
+    return Tensor(Tensor.Value(storage), size: size)
   }
   
   /// Determines the appropriate axis for broadcasting operations between two tensors.
@@ -156,7 +156,7 @@ public extension Tensor {
     let rows = selfSize.rows
     let depth = selfSize.depth
     
-    var outStorage = ContiguousArray<Scalar>(repeating: 0, count: storage.count)
+    var outStorage = Tensor.Value(repeating: 0, count: storage.count)
     
     for d in 0..<depth {
       for r in 0..<rows {
@@ -240,7 +240,7 @@ public extension Tensor {
     
     let out = applyAlong(axis: axis, input: value, block)
     
-    let new = Tensor(ContiguousArray(out.storage), size: out.size, context: context)
+    let new = Tensor(Tensor.Value(out.storage), size: out.size, context: context)
     
     new.label = "division"
     
@@ -278,7 +278,7 @@ public extension Tensor {
     
     let out = applyAlong(axis: axis, input: value, block)
     
-    let new = Tensor(ContiguousArray(out.storage), size: out.size, context: context)
+    let new = Tensor(Tensor.Value(out.storage), size: out.size, context: context)
     
     new.label = "multiplication"
 
@@ -316,7 +316,7 @@ public extension Tensor {
     
     let out = applyAlong(axis: axis, input: value, block)
     
-    let new = Tensor(ContiguousArray(out.storage), size: out.size, context: context)
+    let new = Tensor(Tensor.Value(out.storage), size: out.size, context: context)
     
     new.label = "addition"
 
@@ -356,7 +356,7 @@ public extension Tensor {
     
     let out = applyAlong(axis: axis, input: value, block)
     
-    let new = Tensor(ContiguousArray(out.storage), size: out.size, context: context)
+    let new = Tensor(Tensor.Value(out.storage), size: out.size, context: context)
     
     new.label = "subtraction"
     
@@ -413,15 +413,15 @@ public extension Tensor {
     let bSliceSize = bRows * bCols
     let cSliceSize = aRows * bCols
     
-    var result = ContiguousArray<Scalar>(repeating: 0, count: cSliceSize * depth)
+    var result = Tensor.Value(repeating: 0, count: cSliceSize * depth)
     
     for d in 0..<depth {
       let aStart = d * aSliceSize
       let bStart = d * bSliceSize
       let cStart = d * cSliceSize
       
-      let aSlice = ContiguousArray(storage[aStart..<(aStart + aSliceSize)])
-      let bSlice = ContiguousArray(with.storage[bStart..<(bStart + bSliceSize)])
+      let aSlice = Tensor.Value(storage[aStart..<(aStart + aSliceSize)])
+      let bSlice = Tensor.Value(with.storage[bStart..<(bStart + bSliceSize)])
       
       let cSlice = NumSwiftFlat.matmul(aSlice, bSlice,
                                         aRows: aRows, aCols: aCols,
@@ -464,7 +464,7 @@ public extension Tensor {
         let dEnd = min(dStart + into, depth)
         let chunkDepth = dEnd - dStart
         let newSize = TensorSize(rows: rows, columns: columns, depth: chunkDepth)
-        var chunkStorage = ContiguousArray<Scalar>(repeating: 0, count: columns * rows * chunkDepth)
+        var chunkStorage = Tensor.Value(repeating: 0, count: columns * rows * chunkDepth)
         
         for d in 0..<chunkDepth {
           let srcDepth = dStart + d
@@ -490,7 +490,7 @@ public extension Tensor {
         let rEnd = min(rStart + into, rows)
         let chunkRows = rEnd - rStart
         let newSize = TensorSize(rows: chunkRows, columns: columns, depth: depth)
-        var chunkStorage = ContiguousArray<Scalar>(repeating: 0, count: columns * chunkRows * depth)
+        var chunkStorage = Tensor.Value(repeating: 0, count: columns * chunkRows * depth)
         
         for d in 0..<depth {
           for r in 0..<chunkRows {
@@ -517,7 +517,7 @@ public extension Tensor {
         let cEnd = min(cStart + into, columns)
         let chunkCols = cEnd - cStart
         let newSize = TensorSize(rows: rows, columns: chunkCols, depth: depth)
-        var chunkStorage = ContiguousArray<Scalar>(repeating: 0, count: chunkCols * rows * depth)
+        var chunkStorage = Tensor.Value(repeating: 0, count: chunkCols * rows * depth)
         
         for d in 0..<depth {
           for r in 0..<rows {
@@ -635,10 +635,10 @@ public extension Tensor {
   func concat(_ tensor: Tensor, axis: Int = 1) -> Tensor {
     // Handle empty tensors
     if isEmpty {
-      return Tensor(ContiguousArray(tensor.storage), size: tensor.size, context: context)
+      return Tensor(Tensor.Value(tensor.storage), size: tensor.size, context: context)
     }
     if tensor.isEmpty {
-      return Tensor(ContiguousArray(storage), size: size, context: context)
+      return Tensor(Tensor.Value(storage), size: size, context: context)
     }
     
     let selfCols = size.columns
@@ -650,7 +650,7 @@ public extension Tensor {
     
     if axis == -1 {
       // Flatten concat
-      var result = ContiguousArray<Scalar>(repeating: 0, count: storage.count + tensor.storage.count)
+      var result = Tensor.Value(repeating: 0, count: storage.count + tensor.storage.count)
       for i in 0..<storage.count { result[i] = storage[i] }
       for i in 0..<tensor.storage.count { result[storage.count + i] = tensor.storage[i] }
       let totalCols = storage.count + tensor.storage.count
@@ -664,7 +664,7 @@ public extension Tensor {
       if selfRows == otherRows && selfCols == otherCols {
         // Fast path: same spatial dimensions, just append depth slices
         let newSize = TensorSize(rows: selfRows, columns: selfCols, depth: newDepth)
-        var result = ContiguousArray<Scalar>(repeating: 0, count: selfCols * selfRows * newDepth)
+        var result = Tensor.Value(repeating: 0, count: selfCols * selfRows * newDepth)
         for i in 0..<storage.count { result[i] = storage[i] }
         for i in 0..<tensor.storage.count { result[storage.count + i] = tensor.storage[i] }
         return Tensor(result, size: newSize, context: context)
@@ -673,7 +673,7 @@ public extension Tensor {
         let maxRows = max(selfRows, otherRows)
         let maxCols = max(selfCols, otherCols)
         let newSize = TensorSize(rows: maxRows, columns: maxCols, depth: newDepth)
-        var result = ContiguousArray<Scalar>(repeating: 0, count: maxCols * maxRows * newDepth)
+        var result = Tensor.Value(repeating: 0, count: maxCols * maxRows * newDepth)
         
         // Copy self depth slices
         for d in 0..<selfDepth {
@@ -704,7 +704,7 @@ public extension Tensor {
       // Concat along rows
       let newRows = selfRows + otherRows
       let newSize = TensorSize(rows: newRows, columns: selfCols, depth: selfDepth)
-      var result = ContiguousArray<Scalar>(repeating: 0, count: selfCols * newRows * selfDepth)
+      var result = Tensor.Value(repeating: 0, count: selfCols * newRows * selfDepth)
       
       for d in 0..<selfDepth {
         for r in 0..<selfRows {
@@ -731,7 +731,7 @@ public extension Tensor {
       // Concat along columns
       let newCols = selfCols + otherCols
       let newSize = TensorSize(rows: selfRows, columns: newCols, depth: selfDepth)
-      var result = ContiguousArray<Scalar>(repeating: 0, count: newCols * selfRows * selfDepth)
+      var result = Tensor.Value(repeating: 0, count: newCols * selfRows * selfDepth)
       
       for d in 0..<selfDepth {
         for r in 0..<selfRows {
@@ -754,7 +754,7 @@ public extension Tensor {
       return Tensor(result, size: newSize, context: context)
     }
     
-    return Tensor(ContiguousArray(storage), size: size, context: context)
+    return Tensor(Tensor.Value(storage), size: size, context: context)
   }
   
   func l2Normalized() -> Tensor {
@@ -765,7 +765,7 @@ public extension Tensor {
   }
   
   func map(_ transform: (Tensor.Scalar) -> Tensor.Scalar) -> Tensor {
-    var result = ContiguousArray<Scalar>(repeating: 0, count: storage.count)
+    var result = Tensor.Value(repeating: 0, count: storage.count)
     for i in 0..<storage.count {
       result[i] = transform(storage[i])
     }
@@ -908,12 +908,12 @@ public extension Tensor {
   }
   
   func zerosLike() -> Tensor {
-    let zeroStorage = ContiguousArray<Scalar>(repeating: 0, count: storage.count)
+    let zeroStorage = Tensor.Value(repeating: 0, count: storage.count)
     return Tensor(zeroStorage, size: size)
   }
   
   func onesLike() -> Tensor {
-    let oneStorage = ContiguousArray<Scalar>(repeating: 1, count: storage.count)
+    let oneStorage = Tensor.Value(repeating: 1, count: storage.count)
     return Tensor(oneStorage, size: size)
   }
   
@@ -933,10 +933,10 @@ public extension Tensor {
     }
     
     // Multiple depth slices: transpose each separately
-    var result = ContiguousArray<Scalar>(repeating: 0, count: storage.count)
+    var result = Tensor.Value(repeating: 0, count: storage.count)
     for d in 0..<depth {
       let start = d * sliceSize
-      let slice = ContiguousArray(storage[start..<(start + sliceSize)])
+      let slice = Tensor.Value(storage[start..<(start + sliceSize)])
       let transposed = NumSwiftFlat.transpose(slice, rows: rows, columns: columns)
       for i in 0..<sliceSize {
         result[start + i] = transposed[i]

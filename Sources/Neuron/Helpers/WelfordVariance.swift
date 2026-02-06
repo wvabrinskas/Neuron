@@ -10,9 +10,9 @@ import NumSwift
 
 public final class WelfordVariance {
   /// Per-depth-slice means stored as flat arrays
-  @Atomic public private(set) var means: [ContiguousArray<Tensor.Scalar>] = []
+  @Atomic public private(set) var means: [Tensor.Value] = []
   /// Per-depth-slice M2 accumulators stored as flat arrays
-  @Atomic public private(set) var m2s: [ContiguousArray<Tensor.Scalar>] = []
+  @Atomic public private(set) var m2s: [Tensor.Value] = []
   @Atomic public private(set) var iterations: Int = 0
   
   private var inputSize: TensorSize = .init(array: [])
@@ -43,8 +43,8 @@ public final class WelfordVariance {
   public func reset() {
     iterations = 0
     let sliceSize = inputSize.rows * inputSize.columns
-    means = [ContiguousArray<Tensor.Scalar>](repeating: ContiguousArray(repeating: 0, count: sliceSize), count: inputSize.depth)
-    m2s = [ContiguousArray<Tensor.Scalar>](repeating: ContiguousArray(repeating: 0, count: sliceSize), count: inputSize.depth)
+    means = [Tensor.Value](repeating: Tensor.Value(repeating: 0, count: sliceSize), count: inputSize.depth)
+    m2s = [Tensor.Value](repeating: Tensor.Value(repeating: 0, count: sliceSize), count: inputSize.depth)
   }
   
 }

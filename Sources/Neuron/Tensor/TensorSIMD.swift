@@ -3,7 +3,7 @@
 //  Neuron
 //
 //  Optimized activation functions operating directly on flat storage.
-//  Simple loops over ContiguousArray are auto-vectorized by the compiler
+//  Simple loops over Tensor.Value are auto-vectorized by the compiler
 //  into NEON/SSE instructions, replacing manual SIMD3/SIMD4 code.
 //
 
@@ -16,7 +16,7 @@ extension Tensor {
   
   /// Fast ReLU on flat storage (auto-vectorized)
   internal func reluSIMD() -> Tensor {
-    var result = ContiguousArray<Scalar>(repeating: 0, count: storage.count)
+    var result = Tensor.Value(repeating: 0, count: storage.count)
     for i in 0..<storage.count {
       result[i] = Swift.max(0, storage[i])
     }
@@ -25,7 +25,7 @@ extension Tensor {
   
   /// Fast Tanh on flat storage (auto-vectorized)
   internal func tanhSIMD() -> Tensor {
-    var result = ContiguousArray<Scalar>(repeating: 0, count: storage.count)
+    var result = Tensor.Value(repeating: 0, count: storage.count)
     for i in 0..<storage.count {
       let x = storage[i]
       let expPos = Scalar.exp(x)
@@ -37,7 +37,7 @@ extension Tensor {
   
   /// Fast Sigmoid on flat storage (auto-vectorized)
   internal func sigmoidSIMD() -> Tensor {
-    var result = ContiguousArray<Scalar>(repeating: 0, count: storage.count)
+    var result = Tensor.Value(repeating: 0, count: storage.count)
     for i in 0..<storage.count {
       result[i] = 1 / (1 + Scalar.exp(-storage[i]))
     }
@@ -46,7 +46,7 @@ extension Tensor {
   
   /// Fast LeakyReLU on flat storage (auto-vectorized)
   internal func leakyReluSIMD(limit: Scalar) -> Tensor {
-    var result = ContiguousArray<Scalar>(repeating: 0, count: storage.count)
+    var result = Tensor.Value(repeating: 0, count: storage.count)
     for i in 0..<storage.count {
       let x = storage[i]
       result[i] = x >= 0 ? x : limit * x
@@ -56,7 +56,7 @@ extension Tensor {
   
   /// Fast Swish on flat storage (auto-vectorized)
   internal func swishSIMD() -> Tensor {
-    var result = ContiguousArray<Scalar>(repeating: 0, count: storage.count)
+    var result = Tensor.Value(repeating: 0, count: storage.count)
     for i in 0..<storage.count {
       let x = storage[i]
       let sig = 1 / (1 + Scalar.exp(-x))
@@ -69,7 +69,7 @@ extension Tensor {
   internal func seLuSIMD() -> Tensor {
     let lambda: Scalar = 1.0507
     let alpha: Scalar = 1.6733
-    var result = ContiguousArray<Scalar>(repeating: 0, count: storage.count)
+    var result = Tensor.Value(repeating: 0, count: storage.count)
     for i in 0..<storage.count {
       let x = storage[i]
       result[i] = x > 0 ? lambda * x : lambda * alpha * (Scalar.exp(x) - 1)
@@ -80,7 +80,7 @@ extension Tensor {
   /// Fast GELU on flat storage (auto-vectorized)
   internal func geLuSIMD() -> Tensor {
     let sqrt2: Scalar = Scalar(Foundation.sqrt(2.0))
-    var result = ContiguousArray<Scalar>(repeating: 0, count: storage.count)
+    var result = Tensor.Value(repeating: 0, count: storage.count)
     for i in 0..<storage.count {
       let x = storage[i]
       result[i] = x * (1 + Scalar.erf(x / sqrt2)) * 0.5

@@ -41,7 +41,7 @@ public final class GlobalAvgPool: BaseLayer {
       let spatialCount = inputSize.rows * inputSize.columns
       let scale = Tensor.Scalar(1) / Tensor.Scalar(spatialCount)
       
-      var outStorage = ContiguousArray<Tensor.Scalar>(repeating: 0, count: spatialCount * inputSize.depth)
+      var outStorage = Tensor.Value(repeating: 0, count: spatialCount * inputSize.depth)
       
       for d in 0..<inputSize.depth {
         let gradientAtDepth = gradient.storage[d] * scale
@@ -58,7 +58,7 @@ public final class GlobalAvgPool: BaseLayer {
     let size = tensor.size
     let spatialCount = size.rows * size.columns
     let spatialScalar = Tensor.Scalar(spatialCount)
-    var outValues = ContiguousArray<Tensor.Scalar>(repeating: 0, count: size.depth)
+    var outValues = Tensor.Value(repeating: 0, count: size.depth)
     
     for d in 0..<size.depth {
       let depthOffset = d * spatialCount

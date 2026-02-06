@@ -97,7 +97,7 @@ public final class Embedding: BaseLayer {
     let context = TensorContext { [inputUnits, vocabSize] inputs, gradient, wrt in
       let sliceSize = inputUnits
       let embSize = TensorSize(rows: 1, columns: inputUnits, depth: vocabSize)
-      var embStorage = ContiguousArray<Tensor.Scalar>(repeating: 0, count: sliceSize * vocabSize)
+      var embStorage = Tensor.Value(repeating: 0, count: sliceSize * vocabSize)
       
       for (i, index) in indicies.enumerated() {
         guard index < vocabSize, i < gradient.depthSliceCount else { continue }
@@ -117,7 +117,7 @@ public final class Embedding: BaseLayer {
     // Build output by looking up each input's embedding from weights
     let weightDepth = weights.depthSliceCount
     let sliceSize = weights.size.rows * weights.size.columns
-    var outSlices = [ContiguousArray<Tensor.Scalar>]()
+    var outSlices = [Tensor.Value]()
     
     for d in 0..<tensor.depthSliceCount {
       let slice = tensor.depthSlice(d)
@@ -133,7 +133,7 @@ public final class Embedding: BaseLayer {
     }
     
     // Assemble output tensor
-    var outStorage = ContiguousArray<Tensor.Scalar>()
+    var outStorage = Tensor.Value()
     outStorage.reserveCapacity(sliceSize * outSlices.count)
     outSlices.forEach { outStorage.append(contentsOf: $0) }
     

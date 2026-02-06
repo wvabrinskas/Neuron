@@ -52,7 +52,7 @@ public final class TransConv2d: Conv2d {
     let deltaCols = delta.size.columns
     
     // Build flipped-transposed kernel table as flat arrays
-    var flippedKernels = [ContiguousArray<Tensor.Scalar>](repeating: ContiguousArray(), count: inputDepth * filterCount)
+    var flippedKernels = [Tensor.Value](repeating: Tensor.Value(), count: inputDepth * filterCount)
     for i in 0..<filterCount {
       for f in 0..<inputDepth {
         let kernel = filters[i].depthSlice(f)
@@ -60,8 +60,8 @@ public final class TransConv2d: Conv2d {
       }
     }
     
-    var weightGradientSlices = [ContiguousArray<Tensor.Scalar>]()
-    var inputGradientSlices = [ContiguousArray<Tensor.Scalar>?](repeating: nil, count: inputDepth)
+    var weightGradientSlices = [Tensor.Value]()
+    var inputGradientSlices = [Tensor.Value?](repeating: nil, count: inputDepth)
     
     for i in 0..<filterCount {
       let deltaSlice = delta.depthSlice(i)
@@ -91,14 +91,14 @@ public final class TransConv2d: Conv2d {
     }
     
     // Bias gradients: sum of each depth slice of input
-    var biasStorage = ContiguousArray<Tensor.Scalar>(repeating: 0, count: inputDepth)
+    var biasStorage = Tensor.Value(repeating: 0, count: inputDepth)
     for d in 0..<inputDepth {
       biasStorage[d] = NumSwiftFlat.sum(input.depthSlice(d))
     }
     
     // Assemble input gradients tensor
     let inputSliceSize = inputSize.rows * inputSize.columns
-    var inputStorage = ContiguousArray<Tensor.Scalar>(repeating: 0, count: inputSliceSize * inputDepth)
+    var inputStorage = Tensor.Value(repeating: 0, count: inputSliceSize * inputDepth)
     for f in 0..<inputDepth {
       if let slice = inputGradientSlices[f] {
         let start = f * inputSliceSize
@@ -110,7 +110,7 @@ public final class TransConv2d: Conv2d {
     
     // Assemble weight gradients tensor
     let wSliceSize = fRows * fCols
-    var wStorage = ContiguousArray<Tensor.Scalar>(repeating: 0, count: wSliceSize * weightGradientSlices.count)
+    var wStorage = Tensor.Value(repeating: 0, count: wSliceSize * weightGradientSlices.count)
     for (idx, slice) in weightGradientSlices.enumerated() {
       let start = idx * wSliceSize
       for j in 0..<min(slice.count, wSliceSize) {
@@ -124,10 +124,10 @@ public final class TransConv2d: Conv2d {
   }
   
   internal override func calculateFilterGradientsFlat(_ input: Tensor,
-                                              _ delta: ContiguousArray<Tensor.Scalar>,
+                                              _ delta: Tensor.Value,
                                               deltaSize: (rows: Int, columns: Int),
-                                              index: Int) -> [ContiguousArray<Tensor.Scalar>] {
-    var results = [ContiguousArray<Tensor.Scalar>]()
+                                              index: Int) -> [Tensor.Value] {
+    var results = [Tensor.Value]()
     results.reserveCapacity(inputSize.depth)
     
     var cachedSignalSize: (rows: Int, columns: Int)?
@@ -181,7 +181,7 @@ public final class TransConv2d: Conv2d {
     return results
   }
   
-  internal override func conv(_ input: Tensor) -> ContiguousArray<Tensor.Scalar> {
+  internal override func conv(_ input: Tensor) -> Tensor.Value {
     let outRows = outputSize.rows
     let outCols = outputSize.columns
     let outSliceSize = outRows * outCols
@@ -189,7 +189,7 @@ public final class TransConv2d: Conv2d {
     let inCols = inputSize.columns
     
     // Initialize result storage for all filter outputs
-    var filterOutputs = [ContiguousArray<Tensor.Scalar>?](repeating: nil, count: filterCount)
+    var filterOutputs = [Tensor.Value?](repeating: nil, count: filterCount)
     
     for i in 0..<input.depthSliceCount {
       let localInput = input.depthSlice(i)
@@ -237,7 +237,7 @@ public final class TransConv2d: Conv2d {
     }
     
     // Assemble flat result
-    var resultStorage = ContiguousArray<Tensor.Scalar>(repeating: 0, count: outSliceSize * filterCount)
+    var resultStorage = Tensor.Value(repeating: 0, count: outSliceSize * filterCount)
     for f in 0..<filterCount {
       if let output = filterOutputs[f] {
         let start = f * outSliceSize

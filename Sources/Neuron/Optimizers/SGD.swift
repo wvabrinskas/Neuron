@@ -10,8 +10,8 @@ import NumSwift
 
 public class SGD: BaseOptimizer {
   private let momentum: Tensor.Scalar
-  private var v: [ContiguousArray<Tensor.Scalar>] = []
-  private var vb: [ContiguousArray<Tensor.Scalar>] = []
+  private var v: [Tensor.Value] = []
+  private var vb: [Tensor.Value] = []
 
   public init(_ trainable: Trainable,
               device: Device = CPU(),
@@ -23,8 +23,8 @@ public class SGD: BaseOptimizer {
     self.momentum = momentum
     
     trainable.compile()
-    v = [ContiguousArray<Tensor.Scalar>].init(repeating: ContiguousArray(), count: trainable.layers.count)
-    vb = [ContiguousArray<Tensor.Scalar>].init(repeating: ContiguousArray(), count: trainable.layers.count)
+    v = [Tensor.Value].init(repeating: Tensor.Value(), count: trainable.layers.count)
+    vb = [Tensor.Value].init(repeating: Tensor.Value(), count: trainable.layers.count)
     
     super.init(trainable: trainable,
                learningRate: learningRate,
@@ -61,22 +61,22 @@ public class SGD: BaseOptimizer {
     let i = index
 
     if v[i].isEmpty {
-      v[i] = ContiguousArray<Tensor.Scalar>(repeating: 0, count: gradient.storage.count)
+      v[i] = Tensor.Value(repeating: 0, count: gradient.storage.count)
     }
     
     apply(to: &v[i], gradient: gradient.storage)
 
     if vb[i].isEmpty {
-      vb[i] = ContiguousArray<Tensor.Scalar>(repeating: 0, count: biasGradient.storage.count)
+      vb[i] = Tensor.Value(repeating: 0, count: biasGradient.storage.count)
     }
           
     apply(to: &vb[i], gradient: biasGradient.storage)
 
-    return (Tensor(ContiguousArray(v[i]), size: gradient.size),
-            Tensor(ContiguousArray(vb[i]), size: biasGradient.size))
+    return (Tensor(Tensor.Value(v[i]), size: gradient.size),
+            Tensor(Tensor.Value(vb[i]), size: biasGradient.size))
   }
 
-  private func apply(to: inout ContiguousArray<Tensor.Scalar>, gradient: ContiguousArray<Tensor.Scalar>) {
+  private func apply(to: inout Tensor.Value, gradient: Tensor.Value) {
     for i in 0..<gradient.count {
       to[i] = momentum * to[i] + learningRate * gradient[i]
     }

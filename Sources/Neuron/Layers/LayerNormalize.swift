@@ -93,11 +93,11 @@ public final class LayerNormalize: BaseLayer {
     setupTrainables()
   }
 
-  private func normalizeFlat(inputs: Tensor) -> ContiguousArray<Tensor.Scalar> {
+  private func normalizeFlat(inputs: Tensor) -> Tensor.Value {
     let depth = inputs.depthSliceCount
     let sliceSize = inputSize.rows * inputSize.columns
     let total = Tensor.Scalar(sliceSize)
-    var outStorage = ContiguousArray<Tensor.Scalar>(repeating: 0, count: inputs.storage.count)
+    var outStorage = Tensor.Value(repeating: 0, count: inputs.storage.count)
     
     for i in 0..<depth {
       let slice = inputs.depthSlice(i)
@@ -125,9 +125,9 @@ public final class LayerNormalize: BaseLayer {
     
     // We use Tensor operations per-depth for the complex backward math
     // but construct depth-1 Tensors from flat slices instead of going through .value
-    var dInputSlices = [ContiguousArray<Tensor.Scalar>]()
-    var dGammaSlices = [ContiguousArray<Tensor.Scalar>]()
-    var dBetaSlices = [ContiguousArray<Tensor.Scalar>]()
+    var dInputSlices = [Tensor.Value]()
+    var dGammaSlices = [Tensor.Value]()
+    var dBetaSlices = [Tensor.Value]()
     
     let sliceShape = TensorSize(rows: inputSize.rows, columns: inputSize.columns, depth: 1)
     
@@ -163,13 +163,13 @@ public final class LayerNormalize: BaseLayer {
     }
     
     // Assemble full tensors from per-depth slices
-    var dInputStorage = ContiguousArray<Tensor.Scalar>()
+    var dInputStorage = Tensor.Value()
     dInputSlices.forEach { dInputStorage.append(contentsOf: $0) }
     
-    var dGammaStorage = ContiguousArray<Tensor.Scalar>()
+    var dGammaStorage = Tensor.Value()
     dGammaSlices.forEach { dGammaStorage.append(contentsOf: $0) }
     
-    var dBetaStorage = ContiguousArray<Tensor.Scalar>()
+    var dBetaStorage = Tensor.Value()
     dBetaSlices.forEach { dBetaStorage.append(contentsOf: $0) }
     
     let dGammaTensor = Tensor(dGammaStorage, size: TensorSize(rows: inputSize.rows, columns: inputSize.columns, depth: depth))
