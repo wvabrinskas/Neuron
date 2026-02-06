@@ -74,7 +74,7 @@ open class WGANGP: GAN {
       let criticCost = fakeOutput - realOutput
       let criticLoss = criticCost + self.lambda * penalty
           
-      let part1 = Tensor.Scalar(2 / fakeOutput._size.depth) * self.lambda
+      let part1 = Tensor.Scalar(2 / fakeOutput.size.depth) * self.lambda
       let part2 = normGradients - 1
       let part3 = interOut.outputs[safe: 0, Tensor()] / normGradients
       let dGradInter = part1 * part2 * part3

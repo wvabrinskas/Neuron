@@ -39,12 +39,12 @@ public final class Softmax: BaseActivationLayer {
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let context = TensorContext { inputs, gradient, wrt in
-      let wrtInputGradient = Tensor(ContiguousArray(gradient.storage), size: gradient._size)
+      let wrtInputGradient = Tensor(ContiguousArray(gradient.storage), size: gradient.size)
       wrtInputGradient.label = "softmax_input_gradient"
       return (wrtInputGradient, Tensor(), Tensor())
     }
 
-    let size = tensor._size
+    let size = tensor.size
     let cols = size.columns
     let rows = size.rows
     let depth = size.depth

@@ -131,7 +131,7 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
   
   public func unvectorizeOneHot(_ vector: Tensor) -> [T] {
     var items: [T] = []
-    let cols = vector._size.columns
+    let cols = vector.size.columns
     
     for d in 0..<vector.depthSliceCount {
       let slice = vector.depthSlice(d)

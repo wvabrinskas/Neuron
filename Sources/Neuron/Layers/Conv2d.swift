@@ -129,8 +129,8 @@ public class Conv2d: BaseConvolutionalLayer {
       }
     }
     
-    let deltaRows = delta._size.rows
-    let deltaCols = delta._size.columns
+    let deltaRows = delta.size.rows
+    let deltaCols = delta.size.columns
     
     // Weight gradients: flat storage for filterCount * inputDepth depth slices
     var weightGradientSlices = [ContiguousArray<Tensor.Scalar>]()
@@ -356,8 +356,8 @@ public class Conv2d: BaseConvolutionalLayer {
   internal func flip180Flat(_ filter: Tensor) -> [ContiguousArray<Tensor.Scalar>] {
     var result = [ContiguousArray<Tensor.Scalar>]()
     result.reserveCapacity(filter.depthSliceCount)
-    let fRows = filter._size.rows
-    let fCols = filter._size.columns
+    let fRows = filter.size.rows
+    let fCols = filter.size.columns
     for d in 0..<filter.depthSliceCount {
       result.append(NumSwiftFlat.flip180(filter.depthSlice(d), rows: fRows, columns: fCols))
     }

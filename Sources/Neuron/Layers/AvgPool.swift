@@ -48,7 +48,7 @@ public final class AvgPool: BaseLayer {
       let kRows = self.kernelSize.rows
       let kCols = self.kernelSize.columns
       let kernelArea = Tensor.Scalar(kRows * kCols)
-      let gradCols = gradient._size.columns
+      let gradCols = gradient.size.columns
       
       var outStorage = ContiguousArray<Tensor.Scalar>(repeating: 0, count: rows * columns * self.inputSize.depth)
       

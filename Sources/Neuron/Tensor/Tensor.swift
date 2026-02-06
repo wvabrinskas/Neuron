@@ -20,7 +20,7 @@ public protocol TensorRange {
 /// The `value` computed property provides backward-compatible access as a 3D `[[[Scalar]]]` array.
 public class Tensor: Equatable, Codable {
   public static func == (lhs: Tensor, rhs: Tensor) -> Bool {
-    lhs.storage == rhs.storage && lhs._size == rhs._size || lhs.id == rhs.id
+    lhs.storage == rhs.storage && lhs.size == rhs.size || lhs.id == rhs.id
   }
 
   #if QUANTIZED_F16
@@ -29,7 +29,7 @@ public class Tensor: Equatable, Codable {
   public typealias Scalar = Float
   #endif
   
-  /// The legacy nested-array type for tensor data. Prefer using `storage` and `_size` for new code.
+  /// The legacy nested-array type for tensor data. Prefer using `storage` and `size` for new code.
   public typealias Data = [[[Scalar]]]
   public typealias ID = UInt64
   
@@ -58,22 +58,25 @@ public class Tensor: Equatable, Codable {
   
   /// The flat contiguous storage for this tensor's data.
   /// Memory layout: `index = d * rows * columns + r * columns + c`
+  /// 
+  /// 
+  /// TODO: Set ContiguousArray to some type of typealias on this so we can use this elsewhere.
   public internal(set) var storage: ContiguousArray<Scalar>
   
   /// The shape metadata (columns, rows, depth)
-  public internal(set) var _size: TensorSize
+  public internal(set) var size: TensorSize
   
   // MARK: - Depth Slice Access
   
   /// Number of depth slices (equivalent to `value.count` without constructing nested array).
-  public var depthSliceCount: Int { _size.depth }
+  public var depthSliceCount: Int { size.depth }
   
   /// Extracts one depth slice as a flat row-major `ContiguousArray` directly from storage.
   /// Each slice has `rows * columns` elements.
   /// - Parameter d: The depth index (0-based)
   /// - Returns: A flat contiguous array of the depth slice
   public func depthSlice(_ d: Int) -> ContiguousArray<Scalar> {
-    let sliceSize = _size.rows * _size.columns
+    let sliceSize = size.rows * size.columns
     let start = d * sliceSize
     return ContiguousArray(storage[start..<(start + sliceSize)])
   }
@@ -83,7 +86,7 @@ public class Tensor: Equatable, Codable {
   ///   - d: The depth index (0-based)
   ///   - data: The flat row-major data to write (must have rows * columns elements)
   public func setDepthSlice(_ d: Int, _ data: ContiguousArray<Scalar>) {
-    let sliceSize = _size.rows * _size.columns
+    let sliceSize = size.rows * size.columns
     let start = d * sliceSize
     for i in 0..<sliceSize {
       storage[start + i] = data[i]
@@ -93,15 +96,15 @@ public class Tensor: Equatable, Codable {
   /// Creates a new Tensor from a single depth slice of this tensor.
   /// The result has depth=1 and the same rows/columns.
   public func depthSliceTensor(_ d: Int) -> Tensor {
-    let sliceSize = _size.rows * _size.columns
+    let sliceSize = size.rows * size.columns
     let start = d * sliceSize
     let sliceStorage = ContiguousArray(storage[start..<(start + sliceSize)])
-    return Tensor(sliceStorage, size: TensorSize(rows: _size.rows, columns: _size.columns, depth: 1))
+    return Tensor(sliceStorage, size: TensorSize(rows: size.rows, columns: size.columns, depth: 1))
   }
   
   /// Backward-compatible access to the tensor data as a 3D nested array `[[[Scalar]]]`.
   /// - Note: The getter reconstructs the nested array from flat storage. For performance-critical
-  ///   code, prefer using `storage` and `_size` directly.
+  ///   code, prefer using `storage` and `size` directly.
   public var value: Data {
     get { return toNestedArray() }
     set {
@@ -115,7 +118,7 @@ public class Tensor: Equatable, Codable {
         }
       }
       
-      _size = TensorSize(rows: maxRows, columns: maxCols, depth: depth)
+      size = TensorSize(rows: maxRows, columns: maxCols, depth: depth)
       
       let totalCount = maxCols * maxRows * depth
       var flat = ContiguousArray<Scalar>(repeating: 0, count: totalCount)
@@ -146,7 +149,7 @@ public class Tensor: Equatable, Codable {
   
   /// Shape of the Tensor as a 1D array. `[columns, rows, depth]`
   public var shape: [Int] {
-    _size.asArray
+    size.asArray
   }
   
   /// Input from the graph
@@ -174,7 +177,7 @@ public class Tensor: Equatable, Codable {
   /// Memory layout: `index = d * rows * columns + r * columns + c`
   @inline(__always)
   public func flatIndex(column c: Int, row r: Int, depth d: Int) -> Int {
-    d * _size.rows * _size.columns + r * _size.columns + c
+    d * size.rows * size.columns + r * size.columns + c
   }
   
   /// Subscript for direct element access using (column, row, depth) coordinates.
@@ -187,9 +190,9 @@ public class Tensor: Equatable, Codable {
   public subscript(_ colRange: some RangeExpression<Int>,
                    _ rowRange: some RangeExpression<Int>,
                    _ depthRange: some RangeExpression<Int>) -> Tensor {
-    let depthBound = 0..<_size.depth
-    let rowBound = 0..<_size.rows
-    let colBound = 0..<_size.columns
+    let depthBound = 0..<size.depth
+    let rowBound = 0..<size.rows
+    let colBound = 0..<size.columns
     
     let dRange = depthRange.relative(to: depthBound)
     let rRange = rowRange.relative(to: rowBound)
@@ -220,7 +223,7 @@ public class Tensor: Equatable, Codable {
   /// Default initializer with no context or value
   public init() {
     self.storage = ContiguousArray()
-    self._size = TensorSize(rows: 0, columns: 0, depth: 0)
+    self.size = TensorSize(rows: 0, columns: 0, depth: 0)
     self.context = TensorContext()
   }
   
@@ -240,7 +243,7 @@ public class Tensor: Equatable, Codable {
         maxCols = Swift.max(maxCols, row.count)
       }
     }
-    self._size = TensorSize(rows: maxRows, columns: maxCols, depth: depth)
+    self.size = TensorSize(rows: maxRows, columns: maxCols, depth: depth)
     
     let totalCount = maxCols * maxRows * depth
     var flat = ContiguousArray<Scalar>(repeating: 0, count: totalCount)
@@ -271,10 +274,10 @@ public class Tensor: Equatable, Codable {
   public init(_ data: Scalar? = nil, context: TensorContext = TensorContext()) {
     if let data = data {
       self.storage = ContiguousArray([data])
-      self._size = TensorSize(rows: 1, columns: 1, depth: 1)
+      self.size = TensorSize(rows: 1, columns: 1, depth: 1)
     } else {
       self.storage = ContiguousArray()
-      self._size = TensorSize(rows: 0, columns: 0, depth: 0)
+      self.size = TensorSize(rows: 0, columns: 0, depth: 0)
     }
     
     self.features = 1
@@ -289,7 +292,7 @@ public class Tensor: Equatable, Codable {
   public init(_ data: [Scalar], context: TensorContext = TensorContext()) {
     // 1D data is stored as shape (data.count, 1, 1) -- matching the old [[data]] layout
     self.storage = ContiguousArray(data)
-    self._size = TensorSize(rows: 1, columns: data.count, depth: 1)
+    self.size = TensorSize(rows: 1, columns: data.count, depth: 1)
     self.context = context
     self.features = data.count
     setId()
@@ -307,7 +310,7 @@ public class Tensor: Equatable, Codable {
       maxCols = Swift.max(maxCols, row.count)
     }
     
-    self._size = TensorSize(rows: rows, columns: maxCols, depth: 1)
+    self.size = TensorSize(rows: rows, columns: maxCols, depth: 1)
     
     let totalCount = maxCols * rows
     var flat = ContiguousArray<Scalar>(repeating: 0, count: totalCount)
@@ -341,7 +344,7 @@ public class Tensor: Equatable, Codable {
       }
     }
     
-    self._size = TensorSize(rows: maxRows, columns: maxCols, depth: depth)
+    self.size = TensorSize(rows: maxRows, columns: maxCols, depth: depth)
     
     let totalCount = maxCols * maxRows * depth
     var flat = ContiguousArray<Scalar>(repeating: 0, count: totalCount)
@@ -371,7 +374,7 @@ public class Tensor: Equatable, Codable {
   ///   - context: Backpropagation context
   public init(_ storage: ContiguousArray<Scalar>, size: TensorSize, context: TensorContext = TensorContext()) {
     self.storage = storage
-    self._size = size
+    self.size = size
     self.context = context
     self.features = size.depth
     setId()
@@ -388,13 +391,13 @@ public class Tensor: Equatable, Codable {
   internal func toNestedArray() -> Data {
     guard !storage.isEmpty else { return [] }
     
-    let columns = _size.columns
-    let rows = _size.rows
-    let depth = _size.depth
+    let columns = size.columns
+    let rows = size.rows
+    let depth = size.depth
     
     let expectedCount = columns * rows * depth
     precondition(storage.count == expectedCount,
-                 "Tensor storage/size mismatch: storage has \(storage.count) elements but size \(_size) expects \(expectedCount)")
+                 "Tensor storage/size mismatch: storage has \(storage.count) elements but size \(size) expects \(expectedCount)")
     
     var result: Data = []
     result.reserveCapacity(depth)
@@ -494,14 +497,14 @@ public class Tensor: Equatable, Codable {
   /// - Parameter to: Tensor to compare to
   /// - Returns: Bool indicating if the values are equal
   public func isValueEqual(to: Tensor) -> Bool {
-    self.storage == to.storage && self._size == to._size
+    self.storage == to.storage && self.size == to.size
   }
   
   /// Checks if the value of the Tensor is the same as another Tensor. `==` checks id property.
   /// - Parameter to: Tensor to compare to
   /// - Returns: Bool indicating if the values are equal
   public func isValueEqual(to: Tensor, accuracy: Tensor.Scalar = 0.000001) -> Bool {
-    guard _size == to._size else { return false }
+    guard size == to.size else { return false }
     
     for i in 0..<storage.count {
       if abs(storage[i] - to.storage[i]) > accuracy {
@@ -612,7 +615,7 @@ public class Tensor: Equatable, Codable {
   /// Remove this Tensor from the graph.
   /// - Returns: Detached Tensor
   public func detached() -> Tensor {
-    let tensor = Tensor(ContiguousArray(storage), size: _size, context: TensorContext())
+    let tensor = Tensor(ContiguousArray(storage), size: size, context: TensorContext())
     tensor.id = self.id
     return tensor
   }
@@ -621,14 +624,14 @@ public class Tensor: Equatable, Codable {
   /// - Returns: Copied Tensor
   public func copy(keepContext: Bool = false) -> Tensor {
     guard keepContext == false else {
-      return Tensor(ContiguousArray(storage), size: _size, context: context)
+      return Tensor(ContiguousArray(storage), size: size, context: context)
     }
     
-    return Tensor(ContiguousArray(storage), size: _size)
+    return Tensor(ContiguousArray(storage), size: size)
   }
   
   public func isScalar() -> Bool {
-    _size == TensorSize(rows: 1, columns: 1, depth: 1)
+    size == TensorSize(rows: 1, columns: 1, depth: 1)
   }
   
   /// Gets the `Tensor.Scalar` value of this Tensors value. This is reserved for Tensor's that have a value of size `[1, 1, 1]` aka a `Scalar` as `[[[Scalar]]]`
@@ -699,16 +702,16 @@ extension Tensor: CustomDebugStringConvertible {
                  <Tensor \n
                  """
     
-    string += "shape: (col: \(_size.columns), rows: \(_size.rows), depth: \(_size.depth))\n"
+    string += "shape: (col: \(size.columns), rows: \(size.rows), depth: \(size.depth))\n"
     string += "-----\n"
     string += "label: \(label)\n"
     string += "-----\n"
     string += "value: \n"
     
-    for d in 0..<_size.depth {
-      for r in 0..<_size.rows {
-        let start = d * _size.rows * _size.columns + r * _size.columns
-        let end = start + _size.columns
+    for d in 0..<size.depth {
+      for r in 0..<size.rows {
+        let start = d * size.rows * size.columns + r * size.columns
+        let end = start + size.columns
         let row = Array(storage[start..<end])
         string += "\(row)\n"
       }

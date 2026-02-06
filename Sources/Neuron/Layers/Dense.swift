@@ -119,7 +119,7 @@ public final class Dense: BaseLayer {
       dotProducts = dotProducts.copy() + biases
     }
     
-    let out = Tensor(ContiguousArray(dotProducts.storage), size: dotProducts._size, context: tensorContext)
+    let out = Tensor(ContiguousArray(dotProducts.storage), size: dotProducts.size, context: tensorContext)
     out.label = "Dense"
     
     out.setGraph(tensor)

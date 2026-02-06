@@ -387,7 +387,7 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
     }
     
     let result = device.activate(tensor, type)
-    let out = Tensor(ContiguousArray(result.storage), size: result._size, context: context)
+    let out = Tensor(ContiguousArray(result.storage), size: result.size, context: context)
     out.label = type.asString()
 
     out.setGraph(tensor)

@@ -72,7 +72,7 @@ public final class Dropout: BaseLayer {
       droppedOut = tensor * (1 - chance)
     }
 
-    let out = Tensor(ContiguousArray(droppedOut.storage), size: droppedOut._size, context: context)
+    let out = Tensor(ContiguousArray(droppedOut.storage), size: droppedOut.size, context: context)
     
     out.setGraph(tensor)
     

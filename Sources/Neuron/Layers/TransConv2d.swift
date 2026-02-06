@@ -48,8 +48,8 @@ public final class TransConv2d: Conv2d {
     let inputDepth = inputSize.depth
     let fRows = filterSize.rows
     let fCols = filterSize.columns
-    let deltaRows = delta._size.rows
-    let deltaCols = delta._size.columns
+    let deltaRows = delta.size.rows
+    let deltaCols = delta.size.columns
     
     // Build flipped-transposed kernel table as flat arrays
     var flippedKernels = [ContiguousArray<Tensor.Scalar>](repeating: ContiguousArray(), count: inputDepth * filterCount)

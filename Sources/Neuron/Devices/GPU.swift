@@ -77,7 +77,7 @@ public class GPU: Device {
       let flat = Array(input.storage)
       let activated = self.manager.activate(flat, type)
 
-      let reshaped = activated.reshape(columns: input._size.columns).batched(into: input._size.depth)
+      let reshaped = activated.reshape(columns: input.size.columns).batched(into: input.size.depth)
 
       return Tensor(reshaped)
     }
@@ -116,7 +116,7 @@ public class GPU: Device {
     let flat = Array(input.storage)
     let activated = self.manager.activate(flat, type, derivate: true)
 
-    let reshaped = activated.reshape(columns: input._size.columns).batched(into: input._size.depth)
+    let reshaped = activated.reshape(columns: input.size.columns).batched(into: input.size.depth)
 
     return Tensor(reshaped)
   }

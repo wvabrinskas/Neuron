@@ -116,7 +116,7 @@ public final class Embedding: BaseLayer {
     
     // Build output by looking up each input's embedding from weights
     let weightDepth = weights.depthSliceCount
-    let sliceSize = weights._size.rows * weights._size.columns
+    let sliceSize = weights.size.rows * weights.size.columns
     var outSlices = [ContiguousArray<Tensor.Scalar>]()
     
     for d in 0..<tensor.depthSliceCount {
@@ -137,7 +137,7 @@ public final class Embedding: BaseLayer {
     outStorage.reserveCapacity(sliceSize * outSlices.count)
     outSlices.forEach { outStorage.append(contentsOf: $0) }
     
-    let outSize = TensorSize(rows: weights._size.rows, columns: weights._size.columns, depth: outSlices.count)
+    let outSize = TensorSize(rows: weights.size.rows, columns: weights.size.columns, depth: outSlices.count)
     let out = Tensor(outStorage, size: outSize, context: context)
     
     out.label = String(describing: self)

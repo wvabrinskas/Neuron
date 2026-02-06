@@ -45,9 +45,9 @@ public extension Tensor {
    Along axis -1 the Tensor of shape AxBxC, where A is the columns, B is the rows, and C is the depth, would perform a mathematical function along the Z axis returning a (1x1x1) Tensor Scalar
    */
   func apply(axis: Int, _ block: MathBlock) -> Tensor {
-    let columns = _size.columns
-    let rows = _size.rows
-    let depth = _size.depth
+    let columns = size.columns
+    let rows = size.rows
+    let depth = size.depth
     
     if axis == 0 {
       // Reduce along rows -> output (columns x 1 x depth)
@@ -101,7 +101,7 @@ public extension Tensor {
       return Tensor(outStorage, size: outSize)
     }
     
-    return Tensor(ContiguousArray(storage), size: _size)
+    return Tensor(ContiguousArray(storage), size: size)
   }
   
   /// Determines the appropriate axis for broadcasting operations between two tensors.
@@ -150,8 +150,8 @@ public extension Tensor {
   /// - Note: Self-assignment is supported. Methods using this function automatically detect and prevent
   ///   reference cycles in the computation graph via ` `.
   func applyAlong(axis: Int, input: Tensor, _ block: MathAlongBlock) -> Tensor {
-    let inputSize = input._size
-    let selfSize = self._size
+    let inputSize = input.size
+    let selfSize = self.size
     let columns = selfSize.columns
     let rows = selfSize.rows
     let depth = selfSize.depth
@@ -240,7 +240,7 @@ public extension Tensor {
     
     let out = applyAlong(axis: axis, input: value, block)
     
-    let new = Tensor(ContiguousArray(out.storage), size: out._size, context: context)
+    let new = Tensor(ContiguousArray(out.storage), size: out.size, context: context)
     
     new.label = "division"
     
@@ -278,7 +278,7 @@ public extension Tensor {
     
     let out = applyAlong(axis: axis, input: value, block)
     
-    let new = Tensor(ContiguousArray(out.storage), size: out._size, context: context)
+    let new = Tensor(ContiguousArray(out.storage), size: out.size, context: context)
     
     new.label = "multiplication"
 
@@ -316,7 +316,7 @@ public extension Tensor {
     
     let out = applyAlong(axis: axis, input: value, block)
     
-    let new = Tensor(ContiguousArray(out.storage), size: out._size, context: context)
+    let new = Tensor(ContiguousArray(out.storage), size: out.size, context: context)
     
     new.label = "addition"
 
@@ -356,7 +356,7 @@ public extension Tensor {
     
     let out = applyAlong(axis: axis, input: value, block)
     
-    let new = Tensor(ContiguousArray(out.storage), size: out._size, context: context)
+    let new = Tensor(ContiguousArray(out.storage), size: out.size, context: context)
     
     new.label = "subtraction"
     
@@ -398,8 +398,8 @@ public extension Tensor {
   }
   
   func matmul(_ with: Tensor) -> Tensor {
-    let aSize = self._size
-    let bSize = with._size
+    let aSize = self.size
+    let bSize = with.size
     
     precondition(aSize.columns == bSize.rows, "A columns (\(aSize.columns)) must equal B rows (\(bSize.rows))")
     precondition(aSize.depth == bSize.depth, "A depth (\(aSize.depth)) must equal B depth (\(bSize.depth))")
@@ -449,9 +449,9 @@ public extension Tensor {
   }
   
   func split(into: Int, axis: Int = 2) -> [Tensor] {
-    let columns = _size.columns
-    let rows = _size.rows
-    let depth = _size.depth
+    let columns = size.columns
+    let rows = size.rows
+    let depth = size.depth
     
     if axis == 2 {
       // Split along depth into groups of `into`
@@ -540,7 +540,7 @@ public extension Tensor {
   func sqrt(adding: Tensor.Scalar = .stabilityFactor) -> Tensor {
     let shifted = NumSwiftFlat.add(storage, scalar: adding)
     let result = NumSwiftFlat.sqrt(shifted)
-    return Tensor(result, size: _size, context: context)
+    return Tensor(result, size: size, context: context)
   }
   
   func variance(axis: Int = -1) -> Tensor {
@@ -635,18 +635,18 @@ public extension Tensor {
   func concat(_ tensor: Tensor, axis: Int = 1) -> Tensor {
     // Handle empty tensors
     if isEmpty {
-      return Tensor(ContiguousArray(tensor.storage), size: tensor._size, context: context)
+      return Tensor(ContiguousArray(tensor.storage), size: tensor.size, context: context)
     }
     if tensor.isEmpty {
-      return Tensor(ContiguousArray(storage), size: _size, context: context)
+      return Tensor(ContiguousArray(storage), size: size, context: context)
     }
     
-    let selfCols = _size.columns
-    let selfRows = _size.rows
-    let selfDepth = _size.depth
-    let otherCols = tensor._size.columns
-    let otherRows = tensor._size.rows
-    let otherDepth = tensor._size.depth
+    let selfCols = size.columns
+    let selfRows = size.rows
+    let selfDepth = size.depth
+    let otherCols = tensor.size.columns
+    let otherRows = tensor.size.rows
+    let otherDepth = tensor.size.depth
     
     if axis == -1 {
       // Flatten concat
@@ -754,14 +754,14 @@ public extension Tensor {
       return Tensor(result, size: newSize, context: context)
     }
     
-    return Tensor(ContiguousArray(storage), size: _size, context: context)
+    return Tensor(ContiguousArray(storage), size: size, context: context)
   }
   
   func l2Normalized() -> Tensor {
     let sumSq = NumSwiftFlat.sumOfSquares(storage)
     let divisor = Scalar.sqrt(sumSq)
     let result = NumSwiftFlat.divide(storage, scalar: divisor)
-    return Tensor(result, size: _size, context: context)
+    return Tensor(result, size: size, context: context)
   }
   
   func map(_ transform: (Tensor.Scalar) -> Tensor.Scalar) -> Tensor {
@@ -769,41 +769,41 @@ public extension Tensor {
     for i in 0..<storage.count {
       result[i] = transform(storage[i])
     }
-    return Tensor(result, size: _size, context: context)
+    return Tensor(result, size: size, context: context)
   }
   
   static func /(lhs: Scalar, rhs: Tensor) -> Tensor {
-    return Tensor(NumSwiftFlat.divide(scalar: lhs, rhs.storage), size: rhs._size, context: rhs.context)
+    return Tensor(NumSwiftFlat.divide(scalar: lhs, rhs.storage), size: rhs.size, context: rhs.context)
   }
   
   static func *(lhs: Scalar, rhs: Tensor) -> Tensor {
-    return Tensor(NumSwiftFlat.multiply(rhs.storage, scalar: lhs), size: rhs._size, context: rhs.context)
+    return Tensor(NumSwiftFlat.multiply(rhs.storage, scalar: lhs), size: rhs.size, context: rhs.context)
   }
   
   static func -(lhs: Scalar, rhs: Tensor) -> Tensor {
-    return Tensor(NumSwiftFlat.subtract(scalar: lhs, rhs.storage), size: rhs._size, context: rhs.context)
+    return Tensor(NumSwiftFlat.subtract(scalar: lhs, rhs.storage), size: rhs.size, context: rhs.context)
   }
   
   static func /(lhs: Tensor, rhs: Scalar) -> Tensor {
-    return Tensor(NumSwiftFlat.divide(lhs.storage, scalar: rhs), size: lhs._size, context: lhs.context)
+    return Tensor(NumSwiftFlat.divide(lhs.storage, scalar: rhs), size: lhs.size, context: lhs.context)
   }
   
   static func *(lhs: Tensor, rhs: Scalar) -> Tensor {
-    return Tensor(NumSwiftFlat.multiply(lhs.storage, scalar: rhs), size: lhs._size, context: lhs.context)
+    return Tensor(NumSwiftFlat.multiply(lhs.storage, scalar: rhs), size: lhs.size, context: lhs.context)
   }
   
   static func -(lhs: Tensor, rhs: Scalar) -> Tensor {
-    return Tensor(NumSwiftFlat.subtract(lhs.storage, scalar: rhs), size: lhs._size, context: lhs.context)
+    return Tensor(NumSwiftFlat.subtract(lhs.storage, scalar: rhs), size: lhs.size, context: lhs.context)
   }
   
   static func +(lhs: Tensor, rhs: Scalar) -> Tensor {
-    return Tensor(NumSwiftFlat.add(lhs.storage, scalar: rhs), size: lhs._size, context: lhs.context)
+    return Tensor(NumSwiftFlat.add(lhs.storage, scalar: rhs), size: lhs.size, context: lhs.context)
   }
   
   /// Performs element-wise addition between two tensors with automatic broadcasting support.
   static func +(lhs: Tensor, rhs: Tensor) -> Tensor {
-    if let axis = Tensor.axisToApplyAlong(selfSize: lhs._size,
-                                          size: rhs._size) {
+    if let axis = Tensor.axisToApplyAlong(selfSize: lhs.size,
+                                          size: rhs.size) {
       return lhs.addAlong(axis: axis, value: rhs)
     }
     
@@ -816,7 +816,7 @@ public extension Tensor {
       return (copy, Tensor(), Tensor())
     }
     
-    let new = Tensor(result, size: lhs._size, context: context)
+    let new = Tensor(result, size: lhs.size, context: context)
     new.label = "addition"
     
     new.setGraphSafe(lhs)
@@ -827,8 +827,8 @@ public extension Tensor {
   
   /// Performs element-wise subtraction between two tensors with automatic broadcasting support.
   static func -(lhs: Tensor, rhs: Tensor) -> Tensor {
-    if let axis = Tensor.axisToApplyAlong(selfSize: lhs._size,
-                                          size: rhs._size) {
+    if let axis = Tensor.axisToApplyAlong(selfSize: lhs.size,
+                                          size: rhs.size) {
       return lhs.subtractAlong(axis: axis, value: rhs)
     }
     
@@ -843,7 +843,7 @@ public extension Tensor {
       return (gradient, Tensor(), Tensor())
     }
     
-    let new = Tensor(result, size: lhs._size, context: context)
+    let new = Tensor(result, size: lhs.size, context: context)
     new.label = "subtraction"
 
     new.setGraphSafe(lhs)
@@ -854,8 +854,8 @@ public extension Tensor {
   
   /// Performs element-wise multiplication between two tensors with automatic broadcasting support.
   static func *(lhs: Tensor, rhs: Tensor) -> Tensor {
-    if let axis = Tensor.axisToApplyAlong(selfSize: lhs._size,
-                                          size: rhs._size) {
+    if let axis = Tensor.axisToApplyAlong(selfSize: lhs.size,
+                                          size: rhs.size) {
       return lhs.multiplyAlong(axis: axis, value: rhs)
     }
     
@@ -867,7 +867,7 @@ public extension Tensor {
       return (gradient * copied, Tensor(), Tensor())
     }
     
-    let new = Tensor(result, size: lhs._size, context: context)
+    let new = Tensor(result, size: lhs.size, context: context)
     new.label = "multiplication"
 
     new.setGraphSafe(lhs)
@@ -878,8 +878,8 @@ public extension Tensor {
   
   /// Performs element-wise division between two tensors with automatic broadcasting support.
   static func /(lhs: Tensor, rhs: Tensor) -> Tensor {
-    if let axis = Tensor.axisToApplyAlong(selfSize: lhs._size,
-                                          size: rhs._size) {
+    if let axis = Tensor.axisToApplyAlong(selfSize: lhs.size,
+                                          size: rhs.size) {
       return lhs.divideAlong(axis: axis, value: rhs)
     }
     
@@ -898,7 +898,7 @@ public extension Tensor {
       return (gradient * (1 / copied), Tensor(), Tensor())
     }
     
-    let new = Tensor(result, size: lhs._size, context: context)
+    let new = Tensor(result, size: lhs.size, context: context)
     new.label = "division"
 
     new.setGraphSafe(lhs)
@@ -909,18 +909,18 @@ public extension Tensor {
   
   func zerosLike() -> Tensor {
     let zeroStorage = ContiguousArray<Scalar>(repeating: 0, count: storage.count)
-    return Tensor(zeroStorage, size: _size)
+    return Tensor(zeroStorage, size: size)
   }
   
   func onesLike() -> Tensor {
     let oneStorage = ContiguousArray<Scalar>(repeating: 1, count: storage.count)
-    return Tensor(oneStorage, size: _size)
+    return Tensor(oneStorage, size: size)
   }
   
   func transposed() -> Tensor {
-    let columns = _size.columns
-    let rows = _size.rows
-    let depth = _size.depth
+    let columns = size.columns
+    let rows = size.rows
+    let depth = size.depth
     
     // Transpose swaps columns and rows per depth slice
     let newSize = TensorSize(rows: columns, columns: rows, depth: depth)

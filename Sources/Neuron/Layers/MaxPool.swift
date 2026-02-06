@@ -67,7 +67,7 @@ public final class MaxPool: BaseLayer {
         
         let inRows = sSelf.inputSize.rows
         let inCols = sSelf.inputSize.columns
-        let gradCols = gradient._size.columns
+        let gradCols = gradient.size.columns
         
         for d in 0..<sSelf.inputSize.depth {
           let gradSlice = gradient.depthSlice(d)

@@ -129,7 +129,7 @@ public class Adam: BaseOptimizer {
                        gradient: gradient.storage,
                        decay: true,
                        weights: weights.storage,
-                       size: gradient._size)
+                       size: gradient.size)
 
     let biasCount = biasGradient.storage.count
 
@@ -142,9 +142,9 @@ public class Adam: BaseOptimizer {
                        v: &vb[i],
                        gradient: biasGradient.storage,
                        weights: weights.storage,
-                       size: biasGradient._size)
+                       size: biasGradient.size)
     
-    return (Tensor(result, size: gradient._size), Tensor(biases, size: biasGradient._size))
+    return (Tensor(result, size: gradient.size), Tensor(biases, size: biasGradient.size))
   }
 
   private func apply(m: inout ContiguousArray<Tensor.Scalar>,

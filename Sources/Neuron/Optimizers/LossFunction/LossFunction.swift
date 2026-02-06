@@ -22,7 +22,7 @@ public enum LossFunction {
       fatalError("predicted shape does not match correct shape")
     }
     
-    let size = predicted._size
+    let size = predicted.size
     let depth = size.depth
     let rows = size.rows
     let cols = size.columns

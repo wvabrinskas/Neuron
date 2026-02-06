@@ -55,7 +55,7 @@ public final class GlobalAvgPool: BaseLayer {
     }
     
     // Compute mean of each depth slice directly from flat storage
-    let size = tensor._size
+    let size = tensor.size
     let spatialCount = size.rows * size.columns
     let spatialScalar = Tensor.Scalar(spatialCount)
     var outValues = ContiguousArray<Tensor.Scalar>(repeating: 0, count: size.depth)

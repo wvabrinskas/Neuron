@@ -291,7 +291,7 @@ public final class LSTM: BaseLayer {
     
     if returnSequence == false, out.depthSliceCount > 0 {
       let lastSlice = out.depthSlice(out.depthSliceCount - 1)
-      let lastSize = TensorSize(rows: out._size.rows, columns: out._size.columns, depth: 1)
+      let lastSize = TensorSize(rows: out.size.rows, columns: out.size.columns, depth: 1)
       out = Tensor(lastSlice, size: lastSize, context: tensorContext)
     }
     
@@ -410,7 +410,7 @@ public final class LSTM: BaseLayer {
       // Convert Tensor depthSlice to [[Scalar]] for LSTMCell interface
       let activationInputTensor = activationErrors.input[safe: 0, Tensor()]
       let actSlice = activationInputTensor.depthSlice(0)
-      let cols = activationInputTensor._size.columns
+      let cols = activationInputTensor.size.columns
       let activationOutputError: [[Tensor.Scalar]] = stride(from: 0, to: actSlice.count, by: cols).map {
         Array(actSlice[$0..<min($0 + cols, actSlice.count)])
       }
@@ -464,8 +464,8 @@ public final class LSTM: BaseLayer {
       if previousActivationError.depthSliceCount > 0 && previousCellError.depthSliceCount > 0 {
         let paeSlice = previousActivationError.depthSlice(0)
         let pceSlice = previousCellError.depthSlice(0)
-        let paeCols = previousActivationError._size.columns
-        let pceCols = previousCellError._size.columns
+        let paeCols = previousActivationError.size.columns
+        let pceCols = previousCellError.size.columns
         eat = stride(from: 0, to: paeSlice.count, by: paeCols).map { Array(paeSlice[$0..<min($0 + paeCols, paeSlice.count)]) }
         ect = stride(from: 0, to: pceSlice.count, by: pceCols).map { Array(pceSlice[$0..<min($0 + pceCols, pceSlice.count)]) }
       }
