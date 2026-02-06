@@ -60,8 +60,6 @@ public class Tensor: Equatable, Codable {
   /// The flat contiguous storage for this tensor's data.
   /// Memory layout: `index = d * rows * columns + r * columns + c`
   /// 
-  /// 
-  /// TODO: Set Tensor.Value to some type of typealias on this so we can use this elsewhere.
   public internal(set) var storage: Tensor.Value
   
   /// The shape metadata (columns, rows, depth)

@@ -600,13 +600,13 @@ final class NeuronTests: XCTestCase {
   // MARK: - Flat Storage Tests
   
   func testFlatStorageInit_direct() {
-    let storage = ContiguousArray<Tensor.Scalar>([1, 2, 3, 4, 5, 6])
+    let storage = Tensor.Value([1, 2, 3, 4, 5, 6])
     let size = TensorSize(rows: 2, columns: 3, depth: 1)
-    let tensor = Tensor(storage: storage, size: size)
+    let tensor = Tensor(storage, size: size)
     
     XCTAssertEqual(tensor.shape, [3, 2, 1])
     XCTAssertEqual(tensor.storage.count, 6)
-    XCTAssertEqual(tensor._size, size)
+    XCTAssertEqual(tensor.size, size)
   }
   
   func testFlatStorageInit_roundTrip3D() {
