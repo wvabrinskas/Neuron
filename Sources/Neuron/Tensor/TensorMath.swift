@@ -412,6 +412,16 @@ public extension Tensor {
     let bSliceSize = bRows * bCols
     let cSliceSize = aRows * bCols
     
+    if depth == 1,
+       storage.count == aSliceSize,
+       with.storage.count == bSliceSize {
+      let cSlice = NumSwiftFlat.matmul(storage, with.storage,
+                                       aRows: aRows, aCols: aCols,
+                                       bRows: bRows, bCols: bCols)
+      let outSize = TensorSize(rows: aRows, columns: bCols, depth: 1)
+      return Tensor(cSlice, size: outSize)
+    }
+    
     var result = Tensor.Value(repeating: 0, count: cSliceSize * depth)
     
     for d in 0..<depth {
@@ -924,19 +934,35 @@ public extension Tensor {
     let sliceSize = rows * columns
     
     if depth == 1 {
-      // Single depth: one Accelerate call
+      // Single depth: avoid slice allocations
       let result = NumSwiftFlat.transpose(storage, rows: rows, columns: columns)
       return Tensor(result, size: newSize, context: context)
     }
     
     // Multiple depth slices: transpose each separately
     var result = Tensor.Value(repeating: 0, count: storage.count)
-    for d in 0..<depth {
-      let start = d * sliceSize
-      let slice = Tensor.Value(storage[start..<(start + sliceSize)])
-      let transposed = NumSwiftFlat.transpose(slice, rows: rows, columns: columns)
-      for i in 0..<sliceSize {
-        result[start + i] = transposed[i]
+    
+    if sliceSize <= 2048 {
+      // Small-slice fast path: avoid allocations
+      for d in 0..<depth {
+        let base = d * sliceSize
+        for r in 0..<rows {
+          for c in 0..<columns {
+            let srcIdx = base + r * columns + c
+            let dstIdx = base + c * rows + r
+            result[dstIdx] = storage[srcIdx]
+          }
+        }
+      }
+    } else {
+      // Large-slice path: use NumSwiftFlat
+      for d in 0..<depth {
+        let start = d * sliceSize
+        let slice = Tensor.Value(storage[start..<(start + sliceSize)])
+        let transposed = NumSwiftFlat.transpose(slice, rows: rows, columns: columns)
+        for i in 0..<sliceSize {
+          result[start + i] = transposed[i]
+        }
       }
     }
     
