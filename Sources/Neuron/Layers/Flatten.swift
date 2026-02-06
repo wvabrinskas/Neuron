@@ -47,13 +47,13 @@ public final class Flatten: BaseLayer {
     let context = TensorContext { inputs, gradient, wrt in
       // Reshape gradient back to original inputSize by reinterpreting flat storage
       let inputSize = self.inputSize
-      return (Tensor(Tensor.Value(gradient.storage), size: inputSize), Tensor(), Tensor())
+      return (Tensor(gradient.storage, size: inputSize), Tensor(), Tensor())
     }
     
     // Flatten: just reinterpret the flat storage as (total, 1, 1)
     let total = tensor.storage.count
     let flatSize = TensorSize(rows: 1, columns: total, depth: 1)
-    let flat = Tensor(Tensor.Value(tensor.storage), size: flatSize, context: context)
+    let flat = Tensor(tensor.storage, size: flatSize, context: context)
     
     flat.setGraph(tensor)
     

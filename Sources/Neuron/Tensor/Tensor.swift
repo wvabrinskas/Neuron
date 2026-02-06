@@ -614,7 +614,7 @@ public class Tensor: Equatable, Codable {
   /// Remove this Tensor from the graph.
   /// - Returns: Detached Tensor
   public func detached() -> Tensor {
-    let tensor = Tensor(Tensor.Value(storage), size: size, context: TensorContext())
+    let tensor = Tensor(storage, size: size, context: TensorContext())
     tensor.id = self.id
     return tensor
   }
@@ -623,10 +623,10 @@ public class Tensor: Equatable, Codable {
   /// - Returns: Copied Tensor
   public func copy(keepContext: Bool = false) -> Tensor {
     guard keepContext == false else {
-      return Tensor(Tensor.Value(storage), size: size, context: context)
+      return Tensor(storage, size: size, context: context)
     }
     
-    return Tensor(Tensor.Value(storage), size: size)
+    return Tensor(storage, size: size)
   }
   
   public func isScalar() -> Bool {

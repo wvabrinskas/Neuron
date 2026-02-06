@@ -72,8 +72,8 @@ public class SGD: BaseOptimizer {
           
     apply(to: &vb[i], gradient: biasGradient.storage)
 
-    return (Tensor(Tensor.Value(v[i]), size: gradient.size),
-            Tensor(Tensor.Value(vb[i]), size: biasGradient.size))
+    return (Tensor(v[i], size: gradient.size),
+            Tensor(vb[i], size: biasGradient.size))
   }
 
   private func apply(to: inout Tensor.Value, gradient: Tensor.Value) {

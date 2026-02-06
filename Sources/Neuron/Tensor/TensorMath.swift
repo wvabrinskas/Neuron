@@ -101,7 +101,7 @@ public extension Tensor {
       return Tensor(outStorage, size: outSize)
     }
     
-    return Tensor(Tensor.Value(storage), size: size)
+    return Tensor(storage, size: size)
   }
   
   /// Determines the appropriate axis for broadcasting operations between two tensors.
@@ -240,7 +240,7 @@ public extension Tensor {
     
     let out = applyAlong(axis: axis, input: value, block)
     
-    let new = Tensor(Tensor.Value(out.storage), size: out.size, context: context)
+    let new = Tensor(out.storage, size: out.size, context: context)
     
     new.label = "division"
     
@@ -279,7 +279,7 @@ public extension Tensor {
     
     let out = applyAlong(axis: axis, input: value, block)
     
-    let new = Tensor(Tensor.Value(out.storage), size: out.size, context: context)
+    let new = Tensor(out.storage, size: out.size, context: context)
     
     new.label = "multiplication"
 
@@ -317,7 +317,7 @@ public extension Tensor {
     
     let out = applyAlong(axis: axis, input: value, block)
     
-    let new = Tensor(Tensor.Value(out.storage), size: out.size, context: context)
+    let new = Tensor(out.storage, size: out.size, context: context)
     
     new.label = "addition"
 
@@ -357,7 +357,7 @@ public extension Tensor {
     
     let out = applyAlong(axis: axis, input: value, block)
     
-    let new = Tensor(Tensor.Value(out.storage), size: out.size, context: context)
+    let new = Tensor(out.storage, size: out.size, context: context)
     
     new.label = "subtraction"
     
@@ -636,10 +636,10 @@ public extension Tensor {
   func concat(_ tensor: Tensor, axis: Int = 1) -> Tensor {
     // Handle empty tensors
     if isEmpty {
-      return Tensor(Tensor.Value(tensor.storage), size: tensor.size, context: context)
+      return Tensor(tensor.storage, size: tensor.size, context: context)
     }
     if tensor.isEmpty {
-      return Tensor(Tensor.Value(storage), size: size, context: context)
+      return Tensor(storage, size: size, context: context)
     }
     
     let selfCols = size.columns
@@ -753,7 +753,7 @@ public extension Tensor {
       return Tensor(result, size: newSize, context: context)
     }
     
-    return Tensor(Tensor.Value(storage), size: size, context: context)
+    return Tensor(storage, size: size, context: context)
   }
   
   func l2Normalized() -> Tensor {

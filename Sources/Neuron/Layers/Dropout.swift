@@ -72,7 +72,7 @@ public final class Dropout: BaseLayer {
       droppedOut = tensor * (1 - chance)
     }
 
-    let out = Tensor(Tensor.Value(droppedOut.storage), size: droppedOut.size, context: context)
+    let out = Tensor(droppedOut.storage, size: droppedOut.size, context: context)
     
     out.setGraph(tensor)
     
