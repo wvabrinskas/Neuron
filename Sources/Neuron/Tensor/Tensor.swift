@@ -14,6 +14,7 @@ public protocol TensorRange {
   var range: T { get }
 }
 
+
 /// The fundamental base for all arithmetic in the network. It holds a reference to the backpropgation graph as well as the values of the forward pass.
 /// Its `value` property is a 3D array for all instances.
 public class Tensor: Equatable, Codable {
@@ -28,6 +29,7 @@ public class Tensor: Equatable, Codable {
   #endif
   
   public typealias Data = [[[Scalar]]]
+  public typealias ID = UInt64
   
   /// Gradient object returned from `gradient` calculation on the Tensor. Contains gradients w.r.t to the `input`, w.r.t to the `weights`, and w.r.t to the `biases`
   public struct Gradient {
@@ -48,11 +50,7 @@ public class Tensor: Equatable, Codable {
   public var label: String = ""
   
   /// Generic id
-  public var id: UUID = UUID() {
-    didSet {
-      
-    }
-  }
+  public private(set) var id: ID = .defaultValue()
   
   /// Actual numerical value of the Tensor
   public private(set) var value: Data {
@@ -66,8 +64,8 @@ public class Tensor: Equatable, Codable {
     shape == [0,0,0]
   }
   
-  internal var graphChain: Set<UUID> = []
-  internal var graph: [UUID: Tensor] = [:]
+  internal var graphChain: Set<ID> = []
+  internal var graph: [ID: Tensor] = [:]
   internal let context: TensorContext
   
   /// Shape of the Tensor as a 1D array. `[columns, rows, depth]`
@@ -79,7 +77,7 @@ public class Tensor: Equatable, Codable {
   }
   
   /// Input from the graph
-  public var input: [UUID: Tensor] {
+  public var input: [ID: Tensor] {
     graph
   }
   
@@ -128,6 +126,20 @@ public class Tensor: Equatable, Codable {
     self.context = TensorContext()
   }
   
+  required public init(from decoder: any Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    self.label = try container.decode(String.self, forKey: .label)
+    self.context = try container.decode(TensorContext.self, forKey: .context)
+    self.value = try container.decode(Tensor.Data.self, forKey: .value)
+    
+    // support old models with UUIDs or Int64 (if we back out of using Int64)
+    if let id = try? container.decodeIfPresent(Tensor.ID.self, forKey: .id) {
+      self.id = id
+    } else {
+      self.id = .defaultValue()
+    }
+  }
+  
   /// Initializer for Tensor with a scalar value
   /// - Parameters:
   ///   - data: `[[Scalar]]` object to set
@@ -141,6 +153,7 @@ public class Tensor: Equatable, Codable {
     
     self.features = 1
     self.context = context
+    setId()
   }
   
   /// Initializer for Tensor with a fully 1D array
@@ -151,6 +164,7 @@ public class Tensor: Equatable, Codable {
     self.value = [[data]]
     self.context = context
     self.features = data.count
+    setId()
   }
   
   /// Initializer for Tensor with a fully 2D array
@@ -161,6 +175,7 @@ public class Tensor: Equatable, Codable {
     self.value = [data]
     self.context = context
     self.features = data.count
+    setId()
   }
   
   /// Initializer for Tensor with a fully 3D array
@@ -171,11 +186,16 @@ public class Tensor: Equatable, Codable {
     self.value = data
     self.context = context
     self.features = data.count
+    setId()
+  }
+  
+  private func setId() {
+    self.id = IDGenerator.shared.explicitInt64()
   }
   
   /// Prints the current graph all the way to the input.
   public func printGraph(wrt: Tensor? = nil, deep: Bool = false) {
-    var inputs: [UUID: Tensor] = input
+    var inputs: [ID: Tensor] = input
     
     if let wrt {
       if graphChain.contains(wrt.id) == false {
@@ -195,7 +215,7 @@ public class Tensor: Equatable, Codable {
     var level = 0
     while inputs.isEmpty == false {
       var i = 0
-      var childrenAtLevel: [UUID: Tensor] = [:]
+      var childrenAtLevel: [ID: Tensor] = [:]
 
       for (k, v) in inputs {
         childrenAtLevel.merge(v.input) { _, new in
@@ -300,7 +320,7 @@ public class Tensor: Equatable, Codable {
     var biasGradients: [Tensor] = selfGradients.bias
     
     var gradientsAtLevelToUse: [Tensor] = inputGradients
-    var childrenAtLevelToUse: [UUID: Tensor] = input
+    var childrenAtLevelToUse: [ID: Tensor] = input
     
     if let wrt {
       childrenAtLevelToUse = childrenAtLevelToUse.filter({ $0.value.graphChain.contains(wrt.id) || $0.value.id == wrt.id })
@@ -309,7 +329,7 @@ public class Tensor: Equatable, Codable {
     func process(input: Tensor,
                  wrt: Tensor? = nil,
                  gradientToUse: Tensor,
-                 childrenAtLevel: inout [UUID: Tensor],
+                 childrenAtLevel: inout [ID: Tensor],
                  gradientsAtLevel: inout [Tensor]) {
       let newGrads = input.getGradients(delta: gradientToUse, wrt: wrt)
       
@@ -323,7 +343,7 @@ public class Tensor: Equatable, Codable {
 
     while childrenAtLevelToUse.isEmpty == false {
       var gradientsAtLevel: [Tensor] = []
-      var childrenAtLevel: [UUID: Tensor] = [:]
+      var childrenAtLevel: [ID: Tensor] = [:]
       
       for (i, input) in childrenAtLevelToUse.values.enumerated() {
                                         

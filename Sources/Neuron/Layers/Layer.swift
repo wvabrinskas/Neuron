@@ -8,6 +8,7 @@
 import Foundation
 import NumSwift
 import NumSwiftC
+import Atomics
 
 /// Layer types
 public enum EncodingType: String, Codable {
@@ -416,16 +417,16 @@ extension NumSwift.ConvPadding {
 
 open class BaseThreadBatchingLayer: BaseLayer {
   let updateLock = NSLock()
-  @Atomic var iterations = 0
-  
+  let iterations = ManagedAtomic<Int>(0)
+
   override public var isTraining: Bool {
     didSet {
       if isTraining == false {
-        iterations = 0
+        iterations.store(0, ordering: .relaxed)
       }
     }
   }
-  
+
   open var shouldPerformBatching: Bool {
     isTraining
   }
@@ -434,39 +435,41 @@ open class BaseThreadBatchingLayer: BaseLayer {
 
   public override func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
     if shouldPerformBatching {
-      
+
       condition.lock()
-      
+
       for tensor in tensorBatch {
-        iterations += 1
+        iterations.wrappingIncrement(ordering: .relaxed)
         performThreadBatchingForwardPass(tensor: tensor, context: context)
       }
-      
+
       let sizeToCheck = if context.totalInBatch != batchSize {
         context.totalInBatch
       } else {
         batchSize
       }
-      
-      if iterations == sizeToCheck {
+
+      let currentIterations = iterations.load(ordering: .relaxed)
+
+      if currentIterations == sizeToCheck {
         condition.broadcast()
       }
-      
-      while iterations < sizeToCheck {
+
+      while iterations.load(ordering: .relaxed) < sizeToCheck {
         condition.wait()
       }
-      
+
       condition.unlock()
     }
-    
+
     return super.forward(tensorBatch: tensorBatch, context: context)
   }
-  
+
   public override func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Tensor.Scalar) {
     super.apply(gradients: gradients, learningRate: learningRate)
-    iterations = 0
+    iterations.store(0, ordering: .relaxed)
   }
-  
+
   open func performThreadBatchingForwardPass(tensor: Tensor, context: NetworkContext) {
     fatalError("must override")
   }

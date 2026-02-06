@@ -194,7 +194,7 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     let forward = normalize3D(inputs: tensor, context: context)
     let normalizations = forward.normalized
 
-    if iterations == 0 && context.totalInBatch == 1 {
+    if iterations.load(ordering: .relaxed) == 0 && context.totalInBatch == 1 {
       calculateWelfordVariance(inputs: tensor, context: context)
     }
     

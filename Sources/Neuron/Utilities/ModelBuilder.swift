@@ -38,9 +38,9 @@ internal extension ModelBuilder {
       let model = try JSONDecoder().decode(TViewModel.self, from: jsonData)
       return .success(model)
     } catch {
-      print(error.localizedDescription)
-      return .failure(error)
+      return .failure(BuildError.pathError)
     }
+    
   }
   
   static func build<TViewModel: Decodable>(_ json: [AnyHashable : Any]?) -> Result<TViewModel?, Error> {

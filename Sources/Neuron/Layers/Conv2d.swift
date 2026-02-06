@@ -114,7 +114,9 @@ public class Conv2d: BaseConvolutionalLayer {
     let flippedTransposed = filters.map { flip180($0) }.transposed() as [[[[Tensor.Scalar]]]]
     
     var weightGradients: [[[Tensor.Scalar]]] = []
+    weightGradients.reserveCapacity(filterCount * inputSize.depth)
     var inputGradients: [[[Tensor.Scalar]]] = []
+    inputGradients.reserveCapacity(inputSize.depth)
 
     var cachedDeltaShape: [Int]?
     
@@ -263,24 +265,24 @@ public class Conv2d: BaseConvolutionalLayer {
     
     for i in 0..<filterCount {
       let filterGradients = weightGradientsBatched[i]
-                  
-      filters[i] = filters[i].copy() - Tensor(filterGradients)
+
+      filters[i] = Tensor(filters[i].value - filterGradients)
     }
-    
+
     if biasEnabled {
-      biases = biases.copy() - gradients.biases.copy()
+      biases = Tensor(biases.value - gradients.biases.value)
     }
   }
   
   internal func conv(_ input: Tensor) -> [[[Tensor.Scalar]]] {
-    var results: [[[Tensor.Scalar]]] = []
-    
     let flatBias: [Tensor.Scalar] = biases.value.flatten()
     
-    for f in 0..<filterCount {
+    var results: [[[Tensor.Scalar]]] = Array(repeating: [], count: filterCount)
+
+    Array(0..<filterCount).concurrentForEach(workers: Constants.maxWorkers) { _, f in
       var convolved: [[Tensor.Scalar]] = [] // maybe do concurrentForEach here too
 
-      for i in 0..<inputSize.depth {
+      for i in 0..<self.inputSize.depth {
         let currentFilter = self.filters[f].value[i]
         let currentInput = input.value[i]
         
@@ -304,9 +306,9 @@ public class Conv2d: BaseConvolutionalLayer {
         convolved = convolved + bias
       }
       
-      results.append(convolved)
+      results[f] = convolved
     }
-
+  
     return results
   }
   

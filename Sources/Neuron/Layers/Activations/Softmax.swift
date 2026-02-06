@@ -1,6 +1,6 @@
 //
 //  File.swift
-//  
+//
 //
 //  Created by William Vabrinskas on 4/30/22.
 //
@@ -43,37 +43,40 @@ public final class Softmax: BaseActivationLayer {
       wrtInputGradient.label = "softmax_input_gradient"
       return (wrtInputGradient, Tensor(), Tensor())
     }
-    
+
     var activationResult: [[[Tensor.Scalar]]] = []
-    
+
     tensor.value.forEach { d in
       var row: [[Tensor.Scalar]] = []
       d.forEach { r in
-        var column: [Tensor.Scalar] = []
-        for i in 0..<r.count {
-          column.append(calculate(index: i, outputs: r))
-        }
+        // Vectorized softmax: compute max/sum once for entire row
+        let column = calculate(outputs: r)
         row.append(column)
       }
       activationResult.append(row)
     }
-    
+
     let out = Tensor(activationResult, context: context)
     out.label = type.asString()
-    
+
     out.setGraph(tensor)
 
     return out
   }
-  
-  private func calculate(index: Int, outputs: [Tensor.Scalar]) -> Tensor.Scalar {
-    let max = outputs.max() ?? 1
-    var sum: Tensor.Scalar = 0
-    outputs.forEach { (output) in
-      sum += Tensor.Scalar.pow(Tensor.Scalar(Darwin.M_E), output - max)
-    }
-    
-    return Tensor.Scalar.pow(Tensor.Scalar(Darwin.M_E), outputs[index] - max) / sum
+
+  /// Vectorized softmax computation - O(n) instead of O(n²)
+  private func calculate(outputs: [Tensor.Scalar]) -> [Tensor.Scalar] {
+    // Find max once for numerical stability
+    let max = outputs.max() ?? 0
+
+    // Compute all exponentials once
+    let exps = outputs.map { Tensor.Scalar.exp($0 - max) }
+
+    // Compute sum once
+    let sum = exps.reduce(0, +)
+
+    // Normalize all values
+    return exps.map { $0 / sum }
   }
   
   override public func onInputSizeSet() {
