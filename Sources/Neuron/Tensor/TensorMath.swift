@@ -155,14 +155,15 @@ public extension Tensor {
     let columns = selfSize.columns
     let rows = selfSize.rows
     let depth = selfSize.depth
-    
-    var outStorage = Tensor.Value(repeating: 0, count: storage.count)
+        
+    var result: Tensor.Value = []
+    result.reserveCapacity(selfSize.depth * selfSize.rows * selfSize.columns)
     
     for d in 0..<depth {
       for r in 0..<rows {
         // Extract the row from self
         let selfStart = flatIndex(column: 0, row: r, depth: d)
-        let feature = Array(storage[selfStart..<(selfStart + columns)])
+        let feature = Array(storage[safe: selfStart..<(selfStart + columns), 0])
         
         let out: [Scalar]
         
@@ -172,7 +173,7 @@ public extension Tensor {
            inputSize.depth == depth {
           // Broadcasting along rows: input has 1 row, broadcast across all rows
           let inputStart = input.flatIndex(column: 0, row: 0, depth: d)
-          let v = Array(input.storage[inputStart..<(inputStart + inputSize.columns)])
+          let v = Array(input.storage[safe: inputStart..<(inputStart + inputSize.columns), 0])
           out = block(feature, (v, nil))
           
         } else if axis == 1,
@@ -180,7 +181,7 @@ public extension Tensor {
                   inputSize.rows == rows,
                   inputSize.depth == depth {
           // Broadcasting along columns: input has 1 column, broadcast across all columns
-          let v = input.storage[input.flatIndex(column: 0, row: r, depth: d)]
+          let v = input.storage[safe: input.flatIndex(column: 0, row: r, depth: d), 0]
           out = block(feature, (nil, v))
           
         } else if axis == 2,
@@ -189,20 +190,17 @@ public extension Tensor {
                   inputSize.depth == 1 {
           // Broadcasting along depth: input has depth=1, broadcast across all depth
           let inputStart = input.flatIndex(column: 0, row: r, depth: 0)
-          let v = Array(input.storage[inputStart..<(inputStart + inputSize.columns)])
+          let v = Array(input.storage[safe: inputStart..<(inputStart + inputSize.columns), 0])
           out = block(feature, (v, nil))
         } else {
           out = feature
         }
         
-        let outStart = d * rows * columns + r * columns
-        for c in 0..<out.count {
-          outStorage[outStart + c] = out[c]
-        }
+        result.append(contentsOf: out)
       }
     }
     
-    return Tensor(outStorage, size: selfSize)
+    return Tensor(result, size: selfSize)
   }
   
   /// Performs element-wise division along a specific axis with broadcasting support.
@@ -455,7 +453,6 @@ public extension Tensor {
     let depth = size.depth
     
     if axis == 2 {
-      // Split along depth into groups of `into`
       let chunkCount = (depth + into - 1) / into
       var results: [Tensor] = []
       results.reserveCapacity(chunkCount)
@@ -469,10 +466,11 @@ public extension Tensor {
         
         for d in 0..<chunkDepth {
           let srcDepth = dStart + d
-          let srcStart = srcDepth * rows * columns
+          let srcStart = flatIndex(column: 0, row: 0, depth: srcDepth)
           let dstStart = d * rows * columns
           for i in 0..<(rows * columns) {
-            chunkStorage[dstStart + i] = storage[srcStart + i]
+            let srcIdx = srcStart + i
+            chunkStorage[dstStart + i] = srcIdx < storage.count ? storage[srcIdx] : 0
           }
         }
         
@@ -481,7 +479,6 @@ public extension Tensor {
       return results
       
     } else if axis == 0 {
-      // Split along rows into groups of `into`
       let chunkCount = (rows + into - 1) / into
       var results: [Tensor] = []
       results.reserveCapacity(chunkCount)
@@ -498,7 +495,8 @@ public extension Tensor {
             let srcStart = flatIndex(column: 0, row: rStart + r, depth: d)
             let dstStart = d * chunkRows * columns + r * columns
             for c in 0..<columns {
-              chunkStorage[dstStart + c] = storage[srcStart + c]
+              let srcIdx = srcStart + c
+              chunkStorage[dstStart + c] = srcIdx < storage.count ? storage[srcIdx] : 0
             }
           }
         }
@@ -508,7 +506,6 @@ public extension Tensor {
       return results
       
     } else if axis == 1 {
-      // Split along columns into groups of `into`
       let chunkCount = (columns + into - 1) / into
       var results: [Tensor] = []
       results.reserveCapacity(chunkCount)
@@ -524,7 +521,8 @@ public extension Tensor {
           for r in 0..<rows {
             let dstStart = d * rows * chunkCols + r * chunkCols
             for c in 0..<chunkCols {
-              chunkStorage[dstStart + c] = storage[flatIndex(column: cStart + c, row: r, depth: d)]
+              let srcIdx = flatIndex(column: cStart + c, row: r, depth: d)
+              chunkStorage[dstStart + c] = srcIdx < storage.count ? storage[srcIdx] : 0
             }
           }
         }
@@ -661,43 +659,43 @@ public extension Tensor {
       // Concat along depth
       let newDepth = selfDepth + otherDepth
       
-      if selfRows == otherRows && selfCols == otherCols {
+ //     if selfRows == otherRows && selfCols == otherCols {
         // Fast path: same spatial dimensions, just append depth slices
         let newSize = TensorSize(rows: selfRows, columns: selfCols, depth: newDepth)
         var result = storage
         result.append(contentsOf: tensor.storage)
         return Tensor(result, size: newSize, context: context)
-      } else {
-        // Ragged concat: different spatial dims per depth slice, normalize via max dims
-        let maxRows = max(selfRows, otherRows)
-        let maxCols = max(selfCols, otherCols)
-        let newSize = TensorSize(rows: maxRows, columns: maxCols, depth: newDepth)
-        var result = Tensor.Value(repeating: 0, count: maxCols * maxRows * newDepth)
-        
-        // Copy self depth slices
-        for d in 0..<selfDepth {
-          for r in 0..<selfRows {
-            for c in 0..<selfCols {
-              let srcIdx = d * selfRows * selfCols + r * selfCols + c
-              let dstIdx = d * maxRows * maxCols + r * maxCols + c
-              result[dstIdx] = storage[srcIdx]
-            }
-          }
-        }
-        
-        // Copy other depth slices
-        for d in 0..<otherDepth {
-          for r in 0..<otherRows {
-            for c in 0..<otherCols {
-              let srcIdx = d * otherRows * otherCols + r * otherCols + c
-              let dstIdx = (selfDepth + d) * maxRows * maxCols + r * maxCols + c
-              result[dstIdx] = tensor.storage[srcIdx]
-            }
-          }
-        }
-        
-        return Tensor(result, size: newSize, context: context)
-      }
+//      } else {
+//        // Ragged concat: different spatial dims per depth slice, normalize via max dims
+//        let maxRows = max(selfRows, otherRows)
+//        let maxCols = max(selfCols, otherCols)
+//        let newSize = TensorSize(rows: maxRows, columns: maxCols, depth: newDepth)
+//        var result = Tensor.Value(repeating: 0, count: maxCols * maxRows * newDepth)
+//        
+//        // Copy self depth slices
+//        for d in 0..<selfDepth {
+//          for r in 0..<selfRows {
+//            for c in 0..<selfCols {
+//              let srcIdx = d * selfRows * selfCols + r * selfCols + c
+//              let dstIdx = d * maxRows * maxCols + r * maxCols + c
+//              result[dstIdx] = storage[srcIdx]
+//            }
+//          }
+//        }
+//        
+//        // Copy other depth slices
+//        for d in 0..<otherDepth {
+//          for r in 0..<otherRows {
+//            for c in 0..<otherCols {
+//              let srcIdx = d * otherRows * otherCols + r * otherCols + c
+//              let dstIdx = (selfDepth + d) * maxRows * maxCols + r * maxCols + c
+//              result[dstIdx] = tensor.storage[srcIdx]
+//            }
+//          }
+//        }
+//        
+//        return Tensor(result, size: newSize, context: context)
+//      }
       
     } else if axis == 0 {
       // Concat along rows
