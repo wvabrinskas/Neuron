@@ -538,9 +538,9 @@ public final class LSTM: BaseLayer {
   
   private func initializeBiases() {
     let biases = Tensor(NumSwift.zerosLike((rows: 1, columns: hiddenUnits, depth: 1)))
-    self.outputGateBiases = biases.detached()
-    self.gateGateBiases = biases.detached()
-    self.inputGateBiases = biases.detached()
+    self.outputGateBiases = biases.copy()
+    self.gateGateBiases = biases.copy()
+    self.inputGateBiases = biases.copy()
     // Initialize forget gate bias to 1.0 to help gradient flow
     // This encourages the LSTM to remember information by default
     self.forgetGateBiases = Tensor(NumSwift.onesLike((rows: 1, columns: hiddenUnits, depth: 1)))
