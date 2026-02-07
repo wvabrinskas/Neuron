@@ -188,13 +188,13 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
         let out = optimizer.predict([batchTensor])
         
         guard let outTensor = out[safe: 0],
-              outTensor.depthSliceCount > 0 else {
+              outTensor.size.depth > 0 else {
           break
         }
         
         // Get the last depth slice (last timestep output)
-        let lastDepthIdx = batchTensor.depthSliceCount - 1
-        let lastSlice = outTensor.depthSlice(min(lastDepthIdx, outTensor.depthSliceCount - 1))
+        let lastDepthIdx = batchTensor.size.depth - 1
+        let lastSlice = outTensor.depthSlice(min(lastDepthIdx, outTensor.size.depth - 1))
         let flat = Array(lastSlice)
       
         var v: [Tensor.Scalar] = [Tensor.Scalar](repeating: 0, count: flat.count)
@@ -217,7 +217,7 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
         
         // vectorize again to append to batch using Tensor concat
         let vectorizedLetter = dataset.vectorize([unvec])
-        if vectorizedLetter.depthSliceCount > 0 {
+        if vectorizedLetter.size.depth > 0 {
           let letterSlice = vectorizedLetter.depthSliceTensor(0)
           batchTensor = batchTensor.concat(letterSlice, axis: 2)
         }

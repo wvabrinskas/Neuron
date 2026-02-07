@@ -64,46 +64,11 @@ public class Tensor: Equatable, Codable {
   
   /// The shape metadata (columns, rows, depth)
   public internal(set) var size: TensorSize
-  
-  // MARK: - Depth Slice Access
-  
-  /// Number of depth slices (equivalent to `value.count` without constructing nested array).
-  public var depthSliceCount: Int { size.depth }
-  
-  /// Extracts one depth slice as a flat row-major `Tensor.Value` directly from storage.
-  /// Each slice has `rows * columns` elements.
-  /// - Parameter d: The depth index (0-based)
-  /// - Returns: A flat contiguous array of the depth slice
-  public func depthSlice(_ d: Int) -> Tensor.Value {
-    let sliceSize = size.rows * size.columns
-    let start = d * sliceSize
-    return Tensor.Value(storage[start..<(start + sliceSize)])
-  }
-  
-  /// Writes a flat depth slice back into storage.
-  /// - Parameters:
-  ///   - d: The depth index (0-based)
-  ///   - data: The flat row-major data to write (must have rows * columns elements)
-  public func setDepthSlice(_ d: Int, _ data: Tensor.Value) {
-    let sliceSize = size.rows * size.columns
-    let start = d * sliceSize
-    for i in 0..<sliceSize {
-      storage[start + i] = data[i]
-    }
-  }
-  
-  /// Creates a new Tensor from a single depth slice of this tensor.
-  /// The result has depth=1 and the same rows/columns.
-  public func depthSliceTensor(_ d: Int) -> Tensor {
-    let sliceSize = size.rows * size.columns
-    let start = d * sliceSize
-    let sliceStorage = Tensor.Value(storage[start..<(start + sliceSize)])
-    return Tensor(sliceStorage, size: TensorSize(rows: size.rows, columns: size.columns, depth: 1))
-  }
-  
+
   /// Backward-compatible access to the tensor data as a 3D nested array `[[[Scalar]]]`.
   /// - Note: The getter reconstructs the nested array from flat storage. For performance-critical
   ///   code, prefer using `storage` and `size` directly.
+  @available(*, deprecated, message: "Use `storage` and `size` directly instead.")
   public var value: Data {
     get { return toNestedArray() }
     set {
@@ -304,18 +269,15 @@ public class Tensor: Equatable, Codable {
   public init(_ data: [[Scalar]], context: TensorContext = TensorContext()) {
     // 2D data is stored as shape (cols, rows, 1) -- matching the old [data] layout
     let rows = data.count
-    var maxCols = 0
-    for row in data {
-      maxCols = Swift.max(maxCols, row.count)
-    }
+    let cols = data[safe: 0]?.count ?? 0
     
-    self.size = TensorSize(rows: rows, columns: maxCols, depth: 1)
+    self.size = TensorSize(rows: rows, columns: cols, depth: 1)
     
-    let totalCount = maxCols * rows
+    let totalCount = cols * rows
     var flat = Tensor.Value(repeating: 0, count: totalCount)
     for r in 0..<rows {
       let row = data[r]
-      let baseIndex = r * maxCols
+      let baseIndex = r * cols
       for c in 0..<row.count {
         flat[baseIndex + c] = row[c]
       }
@@ -333,19 +295,12 @@ public class Tensor: Equatable, Codable {
   ///   - context: Backpropagation context
   public init(_ data: Data, context: TensorContext = TensorContext()) {
     let depth = data.count
-    // Compute true max dimensions to handle ragged arrays
-    var maxRows = 0
-    var maxCols = 0
-    for depthSlice in data {
-      maxRows = Swift.max(maxRows, depthSlice.count)
-      for row in depthSlice {
-        maxCols = Swift.max(maxCols, row.count)
-      }
-    }
+    let rows = data[safe: 0]?.count ?? 0
+    let columns = data[safe: 0]?[safe: 0]?.count ?? 0
     
-    self.size = TensorSize(rows: maxRows, columns: maxCols, depth: depth)
+    self.size = TensorSize(rows: rows, columns: columns, depth: depth)
     
-    let totalCount = maxCols * maxRows * depth
+    let totalCount = columns * rows * depth
     var flat = Tensor.Value(repeating: 0, count: totalCount)
     
     // Fill the flat array, zero-padding any ragged edges
@@ -353,7 +308,7 @@ public class Tensor: Equatable, Codable {
       let depthSlice = data[d]
       for r in 0..<depthSlice.count {
         let row = depthSlice[r]
-        let baseIndex = d * maxRows * maxCols + r * maxCols
+        let baseIndex = d * rows * columns + r * columns
         for c in 0..<row.count {
           flat[baseIndex + c] = row[c]
         }
@@ -378,9 +333,41 @@ public class Tensor: Equatable, Codable {
     self.features = size.depth
     setId()
   }
+
+      
+  /// Extracts one depth slice as a flat row-major `Tensor.Value` directly from storage.
+  /// Each slice has `rows * columns` elements.
+  /// - Parameter d: The depth index (0-based)
+  /// - Returns: A flat contiguous array of the depth slice
+  public func depthSlice(_ d: Int) -> Tensor.Value {
+    let sliceSize = size.rows * size.columns
+    let start = d * sliceSize
+    return Tensor.Value(storage[start..<(start + sliceSize)])
+  }
+  
+  /// MARK: - Depth Slice Access
+  /// 
+  /// Writes a flat depth slice back into storage.
+  /// - Parameters:
+  ///   - d: The depth index (0-based)
+  ///   - data: The flat row-major data to write (must have rows * columns elements)
+  public func setDepthSlice(_ d: Int, _ data: Tensor.Value) {
+    let sliceSize = size.rows * size.columns
+    let start = d * sliceSize
+    for i in 0..<sliceSize {
+      storage[start + i] = data[i]
+    }
+  }
+  
+  /// Creates a new Tensor from a single depth slice of this tensor.
+  /// The result has depth=1 and the same rows/columns.
+  public func depthSliceTensor(_ d: Int) -> Tensor {
+    let sliceStorage = depthSlice(d)
+    return Tensor(sliceStorage, size: TensorSize(rows: size.rows, columns: size.columns, depth: 1))
+  }
   
   private func setId() {
-    self.id = IDGenerator.shared.explicitInt64()
+    self.id = IDGenerator.shared.explicitUInt64()
   }
   
   // MARK: - Nested Array Reconstruction
@@ -501,6 +488,7 @@ public class Tensor: Equatable, Codable {
   
   /// Checks if the value of the Tensor is the same as another Tensor. `==` checks id property.
   /// - Parameter to: Tensor to compare to
+  /// - Parameter accuracy: The accuracy to use for the comparison
   /// - Returns: Bool indicating if the values are equal
   public func isValueEqual(to: Tensor, accuracy: Tensor.Scalar = 0.000001) -> Bool {
     guard size == to.size else { return false }
@@ -517,9 +505,9 @@ public class Tensor: Equatable, Codable {
   
   /// Sets the input graph to this Tensor
   /// - Parameter tensor: The tensor to insert into the graph
-  /// - Parameter breakCycles: If true, will create a detached copy of the tensor to prevent reference cycles (default: false)
+  /// - Parameter breakCycles: If true, will create a copy of the tensor to prevent reference cycles, keeping the context of the original tensor (default: false)
   public func setGraph(_ tensor: Tensor, breakCycles: Bool = false) {
-    let tensorToStore = breakCycles ? tensor.detached() : tensor
+    let tensorToStore = breakCycles ? tensor.copy(keepContext: true) : tensor
     graph[tensorToStore.id] = tensorToStore
     graphChain.insert(tensorToStore.id)
     graphChain.formUnion(tensorToStore.graphChain)

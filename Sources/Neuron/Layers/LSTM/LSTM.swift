@@ -238,7 +238,7 @@ public final class LSTM: BaseLayer {
     for index in range {
       
       // get embeddings from input - use depth slice instead of .value
-      let getEmbeddings: Tensor = index < tensor.depthSliceCount
+      let getEmbeddings: Tensor = index < tensor.size.depth
         ? tensor.depthSliceTensor(index)
         : Tensor(NumSwift.zerosLike((rows: 1, columns: inputUnits)))
       
@@ -289,8 +289,8 @@ public final class LSTM: BaseLayer {
       out = new
     }
     
-    if returnSequence == false, out.depthSliceCount > 0 {
-      let lastSlice = out.depthSlice(out.depthSliceCount - 1)
+    if returnSequence == false, out.size.depth > 0 {
+      let lastSlice = out.depthSlice(out.size.depth - 1)
       let lastSize = TensorSize(rows: out.size.rows, columns: out.size.columns, depth: 1)
       out = Tensor(lastSlice, size: lastSize, context: tensorContext)
     }
@@ -387,7 +387,7 @@ public final class LSTM: BaseLayer {
       let previousCache = cellCache[safe: index - 1]
       
       // Get delta for this timestep from gradient depth slices
-      let delta: Tensor = index < gradient.depthSliceCount
+      let delta: Tensor = index < gradient.size.depth
         ? gradient.depthSliceTensor(index)
         : gradient.zerosLike().depthSliceTensor(0)
       
@@ -461,7 +461,7 @@ public final class LSTM: BaseLayer {
       }
       
       // Convert Tensor depth slices to [[Scalar]] for LSTMCell interface
-      if previousActivationError.depthSliceCount > 0 && previousCellError.depthSliceCount > 0 {
+      if previousActivationError.size.depth > 0 && previousCellError.size.depth > 0 {
         let paeSlice = previousActivationError.depthSlice(0)
         let pceSlice = previousCellError.depthSlice(0)
         let paeCols = previousActivationError.size.columns

@@ -30,7 +30,7 @@ public final class WelfordVariance {
     iterations += 1
     let iterScalar = iterations.asTensorScalar
     
-    for i in 0..<inputs.depthSliceCount {
+    for i in 0..<inputs.size.depth {
       let inputSlice = inputs.depthSlice(i)
       let delta = NumSwiftFlat.subtract(inputSlice, means[i])
       means[i] = NumSwiftFlat.add(means[i], NumSwiftFlat.divide(delta, scalar: iterScalar))

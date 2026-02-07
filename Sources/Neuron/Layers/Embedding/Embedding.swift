@@ -100,7 +100,7 @@ public final class Embedding: BaseLayer {
       var embStorage = Tensor.Value(repeating: 0, count: sliceSize * vocabSize)
       
       for (i, index) in indicies.enumerated() {
-        guard index < vocabSize, i < gradient.depthSliceCount else { continue }
+        guard index < vocabSize, i < gradient.size.depth else { continue }
         let gradSlice = gradient.depthSlice(i)
         let offset = index * sliceSize
         for j in 0..<min(gradSlice.count, sliceSize) {
@@ -115,11 +115,11 @@ public final class Embedding: BaseLayer {
     }
     
     // Build output by looking up each input's embedding from weights
-    let weightDepth = weights.depthSliceCount
+    let weightDepth = weights.size.depth
     let sliceSize = weights.size.rows * weights.size.columns
     var outSlices = [Tensor.Value]()
     
-    for d in 0..<tensor.depthSliceCount {
+    for d in 0..<tensor.size.depth {
       let slice = tensor.depthSlice(d)
       let scalar = slice.isEmpty ? Tensor.Scalar(0) : slice[0]
       let index = Int(scalar)

@@ -359,10 +359,10 @@ public class Conv2d: BaseConvolutionalLayer {
   
   internal func flip180Flat(_ filter: Tensor) -> [Tensor.Value] {
     var result = [Tensor.Value]()
-    result.reserveCapacity(filter.depthSliceCount)
+    result.reserveCapacity(filter.size.depth)
     let fRows = filter.size.rows
     let fCols = filter.size.columns
-    for d in 0..<filter.depthSliceCount {
+    for d in 0..<filter.size.depth {
       result.append(NumSwiftFlat.flip180(filter.depthSlice(d), rows: fRows, columns: fCols))
     }
     return result

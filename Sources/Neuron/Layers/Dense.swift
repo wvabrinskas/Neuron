@@ -83,21 +83,19 @@ public final class Dense: BaseLayer {
       return
     }
     
-    var newWeights: [[Tensor.Scalar]] = []
+    var newWeights: Tensor.Value = []
     let outputSizeCount = outputSize.columns
-    
+        
     for _ in 0..<outputSizeCount {
-      var weightsForNode: [Tensor.Scalar] = []
       for _ in 0..<inputs {
         let w = initializer.calculate(input: inputs,
                                        out: outputSizeCount)
-        weightsForNode.append(w)
+        newWeights.append(w)
       }
-      
-      newWeights.append(weightsForNode)
     }
     
-    weights = Tensor(newWeights)
+    weights = Tensor(newWeights,
+                     size: .init(rows: outputSizeCount, columns: inputs, depth: 1))
   }
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {

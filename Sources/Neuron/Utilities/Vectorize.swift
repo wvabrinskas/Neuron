@@ -133,7 +133,7 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
     var items: [T] = []
     let cols = vector.size.columns
     
-    for d in 0..<vector.depthSliceCount {
+    for d in 0..<vector.size.depth {
       let slice = vector.depthSlice(d)
       // Find the index of the "hot" (1.0) value in the first row
       if let indexOfHot = slice.firstIndex(of: 1) {

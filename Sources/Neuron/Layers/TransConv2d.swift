@@ -190,7 +190,7 @@ public final class TransConv2d: Conv2d {
     // Initialize result storage for all filter outputs
     var filterOutputs = [Tensor.Value?](repeating: nil, count: filterCount)
     
-    for i in 0..<input.depthSliceCount {
+    for i in 0..<input.size.depth {
       let localInput = input.depthSlice(i)
       var workingInput = NumSwiftFlat.stridePad(signal: localInput, strides: strides,
                                                  inputSize: (rows: inRows, columns: inCols))

@@ -18,7 +18,7 @@ class IDGenerator {
   private let uuidGenerator: UUIDIDGenerator = .init()
   private let int64Generator: UInt64IDGenerator = .init()
   
-  func explicitInt64() -> UInt64 {
+  func explicitUInt64() -> UInt64 {
     int64Generator.generate()
   }
   

@@ -273,7 +273,7 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
   }
   
   private func normalize3DFlat(inputs: Tensor, context: NetworkContext) -> (output: Tensor.Value, normalized: [NormalizationFlat]) {
-    let depth = inputs.depthSliceCount
+    let depth = inputs.size.depth
     let sliceSize = inputSize.rows * inputSize.columns
     var outStorage = Tensor.Value(repeating: 0, count: inputs.storage.count)
     var normalizedInputs: [NormalizationFlat] = []
@@ -334,7 +334,7 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
                              gradient: Tensor,
                              context: NetworkContext,
                              normalizations: [NormalizationFlat]) -> Tensor {
-    let depth = inputs.depthSliceCount
+    let depth = inputs.size.depth
     let sliceSize = inputSize.rows * inputSize.columns
     var outStorage = Tensor.Value(repeating: 0, count: inputs.storage.count)
     

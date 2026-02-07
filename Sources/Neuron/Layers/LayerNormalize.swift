@@ -94,7 +94,7 @@ public final class LayerNormalize: BaseLayer {
   }
 
   private func normalizeFlat(inputs: Tensor) -> Tensor.Value {
-    let depth = inputs.depthSliceCount
+    let depth = inputs.size.depth
     let sliceSize = inputSize.rows * inputSize.columns
     let total = Tensor.Scalar(sliceSize)
     var outStorage = Tensor.Value(repeating: 0, count: inputs.storage.count)
@@ -120,7 +120,7 @@ public final class LayerNormalize: BaseLayer {
   }
   
   private func backwardFlat(inputs: Tensor, gradient: Tensor) -> (input: Tensor, weight: Tensor, bias: Tensor) {
-    let depth = inputs.depthSliceCount
+    let depth = inputs.size.depth
     let sliceSize = inputSize.rows * inputSize.columns
     
     // We use Tensor operations per-depth for the complex backward math
