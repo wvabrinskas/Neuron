@@ -161,9 +161,9 @@ class LSTMCell {
   
   func backward(cache: LSTM.Cache,
                 previousCache: LSTM.Cache?,
-                activationOutputError: [[Tensor.Scalar]],
-                nextActivationError: [[Tensor.Scalar]],
-                nextCellError: [[Tensor.Scalar]],
+                activationOutputError: Tensor,
+                nextActivationError: Tensor,
+                nextCellError: Tensor,
                 batchSize: Int,
                 parameters: Parameters) -> (inputs: Errors, weights: ParameterDerivatives, biases: ParameterDerivatives) {
 
@@ -177,13 +177,13 @@ class LSTMCell {
     
     // output gate error
     let oa = lstm.outputGate
-    var eo = Tensor(activationError) * tanActivationOfCellActivation
+    var eo = activationError * tanActivationOfCellActivation
     eo = (eo * oa) * (1 - oa)
     
     // cell activation error
-    var cellError = Tensor(activationError) * oa
+    var cellError = activationError * oa
     cellError = cellError * self.device.derivate(tanActivationOfCellActivation, .tanh)
-    cellError = cellError + Tensor(nextCellError)
+    cellError = cellError + nextCellError
     
     // input gate error
     let ia = lstm.inputGate

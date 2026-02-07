@@ -370,9 +370,8 @@ public final class LSTM: BaseLayer {
   // MARK: Private
   private func backward(inputs: Tensor, gradient: Tensor, cellCache: [Cache]) -> TensorContext.TensorBackpropResult {
     // eat and ect are kept as [[Scalar]] for LSTMCell.backward interface compatibility
-    var eat: [[Tensor.Scalar]] = NumSwift.zerosLike((rows: 1,
-                                                     columns: self.hiddenUnits))
-    var ect: [[Tensor.Scalar]] = eat
+    var eat: Tensor = .fillWith(value: 0, size: .init(rows: 1, columns: hiddenUnits, depth: 1))
+    var ect: Tensor = eat.copy()
     
     var wrtOutputWeightsDerivatives: Tensor = Tensor()
     var wrtOutputBiasesDerivatives: Tensor = Tensor()
@@ -407,14 +406,11 @@ public final class LSTM: BaseLayer {
       }
       
       let nextActivationError = eat
-      // Convert Tensor depthSlice to [[Scalar]] for LSTMCell interface
+
       let activationInputTensor = activationErrors.input[safe: 0, Tensor()]
-      let actSlice = activationInputTensor.depthSlice(0)
-      let cols = activationInputTensor.size.columns
-      let activationOutputError: [[Tensor.Scalar]] = stride(from: 0, to: actSlice.count, by: cols).map {
-        Array(actSlice[$0..<min($0 + cols, actSlice.count)])
-      }
       
+      let activationOutputErrorTensor = activationInputTensor.depthSliceTensor(0)
+
       let cell = LSTMCell(hidden: self.hiddenUnits,
                           input: self.inputUnits,
                           vocabSize: self.vocabSize,
@@ -423,7 +419,7 @@ public final class LSTM: BaseLayer {
       
       let backward = cell.backward(cache: cache,
                                    previousCache: previousCache,
-                                   activationOutputError: activationOutputError,
+                                   activationOutputError: activationOutputErrorTensor,
                                    nextActivationError: nextActivationError,
                                    nextCellError: ect,
                                    batchSize: 1,
@@ -462,12 +458,10 @@ public final class LSTM: BaseLayer {
       
       // Convert Tensor depth slices to [[Scalar]] for LSTMCell interface
       if previousActivationError.size.depth > 0 && previousCellError.size.depth > 0 {
-        let paeSlice = previousActivationError.depthSlice(0)
-        let pceSlice = previousCellError.depthSlice(0)
-        let paeCols = previousActivationError.size.columns
-        let pceCols = previousCellError.size.columns
-        eat = stride(from: 0, to: paeSlice.count, by: paeCols).map { Array(paeSlice[$0..<min($0 + paeCols, paeSlice.count)]) }
-        ect = stride(from: 0, to: pceSlice.count, by: pceCols).map { Array(pceSlice[$0..<min($0 + pceCols, pceSlice.count)]) }
+        let paeSlice = previousActivationError.depthSliceTensor(0)
+        let pceSlice = previousCellError.depthSliceTensor(0)
+        eat = paeSlice
+        ect = pceSlice
       }
     }
         
