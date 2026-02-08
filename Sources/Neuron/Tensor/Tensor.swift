@@ -262,7 +262,7 @@ public class Tensor: Equatable, Codable {
     setId()
   }
   
-  /// Initializer for Tensor with a fully 2D array
+  /// Initializer for Tensor with a fully 2D array. Expecting every component to have the same number of columns
   /// - Parameters:
   ///   - data: `[[Scalar]]` object to set
   ///   - context: Backpropagation context
@@ -289,7 +289,7 @@ public class Tensor: Equatable, Codable {
     setId()
   }
   
-  /// Initializer for Tensor with a fully 3D array
+  /// Initializer for Tensor with a fully 3D array, Expecting every component to have the same number of rows and columns
   /// - Parameters:
   ///   - data: `Tensor.Data` object to set
   ///   - context: Backpropagation context
