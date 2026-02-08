@@ -240,7 +240,7 @@ public final class LSTM: BaseLayer {
       // get embeddings from input - use depth slice instead of .value
       let getEmbeddings: Tensor = index < tensor.size.depth
         ? tensor.depthSliceTensor(index)
-        : Tensor(NumSwift.zerosLike((rows: 1, columns: inputUnits)))
+      : Tensor.fillWith(value: 0, size: .init(rows: 1, columns: inputUnits, depth: 1))
       
       let cell = LSTMCell(hidden: hiddenUnits,
                           input: inputUnits,

@@ -175,7 +175,7 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
       } else {
         let index = Int.random(in: 0..<vocabSize).asTensorScalar
               
-        batchTensor = Tensor([[[index]]])
+        batchTensor = Tensor.fillWith(value: index, size: .init(rows: 1, columns: 1, depth: 1))
         
         // append random letter
         let unvec = dataset.getWord(for: batchTensor, oneHot: false).joined()
@@ -197,7 +197,7 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
         let lastSlice = outTensor.depthSlice(min(lastDepthIdx, outTensor.size.depth - 1))
         let flat = Array(lastSlice)
       
-        var v: [Tensor.Scalar] = [Tensor.Scalar](repeating: 0, count: flat.count)
+        var v: Tensor.Value = Tensor.Value(repeating: 0, count: flat.count)
         
         let indexToChoose: Int
         if randomizeSelection {
@@ -210,7 +210,7 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
         
         // one hot because we're predicting based on the output which is trained on the labels which are expected to be one-hot encoded
         // TODO: how do we enforce this? 
-        let unvec = dataset.getWord(for: Tensor(v), oneHot: true).joined()
+        let unvec = dataset.getWord(for: Tensor(v, size: .init(rows: 1, columns: flat.count, depth: 1)), oneHot: true).joined()
         
         runningChar = unvec
         name += unvec
