@@ -64,6 +64,89 @@ final class LayerTests: XCTestCase {
     }
   }
   
+  func testConvDecodeEncode() {
+    let inputSize: TensorSize = .init(rows: 16, columns: 16, depth: 1)
+
+    let conv = Conv2d(filterCount: 32,
+                      inputSize: inputSize,
+                      strides: (1,1),
+                      padding: .same,
+                      filterSize: (3,3),
+                      initializer: .heNormal,
+                      biasEnabled: true)
+    
+    let expectedWeights = conv.weights
+    
+    do {
+      let jsonOut = try JSONEncoder().encode(conv)
+      let jsonIn = try JSONDecoder().decode(Conv2d.self, from: jsonOut)
+      
+      let outWeights = jsonIn.weights
+      
+      XCTAssertTrue(expectedWeights.isValueEqual(to: outWeights))
+    } catch {
+      XCTFail(error.localizedDescription)
+    }
+  }
+  
+  func testDenseDecodeEncode() {
+    let dense = Dense(20,
+                      inputs: 10,
+                      initializer: .heNormal,
+                      biasEnabled: true)
+    
+    let expectedWeights = dense.weights
+    
+    do {
+      let jsonOut = try JSONEncoder().encode(dense)
+      let jsonIn = try JSONDecoder().decode(Dense.self, from: jsonOut)
+      
+      let outWeights = jsonIn.weights
+      
+      XCTAssertTrue(expectedWeights.isValueEqual(to: outWeights))
+    } catch {
+      XCTFail(error.localizedDescription)
+    }
+  }
+  
+  func testLayerNormalizeDecodeEncode() {
+    let inputSize: TensorSize = .init(rows: 16, columns: 16, depth: 8)
+    
+    let layerNorm = LayerNormalize(inputSize: inputSize)
+    
+    let expectedWeights = layerNorm.weights
+    
+    do {
+      let jsonOut = try JSONEncoder().encode(layerNorm)
+      let jsonIn = try JSONDecoder().decode(LayerNormalize.self, from: jsonOut)
+      
+      let outWeights = jsonIn.weights
+      
+      XCTAssertTrue(expectedWeights.isValueEqual(to: outWeights))
+    } catch {
+      XCTFail(error.localizedDescription)
+    }
+  }
+  
+  func testBatchNormalizeDecodeEncode() {
+    let inputSize: TensorSize = .init(rows: 16, columns: 16, depth: 8)
+    
+    let batchNorm = BatchNormalize(inputSize: inputSize)
+    
+    let expectedWeights = batchNorm.weights
+    
+    do {
+      let jsonOut = try JSONEncoder().encode(batchNorm)
+      let jsonIn = try JSONDecoder().decode(BatchNormalize.self, from: jsonOut)
+      
+      let outWeights = jsonIn.weights
+      
+      XCTAssertTrue(expectedWeights.isValueEqual(to: outWeights))
+    } catch {
+      XCTFail(error.localizedDescription)
+    }
+  }
+  
   func testResNet() {
     let inputSize: TensorSize = .init(rows: 64, columns: 64, depth: 3)
 

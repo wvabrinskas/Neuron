@@ -133,6 +133,8 @@ public class Tensor: Equatable, Codable {
     case id
     case context
     case value
+    case storage
+    case size
   }
   
   // MARK: - Flat Indexing Helpers
@@ -190,38 +192,45 @@ public class Tensor: Equatable, Codable {
     self.size = TensorSize(rows: 0, columns: 0, depth: 0)
     self.context = TensorContext()
   }
-  
+
   required public init(from decoder: any Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     self.label = try container.decode(String.self, forKey: .label)
     self.context = try container.decode(TensorContext.self, forKey: .context)
     
     // Decode from nested array format for backward compatibility
-    let nestedValue = try container.decode(Tensor.Data.self, forKey: .value)
-    let depth = nestedValue.count
-    var maxRows = 0
-    var maxCols = 0
-    for depthSlice in nestedValue {
-      maxRows = Swift.max(maxRows, depthSlice.count)
-      for row in depthSlice {
-        maxCols = Swift.max(maxCols, row.count)
-      }
-    }
-    self.size = TensorSize(rows: maxRows, columns: maxCols, depth: depth)
-    
-    let totalCount = maxCols * maxRows * depth
-    var flat = Tensor.Value(repeating: 0, count: totalCount)
-    for d in 0..<depth {
-      let depthSlice = nestedValue[d]
-      for r in 0..<depthSlice.count {
-        let row = depthSlice[r]
-        let baseIndex = d * maxRows * maxCols + r * maxCols
-        for c in 0..<row.count {
-          flat[baseIndex + c] = row[c]
+    if let nestedValue = try container.decodeIfPresent(Tensor.Data.self, forKey: .value) {
+      let depth = nestedValue.count
+      var maxRows = 0
+      var maxCols = 0
+      for depthSlice in nestedValue {
+        maxRows = Swift.max(maxRows, depthSlice.count)
+        for row in depthSlice {
+          maxCols = Swift.max(maxCols, row.count)
         }
       }
+      self.size = TensorSize(rows: maxRows, columns: maxCols, depth: depth)
+      
+      let totalCount = maxCols * maxRows * depth
+      var flat = Tensor.Value(repeating: 0, count: totalCount)
+      for d in 0..<depth {
+        let depthSlice = nestedValue[d]
+        for r in 0..<depthSlice.count {
+          let row = depthSlice[r]
+          let baseIndex = d * maxRows * maxCols + r * maxCols
+          for c in 0..<row.count {
+            flat[baseIndex + c] = row[c]
+          }
+        }
+      }
+      self.storage = flat
+    } else {
+      let storage = try container.decode(Tensor.Value.self, forKey: .storage)
+      let size = try container.decode(TensorSize.self, forKey: .size)
+      
+      self.storage = storage
+      self.size = size
     }
-    self.storage = flat
     
     // support old models with UUIDs or Int64 (if we back out of using Int64)
     if let id = try? container.decodeIfPresent(Tensor.ID.self, forKey: .id) {
@@ -674,11 +683,13 @@ public class Tensor: Equatable, Codable {
   public func encode(to encoder: any Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(label, forKey: .label)
-    try container.encode(id, forKey: .id)
     try container.encode(context, forKey: .context)
-    // Encode as nested array for backward compatibility with .smodel files
-    try container.encode(toNestedArray(), forKey: .value)
+    // we no longer encode value as in the future we want to deprecate this. Tensor.Value in storage property is the properly stored data
+    try container.encode(storage, forKey: .storage)
+    try container.encode(size, forKey: .size)
+    try container.encode(id, forKey: .id)
   }
+  
 }
 
 // MARK: - Debug Description
