@@ -23,10 +23,7 @@ public final class MaxPool: BaseLayer {
     var tensorId: Tensor.ID
     var indicies: [[PoolingIndex]]
   }
-  
-  internal var poolingGradients: [PoolingGradient] = []
-  private lazy var queue: OperationQueue = OperationQueue()
-  
+    
   /// Default initializer for max pooling.
   /// - Parameter inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
   public init(inputSize: TensorSize? = nil) {
@@ -53,40 +50,33 @@ public final class MaxPool: BaseLayer {
   }
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
+    var poolingGradients: PoolingGradient = .init(tensorId: tensor.id, indicies: [])
+    
     func backwards(input: Tensor, gradient: Tensor, wrt: Tensor?) -> (Tensor, Tensor, Tensor) {
       var outStorage = Tensor.Value(repeating: 0, count: self.inputSize.rows * self.inputSize.columns * self.inputSize.depth)
-      
+    
       // operation is performed first then returned
-      queue.addSynchronousOperation { [weak self] in
-        guard let sSelf = self else { return }
+      
+      let forwardPooledMaxIndicies = poolingGradients.indicies
+      
+      let inRows = inputSize.rows
+      let inCols = inputSize.columns
+      let gradCols = gradient.size.columns
+      
+      for d in 0..<inputSize.depth {
+        let gradSlice = gradient.depthSlice(d)
+        var deltaIdx = 0
+        let indicies = forwardPooledMaxIndicies[d]
+        let depthOffset = d * inRows * inCols
         
-        guard let forwardPooledMaxIndicies = sSelf.poolingGradients.first(where: { $0.tensorId == input.id })?.indicies else {
-          return
-        }
-        
-        let inRows = sSelf.inputSize.rows
-        let inCols = sSelf.inputSize.columns
-        let gradCols = gradient.size.columns
-        
-        for d in 0..<sSelf.inputSize.depth {
-          let gradSlice = gradient.depthSlice(d)
-          var deltaIdx = 0
-          let indicies = forwardPooledMaxIndicies[d]
-          let depthOffset = d * inRows * inCols
-          
-          for index in indicies {
-            if deltaIdx < gradSlice.count {
-              outStorage[depthOffset + index.r * inCols + index.c] = gradSlice[deltaIdx]
-              deltaIdx += 1
-            }
+        for index in indicies {
+          if deltaIdx < gradSlice.count {
+            outStorage[depthOffset + index.r * inCols + index.c] = gradSlice[deltaIdx]
+            deltaIdx += 1
           }
         }
       }
-      
-      if poolingGradients.isEmpty {
-        return (gradient, Tensor(), Tensor())
-      }
-      
+
      // print(outStorage.count, inputSize.columns * inputSize.rows * inputSize.depth)
       return (Tensor(outStorage, size: self.inputSize), Tensor(), Tensor())
     }
@@ -112,10 +102,8 @@ public final class MaxPool: BaseLayer {
       }
     }
 
-    queue.addBarrierBlock {
-      self.setGradients(indicies: currentIndicies, id: tensor.id)
-    }
-          
+    poolingGradients = PoolingGradient(tensorId: tensor.id, indicies: currentIndicies)
+
     let context = TensorContext(backpropagate: backwards)
     let outSize = TensorSize(rows: outRows, columns: outCols, depth: inputSize.depth)
     let out = Tensor(outStorage, size: outSize, context: context)
@@ -131,11 +119,9 @@ public final class MaxPool: BaseLayer {
   }
   
   private func setGradients(indicies: [[PoolingIndex]], id: Tensor.ID) {
-    self.poolingGradients.append(PoolingGradient(tensorId: id, indicies: indicies))
   }
   
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
-    poolingGradients.removeAll(keepingCapacity: true)
   }
   
   internal func poolFlat(input: Tensor.Value, rows: Int, columns: Int) -> (Tensor.Value, [PoolingIndex]) {
