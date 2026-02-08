@@ -668,45 +668,11 @@ public extension Tensor {
     if axis == 2 {
       // Concat along depth
       let newDepth = selfDepth + otherDepth
-      
- //     if selfRows == otherRows && selfCols == otherCols {
-        // Fast path: same spatial dimensions, just append depth slices
-        let newSize = TensorSize(rows: selfRows, columns: selfCols, depth: newDepth)
-        var result = storage
-        result.append(contentsOf: tensor.storage)
-        return Tensor(result, size: newSize, context: context)
-//      } else {
-//        // Ragged concat: different spatial dims per depth slice, normalize via max dims
-//        let maxRows = max(selfRows, otherRows)
-//        let maxCols = max(selfCols, otherCols)
-//        let newSize = TensorSize(rows: maxRows, columns: maxCols, depth: newDepth)
-//        var result = Tensor.Value(repeating: 0, count: maxCols * maxRows * newDepth)
-//        
-//        // Copy self depth slices
-//        for d in 0..<selfDepth {
-//          for r in 0..<selfRows {
-//            for c in 0..<selfCols {
-//              let srcIdx = d * selfRows * selfCols + r * selfCols + c
-//              let dstIdx = d * maxRows * maxCols + r * maxCols + c
-//              result[dstIdx] = storage[srcIdx]
-//            }
-//          }
-//        }
-//        
-//        // Copy other depth slices
-//        for d in 0..<otherDepth {
-//          for r in 0..<otherRows {
-//            for c in 0..<otherCols {
-//              let srcIdx = d * otherRows * otherCols + r * otherCols + c
-//              let dstIdx = (selfDepth + d) * maxRows * maxCols + r * maxCols + c
-//              result[dstIdx] = tensor.storage[srcIdx]
-//            }
-//          }
-//        }
-//        
-//        return Tensor(result, size: newSize, context: context)
-//      }
-      
+      let newSize = TensorSize(rows: selfRows, columns: selfCols, depth: newDepth)
+      var result = storage
+      result.append(contentsOf: tensor.storage)
+      return Tensor(result, size: newSize, context: context)
+
     } else if axis == 0 {
       // Concat along rows
       let newRows = selfRows + otherRows
