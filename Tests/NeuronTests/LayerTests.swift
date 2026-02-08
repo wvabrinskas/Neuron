@@ -147,6 +147,75 @@ final class LayerTests: XCTestCase {
     }
   }
   
+  func testTransConvDecodeEncode() {
+    let inputSize: TensorSize = .init(rows: 16, columns: 16, depth: 8)
+    
+    let transConv = TransConv2d(filterCount: 16,
+                                inputSize: inputSize,
+                                strides: (2, 2),
+                                padding: .same,
+                                filterSize: (3, 3),
+                                initializer: .heNormal,
+                                biasEnabled: true)
+    
+    let expectedWeights = transConv.weights
+    
+    do {
+      let jsonOut = try JSONEncoder().encode(transConv)
+      let jsonIn = try JSONDecoder().decode(TransConv2d.self, from: jsonOut)
+      
+      let outWeights = jsonIn.weights
+      
+      XCTAssertTrue(expectedWeights.isValueEqual(to: outWeights))
+    } catch {
+      XCTFail(error.localizedDescription)
+    }
+  }
+  
+  func testLSTMDecodeEncode() {
+    let lstm = LSTM(inputUnits: 100,
+                    batchLength: 16,
+                    returnSequence: true,
+                    biasEnabled: true,
+                    initializer: .heNormal,
+                    hiddenUnits: 64,
+                    vocabSize: 38)
+    
+    let expectedWeights = lstm.weights
+    
+    do {
+      let jsonOut = try JSONEncoder().encode(lstm)
+      let jsonIn = try JSONDecoder().decode(LSTM.self, from: jsonOut)
+      
+      let outWeights = jsonIn.weights
+      
+      XCTAssertTrue(expectedWeights.isValueEqual(to: outWeights))
+    } catch {
+      XCTFail(error.localizedDescription)
+    }
+  }
+  
+  func testEmbeddingDecodeEncode() {
+    let embedding = Embedding(inputUnits: 100,
+                              vocabSize: 28,
+                              batchLength: 16,
+                              initializer: .heNormal,
+                              trainable: true)
+    
+    let expectedWeights = embedding.weights
+    
+    do {
+      let jsonOut = try JSONEncoder().encode(embedding)
+      let jsonIn = try JSONDecoder().decode(Embedding.self, from: jsonOut)
+      
+      let outWeights = jsonIn.weights
+      
+      XCTAssertTrue(expectedWeights.isValueEqual(to: outWeights))
+    } catch {
+      XCTFail(error.localizedDescription)
+    }
+  }
+  
   func testResNet() {
     let inputSize: TensorSize = .init(rows: 64, columns: 64, depth: 3)
 

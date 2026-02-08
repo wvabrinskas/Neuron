@@ -33,6 +33,30 @@ public final class LSTM: BaseLayer {
   private var batchLength: Int
   private let returnSequence: Bool
   
+  public override var weights: Tensor {
+    get {
+      forgetGateWeights.concat(inputGateWeights, axis: 2)
+        .concat(gateGateWeights, axis: 2)
+        .concat(outputGateWeights, axis: 2)
+        .concat(hiddenOutputWeights, axis: 2)
+    }
+    set {
+      fatalError("Please use the `gate` property instead to manage weights on LSTM layers")
+    }
+  }
+  
+  public override var biases: Tensor {
+    get {
+      forgetGateBiases.concat(inputGateBiases, axis: 0)
+        .concat(gateGateBiases, axis: 0)
+        .concat(outputGateBiases, axis: 0)
+        .concat(hiddenOutputBiases, axis: 0)
+    }
+    set {
+      fatalError("Please use the `gate` property instead to manage weights on LSTM layers")
+    }
+  }
+  
   public class LSTMActivations {
     let forgetGate: Tensor
     let inputGate: Tensor
