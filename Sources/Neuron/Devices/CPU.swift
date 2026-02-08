@@ -72,34 +72,7 @@ public struct CPU: Device {
   ///   - type: The type of activation to apply
   /// - Returns: The activated result as a Tensor
   public func activate(_ input: Tensor, _ type: Activation) -> Tensor {
-    #if arch(arm64) || arch(x86_64)
-    // Use SIMD for small tensors (e.g., early CNN layers)
-    if SIMDStrategy.shouldUseSIMD(shape: input.shape) {
-      
-      let activated: Tensor = switch type {
-      case .reLu:
-        input.reluSIMD()
-      case .tanh:
-        input.tanhSIMD()
-      case .sigmoid:
-        input.sigmoidSIMD()
-      case .leakyRelu(let limit):
-        input.leakyReluSIMD(limit: limit)
-      case .swish:
-        input.swishSIMD()
-      case .seLu:
-        input.seLuSIMD()
-      case .geLu:
-        input.geLuSIMD()
-      default:
-        type.activate(input: input)
-      }
-      
-      return activated
-    }
-    #endif
-    
-    return type.activate(input: input)
+    type.activate(input: input)
   }
   
   
