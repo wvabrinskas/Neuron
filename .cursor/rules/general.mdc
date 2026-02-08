@@ -27,5 +27,5 @@ alwaysApply: true
 
 ### Performance:
 - Use NumSwift operations for mathematical computations
-- Minimize memory allocations in forward passes
+- Minimize memory allocations in forward passes and hot loops
 - Consider GPU compatibility when implementing operations

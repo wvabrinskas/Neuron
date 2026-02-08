@@ -53,18 +53,13 @@ public final class Reshape: BaseLayer {
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let context = TensorContext { inputs, gradient, wrt in
-      let value: [Tensor.Scalar] = gradient.value.flatten()
-      return (Tensor(value), Tensor(), Tensor())
+      // Reshape gradient back to flat (the input was flattened)
+      let flatSize = TensorSize(rows: 1, columns: gradient.storage.count, depth: 1)
+      return (Tensor(gradient.storage, size: flatSize), Tensor(), Tensor())
     }
     
-    let flat: [Tensor.Scalar] = tensor.value.flatten()
-    
-    let sizeCols = reshapeSize.columns
-    let sizeRows = reshapeSize.rows
-    
-    let reshaped = flat.reshape(columns: sizeCols).reshape(columns: sizeRows)
-    
-    let out = Tensor(reshaped, context: context)
+    // Reshape: reinterpret the flat storage with the new shape
+    let out = Tensor(tensor.storage, size: reshapeSize, context: context)
     
     out.setGraph(tensor)
 

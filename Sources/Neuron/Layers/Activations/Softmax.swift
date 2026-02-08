@@ -39,44 +39,52 @@ public final class Softmax: BaseActivationLayer {
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let context = TensorContext { inputs, gradient, wrt in
-      let wrtInputGradient = Tensor(gradient.value)
+      let wrtInputGradient = Tensor(Tensor.Value(gradient.storage), size: gradient.size)
       wrtInputGradient.label = "softmax_input_gradient"
       return (wrtInputGradient, Tensor(), Tensor())
     }
 
-    var activationResult: [[[Tensor.Scalar]]] = []
+    let size = tensor.size
+    let cols = size.columns
+    let rows = size.rows
+    let depth = size.depth
+    let src = tensor.storage
+    var result = Tensor.Value(repeating: 0, count: src.count)
 
-    tensor.value.forEach { d in
-      var row: [[Tensor.Scalar]] = []
-      d.forEach { r in
-        // Vectorized softmax: compute max/sum once for entire row
-        let column = calculate(outputs: r)
-        row.append(column)
+    // Apply softmax per-row (each row of `columns` elements)
+    for d in 0..<depth {
+      let depthOffset = d * rows * cols
+      for r in 0..<rows {
+        let rowOffset = depthOffset + r * cols
+        
+        // Find max for numerical stability
+        var rowMax: Tensor.Scalar = src[rowOffset]
+        for c in 1..<cols {
+          let val = src[rowOffset + c]
+          if val > rowMax { rowMax = val }
+        }
+        
+        // Compute exponentials and sum
+        var sum: Tensor.Scalar = 0
+        for c in 0..<cols {
+          let e = Tensor.Scalar.exp(src[rowOffset + c] - rowMax)
+          result[rowOffset + c] = e
+          sum += e
+        }
+        
+        // Normalize
+        for c in 0..<cols {
+          result[rowOffset + c] /= sum
+        }
       }
-      activationResult.append(row)
     }
 
-    let out = Tensor(activationResult, context: context)
+    let out = Tensor(result, size: size, context: context)
     out.label = type.asString()
 
     out.setGraph(tensor)
 
     return out
-  }
-
-  /// Vectorized softmax computation - O(n) instead of O(n²)
-  private func calculate(outputs: [Tensor.Scalar]) -> [Tensor.Scalar] {
-    // Find max once for numerical stability
-    let max = outputs.max() ?? 0
-
-    // Compute all exponentials once
-    let exps = outputs.map { Tensor.Scalar.exp($0 - max) }
-
-    // Compute sum once
-    let sum = exps.reduce(0, +)
-
-    // Normalize all values
-    return exps.map { $0 / sum }
   }
   
   override public func onInputSizeSet() {

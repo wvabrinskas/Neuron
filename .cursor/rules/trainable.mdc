@@ -12,6 +12,7 @@ When creating a Trainable model:
 - **Implement Logger Protocol**: Should conform to `Logger` for debugging
 - **Layer Management**: Handle layer compilation and forward passes
 - **Device Propagation**: Ensure device settings propagate to all layers
+- **Flat Storage Awareness**: Avoid `Tensor.value` in hot loops; prefer `storage` + `size`
 
 ### Template Pattern:
 ```swift

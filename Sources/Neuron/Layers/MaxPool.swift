@@ -54,33 +54,32 @@ public final class MaxPool: BaseLayer {
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     func backwards(input: Tensor, gradient: Tensor, wrt: Tensor?) -> (Tensor, Tensor, Tensor) {
-      let deltas = gradient.value
-      var poolingGradients: [[[Tensor.Scalar]]] = []
+      var outStorage = Tensor.Value(repeating: 0, count: self.inputSize.rows * self.inputSize.columns * self.inputSize.depth)
       
       // operation is performed first then returned
       queue.addSynchronousOperation { [weak self] in
-        guard let sSelf = self else {
-          return
-        }
+        guard let sSelf = self else { return }
         
         guard let forwardPooledMaxIndicies = sSelf.poolingGradients.first(where: { $0.tensorId == input.id })?.indicies else {
           return
         }
         
-        for i in 0..<sSelf.inputSize.depth {
-          let delta: [Tensor.Scalar] = deltas[i].flatten()
-          var modifiableDeltas = delta
+        let inRows = sSelf.inputSize.rows
+        let inCols = sSelf.inputSize.columns
+        let gradCols = gradient.size.columns
+        
+        for d in 0..<sSelf.inputSize.depth {
+          let gradSlice = gradient.depthSlice(d)
+          var deltaIdx = 0
+          let indicies = forwardPooledMaxIndicies[d]
+          let depthOffset = d * inRows * inCols
           
-          var pooledGradients = [Tensor.Scalar].init(repeating: 0,
-                                                     count: sSelf.inputSize.rows * sSelf.inputSize.columns).reshape(columns: sSelf.inputSize.columns)
-              
-          let indicies = forwardPooledMaxIndicies[i]
-          
-          indicies.forEach { index in
-            pooledGradients[index.r][index.c] = modifiableDeltas.removeFirst()
+          for index in indicies {
+            if deltaIdx < gradSlice.count {
+              outStorage[depthOffset + index.r * inCols + index.c] = gradSlice[deltaIdx]
+              deltaIdx += 1
+            }
           }
-          
-          poolingGradients.append(pooledGradients)
         }
       }
       
@@ -88,17 +87,29 @@ public final class MaxPool: BaseLayer {
         return (gradient, Tensor(), Tensor())
       }
       
-      return (Tensor(poolingGradients), Tensor(), Tensor())
+     // print(outStorage.count, inputSize.columns * inputSize.rows * inputSize.depth)
+      return (Tensor(outStorage, size: self.inputSize), Tensor(), Tensor())
     }
     
+    let rows = inputSize.rows
+    let columns = inputSize.columns
+    let outRows = (rows + 1) / 2
+    let outCols = (columns + 1) / 2
+    
     var currentIndicies: [[PoolingIndex]] = []
-    var results: [[[Tensor.Scalar]]] = []
     currentIndicies.reserveCapacity(inputSize.depth)
+    
+    var outStorage = Tensor.Value(repeating: 0, count: outRows * outCols * inputSize.depth)
 
-    tensor.value.forEach { input in
-      let pool = pool(input: input)
-      currentIndicies.append(pool.1)
-      results.append(pool.0)
+    for d in 0..<inputSize.depth {
+      let slice = tensor.depthSlice(d)
+      let (poolResult, indices) = poolFlat(input: slice, rows: rows, columns: columns)
+      currentIndicies.append(indices)
+      
+      let depthOffset = d * outRows * outCols
+      for j in 0..<poolResult.count {
+        outStorage[depthOffset + j] = poolResult[j]
+      }
     }
 
     queue.addBarrierBlock {
@@ -106,7 +117,8 @@ public final class MaxPool: BaseLayer {
     }
           
     let context = TensorContext(backpropagate: backwards)
-    let out = Tensor(results, context: context)
+    let outSize = TensorSize(rows: outRows, columns: outCols, depth: inputSize.depth)
+    let out = Tensor(outStorage, size: outSize, context: context)
     
     out.setGraph(tensor)
     
@@ -115,7 +127,7 @@ public final class MaxPool: BaseLayer {
   
   override public func onInputSizeSet() {
     super.onInputSizeSet()
-    outputSize = TensorSize(array: [inputSize.columns / 2, inputSize.rows / 2, inputSize.depth])
+    outputSize = TensorSize(array: [(inputSize.columns + 1) / 2, (inputSize.rows + 1) / 2, inputSize.depth])
   }
   
   private func setGradients(indicies: [[PoolingIndex]], id: Tensor.ID) {
@@ -126,45 +138,35 @@ public final class MaxPool: BaseLayer {
     poolingGradients.removeAll(keepingCapacity: true)
   }
   
-  internal func pool(input: [[Tensor.Scalar]]) -> ([[Tensor.Scalar]], [PoolingIndex]) {
-    var rowResults: [Tensor.Scalar] = []
-    var results: [[Tensor.Scalar]] = []
+  internal func poolFlat(input: Tensor.Value, rows: Int, columns: Int) -> (Tensor.Value, [PoolingIndex]) {
+    var results = Tensor.Value()
     var pooledIndicies: [PoolingIndex] = []
+    
+    func safeGet(_ r: Int, _ c: Int) -> Tensor.Scalar {
+      guard r >= 0, r < rows, c >= 0, c < columns else { return 0 }
+      return input[r * columns + c]
+    }
+    
+    for r in stride(from: 0, to: rows, by: 2) {
+      for c in stride(from: 0, to: columns, by: 2) {
+        let current = safeGet(r, c)
+        let right = safeGet(r + 1, c)
+        let bottom = safeGet(r, c + 1)
+        let diag = safeGet(r + 1, c + 1)
         
-    let rows = inputSize.rows
-    let columns = inputSize.columns
-            
-    for r in stride(from: 0, through: rows, by: 2) {
-      guard r < rows else {
-        continue
-      }
-      rowResults = []
-      
-      for c in stride(from: 0, through: columns, by: 2) {
-        guard c < columns else {
-          continue
-        }
-        
-        let current = input[r][c]
-        let right = input[safe: r + 1]?[c] ?? 0
-        let bottom = input[r][safe: c + 1] ?? 0
-        let diag = input[safe: r + 1]?[safe: c + 1] ?? 0
-        
-        let indiciesToCheck = [(current, r,c),
-                               (right ,r + 1, c),
+        let indiciesToCheck = [(current, r, c),
+                               (right, r + 1, c),
                                (bottom, r, c + 1),
                                (diag, r + 1, c + 1)]
         
-        let max = max(max(max(current, right), bottom), diag)
-        if let firstIndicies = indiciesToCheck.first(where: { $0.0 == max }) {
+        let maxVal = Swift.max(Swift.max(Swift.max(current, right), bottom), diag)
+        if let firstIndicies = indiciesToCheck.first(where: { $0.0 == maxVal }) {
           pooledIndicies.append(PoolingIndex(r: firstIndicies.1, c: firstIndicies.2))
         }
-        rowResults.append(max)
+        results.append(maxVal)
       }
-      
-      results.append(rowResults)
     }
-              
+    
     return (results, pooledIndicies)
   }
 }

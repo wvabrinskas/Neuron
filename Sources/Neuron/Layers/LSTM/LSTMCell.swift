@@ -161,9 +161,9 @@ class LSTMCell {
   
   func backward(cache: LSTM.Cache,
                 previousCache: LSTM.Cache?,
-                activationOutputError: [[Tensor.Scalar]],
-                nextActivationError: [[Tensor.Scalar]],
-                nextCellError: [[Tensor.Scalar]],
+                activationOutputError: Tensor,
+                nextActivationError: Tensor,
+                nextCellError: Tensor,
                 batchSize: Int,
                 parameters: Parameters) -> (inputs: Errors, weights: ParameterDerivatives, biases: ParameterDerivatives) {
 
@@ -177,19 +177,19 @@ class LSTMCell {
     
     // output gate error
     let oa = lstm.outputGate
-    var eo = Tensor(activationError) * tanActivationOfCellActivation
+    var eo = activationError * tanActivationOfCellActivation
     eo = (eo * oa) * (1 - oa)
     
     // cell activation error
-    var cellError = Tensor(activationError) * oa
+    var cellError = activationError * oa
     cellError = cellError * self.device.derivate(tanActivationOfCellActivation, .tanh)
-    cellError = cellError + Tensor(nextCellError)
+    cellError = cellError + nextCellError
     
     // input gate error
     let ia = lstm.inputGate
     let ga = lstm.gateGate
     var ei = cellError * ia
-    ei = (ei * ia) * (1 - ia)
+    ei = (ei.copy() * ia) * (1 - ia)
 
     // gate gate error
     var eg = cellError * ia
@@ -208,10 +208,10 @@ class LSTMCell {
     let ogw = parameters.outputGateWeights
     let ggw = parameters.gateGateWeights
     
-    var embedActivationError = ef.matmul(Tensor(fgw.value.transpose2d()))
-    embedActivationError = embedActivationError + (ei.matmul(Tensor(igw.value.transpose2d())))
-    embedActivationError = embedActivationError + (eo.matmul(Tensor(ogw.value.transpose2d())))
-    embedActivationError = embedActivationError + (eg.matmul(Tensor(ggw.value.transpose2d())))
+    var embedActivationError = ef.matmul(fgw.transposed())
+    embedActivationError = embedActivationError + (ei.matmul(igw.transposed()))
+    embedActivationError = embedActivationError + (eo.matmul(ogw.transposed()))
+    embedActivationError = embedActivationError + (eg.matmul(ggw.transposed()))
     
     let fgwShape = fgw.shape
     let inputHiddenUnits = fgwShape[safe: 1] ?? 0
@@ -263,9 +263,7 @@ class LSTMCell {
                                    activation: Tensor,
                                    batchSize: Int) -> ParameterDerivatives {
     
-    let transposed = embedding.concat(activation).value.transpose2d()
-    
-    let concat = Tensor(transposed)
+    let concat = embedding.concat(activation).transposed()
     
     let ef = lstmError.ef
     let ei = lstmError.ei

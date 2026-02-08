@@ -45,18 +45,15 @@ public final class Flatten: BaseLayer {
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let context = TensorContext { inputs, gradient, wrt in
-      
+      // Reshape gradient back to original inputSize by reinterpreting flat storage
       let inputSize = self.inputSize
-      let deltas: [Tensor.Scalar] = gradient.value.flatten()
-      
-      let batchedDeltas = deltas.batched(into: inputSize.columns * inputSize.rows)
-      let gradients = batchedDeltas.map { $0.reshape(columns: inputSize.columns) }
-      
-      return (Tensor(gradients), Tensor(), Tensor())
+      return (Tensor(gradient.storage, size: inputSize), Tensor(), Tensor())
     }
     
-    let flatten: [Tensor.Scalar] = tensor.value.flatten()
-    let flat = Tensor(flatten, context: context)
+    // Flatten: just reinterpret the flat storage as (total, 1, 1)
+    let total = tensor.storage.count
+    let flatSize = TensorSize(rows: 1, columns: total, depth: 1)
+    let flat = Tensor(tensor.storage, size: flatSize, context: context)
     
     flat.setGraph(tensor)
     

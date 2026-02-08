@@ -83,21 +83,19 @@ public final class Dense: BaseLayer {
       return
     }
     
-    var newWeights: [[Tensor.Scalar]] = []
+    var newWeights: Tensor.Value = []
     let outputSizeCount = outputSize.columns
-    
+        
     for _ in 0..<outputSizeCount {
-      var weightsForNode: [Tensor.Scalar] = []
       for _ in 0..<inputs {
         let w = initializer.calculate(input: inputs,
                                        out: outputSizeCount)
-        weightsForNode.append(w)
+        newWeights.append(w)
       }
-      
-      newWeights.append(weightsForNode)
     }
     
-    weights = Tensor(newWeights)
+    weights = Tensor(newWeights,
+                     size: .init(rows: outputSizeCount, columns: inputs, depth: 1))
   }
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
@@ -111,17 +109,15 @@ public final class Dense: BaseLayer {
     }
     
     //THIS WAS A MAJOR BUG POINT. DO NOT SWITCH ROWS AND COLUMNS HERE BY ACCIDENT - Billy 05-20-2022
-    let weightsTransposed: [[Tensor.Scalar]] = NumSwiftC.tranpose(weights.value[safe: 0] ?? [],
-                                                                  size: (rows: outputSize.columns,
-                                                                         columns: inputSize.columns))
+    let weightsTransposed = weights.transposed()
     
-    var dotProducts = device.matmul(tensor, Tensor(weightsTransposed))
+    var dotProducts = device.matmul(tensor, weightsTransposed)
     
     if biasEnabled {
       dotProducts = dotProducts.copy() + biases
     }
     
-    let out = Tensor(dotProducts.value, context: tensorContext)
+    let out = Tensor(dotProducts.storage, size: dotProducts.size, context: tensorContext)
     out.label = "Dense"
     
     out.setGraph(tensor)
@@ -130,10 +126,10 @@ public final class Dense: BaseLayer {
   }
   
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
-    weights = Tensor(weights.value - gradients.weights.value)
+    weights = weights.copy() - gradients.weights
 
     if biasEnabled {
-      biases = Tensor(biases.value - gradients.biases.value)
+      biases = biases.copy() - gradients.biases
     }
   }
 }

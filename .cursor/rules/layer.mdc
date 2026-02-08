@@ -97,5 +97,6 @@ public final class [LayerName]: BaseLayer {
 3. **Batch Processing**: The base class handles batch processing automatically
 4. **Device Support**: Inherit device management from BaseLayer
 5. **Codable**: Implement proper encoding/decoding for model persistence
+6. **Flat Storage**: Prefer `Tensor.storage` + `Tensor.size` in hot paths; use `value` only when necessary
 
 

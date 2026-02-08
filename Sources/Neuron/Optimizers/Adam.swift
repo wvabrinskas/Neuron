@@ -49,10 +49,10 @@ public class Adam: BaseOptimizer {
   private var b2: Tensor.Scalar = 0.999
   private var eps: Tensor.Scalar = .stabilityFactor
   
-  private var m: [Tensor.Data] = []
-  private var v: [Tensor.Data] = []
-  private var vb: [Tensor.Data] = []
-  private var mb: [Tensor.Data] = []
+  private var m: [Tensor.Value] = []
+  private var v: [Tensor.Value] = []
+  private var vb: [Tensor.Value] = []
+  private var mb: [Tensor.Value] = []
   private var t: Tensor.Scalar = 1
   private let weightDecay: WeightDecay
   
@@ -108,101 +108,81 @@ public class Adam: BaseOptimizer {
   }
   
   private func build() {
-    m = [Tensor.Data].init(repeating: [], count: trainable.layers.count) // we want to support multiple weight structures right now this only supports one Tensor for one m value, when layers could have multiple tensors representing weights
-    v = [Tensor.Data].init(repeating: [], count: trainable.layers.count)
-    vb = [Tensor.Data].init(repeating: [], count: trainable.layers.count)
-    mb = [Tensor.Data].init(repeating: [], count: trainable.layers.count)
+    m = [Tensor.Value].init(repeating: Tensor.Value(), count: trainable.layers.count)
+    v = [Tensor.Value].init(repeating: Tensor.Value(), count: trainable.layers.count)
+    vb = [Tensor.Value].init(repeating: Tensor.Value(), count: trainable.layers.count)
+    mb = [Tensor.Value].init(repeating: Tensor.Value(), count: trainable.layers.count)
     trainable.compile()
   }
   
   private func run(gradient: Tensor, biasGradient: Tensor, index: Int, weights: Tensor) -> Optimizer.Gradient {
-    let shape = gradient.shape
-    let rows = shape[safe: 1] ?? 0
-    let columns = shape[safe: 0] ?? 0
-    let depth = shape[safe: 2] ?? 0
     let i = index
+    let gradCount = gradient.storage.count
 
     if m[i].isEmpty || v[i].isEmpty {
-      m[i] = NumSwift.zerosLike((rows, columns, depth))
-      v[i] = NumSwift.zerosLike((rows, columns, depth))
+      m[i] = Tensor.Value(repeating: 0, count: gradCount)
+      v[i] = Tensor.Value(repeating: 0, count: gradCount)
     }
     
-    let gradientValue = gradient.value
     let result = apply(m: &m[i],
-                                    v: &v[i],
-                                    gradient: gradientValue,
-                                    decay: true,
-                                    weights: weights)
+                       v: &v[i],
+                       gradient: gradient.storage,
+                       decay: true,
+                       weights: weights.storage,
+                       size: gradient.size)
 
-    let biasShape = biasGradient.shape
-    let biasRows = biasShape[safe: 1] ?? 0
-    let biasColumns = biasShape[safe: 0] ?? 0
-    let biasDepth = biasShape[safe: 2] ?? 0
+    let biasCount = biasGradient.storage.count
 
     if mb[i].isEmpty || vb[i].isEmpty {
-      mb[i] = NumSwift.zerosLike((biasRows, biasColumns, biasDepth))
-      vb[i] = NumSwift.zerosLike((biasRows, biasColumns, biasDepth))
+      mb[i] = Tensor.Value(repeating: 0, count: biasCount)
+      vb[i] = Tensor.Value(repeating: 0, count: biasCount)
     }
 
-    // Get the bias gradient value
-    let biasGradientValue = biasGradient.value
     let biases = apply(m: &mb[i],
-                                    v: &vb[i],
-                                    gradient: biasGradientValue,
-                                    weights: weights)
+                       v: &vb[i],
+                       gradient: biasGradient.storage,
+                       weights: weights.storage,
+                       size: biasGradient.size)
     
-    return (Tensor(result), Tensor(biases))
+    return (Tensor(result, size: gradient.size), Tensor(biases, size: biasGradient.size))
   }
 
-  private func apply(m: inout Tensor.Data,
-                     v: inout Tensor.Data,
-                     gradient: Tensor.Data,
+  private func apply(m: inout Tensor.Value,
+                     v: inout Tensor.Value,
+                     gradient: Tensor.Value,
                      decay: Bool = false,
-                     weights: Tensor) -> Tensor.Data {
+                     weights: Tensor.Value,
+                     size: TensorSize) -> Tensor.Value {
 
     // Hoist loop-invariant computations
     let oneMinusB1 = 1 - b1
     let oneMinusB2 = 1 - b2
     let mCorrectionFactor = 1 / (1 - Tensor.Scalar.pow(b1, Tensor.Scalar(t)))
     let vCorrectionFactor = 1 / (1 - Tensor.Scalar.pow(b2, Tensor.Scalar(t)))
-    let weightsValue = weights.value
     let shouldDecay: Tensor.Scalar? = decay ? {
       if case .decay(let d) = weightDecay { return d }
       return nil
     }() : nil
 
-    var result: [[[Tensor.Scalar]]] = []
-    result.reserveCapacity(gradient.count)
+    let count = gradient.count
+    var result = Tensor.Value(repeating: 0, count: count)
 
-    for d in 0..<gradient.count {
-      let depthGrad = gradient[d]
-      var rowResult: [[Tensor.Scalar]] = []
-      rowResult.reserveCapacity(depthGrad.count)
-      for r in 0..<depthGrad.count {
-        let rowGrad = depthGrad[r]
-        let count = rowGrad.count
-        var column: [Tensor.Scalar] = []
-        column.reserveCapacity(count)
-        for c in 0..<count {
-          let g = rowGrad[c]
-          m[d][r][c] = b1 * m[d][r][c] + oneMinusB1 * g
-          v[d][r][c] = b2 * v[d][r][c] + oneMinusB2 * (g * g)
+    for i in 0..<count {
+      let g = gradient[i]
+      m[i] = b1 * m[i] + oneMinusB1 * g
+      v[i] = b2 * v[i] + oneMinusB2 * (g * g)
 
-          let mHat = m[d][r][c] * mCorrectionFactor
-          let vHat = v[d][r][c] * vCorrectionFactor
+      let mHat = m[i] * mCorrectionFactor
+      let vHat = v[i] * vCorrectionFactor
 
-          var delta = learningRate * (mHat / (sqrt(vHat + eps)))
+      var delta = learningRate * (mHat / (sqrt(vHat + eps)))
 
-          if let decayValue = shouldDecay {
-            let decayLR = learningRate * decayValue * weightsValue[safe: d, [[]]][safe: r, []][safe: c, 1]
-            delta -= decayLR
-          }
-
-          column.append(delta)
-        }
-        rowResult.append(column)
+      if let decayValue = shouldDecay, i < weights.count {
+        let decayLR = learningRate * decayValue * weights[i]
+        delta -= decayLR
       }
-      result.append(rowResult)
+
+      result[i] = delta
     }
 
     return result
