@@ -178,10 +178,11 @@ public class Conv2d: BaseConvolutionalLayer {
       for f in 0..<inputDepth {
         let kernel = flippedKernels[f * filterCount + i]
         
-        let grad = NumSwiftFlat.conv2d(signal: workingDelta, filter: kernel,
-                                       strides: (1,1), padding: .same,
-                                       filterSize: filterSize,
-                                       inputSize: (rows: newRows, columns: newColumns))
+        let grad = device.conv2d(signal: workingDelta, filter: kernel,
+                                 strides: (1,1), padding: .same,
+                                 filterSize: filterSize,
+                                 inputSize: (rows: newRows, columns: newColumns),
+                                 outputSize: nil)
         
         if let existing = inputGradientSlices[f] {
           inputGradientSlices[f] = NumSwiftFlat.add(existing, grad)
@@ -278,10 +279,11 @@ public class Conv2d: BaseConvolutionalLayer {
       
       let convStrides = (filterSize.columns == 1 || filterSize.rows == 1) ? strides : (1, 1)
       
-      let result = NumSwiftFlat.conv2d(signal: signal, filter: filter,
-                                       strides: convStrides, padding: .valid,
-                                       filterSize: newFilterSize,
-                                       inputSize: convInputSize)
+      let result = device.conv2d(signal: signal, filter: filter,
+                                 strides: convStrides, padding: .valid,
+                                 filterSize: newFilterSize,
+                                 inputSize: convInputSize,
+                                 outputSize: nil)
       
       results.append(result)
     }
@@ -325,12 +327,13 @@ public class Conv2d: BaseConvolutionalLayer {
         let currentFilter = self.filters[f].depthSlice(i)
         let currentInput = input.depthSlice(i)
         
-        let conv = NumSwiftFlat.conv2d(signal: currentInput,
-                                       filter: currentFilter,
-                                       strides: self.strides,
-                                       padding: self.padding,
-                                       filterSize: self.filterSize,
-                                       inputSize: (self.inputSize.rows, self.inputSize.columns))
+        let conv = self.device.conv2d(signal: currentInput,
+                                      filter: currentFilter,
+                                      strides: self.strides,
+                                      padding: self.padding,
+                                      filterSize: self.filterSize,
+                                      inputSize: (self.inputSize.rows, self.inputSize.columns),
+                                      outputSize: nil)
         
         if conv.count == convolved.count {
           convolved = NumSwiftFlat.add(convolved, conv)

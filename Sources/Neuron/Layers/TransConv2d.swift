@@ -169,10 +169,11 @@ public final class TransConv2d: Conv2d {
       
       let newFilterSize = (filterInputSize.rows, filterInputSize.columns)
       
-      let result = NumSwiftFlat.conv2d(signal: signal, filter: filter,
-                                       strides: (1,1), padding: .valid,
-                                       filterSize: newFilterSize,
-                                       inputSize: signalSize)
+      let result = self.device.conv2d(signal: signal, filter: filter,
+                                      strides: (1,1), padding: .valid,
+                                      filterSize: newFilterSize,
+                                      inputSize: signalSize,
+                                      outputSize: nil)
       
       results.append(result)
     }
@@ -218,10 +219,11 @@ public final class TransConv2d: Conv2d {
       for f in 0..<filterCount {
         let kernel = filters[f].depthSlice(i)
         
-        var grad = NumSwiftFlat.conv2d(signal: workingInput, filter: kernel,
-                                       strides: (1,1), padding: .same,
-                                       filterSize: filterSize,
-                                       inputSize: (rows: newRows, columns: newColumns))
+        var grad = self.device.conv2d(signal: workingInput, filter: kernel,
+                                      strides: (1,1), padding: .same,
+                                      filterSize: filterSize,
+                                      inputSize: (rows: newRows, columns: newColumns),
+                                      outputSize: nil)
         
         if let existing = filterOutputs[f] {
           grad = NumSwiftFlat.add(grad, existing)
