@@ -33,6 +33,7 @@ public enum EncodingType: String, Codable {
        selu,
        resNet,
        globalAvgPool,
+       mixup,
        none
 }
 
