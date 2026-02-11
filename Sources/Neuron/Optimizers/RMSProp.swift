@@ -21,7 +21,8 @@ public class RMSProp: BaseOptimizer {
               b: Tensor.Scalar = 0.9,
               eps: Tensor.Scalar = .stabilityFactor,
               weightClip: Tensor.Scalar? = nil,
-              gradientClip: Tensor.Scalar? = nil) {
+              gradientClip: Tensor.Scalar? = nil,
+              augmenter: Augmenter? = nil) {
     self.eps = eps
     self.b = b
 
@@ -34,7 +35,8 @@ public class RMSProp: BaseOptimizer {
                learningRate: learningRate,
                batchSize: batchSize,
                weightClip: weightClip,
-               gradientClip: gradientClip)
+               gradientClip: gradientClip,
+               augmenter: augmenter)
   }
   
   public override func step() {
