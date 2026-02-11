@@ -12,10 +12,10 @@ public enum Augmenter {
 public struct AugementedDatasetModel {
   var mixed: TensorBatch
   var mixedLabels: TensorBatch
-  var labels: TensorBatch
   var lambda: Tensor.Scalar
 }
 
 public protocol Augmenting {
   func augment(_ inputs: TensorBatch, labels: TensorBatch) -> AugementedDatasetModel
+  func adjustForAugment(_ a: Tensor, _ b: Tensor) -> Tensor
 }
