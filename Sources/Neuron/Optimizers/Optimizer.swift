@@ -240,10 +240,10 @@ open class BaseOptimizer: Optimizer {
             
             self.adjust(updating: &localAccuracy,
                         index: index,
-                        augmentedOut: augmentedOut) { label in
+                        augmentedOut: augmentedOut) { augLabel in
               Tensor(reporter.calculateAccuracy(out,
-                                                label: label,
-                                                binary: label.isScalar(),
+                                                label: augLabel,
+                                                binary: augLabel.isScalar(),
                                                 running: false))
             }
             

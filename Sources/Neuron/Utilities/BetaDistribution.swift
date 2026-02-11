@@ -10,9 +10,9 @@ import Numerics
 
 public struct BetaDistribution {
   
-  public static func randomBeta(alpha: Tensor.Scalar) -> Tensor.Scalar {
+  public static func randomBeta(_ alpha: Tensor.Scalar, _ beta: Tensor.Scalar) -> Tensor.Scalar {
     let x = randomGamma(shape: alpha)
-    let y = randomGamma(shape: alpha)
+    let y = randomGamma(shape: beta)
     return x / (x + y)
   }
   
@@ -23,7 +23,7 @@ public struct BetaDistribution {
     }
     
     let d = shape - 1.0 / 3.0
-    let c = 1.0 / Tensor.Scalar.sqrt(9.0 * d)
+    let c = 1.0 / Tensor.Scalar.sqrt((9.0 * d) + Tensor.Scalar.stabilityFactor)
     
     while true {
       var x: Tensor.Scalar
