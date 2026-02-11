@@ -12,11 +12,21 @@ public enum LossFunction {
   case meanSquareError
   case crossEntropy
   case crossEntropySoftmax
+  case crossEntropySoftmaxSmoothing(Tensor.Scalar)
   case binaryCrossEntropy
   case binaryCrossEntropySoftmax
   case wasserstein
   case minimaxBinaryCrossEntropy
   
+  
+  /// Calculate the loss given a prediction tensor and a label tensor.
+  /// - Parameters:
+  ///   - predicted: Tensor to compare against the label
+  ///   - correct: The label wrt to the predicted tensor. Expects the number of classes to be defined in the column count of the tensor.
+  ///   eg. [[[1, 0, 0]]] = 3 classes
+  ///   eg. [[[1], [1], [1]]] = 1 class
+  ///   eg. [[[1, 0], [0, 1]]] = 2 classes
+  /// - Returns: The loss as a tensor object.
   public func calculate(_ predicted: Tensor, correct: Tensor) -> Tensor {
     guard predicted.shape == correct.shape else {
       fatalError("predicted shape does not match correct shape")
@@ -26,7 +36,7 @@ public enum LossFunction {
     let depth = size.depth
     let rows = size.rows
     let cols = size.columns
-    
+        
     // Build result using flat storage
     var resultStorage = Tensor.Value(repeating: 0, count: depth * 1 * rows)
     let depthScalar = Tensor.Scalar(depth)
@@ -53,10 +63,52 @@ public enum LossFunction {
     // Output shape: each depth has 1 row with `rows` columns (matching how rows map to loss values)
     let resultSize = TensorSize(rows: 1, columns: rows, depth: depth)
     return Tensor(resultStorage, size: resultSize)
-    
+  }
+  
+  /// Calculate the derivative of the loss given a prediction tensor and a label tensor.
+  /// - Parameters:
+  ///   - predicted: Tensor to compare against the label
+  ///   - correct: The label wrt to the predicted tensor. Expects the number of classes to be defined in the column count of the tensor.
+  ///   eg. [[[1, 0, 0]]] = 3 classes
+  ///   eg. [[[1], [1], [1]]] = 1 class
+  ///   eg. [[[1, 0], [0, 1]]] = 2 classes
+  /// - Returns: The loss as a tensor object.
+  public func derivative(_ predicted: Tensor, correct: Tensor) -> Tensor {
+    switch self {
+    case .meanSquareError:
+      return -1 * ((predicted - correct) * 2)
+    case .crossEntropy:
+      return predicted.map { -1 * (1 / $0) }
+      
+    case .crossEntropySoftmax,
+         .binaryCrossEntropySoftmax:
+      //only if Softmax is the modifier
+      return predicted - correct
+      
+    case .binaryCrossEntropy,
+         .minimaxBinaryCrossEntropy:
+      let y = correct
+      let p = predicted
+      
+      let firstDivide = y / p
+      let ySubtract = Tensor.Scalar(1) - y
+      let pSubtract = Tensor.Scalar(1) - p
+      
+      let result = -1 * ((firstDivide) - ((ySubtract) / (pSubtract)))
+      return result
+      
+    case .wasserstein:
+      return correct
+    case .crossEntropySoftmaxSmoothing(let smoothing):
+      //only if Softmax is the modifier
+      let totalClasses = Tensor.Scalar(predicted.size.columns)
+
+      let smoothedCorreect = (1 - smoothing) * correct + smoothing / totalClasses
+      return predicted - smoothedCorreect
+    }
   }
 
-  public func calculate(_ predicted: [Tensor.Scalar], correct: [Tensor.Scalar]) -> Tensor.Scalar {
+  private func calculate(_ predicted: [Tensor.Scalar], correct: [Tensor.Scalar]) -> Tensor.Scalar {
     guard predicted.count == correct.count else {
       return 0
     }
@@ -109,67 +161,19 @@ public enum LossFunction {
       }
       
       return sum
+    case .crossEntropySoftmaxSmoothing(let smoothing):
+      var sum: Tensor.Scalar = 0
+      let totalClasses = Tensor.Scalar(predicted.count)
+
+      for i in 0..<predicted.count {
+        let predictedScalar = predicted[i]
+        let correct = (1 - smoothing) * correct[i] + smoothing / totalClasses
+        sum += -1 * (correct * Tensor.Scalar.log(predictedScalar + .stabilityFactor))
+      }
+      
+      return sum
     }
 
   }
-  
-  public func derivative(_ predicted: Tensor, correct: Tensor) -> Tensor {
-    switch self {
-    case .meanSquareError:
-      return -1 * ((predicted - correct) * 2)
-    case .crossEntropy:
-      return predicted.map { -1 * (1 / $0) }
-      
-    case .crossEntropySoftmax,
-         .binaryCrossEntropySoftmax:
-      //only if Softmax is the modifier
-      return predicted - correct
-      
-    case .binaryCrossEntropy,
-         .minimaxBinaryCrossEntropy:
-      let y = correct
-      let p = predicted
-      
-      let firstDivide = y / p
-      let ySubtract = Tensor.Scalar(1) - y
-      let pSubtract = Tensor.Scalar(1) - p
-      
-      let result = -1 * ((firstDivide) - ((ySubtract) / (pSubtract)))
-      return result
-      
-    case .wasserstein:
-      return correct
-    }
-  }
-  
-  @available(*, deprecated,
-              renamed: "derivative",
-              message: "This will be removed soon. Please use the derivative function that accepts Tensor objects")
-  public func derivative(_ predicted: [Tensor.Scalar], correct: [Tensor.Scalar]) -> [Tensor.Scalar] {
-    precondition(predicted.count == correct.count)
-    
-    switch self {
-    case .meanSquareError:
-      return 2 * (predicted - correct)
-    case .crossEntropy:
-      return predicted.map { -1 * (1 / $0) }
-      
-    case .crossEntropySoftmax,
-         .binaryCrossEntropySoftmax:
-      //only if Softmax is the modifier
-      return predicted - correct
-      
-    case .binaryCrossEntropy,
-         .minimaxBinaryCrossEntropy:
-      let y = correct
-      let p = predicted
-      
-      let result = -1 * ((y / p) - ((1 - y) / (1 - p)))
-      return result
-      
-    case .wasserstein:
-      return correct
-    }
-    
-  }
+
 }
