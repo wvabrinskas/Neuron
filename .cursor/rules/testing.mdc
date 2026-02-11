@@ -1,0 +1,19 @@
+---
+description: Require CI=true when running unit tests
+alwaysApply: true
+---
+
+# Unit Test Execution
+
+When running unit tests, always include `CI=true` in the command.
+
+```bash
+# Correct
+CI=true swift test
+
+# With filters
+CI=true swift test --filter <TestName>
+
+# Verbose
+CI=true swift test -v
+```

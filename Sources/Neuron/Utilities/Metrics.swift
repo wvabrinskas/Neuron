@@ -72,15 +72,13 @@ internal extension MetricCalculator {
       return 0
     }
         
-    for d in 0..<guess.value.count {
-      for r in 0..<guess.value[d].count {
-        let guessMax = guess.value[d][r].indexOfMax
-        let labelMax = label.value[d][r].indexOfMax
-        totalCorrect += perform(max: labelMax, guessMax: guessMax)
-        totalValCorrectGuesses += perform(max: labelMax, guessMax: guessMax)
-        totalGuess += 1
-        totalValGuesses += 1
-      }
+    for d in 0..<guess.size.depth {
+      let guessMax = guess.depthSlice(d).indexOfMax
+      let labelMax = label.depthSlice(d).indexOfMax
+      totalCorrect += perform(max: labelMax, guessMax: guessMax)
+      totalValCorrectGuesses += perform(max: labelMax, guessMax: guessMax)
+      totalGuess += 1
+      totalValGuesses += 1
     }
     
     let runningAccuracy = Tensor.Scalar(totalValCorrectGuesses) / Tensor.Scalar(totalValGuesses) * 100.0
@@ -108,15 +106,13 @@ internal extension MetricCalculator {
       return 0
     }
         
-    for d in 0..<guess.value.count {
-      for r in 0..<guess.value[d].count {
-        let guessMax = guess.value[d][r].indexOfMax
-        let labelMax = label.value[d][r].indexOfMax
-        totalCorrect += perform(max: labelMax, guessMax: guessMax)
-        totalCorrectGuesses += perform(max: labelMax, guessMax: guessMax)
-        totalGuess += 1
-        totalGuesses += 1
-      }
+    for d in 0..<guess.size.depth {
+      let guessMax = guess.depthSlice(d).indexOfMax
+      let labelMax = label.depthSlice(d).indexOfMax
+      totalCorrect += perform(max: labelMax, guessMax: guessMax)
+      totalCorrectGuesses += perform(max: labelMax, guessMax: guessMax)
+      totalGuess += 1
+      totalGuesses += 1
     }
     
     let runningAccuracy = Tensor.Scalar(totalCorrectGuesses) / Tensor.Scalar(totalGuesses) * 100.0

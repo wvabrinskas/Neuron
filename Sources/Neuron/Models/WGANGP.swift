@@ -9,15 +9,16 @@ import Foundation
 import NumSwift
 import Numerics
 
-public class WGANGP: GAN {
+open class WGANGP: GAN {
   public override var realLabel: Tensor.Scalar { -1.0 }
   public override var fakeLabel: Tensor.Scalar { 1.0 }
   public var lambda: Tensor.Scalar = 0.1
 
   private struct GradientPenalty {
     static func calculate(gradient: Tensor) -> Tensor {
-      let norm = sqrt(gradient.value.sumOfSquares + .stabilityFactor) - 1
-      return Tensor(Tensor.Scalar.pow(norm, 2))
+      let sumOfSquares = gradient.sumOfSquares().asScalar()
+      let norm = Tensor.Scalar.sqrt(sumOfSquares + .stabilityFactor) - 1
+      return Tensor(norm * norm)
     }
     
     static func calculate(gradients: [Tensor]) -> [Tensor] {
@@ -70,7 +71,7 @@ public class WGANGP: GAN {
       let criticCost = fakeOutput - realOutput
       let criticLoss = criticCost + self.lambda * penalty
           
-      let part1 = Tensor.Scalar(2 / fakeOutput.value.count) * self.lambda
+      let part1 = Tensor.Scalar(2 / fakeOutput.size.depth) * self.lambda
       let part2 = normGradients - 1
       let part3 = interOut.outputs[safe: 0, Tensor()] / normGradients
       let dGradInter = part1 * part2 * part3
@@ -100,7 +101,9 @@ public class WGANGP: GAN {
     generator.zeroGradients()
     let fake = getGenerated(.real, count: batchSize)
         
-    let fakeOut = trainOn(fake.data, labels: fake.labels)
+    let fakeOut = trainOn(fake.data,
+                          labels: fake.labels,
+                          wrt: fake.wrt)
     
     // these gradients have the discriminator gradients as well. Maybe we can speed it up by removing them somehow?
     generator.apply(fakeOut.gradients)
@@ -115,11 +118,8 @@ public class WGANGP: GAN {
     
     for i in 0..<real.count {
       let epsilon = Tensor.Scalar.random(in: 0...1)
-      let realImage = real[i].value
-      let fakeImage = fake[i].value
-
-      let inter = (realImage * epsilon) + (( 1 - epsilon) * fakeImage)
-      interpolated.append(Tensor(inter))
+      let inter = real[i] * epsilon + (Tensor.Scalar(1) - epsilon) * fake[i]
+      interpolated.append(inter)
       labels.append(Tensor(1.0))
     }
     

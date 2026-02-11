@@ -54,7 +54,7 @@ public protocol Trainable: AnyObject, Codable, CustomDebugStringConvertible {
   func importWeights(_ weights: [[Tensor]]) throws
   
   /// Applys gradients to layers
-  func apply(gradients: Tensor.Gradient, learningRate: Float)
+  func apply(gradients: Tensor.Gradient, learningRate: Tensor.Scalar)
   
   /// Exports network
   @discardableResult
@@ -140,13 +140,13 @@ private struct TrainablePrinter {
   }
   
   static func line(layer: Layer, previousLine: Line? = nil) -> Line {
-    var parameters = layer.weights.value.flatten().count
+    var parameters = layer.weights.storage.count
     
     // TODO: maybe find a better way to do this so we can just reference a property like `parameters` or something
     if let conv = layer as? ConvolutionalLayer {
-      parameters = conv.filters.map { $0.value.flatten().count }.sumSlow
+      parameters = conv.filters.map { $0.storage.count }.sumSlow
     } else if let lstm = layer as? LSTM {
-      parameters = lstm.forgetGateWeights.concat(lstm.gateGateWeights).concat(lstm.hiddenOutputWeights).concat(lstm.inputGateWeights).concat(lstm.outputGateWeights).value.flatten().count
+      parameters = lstm.forgetGateWeights.storage.count + lstm.gateGateWeights.storage.count + lstm.hiddenOutputWeights.storage.count + lstm.inputGateWeights.storage.count + lstm.outputGateWeights.storage.count
     }
     
     let col1 = Column(value: layer.encodingType.rawValue, width: col1Width)

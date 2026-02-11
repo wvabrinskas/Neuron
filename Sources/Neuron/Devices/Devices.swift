@@ -24,22 +24,23 @@ public enum DeviceType: String, Codable {
 public protocol Device {
   var type: DeviceType { get }
   var qosPriority: DispatchQoS.QoSClass { get set }
-  func conv2d(signal: [[Tensor.Scalar]],
-              filter: [[Tensor.Scalar]],
+
+  func conv2d(signal: Tensor.Value,
+              filter: Tensor.Value,
               strides: (Int, Int),
               padding: NumSwift.ConvPadding,
               filterSize: (rows: Int, columns: Int),
               inputSize: (rows: Int, columns: Int),
-              outputSize: (rows: Int, columns: Int)?) -> [[Tensor.Scalar]]
+              outputSize: (rows: Int, columns: Int)?) -> Tensor.Value
   
-  func transConv2d(signal: [[Tensor.Scalar]],
-                          filter: [[Tensor.Scalar]],
+  func transConv2d(signal: Tensor.Value,
+                          filter: Tensor.Value,
                           strides: (Int, Int),
                           padding: NumSwift.ConvPadding,
                           filterSize: (rows: Int, columns: Int),
                           inputSize: (rows: Int, columns: Int),
-                          outputSize: (rows: Int, columns: Int)?) -> [[Tensor.Scalar]]
-
+                          outputSize: (rows: Int, columns: Int)?) -> Tensor.Value
+  
   func activate(_ input: Tensor, _ type: Activation) -> Tensor
   func derivate(_ input: Tensor, _ type: Activation) -> Tensor
   func matmul(_ a: Tensor, _ b: Tensor) -> Tensor

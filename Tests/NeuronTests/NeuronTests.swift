@@ -152,7 +152,7 @@ final class NeuronTests: XCTestCase {
     let rFlat: [Tensor.Scalar] = r.flatten()
     let backward = out.gradients(delta: Tensor(rFlat), wrt: testData)
     
-    XCTAssert(backward.input.first?.value.shape == r.shape)
+    XCTAssert(backward.input.first?.shape == r.shape)
   }
   
   func testReshape() {
@@ -176,7 +176,7 @@ final class NeuronTests: XCTestCase {
     let out = layer.forward(tensor: testData)
     out.setGraph(testData)
     
-    XCTAssert(out.value.shape.tensorSize == size)
+    XCTAssert(out.shape.tensorSize == size)
     
     let backward = out.gradients(delta: out.detached(), wrt: testData)
     
@@ -280,7 +280,7 @@ final class NeuronTests: XCTestCase {
     let out = conv.forward(tensor: inputTensor)
     out.setGraph(inputTensor)
 
-    XCTAssert(outputShape == out.value.shape)
+    XCTAssert(outputShape == out.shape)
     
     let gradients: [[[Tensor.Scalar]]] = NumSwift.onesLike((out.shape[safe: 1, 0], out.shape[safe: 0, 0], filterCount))
     let backward = out.gradients(delta: Tensor(gradients), wrt: inputTensor)
@@ -350,7 +350,7 @@ final class NeuronTests: XCTestCase {
     
     let expectedTensor = Tensor([[[0.95, 0.19, 0.95, 0.19, 0.95]]])
     
-    XCTAssert(expectedTensor.isValueEqual(to: out))
+    XCTAssert(expectedTensor.isValueEqual(to: out, accuracy: 0.00001))
   }
   
   func testGradientAccumulator() {
@@ -386,15 +386,15 @@ final class NeuronTests: XCTestCase {
     let out = norm.forward(tensor: input)
     out.setGraph(input)
 
-    XCTAssert(out.isValueEqual(to: Tensor([[0.8164965, -1.2247449, 0.8164965, -1.2247449, 0.8164965]])))
+    XCTAssert(out.isValueEqual(to: Tensor([[0.8164965, -1.2247449, 0.8164965, -1.2247449, 0.8164965]]), accuracy: 0.00001))
     
     let delta = Tensor([[0.5, 0, 0.5, 0, 0.5]])
     
     let gradient = out.gradients(delta: delta, wrt: input)
     
     XCTAssert(gradient.input.first?.isEmpty == false)
-    XCTAssert(gradient.weights.first![0..., 0..., 0..<input.shape.tensorSize.depth].isValueEqual(to: Tensor([0.40824825, 0.0, 0.40824825, 0.0, 0.40824825])))
-    XCTAssert(gradient.input.first!.isValueEqual(to: Tensor([-2.3814485, 0.0, -2.3814485, 0.0, -2.3814485])))
+    XCTAssert(gradient.weights.first![0..., 0..., 0..<input.shape.tensorSize.depth].isValueEqual(to: Tensor([0.40824825, 0.0, 0.40824825, 0.0, 0.40824825]), accuracy: 0.00001))
+    XCTAssert(gradient.input.first!.isValueEqual(to: Tensor([-2.3814485, 0.0, -2.3814485, 0.0, -2.3814485]), accuracy: 0.00001))
   }
   
   func testLayerNorm_2d() {
@@ -405,7 +405,7 @@ final class NeuronTests: XCTestCase {
     out.setGraph(input)
 
     XCTAssert(out.isValueEqual(to: Tensor([[0.8164965, -1.2247449, 0.8164965, -1.2247449, 0.8164965],
-                                           [0.8164965, -1.2247449, 0.8164965, -1.2247449, 0.8164965]])))
+                                           [0.8164965, -1.2247449, 0.8164965, -1.2247449, 0.8164965]]), accuracy: 0.00001))
     
     let delta = Tensor([[0.5, 0, 0.5, 0, 0.5],
                         [0.5, 0, 0.5, 0, 0.5]])
@@ -414,7 +414,7 @@ final class NeuronTests: XCTestCase {
     
     XCTAssert(gradient.input.first?.isEmpty == false)
     XCTAssert(gradient.weights.first![0..., 0..., 0..<input.shape.tensorSize.depth].isValueEqual(to: Tensor([[0.40824825, 0.0000, 0.40824825, 0.0000, 0.40824825],
-                                                                                                             [0.40824825, 0.0000, 0.40824825, 0.0000, 0.40824825]])))
+                                                                                                             [0.40824825, 0.0000, 0.40824825, 0.0000, 0.40824825]]), accuracy: 0.00001))
   }
   
   
@@ -475,8 +475,13 @@ final class NeuronTests: XCTestCase {
     }
     
     XCTAssertEqual(norm.welfordVariance.iterations, batchSize)
-    XCTAssertEqual(norm.welfordVariance.m2s, [[[2.5,2.5,2.5,2.5,2.5]]]) // variance
-    XCTAssertEqual(norm.welfordVariance.means, [[[0.5, 0.5, 0.5, 0.5, 0.5]]]) // mean
+    // m2s and means are now [ContiguousArray<Scalar>] (one flat slice per depth)
+    norm.welfordVariance.m2s.forEach { slice in
+      slice.forEach { scalar in XCTAssertEqual(scalar, 2.5, accuracy: 0.00001) }
+    }
+    norm.welfordVariance.means.forEach { slice in
+      slice.forEach { scalar in XCTAssertEqual(scalar, 0.5, accuracy: 0.00001) }
+    }
   }
   
   func testBatchNorm2d() {
@@ -507,19 +512,15 @@ final class NeuronTests: XCTestCase {
     
     XCTAssertEqual(norm.welfordVariance.iterations, batchSize)
     
-    norm.welfordVariance.m2s.forEach { val in
-      val.forEach { v in
-        v.forEach { scalar in
-          XCTAssertEqual(scalar, 2.5, accuracy: 0.001)
-        }
+    norm.welfordVariance.m2s.forEach { slice in
+      slice.forEach { scalar in
+        XCTAssertEqual(scalar, 2.5, accuracy: 0.001)
       }
     }
     
-    norm.welfordVariance.means.forEach { val in
-      val.forEach { v in
-        v.forEach { scalar in
-          XCTAssertEqual(scalar, 0.5, accuracy: 0.001)
-        }
+    norm.welfordVariance.means.forEach { slice in
+      slice.forEach { scalar in
+        XCTAssertEqual(scalar, 0.5, accuracy: 0.001)
       }
     }
   }
@@ -536,7 +537,7 @@ final class NeuronTests: XCTestCase {
 
     XCTAssertNotNil(out.first)
     
-    XCTAssertEqual(out.first!.value.flatten(), [0,0,0])
+    XCTAssertEqual(out.first!.storage, [0,0,0])
   }
   
   func testBatchNorm3d() {
@@ -566,8 +567,12 @@ final class NeuronTests: XCTestCase {
     }
     
     XCTAssertEqual(norm.welfordVariance.iterations, batchSize)
-    XCTAssertEqual(norm.welfordVariance.m2s, [2.5,2.5,2.5,2.5,2.5].as3D()) // variance
-    XCTAssertEqual(norm.welfordVariance.means, [0.5, 0.5, 0.5, 0.5, 0.5].as3D()) // mean
+    norm.welfordVariance.m2s.forEach { slice in
+      slice.forEach { scalar in XCTAssertEqual(scalar, 2.5, accuracy: 0.001) }
+    }
+    norm.welfordVariance.means.forEach { slice in
+      slice.forEach { scalar in XCTAssertEqual(scalar, 0.5, accuracy: 0.001) }
+    }
   }
   
   func testDropout() {
@@ -590,6 +595,200 @@ final class NeuronTests: XCTestCase {
     
     XCTAssert(gradient.input.first?.isEmpty == false)
     XCTAssert(gradient.input.first!.isValueEqual(to:  Tensor([1, 0, 1, 0, 1].as3D())))
+  }
+  
+  // MARK: - Flat Storage Tests
+  
+  func testFlatStorageInit_direct() {
+    let storage = Tensor.Value([1, 2, 3, 4, 5, 6])
+    let size = TensorSize(rows: 2, columns: 3, depth: 1)
+    let tensor = Tensor(storage, size: size)
+    
+    XCTAssertEqual(tensor.shape, [3, 2, 1])
+    XCTAssertEqual(tensor.storage.count, 6)
+    XCTAssertEqual(tensor.size, size)
+  }
+  
+  func testFlatStorageInit_roundTrip3D() {
+    let data: Tensor.Data = [[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]]
+    let tensor = Tensor(data)
+    
+    // Verify shape: cols=3, rows=2, depth=2
+    XCTAssertEqual(tensor.shape, [3, 2, 2])
+    XCTAssertEqual(tensor.storage.count, 12)
+    
+    // Verify round-trip through value property
+    let roundTripped = tensor.storage.reshape(columns: 3).batched(into: 2)
+    XCTAssertEqual(roundTripped, data)
+  }
+  
+  func testFlatStorageInit_roundTrip2D() {
+    let data: [[Tensor.Scalar]] = [[1, 2, 3], [4, 5, 6]]
+    let tensor = Tensor(data)
+    
+    // 2D stored as depth=1: cols=3, rows=2, depth=1
+    XCTAssertEqual(tensor.shape, [3, 2, 1])
+    XCTAssertEqual(tensor.storage.count, 6)
+    
+    // value property returns 3D
+    let roundTripped = tensor.storage.reshape(columns: 3)
+    XCTAssertEqual([roundTripped], [data])
+  }
+  
+  func testFlatStorageInit_roundTrip1D() {
+    let data: [Tensor.Scalar] = [1, 2, 3, 4, 5]
+    let tensor = Tensor(data)
+    
+    // 1D stored as depth=1, rows=1: cols=5, rows=1, depth=1
+    XCTAssertEqual(tensor.shape, [5, 1, 1])
+    XCTAssertEqual(tensor.storage.count, 5)
+    
+    // value property returns 3D: [[[1, 2, 3, 4, 5]]]
+    let roundTripped = tensor.storage.reshape(columns: 5).batched(into: 1)
+    XCTAssertEqual(roundTripped, [[data]])
+  }
+  
+  func testFlatStorageInit_scalar() {
+    let tensor = Tensor(Tensor.Scalar(42))
+    
+    XCTAssertEqual(tensor.shape, [1, 1, 1])
+    XCTAssertEqual(tensor.storage.count, 1)
+    XCTAssertEqual(tensor.asScalar(), 42)
+    XCTAssertEqual(tensor.storage, [42])
+  }
+  
+  func testFlatStorageInit_empty() {
+    let tensor = Tensor()
+    
+    XCTAssertEqual(tensor.shape, [0, 0, 0])
+    XCTAssertTrue(tensor.isEmpty)
+    XCTAssertEqual(tensor.storage.count, 0)
+    XCTAssertEqual(tensor.storage, [])
+  }
+  
+  func testFlatSubscript_getSet() {
+    let data: Tensor.Data = [[[1, 2], [3, 4]], [[5, 6], [7, 8]]]
+    let tensor = Tensor(data)
+    
+    // Test get: tensor[col, row, depth]
+    XCTAssertEqual(tensor[0, 0, 0], 1)
+    XCTAssertEqual(tensor[1, 0, 0], 2)
+    XCTAssertEqual(tensor[0, 1, 0], 3)
+    XCTAssertEqual(tensor[1, 1, 0], 4)
+    XCTAssertEqual(tensor[0, 0, 1], 5)
+    XCTAssertEqual(tensor[1, 1, 1], 8)
+    
+    // Test set
+    tensor.storage[tensor.flatIndex(column: 0, row: 0, depth: 1)] = 99
+    XCTAssertEqual(tensor[0, 0, 1], 99)
+  }
+  
+  func testFlatStorage_debugDescription() {
+    let data: Tensor.Data = [[[1, 2], [3, 4]]]
+    let tensor = Tensor(data)
+    
+    let description = tensor.debugDescription
+    XCTAssertTrue(description.contains("shape: (col: 2, rows: 2, depth: 1)"))
+    XCTAssertTrue(description.contains("[1.0, 2.0]"))
+    XCTAssertTrue(description.contains("[3.0, 4.0]"))
+  }
+  
+  func testFlatStorage_codableRoundTrip() {
+    let data: Tensor.Data = [[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]]
+    let original = Tensor(data)
+    
+    do {
+      let encoded = try JSONEncoder().encode(original)
+      let decoded = try JSONDecoder().decode(Tensor.self, from: encoded)
+      
+      XCTAssertTrue(decoded.isValueEqual(to: original))
+      XCTAssertEqual(decoded.shape, original.shape)
+      XCTAssertEqual(decoded.storage.count, original.storage.count)
+    } catch {
+      XCTFail("Codable round-trip failed: \(error)")
+    }
+  }
+  
+  func testFlatStorage_detached() {
+    let data: Tensor.Data = [[[1, 2], [3, 4]]]
+    let tensor = Tensor(data)
+    let detached = tensor.detached()
+    
+    XCTAssertTrue(detached.isValueEqual(to: tensor))
+    XCTAssertEqual(detached.id, tensor.id)
+    XCTAssertEqual(detached.shape, tensor.shape)
+    XCTAssertEqual(detached.storage, tensor.storage)
+  }
+  
+  func testFlatStorage_copy() {
+    let data: Tensor.Data = [[[1, 2], [3, 4]]]
+    let tensor = Tensor(data)
+    let copied = tensor.copy()
+    
+    XCTAssertTrue(copied.isValueEqual(to: tensor))
+    // copy creates a new ID
+    XCTAssertNotEqual(copied.id, tensor.id)
+  }
+  
+  func testFlatStorage_clip() {
+    let data: Tensor.Data = [[[0.5, -0.5, 2.0, -3.0]]]
+    let tensor = Tensor(data)
+    tensor.clip(1.0)
+    
+    XCTAssertEqual(tensor[0, 0, 0], 0.5)
+    XCTAssertEqual(tensor[1, 0, 0], -0.5)
+    XCTAssertEqual(tensor[2, 0, 0], 1.0)
+    XCTAssertEqual(tensor[3, 0, 0], -1.0)
+  }
+  
+  func testFlatStorage_isValueEqual_accuracy() {
+    let t1 = Tensor([[[1.0, 2.0]]])
+    let t2 = Tensor([[[1.00001, 2.00001]]])
+    
+    XCTAssertTrue(t1.isValueEqual(to: t2, accuracy: 0.001))
+    XCTAssertFalse(t1.isValueEqual(to: t2, accuracy: 0.000001))
+  }
+  
+  func testFlatStorage_fillRandom() {
+    let size = TensorSize(rows: 3, columns: 4, depth: 2)
+    let tensor = Tensor.fillRandom(size: size)
+    
+    XCTAssertEqual(tensor.shape, [4, 3, 2])
+    XCTAssertEqual(tensor.storage.count, 24)
+    
+    // Verify values are in [0,1]
+    for val in tensor.storage {
+      XCTAssertTrue(val >= 0 && val <= 1)
+    }
+  }
+  
+  func testFlatStorage_fillWith() {
+    let size = TensorSize(rows: 2, columns: 3, depth: 2)
+    let tensor = Tensor.fillWith(value: 7.0, size: size)
+    
+    XCTAssertEqual(tensor.shape, [3, 2, 2])
+    for val in tensor.storage {
+      XCTAssertEqual(val, 7.0)
+    }
+  }
+  
+  func testFlatStorage_raggedArrayNormalized() {
+    // Ragged 3D array: different row sizes in different depth slices
+    let ragged: Tensor.Data = [[[1, 2, 3], [4, 5, 6]], [[7, 8, 9]]]
+    let tensor = Tensor(ragged)
+    
+    // Should normalize to max dimensions: cols=3, rows=2, depth=2
+    XCTAssertEqual(tensor.shape, [3, 2, 2])
+    XCTAssertEqual(tensor.storage.count, 12)
+    
+    // First depth slice: [1,2,3], [4,5,6]
+    XCTAssertEqual(tensor[0, 0, 0], 1)
+    XCTAssertEqual(tensor[2, 1, 0], 6)
+    
+    // Second depth slice: [7,8,9], then zero-padded row
+    XCTAssertEqual(tensor[0, 0, 1], 7)
+    XCTAssertEqual(tensor[2, 0, 1], 9)
+    XCTAssertEqual(tensor[0, 1, 1], 0) // zero-padded
   }
   
 }

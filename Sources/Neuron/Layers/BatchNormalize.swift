@@ -1,6 +1,6 @@
 //
 //  File.swift
-//  
+//
 //
 //  Created by William Vabrinskas on 5/2/22.
 //
@@ -85,8 +85,10 @@ import NumSwift
 public final class BatchNormalize: BaseThreadBatchingLayer {
   public var gamma: [Tensor.Scalar] = []
   public var beta: [Tensor.Scalar] = []
-  public var movingMean: [[[Tensor.Scalar]]] = []
-  public var movingVariance: [[[Tensor.Scalar]]] = []
+  /// Per-depth-slice moving mean, stored as flat arrays
+  public var movingMean: Tensor = .init()
+  /// Per-depth-slice moving variance, stored as flat arrays
+  public var movingVariance: Tensor = .init()
   
   public let momentum: Tensor.Scalar
   public override var weights: Tensor {
@@ -107,37 +109,23 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
   private var dGamma: [Tensor.Scalar] = []
   private var dBeta: [Tensor.Scalar] = []
   internal let welfordVariance = WelfordVariance()
-
-  private var cachedNormalizations: ThreadStorage<UUID, [Normalization]> = .init(defaultValue: [])
-
-  private struct Normalization {
-    let value: [[Tensor.Scalar]]
-    let std: [[Tensor.Scalar]]
-    
-    init(value: [[Tensor.Scalar]], std: [[Tensor.Scalar]]) {
-      self.value = value
-      self.std = std
-    }
+  
+  private struct NormalizationFlat {
+    let normalized: Tensor.Value
+    let std: Tensor.Value
   }
   
   /// Default initializer for Batch Normalize layer
-  /// - Parameters:
-  ///   - gamma: The gamma property for normalization
-  ///   - beta: The beta property for normalization
-  ///   - momentum: The momentum property for normalization
-  ///   - movingMean: Optional param to set the `movingMean` for the normalizer to start with
-  ///   - movingVariance: Optional param to set the `movingVariance` for the normalizer to start with
-  ///   - inputSize: Optional param to set the `inputSize` of this layer. [columns, rows, depth]
   public init(gamma: [Tensor.Scalar] = [],
               beta: [Tensor.Scalar] = [],
               momentum: Tensor.Scalar = 0.99,
-              movingMean: Tensor.Data = [],
-              movingVariance: Tensor.Data = [],
+              movingMean: Tensor = .init(),
+              movingVariance: Tensor = .init(),
               inputSize: TensorSize? = nil) {
     self.gamma = gamma
     self.beta = beta
-    self.movingVariance = movingVariance
     self.movingMean = movingMean
+    self.movingVariance = movingVariance
     self.momentum = momentum
     
     super.init(inputSize: inputSize,
@@ -154,22 +142,48 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
   public enum CodingKeys: String, CodingKey {
     case gamma, beta, momentum, movingMean, movingVariance, inputSize
   }
-
+  
   convenience public required init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
-    let movingMean = try container.decodeIfPresent(Tensor.Data.self, forKey: .movingMean) ?? []
-    let movingVar = try container.decodeIfPresent(Tensor.Data.self, forKey: .movingVariance) ?? []
     let gamma = try container.decodeIfPresent([Tensor.Scalar].self, forKey: .gamma) ?? []
     let beta = try container.decodeIfPresent([Tensor.Scalar].self, forKey: .beta) ?? []
     let momentum = try container.decodeIfPresent(Tensor.Scalar.self, forKey: .momentum) ?? 0.99
-
+    
+    let inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
+    
+    //backwards compatibility for mean
+    let movingMean: Tensor = if let tensorMean = try? container.decodeIfPresent(Tensor.self, forKey: .movingMean) {
+      tensorMean
+    } else if let tensorDataMean = try? container.decodeIfPresent(Tensor.Data.self, forKey: .movingMean) {
+      Tensor(tensorDataMean)
+    } else if let tensorValueMean = try? container.decodeIfPresent([Tensor.Scalar].self, forKey: .movingMean) {
+      Tensor(Tensor.Value(tensorValueMean.flatMap { Tensor.Value(repeating: $0, count: inputSize.rows * inputSize.columns) }), size: inputSize)
+    } else {
+      .init()
+    }
+    
+    //backwards compatibility for variance
+    let movingVar: Tensor = if let tensorVar = try? container.decodeIfPresent(Tensor.self, forKey: .movingVariance) {
+      tensorVar
+    } else if let tensorDataVar = try? container.decodeIfPresent(Tensor.Data.self, forKey: .movingVariance) {
+      Tensor(tensorDataVar)
+    } else if let tensorValueVar = try? container.decodeIfPresent([Tensor.Scalar].self, forKey: .movingVariance) {
+      Tensor(Tensor.Value(tensorValueVar.flatMap { Tensor.Value(repeating: $0, count: inputSize.rows * inputSize.columns) }), size: inputSize)
+    } else {
+      .init()
+    }
+    
+    if movingMean.isEmpty || movingVar.isEmpty {
+      fatalError("Couldn't decode movingMean or movingVariance")
+    }
+        
     self.init(gamma: gamma,
               beta: beta,
               momentum: momentum,
               movingMean: movingMean,
               movingVariance: movingVar)
     
-    self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
+    self.inputSize = inputSize
     self.outputSize = inputSize
   }
   
@@ -179,36 +193,34 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     try container.encode(beta, forKey: .beta)
     try container.encode(gamma, forKey: .gamma)
     try container.encode(momentum, forKey: .momentum)
-    
     try container.encode(movingMean, forKey: .movingMean)
     try container.encode(movingVariance, forKey: .movingVariance)
   }
   
   // actual forward pass happens here from the super class
   public override func performThreadBatchingForwardPass(tensor: Tensor, context: NetworkContext) {
-    calculateWelfordVariance(inputs: tensor, context: context)
+    updateWelford(inputs: tensor, context: context)
   }
-
-  // this doesnt calculate welfordVariance...
+  
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
-    // if we havn't moved through `forward(tensorBatch)` call we should calculate the input variance
+    let forward = normalize(inputs: tensor, context: context)
+    let normalizations = forward.normalized
     
-    if iterations == 0 && context.totalInBatch == 1 {
-      calculateWelfordVariance(inputs: tensor, context: context)
+    if iterations.load(ordering: .relaxed) == 0 && context.totalInBatch == 1 {
+      updateWelford(inputs: tensor, context: context)
     }
     
     let tensorContext = TensorContext { inputs, gradient, wrt in
       let backward = self.backward(inputs: inputs,
-                                   gradient: gradient.value,
-                                   context: context)
+                                   gradient: gradient,
+                                   context: context,
+                                   normalizations: normalizations)
       
-      let result = Tensor(backward)
-      result.label = "BatchNorm"
-      return (result, Tensor(), Tensor())
+      backward.label = "BatchNorm"
+      return (backward, Tensor(), Tensor())
     }
     
-    let forward = normalize3D(inputs: tensor, context: context)
-    let out = Tensor(forward, context: tensorContext)
+    let out = Tensor(forward.output, size: tensor.size, context: tensorContext)
     
     out.setGraph(tensor)
     out.label = "BatchNorm"
@@ -218,7 +230,7 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
   
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     super.apply(gradients: gradients, learningRate: learningRate)
-        
+    
     let avgDGamma = dGamma / welfordVariance.iterations.asTensorScalar
     let avgDBeta = dBeta / welfordVariance.iterations.asTensorScalar
     
@@ -227,7 +239,6 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     
     resetDeltas()
     welfordVariance.reset()
-    cachedNormalizations.clear()
   }
   
   override public func onInputSizeSet() {
@@ -248,13 +259,13 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     if beta.isEmpty {
       beta = [Tensor.Scalar](repeating: 0, count: inputDim)
     }
-  
+    
     if movingMean.isEmpty {
-      movingMean = NumSwift.zerosLike((inputSize.rows, inputSize.columns, inputSize.depth))
+      movingMean = .fillWith(value: 0, size: inputSize)
     }
     
     if movingVariance.isEmpty {
-      movingVariance = NumSwift.onesLike((inputSize.rows, inputSize.columns, inputSize.depth))
+      movingVariance = .fillWith(value: 1, size: inputSize)
     }
   }
   
@@ -264,7 +275,7 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     dBeta = [Tensor.Scalar](repeating: 0, count: inputDim)
   }
   
-  private func calculateWelfordVariance(inputs: Tensor, context: NetworkContext) {
+  private func updateWelford(inputs: Tensor, context: NetworkContext) {
     guard isTraining else { return }
     
     updateLock.with {
@@ -276,104 +287,114 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     }
   }
   
-  private func normalize3D(inputs:  Tensor, context: NetworkContext) -> [[[Tensor.Scalar]]] {
-    var forward: [[[Tensor.Scalar]]] = []
-
-    var normalizedInputs: [Normalization] = []
-  
-    for i in 0..<inputs.value.count {
-      var output: [[Tensor.Scalar]] = []
+  private func normalize(inputs: Tensor, context: NetworkContext) -> (output: Tensor.Value, normalized: [NormalizationFlat]) {
+    let depth = inputs.size.depth
+    let sliceSize = inputSize.rows * inputSize.columns
+    var outStorage = Tensor.Value(repeating: 0, count: inputs.storage.count)
+    var normalizedInputs: [NormalizationFlat] = []
+    
+    for i in 0..<depth {
+      let inputSlice = inputs.depthSlice(i)
+      let outOffset = i * sliceSize
+      
       if isTraining {
         updateLock.with {
-          let (mean, variance, std, normalized) = normalize2D(inputs: inputs.value[i],
-                                                              index: i,
-                                                              batchSize: context.totalInBatch)
-          normalizedInputs.append(.init(value: normalized, std: std))
+          let (mean, variance, std, normalized) = calculateWelfordVariables(inputs: inputSlice, index: i,
+                                                                            batchSize: context.totalInBatch)
+          normalizedInputs.append(NormalizationFlat(normalized: normalized, std: std))
           
-          let normalizedScaledAndShifted = gamma[i] * normalized + beta[i]
-                    
-          movingMean[i] = momentum * movingMean[i] + (1 - momentum) * mean
-          movingVariance[i] = momentum *  movingVariance[i] + (1 - momentum) * variance
+          // gamma[i] * normalized + beta[i]
+          let scaled = (normalized * gamma[i]) + beta[i]
           
-          output = normalizedScaledAndShifted
+          // Update moving stats
+          movingMean.setDepthSlice(i, (movingMean.depthSlice(i) * momentum) + (mean * (1 - momentum)))
+          movingVariance.setDepthSlice(i, (movingVariance.depthSlice(i) * momentum) + (variance * (1 - momentum)))
+          
+          for j in 0..<sliceSize { outStorage[outOffset + j] = scaled[j] }
         }
       } else {
-        let threadMovingMean = movingMean[i]
-        let threadMovingVariance = Tensor(movingVariance[i])
+        let mm = movingMean.depthSlice(i)
+        let mv = movingVariance.depthSlice(i)
+        // std = sqrt(mv + e)
+        let std = NumSwiftFlat.sqrt(mv + e)
+        // normalized = (input - mm) / std
+        let normalized = (inputSlice - mm) / std
+        // output = gamma[i] * normalized + beta[i]
+        let scaled = (normalized * gamma[i]) + beta[i]
         
-        let normalized = (Tensor((inputs.value[i] - threadMovingMean)) / threadMovingVariance.sqrt(adding: e)).value[safe: 0] ?? []
-        output = gamma[i] * normalized + beta[i]
+        for j in 0..<sliceSize { outStorage[outOffset + j] = scaled[j] }
       }
-      
-      forward.append(output)
     }
     
-    if isTraining {
-      cachedNormalizations[inputs.id] = normalizedInputs
-    }
-    
-    return forward
+    return (outStorage, normalizedInputs)
   }
   
-  private func normalize2D(inputs: [[Tensor.Scalar]],
-                           index: Int,
-                           batchSize: Int) -> (mean: [[Tensor.Scalar]],
-                                               variance: [[Tensor.Scalar]],
-                                               std: [[Tensor.Scalar]],
-                                               out:[[Tensor.Scalar]]) {
-    
+  private func calculateWelfordVariables(inputs: Tensor.Value,
+                                         index: Int,
+                                         batchSize: Int) -> (mean: Tensor.Value,
+                                                             variance: Tensor.Value,
+                                                             std: Tensor.Value,
+                                                             out: Tensor.Value) {
     let mean = welfordVariance.means[index]
-      
-    let variance = welfordVariance.m2s[index] / batchSize.asTensorScalar
+    let variance = welfordVariance.m2s[index] / Tensor.Scalar(batchSize)
     
-    let std: [[Tensor.Scalar]] = Tensor(variance).sqrt(adding: e).value[safe: 0] ?? []
-    
+    let std = NumSwiftFlat.sqrt(variance + e)
     let normalized = (inputs - mean) / std
     
-    return  (mean, variance, std, normalized)
+    return (mean, variance, std, normalized)
   }
   
   private func backward(inputs: Tensor,
-                        gradient: [[[Tensor.Scalar]]],
-                        context: NetworkContext) -> [[[Tensor.Scalar]]] {
-    var backward: [[[Tensor.Scalar]]] = []
+                        gradient: Tensor,
+                        context: NetworkContext,
+                        normalizations: [NormalizationFlat]) -> Tensor {
+    let depth = inputs.size.depth
+    let sliceSize = inputSize.rows * inputSize.columns
+    var outStorage = Tensor.Value(repeating: 0, count: inputs.storage.count)
     
-    let cachedNormalization = cachedNormalizations[inputs.id]
-    
-    for i in 0..<inputs.value.count {
+    for i in 0..<depth {
       let N = Tensor.Scalar(context.totalInBatch)
+      let gradSlice = gradient.depthSlice(i)
       
-      var normalized = cachedNormalization?[safe: i]?.value
-      var std = cachedNormalization?[safe: i]?.std
+      var normalized: Tensor.Value
+      var std: Tensor.Value
       
-      if normalized == nil || std == nil {
-        let (_, _, nStd, nNormalized) = normalize2D(inputs: inputs.value[i],
-                                                    index: i,
-                                                    batchSize: context.totalInBatch)
-        
+      if let norm = normalizations[safe: i] {
+        normalized = norm.normalized
+        std = norm.std
+      } else {
+        let inputSlice = inputs.depthSlice(i)
+        let (_, _, nStd, nNormalized) = calculateWelfordVariables(inputs: inputSlice, index: i, batchSize: context.totalInBatch)
         normalized = nNormalized
         std = nStd
       }
       
-      guard let normalized, let std else {
-        return []
-      }
-            
       updateLock.with {
-        dGamma[i] += (gradient[i] * normalized).sum
-        dBeta[i] += gradient[i].sum
+        dGamma[i] +=  (gradSlice * normalized).sum
+        dBeta[i] += gradSlice.sum
       }
       
-      let dxNorm = gradient[i] * gamma[i]
+      // dxNorm = gradient[i] * gamma[i]
+      let dxNorm = gradSlice * gamma[i]
       
-      let dx = 1 / N / std * (N * dxNorm -
-                              dxNorm.sum -
-                              normalized * (dxNorm * normalized).sum)
+      // dx = 1 / N / std * (N * dxNorm - dxNorm.sum - normalized * (dxNorm * normalized).sum)
+      let dxNormSum = dxNorm.sum
+      let dxNormTimesNorm = dxNorm * normalized
+      let dxNormTimesNormSum = dxNormTimesNorm.sum
       
-      backward.append(dx)
+      let term1 = dxNorm * N
+      let term2 = term1 - dxNormSum
+      let term3 = term2 - (normalized * dxNormTimesNormSum)
+      
+      let invNStd = (Tensor.Value(repeating: 1, count: sliceSize) / N) / std
+      
+      let dx = invNStd * term3
+      
+      let outOffset = i * sliceSize
+      for j in 0..<sliceSize { outStorage[outOffset + j] = dx[j] }
     }
-  
-    return backward
+    
+    return Tensor(outStorage, size: inputs.size)
   }
   
 }

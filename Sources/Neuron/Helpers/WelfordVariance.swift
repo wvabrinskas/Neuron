@@ -9,8 +9,10 @@ import Foundation
 import NumSwift
 
 public final class WelfordVariance {
-  @Atomic public private(set) var means: [[[Tensor.Scalar]]] = []
-  @Atomic public private(set) var m2s: [[[Tensor.Scalar]]] = []
+  /// Per-depth-slice means stored as flat arrays
+  @Atomic public private(set) var means: [Tensor.Value] = []
+  /// Per-depth-slice M2 accumulators stored as flat arrays
+  @Atomic public private(set) var m2s: [Tensor.Value] = []
   @Atomic public private(set) var iterations: Int = 0
   
   private var inputSize: TensorSize = .init(array: [])
@@ -26,24 +28,23 @@ public final class WelfordVariance {
   
   public func update(_ inputs: Tensor) {
     iterations += 1
+    let iterScalar = iterations.asTensorScalar
     
-    for i in 0..<inputs.value.count {
-      let delta = inputs.value[i] - means[i]
-      let delta2Means = means[i] + (delta / iterations.asTensorScalar)
+    for i in 0..<inputs.size.depth {
+      let inputSlice = inputs.depthSlice(i)
+      let delta = inputSlice - means[i]
+      means[i] = means[i] + delta / Tensor.Scalar(iterScalar)
       
-      means[i] = delta2Means
-      
-      let delta2 = inputs.value[i] - delta2Means
-      
-      m2s[i] = m2s[i] + (delta * delta2)
+      let delta2 = inputSlice - means[i]
+      m2s[i] = m2s[i] + delta * delta2
     }
   }
   
   public func reset() {
     iterations = 0
-    
-    means = NumSwift.zerosLike((inputSize.rows, inputSize.columns, inputSize.depth))
-    m2s = NumSwift.zerosLike((inputSize.rows, inputSize.columns, inputSize.depth))
+    let sliceSize = inputSize.rows * inputSize.columns
+    means = [Tensor.Value](repeating: Tensor.Value(repeating: 0, count: sliceSize), count: inputSize.depth)
+    m2s = [Tensor.Value](repeating: Tensor.Value(repeating: 0, count: sliceSize), count: inputSize.depth)
   }
   
 }

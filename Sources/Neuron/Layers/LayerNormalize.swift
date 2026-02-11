@@ -78,11 +78,11 @@ public final class LayerNormalize: BaseLayer {
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let context = TensorContext { inputs, gradient, wrt in
-      self.backward(inputs: inputs.value, gradient: gradient.value)
+      self.backwardFlat(inputs: inputs, gradient: gradient)
     }
     
-    let forward = normalize(inputs: tensor.value)
-    let out = Tensor(forward, context: context)
+    let forwardStorage = normalizeFlat(inputs: tensor)
+    let out = Tensor(forwardStorage, size: tensor.size, context: context)
     out.setGraph(tensor)
     return out
   }
@@ -93,71 +93,89 @@ public final class LayerNormalize: BaseLayer {
     setupTrainables()
   }
 
-  private func normalize(inputs: [[[Tensor.Scalar]]]) -> [[[Tensor.Scalar]]] {
+  private func normalizeFlat(inputs: Tensor) -> Tensor.Value {
+    let depth = inputs.size.depth
+    let sliceSize = inputSize.rows * inputSize.columns
+    let total = Tensor.Scalar(sliceSize)
+    var outStorage = Tensor.Value(repeating: 0, count: inputs.storage.count)
     
-    var forward: [[[Tensor.Scalar]]] = []
-    
-    for i in 0..<inputs.count {
-      let count = inputSize.rows * inputSize.columns
-      let total = Tensor.Scalar(count)
+    for i in 0..<depth {
+      let slice = inputs.depthSlice(i)
+      let mean = slice.mean
       
-      let mean = inputs[i].mean
-      let inputsCentered = inputs[i] - mean
-      let variance = inputsCentered.sumOfSquares / total
+      let centered = slice - mean
+      let variance = centered.sumOfSquares / total
+      let std = Tensor.Scalar.sqrt(variance + epsilon)
       
-      let std = sqrt(variance + epsilon)
+      let normalized = centered / std
+      // result = normalized * gamma[i] + beta[i]
+      let gammaSlice = gamma.depthSlice(i)
+      let betaSlice = beta.depthSlice(i)
+      let scaled = normalized * gammaSlice + betaSlice
       
-      var result = (inputs[i] - mean) / std
-      result = result * gamma.value[i] + beta.value[i]
-      forward.append(result)
+      let offset = i * sliceSize
+      for j in 0..<sliceSize { outStorage[offset + j] = scaled[j] }
     }
-
-    return forward
+    
+    return outStorage
   }
   
-  private func backward(inputs: [[[Tensor.Scalar]]], gradient: [[[Tensor.Scalar]]]) -> (input: Tensor, weight: Tensor, bias: Tensor) {
-    var dInputs: Tensor.Data = []
-    var dGamma: Tensor.Data = []
-    var dBeta: Tensor.Data = []
+  private func backwardFlat(inputs: Tensor, gradient: Tensor) -> (input: Tensor, weight: Tensor, bias: Tensor) {
+    let depth = inputs.size.depth
     
-    for i in 0..<inputs.count {
-      let feature = inputs[i]
-      let gradient = gradient[i]
+    // We use Tensor operations per-depth for the complex backward math
+    // but construct depth-1 Tensors from flat slices instead of going through .value
+    var dInputSlices = [Tensor.Value]()
+    var dGammaSlices = [Tensor.Value]()
+    var dBetaSlices = [Tensor.Value]()
+    
+    for i in 0..<depth {
+      let featureTensor = inputs.depthSliceTensor(i)
+      let gradTensor = gradient.depthSliceTensor(i)
+      let gammaTensor = gamma.depthSliceTensor(i)
       
-      let count = inputSize.rows
-      let N = Tensor.Scalar(count)
+      let N = Tensor.Scalar(inputSize.rows)
       
-      let mean = Tensor(feature).mean(axis: 1).value
-      let variance = Tensor(feature).variance(axis: 1)
+      let mean = featureTensor.mean(axis: 1)
+      let variance = featureTensor.variance(axis: 1)
       let varianceEpsilon = variance + epsilon
-      let std = (varianceEpsilon).sqrt()
+      let std = varianceEpsilon.sqrt()
       
-      let inputsMinusMean = Tensor(feature) - Tensor(mean)
-
+      let inputsMinusMean = featureTensor - mean
       let x_norm = inputsMinusMean / std
-
-      let dL_dbeta = Tensor(gradient).sum(axis: 2)
       
-      let dL_dgamma = (x_norm * Tensor(gradient)).sum(axis: 2)
+      let dL_dbeta = gradTensor.sum(axis: 2)
+      let dL_dgamma = (x_norm * gradTensor).sum(axis: 2)
       
-      let line1 = Tensor(gamma.value[i]) * Tensor((1 / (N * std.value)))
-      let line2 = Tensor(N * gradient)
+      let invNStd = gammaTensor * (Tensor.Scalar(1) / (N * std))
+      let line2 = N * gradTensor
       let line3 = dL_dbeta
-      
       let line4 = inputsMinusMean / varianceEpsilon
-      let line5 = (Tensor(feature) - Tensor(gradient) * Tensor(mean)).sum(axis: 2)
+      let line5 = (featureTensor - gradTensor * mean).sum(axis: 2)
       
-      let dl_dx = line1 * (
-        line2 - line3
-        - line4 * line5
-      )
+      let dl_dx = invNStd * (line2 - line3 - line4 * line5)
       
-      dInputs.append(dl_dx.value[safe: 0, []])
-      dGamma.append(dL_dgamma.value[safe: 0, []])
-      dBeta.append(dL_dbeta.value[safe: 0, []])
+      dInputSlices.append(dl_dx.storage)
+      dGammaSlices.append(dL_dgamma.storage)
+      dBetaSlices.append(dL_dbeta.storage)
     }
     
-    return (Tensor(dInputs), Tensor(dGamma).concat(Tensor(dBeta), axis: 2), Tensor())
+    // Assemble full tensors from per-depth slices
+    var dInputStorage = Tensor.Value()
+    dInputSlices.forEach { dInputStorage.append(contentsOf: $0) }
+    
+    var dGammaStorage = Tensor.Value()
+    dGammaSlices.forEach { dGammaStorage.append(contentsOf: $0) }
+    
+    var dBetaStorage = Tensor.Value()
+    dBetaSlices.forEach { dBetaStorage.append(contentsOf: $0) }
+    
+    let dGammaTensor = Tensor(dGammaStorage, size: TensorSize(rows: inputSize.rows, columns: inputSize.columns, depth: depth))
+    let dBetaTensor = Tensor(dBetaStorage, size: TensorSize(rows: inputSize.rows, columns: inputSize.columns, depth: depth))
+    
+    return (Tensor(dInputStorage, size: inputs.size),
+            dGammaTensor.concat(dBetaTensor, axis: 2),
+            Tensor())
   }
   
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {

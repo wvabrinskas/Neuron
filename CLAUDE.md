@@ -39,7 +39,8 @@ Before development, install Xcode templates:
 ### Core Components
 
 #### Tensor (Sources/Neuron/Tensor/)
-- **Tensor**: The fundamental 3D array structure (`[[[Scalar]]]`) for all computations
+- **Tensor**: The fundamental tensor type backed by flat `ContiguousArray<Scalar>` storage with `TensorSize` metadata
+- **Tensor.value**: Legacy nested `[[[Scalar]]]` view (reconstructed on access); prefer `storage` + `size` in hot paths
 - **TensorContext**: Holds backpropagation function for gradient computation
 - **TensorSize**: Defines tensor dimensions as `(columns, rows, depth)`
 - Supports automatic gradient calculation via `.gradients(delta:wrt:)` method
@@ -130,6 +131,8 @@ Follow the template in `.cursor/rules/trainable.mdc`:
 - Use NumSwift operations for mathematical computations
 - Minimize memory allocations in forward passes
 - Create unit tests verifying gradient computations and serialization
+- **Use `Tensor.Scalar` typealias**: All new functions that need access to a scalar type like `Float` should use `Tensor.Scalar` instead of hardcoding `Float`. This ensures compatibility with Float16 quantization (when `QUANTIZED_F16` flag is set). See `TensorSIMD.swift` for examples of this pattern.
+- **Support both Float and Float16**: Any new math functions on a Tensor should be implemented for both `Float` and `Float16` types. This ensures the framework works correctly regardless of whether quantization is enabled.
 
 ## Dependencies
 
@@ -293,6 +296,11 @@ optimizer.metricsReporter?.receive = { metrics in
 - Thread-safe via `SynchronousOperationQueue` with barrier blocks
 
 ### Memory Management Best Practices
+
+#### Allocation Minimization
+- Prefer operations that avoid intermediate allocations (use flat storage when possible).
+- Reuse buffers in hot paths; avoid per-iteration `Array`/`Tensor.Value` slicing.
+- Pre-allocate when output size is known (especially in recurrent loops).
 
 #### Array Capacity Management
 The codebase uses `keepingCapacity: true` extensively to avoid reallocation:

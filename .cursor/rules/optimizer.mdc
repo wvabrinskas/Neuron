@@ -27,8 +27,8 @@ public class [OptimizerName]: BaseOptimizer {
     private var [param2]: Tensor.Scalar
     
     // State variables for optimization
-    private var [stateVar1]: [Tensor.Data] = []
-    private var [stateVar2]: [Tensor.Data] = []
+    private var [stateVar1]: [Tensor.Value] = []
+    private var [stateVar2]: [Tensor.Value] = []
     
     public override var trainable: Trainable {
         didSet {

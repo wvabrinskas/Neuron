@@ -149,12 +149,12 @@ final class TensorMathTests: XCTestCase {
     
     let out = tensor + tensor2
     
-    XCTAssertTrue(out.isValueEqual(to: Tensor([[[Float]]](repeating: [[Float]](repeating: [Float](repeating: 2.0,
+    XCTAssertTrue(out.isValueEqual(to: Tensor([[[Tensor.Scalar]]](repeating: [[Tensor.Scalar]](repeating: [Tensor.Scalar](repeating: 2.0,
                                                                                                   count: 5),
                                                                                count: 5),
                                                           count: 1))))
     
-    let error = Tensor([[[Float]]](repeating: [[Float]](repeating: [Float](repeating: 0.5,
+    let error = Tensor([[[Tensor.Scalar]]](repeating: [[Tensor.Scalar]](repeating: [Tensor.Scalar](repeating: 0.5,
                                                                            count: 5),
                                                         count: 5),
                                    count: 1))
@@ -173,7 +173,7 @@ final class TensorMathTests: XCTestCase {
     
     let wrtFakeInput = inputGradient[0]
     
-    let expected = Tensor([[[Float]]](repeating: [[Float]](repeating: [Float](repeating: 0.125,
+    let expected = Tensor([[[Tensor.Scalar]]](repeating: [[Tensor.Scalar]](repeating: [Tensor.Scalar](repeating: 0.125,
                                                                            count: 5),
                                                         count: 5),
                                    count: 1))
@@ -201,7 +201,7 @@ final class TensorMathTests: XCTestCase {
     
     XCTAssertTrue(out.isValueEqual(to: Tensor(NumSwift.zerosLike((5, 5, 1)))))
     
-    let error = Tensor([[[Float]]](repeating: [[Float]](repeating: [Float](repeating: 0.5,
+    let error = Tensor([[[Tensor.Scalar]]](repeating: [[Tensor.Scalar]](repeating: [Tensor.Scalar](repeating: 0.5,
                                                                            count: 5),
                                                         count: 5),
                                    count: 1))
@@ -214,7 +214,7 @@ final class TensorMathTests: XCTestCase {
     
     let wrtTensor = inputGradient[0]
     
-    let expectedWrtTensor = Tensor([[[Float]]](repeating: [[Float]](repeating: [Float](repeating: -0.5,
+    let expectedWrtTensor = Tensor([[[Tensor.Scalar]]](repeating: [[Tensor.Scalar]](repeating: [Tensor.Scalar](repeating: -0.5,
                                                                            count: 5),
                                                         count: 5),
                                    count: 1))
@@ -227,7 +227,7 @@ final class TensorMathTests: XCTestCase {
     
     let wrtFakeInput = leftGradients[0]
     
-    let expected = Tensor([[[Float]]](repeating: [[Float]](repeating: [Float](repeating: 0.125,
+    let expected = Tensor([[[Tensor.Scalar]]](repeating: [[Tensor.Scalar]](repeating: [Tensor.Scalar](repeating: 0.125,
                                                                            count: 5),
                                                         count: 5),
                                    count: 1))
@@ -255,7 +255,7 @@ final class TensorMathTests: XCTestCase {
     
     XCTAssertTrue(out.isValueEqual(to: tensor))
     
-    let error = Tensor([[[Float]]](repeating: [[Float]](repeating: [Float](repeating: 0.5,
+    let error = Tensor([[[Tensor.Scalar]]](repeating: [[Tensor.Scalar]](repeating: [Tensor.Scalar](repeating: 0.5,
                                                                            count: 5),
                                                         count: 5),
                                    count: 1))
@@ -277,7 +277,7 @@ final class TensorMathTests: XCTestCase {
     
     let wrtFakeInput = inputGradient[0]
     
-    let expected = Tensor([[[Float]]](repeating: [[Float]](repeating: [Float](repeating: 0.125,
+    let expected = Tensor([[[Tensor.Scalar]]](repeating: [[Tensor.Scalar]](repeating: [Tensor.Scalar](repeating: 0.125,
                                                                            count: 5),
                                                         count: 5),
                                    count: 1))
@@ -303,7 +303,7 @@ final class TensorMathTests: XCTestCase {
     
     let out = tensor / tensor2
     
-    let error = Tensor([[[Float]]](repeating: [[Float]](repeating: [Float](repeating: 0.5,
+    let error = Tensor([[[Tensor.Scalar]]](repeating: [[Tensor.Scalar]](repeating: [Tensor.Scalar](repeating: 0.5,
                                                                            count: 5),
                                                         count: 5),
                                    count: 1))
@@ -316,7 +316,7 @@ final class TensorMathTests: XCTestCase {
     
     let wrtTensor = inputGradient[0]
     
-    let expectedGrad = Tensor([[[Float]]](repeating: [[Float]](repeating: [Float](repeating: -0.5,
+    let expectedGrad = Tensor([[[Tensor.Scalar]]](repeating: [[Tensor.Scalar]](repeating: [Tensor.Scalar](repeating: -0.5,
                                                                            count: 5),
                                                         count: 5),
                                    count: 1))
@@ -331,7 +331,7 @@ final class TensorMathTests: XCTestCase {
     
     let wrtFakeInput = inputGradient[0]
     
-    let expected = Tensor([[[Float]]](repeating: [[Float]](repeating: [Float](repeating: 0.125,
+    let expected = Tensor([[[Tensor.Scalar]]](repeating: [[Tensor.Scalar]](repeating: [Tensor.Scalar](repeating: 0.125,
                                                                            count: 5),
                                                         count: 5),
                                    count: 1))

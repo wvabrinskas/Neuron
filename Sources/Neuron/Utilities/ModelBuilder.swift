@@ -17,6 +17,7 @@ internal protocol ModelBuilder {
 internal enum BuildError: Error {
   case emptyJson
   case pathError
+  case error(String)
   
   var localizedDescription: String {
     switch self {
@@ -24,6 +25,8 @@ internal enum BuildError: Error {
       return "JSON data was empty"
     case .pathError:
       return "Path could not be found"
+    case .error(let message):
+      return message
     }
   }
 }
@@ -33,14 +36,42 @@ internal extension ModelBuilder {
     guard let jsonData = data else {
       return .failure(BuildError.emptyJson)
     }
-    
+  
     do {
       let model = try JSONDecoder().decode(TViewModel.self, from: jsonData)
       return .success(model)
+    } catch let DecodingError.keyNotFound(key, context) {
+      let string = """
+      Key '\(key.stringValue)' not found: \(context.debugDescription)
+      Coding path: \(context.codingPath.map { $0.stringValue })
+      """
+      
+      return .failure(BuildError.error(string))
+    } catch let DecodingError.valueNotFound(type, context) {
+      let string = """
+      "Value of type '\(type)' not found: \(context.debugDescription)"
+      Coding path: \(context.codingPath.map { $0.stringValue })
+      """
+      
+      return .failure(BuildError.error(string))
+    } catch let DecodingError.typeMismatch(type, context) {
+      let string = """
+      "Type mismatch for type '\(type)': \(context.debugDescription)"
+      Coding path: \(context.codingPath.map { $0.stringValue })
+      """
+      
+      return .failure(BuildError.error(string))
+    } catch let DecodingError.dataCorrupted(context) {
+      let string = """
+      "Data corrupted: \(context.debugDescription)"
+       Coding path: \(context.codingPath.map { $0.stringValue })
+      """
+      
+      return .failure(BuildError.error(string))
     } catch {
-      print(error.localizedDescription)
-      return .failure(error)
+      return .failure(BuildError.error(error.localizedDescription))
     }
+    
   }
   
   static func build<TViewModel: Decodable>(_ json: [AnyHashable : Any]?) -> Result<TViewModel?, Error> {

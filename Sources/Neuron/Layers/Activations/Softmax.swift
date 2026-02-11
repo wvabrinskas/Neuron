@@ -1,6 +1,6 @@
 //
 //  File.swift
-//  
+//
 //
 //  Created by William Vabrinskas on 4/30/22.
 //
@@ -39,41 +39,52 @@ public final class Softmax: BaseActivationLayer {
   
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let context = TensorContext { inputs, gradient, wrt in
-      let wrtInputGradient = Tensor(gradient.value)
+      let wrtInputGradient = Tensor(Tensor.Value(gradient.storage), size: gradient.size)
       wrtInputGradient.label = "softmax_input_gradient"
       return (wrtInputGradient, Tensor(), Tensor())
     }
-    
-    var activationResult: [[[Tensor.Scalar]]] = []
-    
-    tensor.value.forEach { d in
-      var row: [[Tensor.Scalar]] = []
-      d.forEach { r in
-        var column: [Tensor.Scalar] = []
-        for i in 0..<r.count {
-          column.append(calculate(index: i, outputs: r))
+
+    let size = tensor.size
+    let cols = size.columns
+    let rows = size.rows
+    let depth = size.depth
+    let src = tensor.storage
+    var result = Tensor.Value(repeating: 0, count: src.count)
+
+    // Apply softmax per-row (each row of `columns` elements)
+    for d in 0..<depth {
+      let depthOffset = d * rows * cols
+      for r in 0..<rows {
+        let rowOffset = depthOffset + r * cols
+        
+        // Find max for numerical stability
+        var rowMax: Tensor.Scalar = src[rowOffset]
+        for c in 1..<cols {
+          let val = src[rowOffset + c]
+          if val > rowMax { rowMax = val }
         }
-        row.append(column)
+        
+        // Compute exponentials and sum
+        var sum: Tensor.Scalar = 0
+        for c in 0..<cols {
+          let e = Tensor.Scalar.exp(src[rowOffset + c] - rowMax)
+          result[rowOffset + c] = e
+          sum += e
+        }
+        
+        // Normalize
+        for c in 0..<cols {
+          result[rowOffset + c] /= sum
+        }
       }
-      activationResult.append(row)
     }
-    
-    let out = Tensor(activationResult, context: context)
+
+    let out = Tensor(result, size: size, context: context)
     out.label = type.asString()
-    
+
     out.setGraph(tensor)
 
     return out
-  }
-  
-  private func calculate(index: Int, outputs: [Tensor.Scalar]) -> Tensor.Scalar {
-    let max = outputs.max() ?? 1
-    var sum: Tensor.Scalar = 0
-    outputs.forEach { (output) in
-      sum += Tensor.Scalar.pow(Tensor.Scalar(Darwin.M_E), output - max)
-    }
-    
-    return Tensor.Scalar.pow(Tensor.Scalar(Darwin.M_E), outputs[index] - max) / sum
   }
   
   override public func onInputSizeSet() {
