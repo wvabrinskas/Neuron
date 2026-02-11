@@ -38,7 +38,7 @@ final class LayerTests: XCTestCase {
     let expectedGradient = Tensor.fillWith(value: 0.1 / (inputSize.rows.asTensorScalar * inputSize.columns.asTensorScalar),
                                            size: inputSize)
     
-    let flatGradient = expectedGradient.value.flatten()
+    let flatGradient = expectedGradient.storage
     
     for g in flatGradient {
       XCTAssertEqual(g,  0.1 / (inputSize.rows.asTensorScalar * inputSize.columns.asTensorScalar), accuracy: 0.0001)
@@ -580,11 +580,11 @@ final class LayerTests: XCTestCase {
     XCTAssertEqual(inputSize, out.shape)
     
     let expected: [[[Tensor.Scalar]]] = [[[0.0, 1.0507, -1.1113541, 0.0],
-                                 [0.0, 1.0507, -1.1113541, 0.0]],
-                                [[0.0, 1.0507, -1.1113541, 0.0],
-                                 [0.0, 1.0507, -1.1113541, 0.0]]]
+                                          [0.0, 1.0507, -1.1113541, 0.0]],
+                                         [[0.0, 1.0507, -1.1113541, 0.0],
+                                          [0.0, 1.0507, -1.1113541, 0.0]]]
     
-    XCTAssertEqual(expected, out.value)
+    XCTAssertEqual(Tensor(expected).isValueEqual(to: out), true)
     
     let delta = Tensor([[[-1.0, 1.0, -1.0, 0.0],
                          [-1.0, 1.0, -1.0, 0.0]],
@@ -598,7 +598,7 @@ final class LayerTests: XCTestCase {
                                           [[-1.7581363, 1.0507, -0.6467822, 0.0],
                                            [-1.7581363, 1.0507, -0.6467822, 0.0]]]
     
-    XCTAssertEqual(gradients.input.first!.value, expectedGradients)
+    XCTAssertEqual(Tensor(expectedGradients).isValueEqual(to: gradients.input.first!), true)
   }
   
   // MARK: AvgPool

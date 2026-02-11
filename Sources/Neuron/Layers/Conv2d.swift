@@ -185,7 +185,7 @@ public class Conv2d: BaseConvolutionalLayer {
                                  outputSize: nil)
         
         if let existing = inputGradientSlices[f] {
-          inputGradientSlices[f] = NumSwiftFlat.add(existing, grad)
+          inputGradientSlices[f] = existing + grad
         } else {
           inputGradientSlices[f] = grad
         }
@@ -232,7 +232,7 @@ public class Conv2d: BaseConvolutionalLayer {
     let weightsTensor = Tensor(wStorage, size: wSize)
     weightsTensor.label = "conv2d-weight"
     
-    let biasStorage = Tensor.Value((0..<delta.size.depth).map { NumSwiftFlat.sum(delta.depthSlice($0)) })
+    let biasStorage = Tensor.Value((0..<delta.size.depth).map { delta.depthSlice($0).sum })
     let biasesTensor = Tensor(biasStorage, size: biases.size)
     biasesTensor.label = "conv2d-bias"
     
@@ -336,7 +336,7 @@ public class Conv2d: BaseConvolutionalLayer {
                                       outputSize: nil)
         
         if conv.count == convolved.count {
-          convolved = NumSwiftFlat.add(convolved, conv)
+          convolved = convolved + conv
         } else {
           // In case output size differs, use element-wise add up to the min
           for j in 0..<min(conv.count, convolved.count) {
@@ -347,7 +347,7 @@ public class Conv2d: BaseConvolutionalLayer {
       
       if self.biasEnabled {
         let bias = self.biases.storage[f]
-        convolved = NumSwiftFlat.add(convolved, scalar: bias)
+        convolved = convolved + bias
       }
       
       // Write this filter's output into the result tensor at depth=f

@@ -289,13 +289,12 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
           normalizedInputs.append(NormalizationFlat(normalized: normalized, std: std))
           
           // gamma[i] * normalized + beta[i]
-          let scaled = NumSwiftFlat.add(NumSwiftFlat.multiply(normalized, scalar: gamma[i]), scalar: beta[i])
+          let scaled = (normalized * gamma[i]) + beta[i]
           
           // Update moving stats
-          movingMeanSlices[i] = NumSwiftFlat.add(NumSwiftFlat.multiply(movingMeanSlices[i], scalar: momentum),
-                                                  NumSwiftFlat.multiply(mean, scalar: 1 - momentum))
-          movingVarianceSlices[i] = NumSwiftFlat.add(NumSwiftFlat.multiply(movingVarianceSlices[i], scalar: momentum),
-                                                      NumSwiftFlat.multiply(variance, scalar: 1 - momentum))
+          movingMeanSlices[i] = (movingMeanSlices[i] * momentum) + (mean * (1 - momentum))
+          
+          movingVarianceSlices[i] = (movingVarianceSlices[i] * momentum) + (variance * (1 - momentum))
           
           for j in 0..<sliceSize { outStorage[outOffset + j] = scaled[j] }
         }
@@ -303,11 +302,11 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
         let mm = movingMeanSlices[i]
         let mv = movingVarianceSlices[i]
         // std = sqrt(mv + e)
-        let std = NumSwiftFlat.sqrt(NumSwiftFlat.add(mv, scalar: e))
+        let std = NumSwiftFlat.sqrt(mv + e)
         // normalized = (input - mm) / std
-        let normalized = NumSwiftFlat.divide(NumSwiftFlat.subtract(inputSlice, mm), std)
+        let normalized = (inputSlice - mm) / std
         // output = gamma[i] * normalized + beta[i]
-        let scaled = NumSwiftFlat.add(NumSwiftFlat.multiply(normalized, scalar: gamma[i]), scalar: beta[i])
+        let scaled = (normalized * gamma[i]) + beta[i]
         
         for j in 0..<sliceSize { outStorage[outOffset + j] = scaled[j] }
       }
@@ -323,9 +322,10 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
                                                     std: Tensor.Value,
                                                     out: Tensor.Value) {
     let mean = welfordVariance.means[index]
-    let variance = NumSwiftFlat.divide(welfordVariance.m2s[index], scalar: Tensor.Scalar(batchSize))
-    let std = NumSwiftFlat.sqrt(NumSwiftFlat.add(variance, scalar: e))
-    let normalized = NumSwiftFlat.divide(NumSwiftFlat.subtract(inputs, mean), std)
+    let variance = welfordVariance.m2s[index] / Tensor.Scalar(batchSize)
+    
+    let std = NumSwiftFlat.sqrt(variance + e)
+    let normalized = (inputs - mean) / std
     
     return (mean, variance, std, normalized)
   }
@@ -356,23 +356,25 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
       }
       
       updateLock.with {
-        dGamma[i] += NumSwiftFlat.sum(NumSwiftFlat.multiply(gradSlice, normalized))
-        dBeta[i] += NumSwiftFlat.sum(gradSlice)
+        dGamma[i] +=  (gradSlice * normalized).sum
+        dBeta[i] += gradSlice.sum
       }
       
       // dxNorm = gradient[i] * gamma[i]
-      let dxNorm = NumSwiftFlat.multiply(gradSlice, scalar: gamma[i])
+      let dxNorm = gradSlice * gamma[i]
       
       // dx = 1 / N / std * (N * dxNorm - dxNorm.sum - normalized * (dxNorm * normalized).sum)
-      let dxNormSum = NumSwiftFlat.sum(dxNorm)
-      let dxNormTimesNorm = NumSwiftFlat.multiply(dxNorm, normalized)
-      let dxNormTimesNormSum = NumSwiftFlat.sum(dxNormTimesNorm)
+      let dxNormSum = dxNorm.sum
+      let dxNormTimesNorm = dxNorm * normalized
+      let dxNormTimesNormSum = dxNormTimesNorm.sum
       
-      let term1 = NumSwiftFlat.multiply(dxNorm, scalar: N)
-      let term2 = NumSwiftFlat.subtract(term1, scalar: dxNormSum)
-      let term3 = NumSwiftFlat.subtract(term2, NumSwiftFlat.multiply(normalized, scalar: dxNormTimesNormSum))
-      let invNStd = NumSwiftFlat.divide(NumSwiftFlat.divide(Tensor.Value(repeating: 1, count: sliceSize), scalar: N), std)
-      let dx = NumSwiftFlat.multiply(invNStd, term3)
+      let term1 = dxNorm * N
+      let term2 = term1 - dxNormSum
+      let term3 = term2 - (normalized * dxNormTimesNormSum)
+      
+      let invNStd = (Tensor.Value(repeating: 1, count: sliceSize) / N) / std
+      
+      let dx = invNStd * term3
       
       let outOffset = i * sliceSize
       for j in 0..<sliceSize { outStorage[outOffset + j] = dx[j] }

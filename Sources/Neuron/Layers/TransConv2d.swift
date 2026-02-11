@@ -75,7 +75,7 @@ public final class TransConv2d: Conv2d {
                                        inputSize: (rows: deltaRows, columns: deltaCols))
         
         if let existing = inputGradientSlices[f] {
-          inputGradientSlices[f] = NumSwiftFlat.add(existing, grad)
+          inputGradientSlices[f] = existing + grad
         } else {
           inputGradientSlices[f] = grad
         }
@@ -91,7 +91,10 @@ public final class TransConv2d: Conv2d {
     }
     
     // Bias gradients: sum of each depth slice of input
-    let biasStorage = Tensor.Value((0..<delta.size.depth).map { NumSwiftFlat.sum(delta.depthSlice($0)) })
+    let biasStorage = Tensor.Value((0..<delta.size.depth).map {
+      delta.depthSlice($0).sum
+    })
+    
     let biasesTensor = Tensor(biasStorage, size: biases.size)
     biasesTensor.label = "transconv2d-bias"
     
@@ -226,11 +229,11 @@ public final class TransConv2d: Conv2d {
                                       outputSize: nil)
         
         if let existing = filterOutputs[f] {
-          grad = NumSwiftFlat.add(grad, existing)
+          grad = grad + existing
         }
         
         if biasEnabled {
-          grad = NumSwiftFlat.add(grad, scalar: biases.storage[f])
+          grad = grad + biases.storage[f]
         }
         
         filterOutputs[f] = grad

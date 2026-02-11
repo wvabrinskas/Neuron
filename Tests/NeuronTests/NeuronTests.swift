@@ -152,7 +152,7 @@ final class NeuronTests: XCTestCase {
     let rFlat: [Tensor.Scalar] = r.flatten()
     let backward = out.gradients(delta: Tensor(rFlat), wrt: testData)
     
-    XCTAssert(backward.input.first?.value.shape == r.shape)
+    XCTAssert(backward.input.first?.shape == r.shape)
   }
   
   func testReshape() {
@@ -176,7 +176,7 @@ final class NeuronTests: XCTestCase {
     let out = layer.forward(tensor: testData)
     out.setGraph(testData)
     
-    XCTAssert(out.value.shape.tensorSize == size)
+    XCTAssert(out.shape.tensorSize == size)
     
     let backward = out.gradients(delta: out.detached(), wrt: testData)
     
@@ -280,7 +280,7 @@ final class NeuronTests: XCTestCase {
     let out = conv.forward(tensor: inputTensor)
     out.setGraph(inputTensor)
 
-    XCTAssert(outputShape == out.value.shape)
+    XCTAssert(outputShape == out.shape)
     
     let gradients: [[[Tensor.Scalar]]] = NumSwift.onesLike((out.shape[safe: 1, 0], out.shape[safe: 0, 0], filterCount))
     let backward = out.gradients(delta: Tensor(gradients), wrt: inputTensor)
@@ -537,7 +537,7 @@ final class NeuronTests: XCTestCase {
 
     XCTAssertNotNil(out.first)
     
-    XCTAssertEqual(out.first!.value.flatten(), [0,0,0])
+    XCTAssertEqual(out.first!.storage, [0,0,0])
   }
   
   func testBatchNorm3d() {
@@ -618,7 +618,7 @@ final class NeuronTests: XCTestCase {
     XCTAssertEqual(tensor.storage.count, 12)
     
     // Verify round-trip through value property
-    let roundTripped = tensor.value
+    let roundTripped = tensor.storage.reshape(columns: 3).batched(into: 2)
     XCTAssertEqual(roundTripped, data)
   }
   
@@ -631,8 +631,8 @@ final class NeuronTests: XCTestCase {
     XCTAssertEqual(tensor.storage.count, 6)
     
     // value property returns 3D
-    let roundTripped = tensor.value
-    XCTAssertEqual(roundTripped, [data])
+    let roundTripped = tensor.storage.reshape(columns: 3)
+    XCTAssertEqual([roundTripped], [data])
   }
   
   func testFlatStorageInit_roundTrip1D() {
@@ -644,7 +644,7 @@ final class NeuronTests: XCTestCase {
     XCTAssertEqual(tensor.storage.count, 5)
     
     // value property returns 3D: [[[1, 2, 3, 4, 5]]]
-    let roundTripped = tensor.value
+    let roundTripped = tensor.storage.reshape(columns: 5).batched(into: 1)
     XCTAssertEqual(roundTripped, [[data]])
   }
   
@@ -654,7 +654,7 @@ final class NeuronTests: XCTestCase {
     XCTAssertEqual(tensor.shape, [1, 1, 1])
     XCTAssertEqual(tensor.storage.count, 1)
     XCTAssertEqual(tensor.asScalar(), 42)
-    XCTAssertEqual(tensor.value, [[[42]]])
+    XCTAssertEqual(tensor.storage, [42])
   }
   
   func testFlatStorageInit_empty() {
@@ -663,7 +663,7 @@ final class NeuronTests: XCTestCase {
     XCTAssertEqual(tensor.shape, [0, 0, 0])
     XCTAssertTrue(tensor.isEmpty)
     XCTAssertEqual(tensor.storage.count, 0)
-    XCTAssertEqual(tensor.value, [])
+    XCTAssertEqual(tensor.storage, [])
   }
   
   func testFlatSubscript_getSet() {
