@@ -451,7 +451,7 @@ public extension Tensor {
     }
     
     if axis == -1 {
-      return Tensor(NumSwiftFlat.sumOfSquares(storage))
+      return Tensor(storage.sumOfSquares)
     }
     
     return apply(axis: axis, block)
@@ -565,7 +565,7 @@ public extension Tensor {
     if axis == -1 {
       let meanVal = storage.mean
       let centered = storage - meanVal
-      let sumSq = NumSwiftFlat.sumOfSquares(centered)
+      let sumSq = centered.sumOfSquares
       return Tensor(sumSq / Scalar(storage.count))
     }
     
@@ -634,7 +634,7 @@ public extension Tensor {
     }
     
     if axis == -1 {
-      return Tensor(Tensor.Scalar.sqrt(NumSwiftFlat.sumOfSquares(storage)))
+      return Tensor(Tensor.Scalar.sqrt(storage.sumOfSquares))
     }
     
     return apply(axis: axis, block)
