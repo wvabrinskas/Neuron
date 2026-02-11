@@ -64,8 +64,8 @@ open class WGANGP: GAN {
       let interGradients = interOut.gradients.input[safe: 0, Tensor()]
       
       // calculate gradient penalty
-      let normGradients = interGradients.norm()
-      let penalty = LossFunction.meanSquareError.calculate(normGradients, correct: Tensor(1.0)).asScalar() // just using this for the calculation part
+      let normGradients = interGradients.norm().asScalar()
+      let penalty = LossFunction.meanSquareError.calculate([normGradients], correct: [1.0]) // just using this for the calculation part
             
       // calculate critic loss vs real and fake.
       let criticCost = fakeOutput - realOutput

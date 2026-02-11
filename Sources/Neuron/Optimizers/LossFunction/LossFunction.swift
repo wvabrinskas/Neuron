@@ -108,7 +108,7 @@ public enum LossFunction {
     }
   }
 
-  private func calculate(_ predicted: [Tensor.Scalar], correct: [Tensor.Scalar]) -> Tensor.Scalar {
+  public func calculate(_ predicted: [Tensor.Scalar], correct: [Tensor.Scalar]) -> Tensor.Scalar {
     guard predicted.count == correct.count else {
       return 0
     }
