@@ -366,7 +366,7 @@ public extension Tensor {
   }
   
   func sum() -> Scalar {
-    return NumSwiftFlat.sum(storage)
+    storage.sum
   }
   
   func testLarge(limit: Scalar) {
@@ -451,7 +451,7 @@ public extension Tensor {
     }
     
     if axis == -1 {
-      return Tensor(NumSwiftFlat.sumOfSquares(storage))
+      return Tensor(storage.sumOfSquares)
     }
     
     return apply(axis: axis, block)
@@ -547,7 +547,7 @@ public extension Tensor {
   }
   
   func sqrt(adding: Tensor.Scalar = .stabilityFactor) -> Tensor {
-    let shifted = NumSwiftFlat.add(storage, scalar: adding)
+    let shifted = storage + adding
     let result = NumSwiftFlat.sqrt(shifted)
     return Tensor(result, size: size, context: context)
   }
@@ -563,9 +563,9 @@ public extension Tensor {
     }
     
     if axis == -1 {
-      let meanVal = NumSwiftFlat.mean(storage)
-      let centered = NumSwiftFlat.subtract(storage, scalar: meanVal)
-      let sumSq = NumSwiftFlat.sumOfSquares(centered)
+      let meanVal = storage.mean
+      let centered = storage - meanVal
+      let sumSq = centered.sumOfSquares
       return Tensor(sumSq / Scalar(storage.count))
     }
     
@@ -579,7 +579,7 @@ public extension Tensor {
     
     if axis == -1 {
       guard !storage.isEmpty else { return Tensor(Scalar(0)) }
-      return Tensor(NumSwiftFlat.mean(storage))
+      return Tensor(storage.mean)
     }
     
     return apply(axis: axis, block)
@@ -587,7 +587,7 @@ public extension Tensor {
   
   func sum(axis: Int = -1) -> Tensor {
     if axis == -1 {
-      return Tensor(NumSwiftFlat.sum(storage))
+      return Tensor(storage.sum)
     } else {
       return apply(axis: axis) { feature in
         feature.sum
@@ -634,7 +634,7 @@ public extension Tensor {
     }
     
     if axis == -1 {
-      return Tensor(Tensor.Scalar.sqrt(NumSwiftFlat.sumOfSquares(storage)))
+      return Tensor(Tensor.Scalar.sqrt(storage.sumOfSquares))
     }
     
     return apply(axis: axis, block)
@@ -731,9 +731,9 @@ public extension Tensor {
   }
   
   func l2Normalized() -> Tensor {
-    let sumSq = NumSwiftFlat.sumOfSquares(storage)
+    let sumSq = storage.sumOfSquares
     let divisor = Scalar.sqrt(sumSq)
-    let result = NumSwiftFlat.divide(storage, scalar: divisor)
+    let result = storage / divisor
     return Tensor(result, size: size, context: context)
   }
   
@@ -746,31 +746,31 @@ public extension Tensor {
   }
   
   static func /(lhs: Scalar, rhs: Tensor) -> Tensor {
-    return Tensor(NumSwiftFlat.divide(scalar: lhs, rhs.storage), size: rhs.size, context: rhs.context)
+    return Tensor(lhs / rhs.storage, size: rhs.size, context: rhs.context)
   }
   
   static func *(lhs: Scalar, rhs: Tensor) -> Tensor {
-    return Tensor(NumSwiftFlat.multiply(rhs.storage, scalar: lhs), size: rhs.size, context: rhs.context)
+    return Tensor(rhs.storage * lhs, size: rhs.size, context: rhs.context)
   }
   
   static func -(lhs: Scalar, rhs: Tensor) -> Tensor {
-    return Tensor(NumSwiftFlat.subtract(scalar: lhs, rhs.storage), size: rhs.size, context: rhs.context)
+    return Tensor(lhs - rhs.storage, size: rhs.size, context: rhs.context)
   }
   
   static func /(lhs: Tensor, rhs: Scalar) -> Tensor {
-    return Tensor(NumSwiftFlat.divide(lhs.storage, scalar: rhs), size: lhs.size, context: lhs.context)
+    return Tensor(lhs.storage / rhs, size: lhs.size, context: lhs.context)
   }
   
   static func *(lhs: Tensor, rhs: Scalar) -> Tensor {
-    return Tensor(NumSwiftFlat.multiply(lhs.storage, scalar: rhs), size: lhs.size, context: lhs.context)
+    return Tensor(lhs.storage * rhs, size: lhs.size, context: lhs.context)
   }
   
   static func -(lhs: Tensor, rhs: Scalar) -> Tensor {
-    return Tensor(NumSwiftFlat.subtract(lhs.storage, scalar: rhs), size: lhs.size, context: lhs.context)
+    return Tensor(lhs.storage - rhs, size: lhs.size, context: lhs.context)
   }
   
   static func +(lhs: Tensor, rhs: Scalar) -> Tensor {
-    return Tensor(NumSwiftFlat.add(lhs.storage, scalar: rhs), size: lhs.size, context: lhs.context)
+    return Tensor(lhs.storage + rhs, size: lhs.size, context: lhs.context)
   }
   
   /// Performs element-wise addition between two tensors with automatic broadcasting support.
@@ -781,7 +781,7 @@ public extension Tensor {
     }
     
     // Accelerate-backed flat element-wise add
-    let result = NumSwiftFlat.add(lhs.storage, rhs.storage)
+    let result = lhs.storage + rhs.storage
     
     let context = TensorContext { inputs, gradient, wrt in
       let copy = gradient.copy()
@@ -806,7 +806,7 @@ public extension Tensor {
     }
     
     // Accelerate-backed flat element-wise subtract
-    let result = NumSwiftFlat.subtract(lhs.storage, rhs.storage)
+    let result = lhs.storage - rhs.storage
     
     let context = TensorContext { inputs, gradient, wrt in
       if let wrt, (rhs.graphChain.contains(wrt.id) || rhs.id == wrt.id) {
@@ -833,7 +833,7 @@ public extension Tensor {
     }
     
     // Accelerate-backed flat element-wise multiply
-    let result = NumSwiftFlat.multiply(lhs.storage, rhs.storage)
+    let result = lhs.storage * rhs.storage
     
     let copied = rhs.copy()
     let context = TensorContext { inputs, gradient, wrt in
@@ -857,7 +857,7 @@ public extension Tensor {
     }
     
     // Accelerate-backed flat element-wise divide
-    let result = NumSwiftFlat.divide(lhs.storage, rhs.storage)
+    let result = lhs.storage / rhs.storage
     
     let copied = rhs.copy()
     let context = TensorContext { inputs, gradient, wrt  in

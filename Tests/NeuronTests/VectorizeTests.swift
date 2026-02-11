@@ -119,7 +119,7 @@ final class VectorTests: XCTestCase {
                            [[0, 0, 0, 0, 0, 0, 1, 0]],
                            [[0, 0, 0, 0, 0, 0, 0, 1]]])
     
-    XCTAssertEqual(expected.value, oneHot.value)
+    XCTAssertEqual(expected.storage, oneHot.storage)
   }
   
   func test_String_Vectorize_Start() {

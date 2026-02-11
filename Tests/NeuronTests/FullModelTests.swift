@@ -197,7 +197,7 @@ final class FullModelTests: XCTestCase {
       
       for i in 0..<out.count {
         let o = out[i]
-        XCTAssert(o.value[safe: 0, [[0]]][safe: 0, [0]].indexOfMax.0 == i)
+        XCTAssert(o.storage.indexOfMax.0 == i)
       }
     }
     
@@ -226,7 +226,7 @@ final class FullModelTests: XCTestCase {
       
       for i in 0..<out.count {
         let o = out[i]
-        XCTAssert(o.value[safe: 0, [[0]]][safe: 0, [0]].indexOfMax.0 == i)
+        XCTAssert(o.storage.indexOfMax.0 == i)
       }
       
     } catch {

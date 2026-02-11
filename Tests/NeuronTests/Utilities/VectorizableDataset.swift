@@ -23,12 +23,8 @@ open class VectorizableDataset<VectorItem: Hashable>: RNNSupportedDataset {
   
   public func getWord(for data: Tensor, oneHot: Bool) -> [VectorItem] {
     if oneHot == false {
-      let intArray = data.value.map { $0.map { $0.map { Int($0) }}}
-      if let int = intArray[safe: 0]?[safe: 0] {
-        return vectorizer.unvectorize(int)
-      }
-      
-      return []
+      let intArray = data.storage.map { Int($0) }
+      return vectorizer.unvectorize(intArray)
     } else {
       return vectorizer.unvectorizeOneHot(data)
     }

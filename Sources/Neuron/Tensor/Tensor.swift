@@ -64,43 +64,6 @@ public class Tensor: Equatable, Codable {
   
   /// The shape metadata (columns, rows, depth)
   public internal(set) var size: TensorSize
-
-  /// Backward-compatible access to the tensor data as a 3D nested array `[[[Scalar]]]`.
-  /// - Note: The getter reconstructs the nested array from flat storage. For performance-critical
-  ///   code, prefer using `storage` and `size` directly.
-  @available(*, deprecated, message: "Use `storage` and `size` directly instead.")
-  public var value: Data {
-    get { return toNestedArray() }
-    set {
-      let depth = newValue.count
-      var maxRows = 0
-      var maxCols = 0
-      for depthSlice in newValue {
-        maxRows = Swift.max(maxRows, depthSlice.count)
-        for row in depthSlice {
-          maxCols = Swift.max(maxCols, row.count)
-        }
-      }
-      
-      size = TensorSize(rows: maxRows, columns: maxCols, depth: depth)
-      
-      let totalCount = maxCols * maxRows * depth
-      var flat = Tensor.Value(repeating: 0, count: totalCount)
-      
-      for d in 0..<depth {
-        let depthSlice = newValue[d]
-        for r in 0..<depthSlice.count {
-          let row = depthSlice[r]
-          let baseIndex = d * maxRows * maxCols + r * maxCols
-          for c in 0..<row.count {
-            flat[baseIndex + c] = row[c]
-          }
-        }
-      }
-      
-      storage = flat
-    }
-  }
   
   /// Flattens the `value` and returns if there is any content in the array.
   public var isEmpty: Bool {

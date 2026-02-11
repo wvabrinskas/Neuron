@@ -101,16 +101,17 @@ public final class LayerNormalize: BaseLayer {
     
     for i in 0..<depth {
       let slice = inputs.depthSlice(i)
-      let mean = NumSwiftFlat.mean(slice)
-      let centered = NumSwiftFlat.subtract(slice, scalar: mean)
-      let variance = NumSwiftFlat.sumOfSquares(centered) / total
+      let mean = slice.mean
+      
+      let centered = slice - mean
+      let variance = centered.sumOfSquares / total
       let std = Tensor.Scalar.sqrt(variance + epsilon)
       
-      let normalized = NumSwiftFlat.divide(centered, scalar: std)
+      let normalized = centered / std
       // result = normalized * gamma[i] + beta[i]
       let gammaSlice = gamma.depthSlice(i)
       let betaSlice = beta.depthSlice(i)
-      let scaled = NumSwiftFlat.add(NumSwiftFlat.multiply(normalized, gammaSlice), betaSlice)
+      let scaled = normalized * gammaSlice + betaSlice
       
       let offset = i * sliceSize
       for j in 0..<sliceSize { outStorage[offset + j] = scaled[j] }
@@ -121,15 +122,12 @@ public final class LayerNormalize: BaseLayer {
   
   private func backwardFlat(inputs: Tensor, gradient: Tensor) -> (input: Tensor, weight: Tensor, bias: Tensor) {
     let depth = inputs.size.depth
-    let sliceSize = inputSize.rows * inputSize.columns
     
     // We use Tensor operations per-depth for the complex backward math
     // but construct depth-1 Tensors from flat slices instead of going through .value
     var dInputSlices = [Tensor.Value]()
     var dGammaSlices = [Tensor.Value]()
     var dBetaSlices = [Tensor.Value]()
-    
-    let sliceShape = TensorSize(rows: inputSize.rows, columns: inputSize.columns, depth: 1)
     
     for i in 0..<depth {
       let featureTensor = inputs.depthSliceTensor(i)
