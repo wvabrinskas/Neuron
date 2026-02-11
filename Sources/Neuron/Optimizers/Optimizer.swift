@@ -22,7 +22,7 @@ public protocol Optimizer: AnyObject {
   var gradientAccumulator: GradientAccumulator { get }
   var decayFunction: DecayFunction? { get set }
   var batchSize: Int { get }
-  var augmentation: Augmenting? { get set }
+  var augmenter: Augmenter? { get set }
 
   func callAsFunction(_ data: [Tensor]) -> [Tensor]
   func apply(_ gradients: Tensor.Gradient)
@@ -40,7 +40,7 @@ public protocol Optimizer: AnyObject {
 
 // TODO: allow for arbitrary weight shape in Optimizer, so we dont have to cram all weights into a 3D tensor
 open class BaseOptimizer: Optimizer {
-  public var augmentation: Augmenting? = nil
+  public var augmenter: Augmenter?
   public var decayFunction: DecayFunction?
   public var trainable: Trainable
   public var batchSize: Int
@@ -79,6 +79,7 @@ open class BaseOptimizer: Optimizer {
   public var gradientClip: Tensor.Scalar?
   private var localLearningRate: Tensor.Scalar
   private let workersCount = Constants.maxWorkers
+  private var augmentation: Augmenting? = nil
 
   public init(trainable: Trainable,
               learningRate: Tensor.Scalar,
@@ -86,7 +87,7 @@ open class BaseOptimizer: Optimizer {
               metricsReporter: MetricsReporter? = nil,
               weightClip: Tensor.Scalar? = nil,
               gradientClip: Tensor.Scalar? = nil,
-              augmentation: Augmenting? = nil) {
+              augmenter: Augmenter? = nil) {
     self.trainable = trainable
     self.metricsReporter = metricsReporter
     self.weightClip = weightClip
@@ -94,9 +95,10 @@ open class BaseOptimizer: Optimizer {
     self.localLearningRate = learningRate
     self.batchSize = batchSize
     self.learningRate = learningRate
-    self.augmentation = augmentation
-    
+    self.augmenter = augmenter
     trainable.batchSize = batchSize
+    
+    self.augmentation = augmenter?.augmenting
   }
   
   public func step() {
@@ -162,7 +164,7 @@ open class BaseOptimizer: Optimizer {
                 lossFunction: LossFunction,
                 validation: Bool = false,
                 requiresGradients: Bool = true) -> Output {
-    
+        
     if let wrt {
       guard wrt.count == data.count else {
         fatalError("The number of wrt inputs (\(wrt.count)) does not match the number of training examples (\(data.count)).")

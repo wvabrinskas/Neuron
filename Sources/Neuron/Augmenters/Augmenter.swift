@@ -7,6 +7,13 @@
 
 public enum Augmenter {
   case mixup(Tensor.Scalar)
+  
+  var augmenting: Augmenting {
+    switch self {
+    case .mixup(let alpha):
+      return Mixup(alpha: alpha)
+    }
+  }
 }
 
 public struct AugementedDatasetModel {
