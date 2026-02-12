@@ -19,7 +19,8 @@ public class SGD: BaseOptimizer {
               batchSize: Int,
               momentum: Tensor.Scalar = 0.9,
               weightClip: Tensor.Scalar? = nil,
-              gradientClip: Tensor.Scalar? = nil) {
+              gradientClip: Tensor.Scalar? = nil,
+              augmenter: Augmenter? = nil) {
     self.momentum = momentum
     
     trainable.compile()
@@ -30,7 +31,8 @@ public class SGD: BaseOptimizer {
                learningRate: learningRate,
                batchSize: batchSize,
                weightClip: weightClip,
-               gradientClip: gradientClip)
+               gradientClip: gradientClip,
+               augmenter: augmenter)
   }
   
   public override func step() {

@@ -19,7 +19,8 @@ public final class AdamW: Adam {
               eps: Tensor.Scalar = .stabilityFactor,
               weightDecayValue: Tensor.Scalar = 0.004,
               weightClip: Tensor.Scalar? = nil,
-              gradientClip: Tensor.Scalar? = nil) {
+              gradientClip: Tensor.Scalar? = nil,
+              augmenter: Augmenter? = nil) {
     super.init(trainable,
                device: device,
                learningRate: learningRate,
@@ -29,7 +30,8 @@ public final class AdamW: Adam {
                eps: eps,
                weightDecay: .decay(weightDecayValue),
                weightClip: weightClip,
-               gradientClip: gradientClip)
+               gradientClip: gradientClip,
+               augmenter: augmenter)
   }
 }
 
@@ -65,7 +67,8 @@ public class Adam: BaseOptimizer {
               eps: Tensor.Scalar = .stabilityFactor,
               weightDecay: WeightDecay = .none,
               weightClip: Tensor.Scalar? = nil,
-              gradientClip: Tensor.Scalar? = nil) {
+              gradientClip: Tensor.Scalar? = nil,
+              augmenter: Augmenter? = nil) {
     self.b1 = b1
     self.b2 = b2
     self.eps = eps
@@ -74,7 +77,8 @@ public class Adam: BaseOptimizer {
                learningRate: learningRate,
                batchSize: batchSize,
                weightClip: weightClip,
-               gradientClip: gradientClip)
+               gradientClip: gradientClip,
+               augmenter: augmenter)
     build()
   }
   

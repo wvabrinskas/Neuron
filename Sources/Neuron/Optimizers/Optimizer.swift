@@ -22,6 +22,7 @@ public protocol Optimizer: AnyObject {
   var gradientAccumulator: GradientAccumulator { get }
   var decayFunction: DecayFunction? { get set }
   var batchSize: Int { get }
+  var augmenter: Augmenter? { get set }
 
   func callAsFunction(_ data: [Tensor]) -> [Tensor]
   func apply(_ gradients: Tensor.Gradient)
@@ -39,6 +40,7 @@ public protocol Optimizer: AnyObject {
 
 // TODO: allow for arbitrary weight shape in Optimizer, so we dont have to cram all weights into a 3D tensor
 open class BaseOptimizer: Optimizer {
+  public var augmenter: Augmenter?
   public var decayFunction: DecayFunction?
   public var trainable: Trainable
   public var batchSize: Int
@@ -76,13 +78,16 @@ open class BaseOptimizer: Optimizer {
   public var weightClip: Tensor.Scalar?
   public var gradientClip: Tensor.Scalar?
   private var localLearningRate: Tensor.Scalar
-  
+  private let workersCount = Constants.maxWorkers
+  private var augmentation: Augmenting? = nil
+
   public init(trainable: Trainable,
               learningRate: Tensor.Scalar,
               batchSize: Int,
               metricsReporter: MetricsReporter? = nil,
               weightClip: Tensor.Scalar? = nil,
-              gradientClip: Tensor.Scalar? = nil) {
+              gradientClip: Tensor.Scalar? = nil,
+              augmenter: Augmenter? = nil) {
     self.trainable = trainable
     self.metricsReporter = metricsReporter
     self.weightClip = weightClip
@@ -90,8 +95,10 @@ open class BaseOptimizer: Optimizer {
     self.localLearningRate = learningRate
     self.batchSize = batchSize
     self.learningRate = learningRate
-    
+    self.augmenter = augmenter
     trainable.batchSize = batchSize
+    
+    self.augmentation = augmenter?.augmenting
   }
   
   public func step() {
@@ -157,7 +164,7 @@ open class BaseOptimizer: Optimizer {
                 lossFunction: LossFunction,
                 validation: Bool = false,
                 requiresGradients: Bool = true) -> Output {
-    
+        
     if let wrt {
       guard wrt.count == data.count else {
         fatalError("The number of wrt inputs (\(wrt.count)) does not match the number of training examples (\(data.count)).")
@@ -171,23 +178,27 @@ open class BaseOptimizer: Optimizer {
   
     var losses: Tensor.Scalar = 0
     var accuracy: Tensor.Scalar = 0
-    
-    // TODO: Batch consolidation: https://github.com/wvabrinskas/Neuron/issues/36
-    
-    let workersCount = Constants.maxWorkers
+        
     let concurrencySplit = Tensor.Scalar(data.count) / Tensor.Scalar(workersCount)
     
     var outputs: [[Tensor]] = [[Tensor]].init(repeating: [], count: workersCount)
 
     metricsReporter?.update(metric: .batchConcurrency, value: concurrencySplit)
     
-    data.concurrentBatchedForEach(workers: workersCount, priority: device.qosPriority) { elements,
+    var dataToUse = data
+    var augmentedOut: AugementedDatasetModel?
+    
+    if let augmentation {
+      let augOut = augmentation.augment(dataToUse, labels: labels)
+      dataToUse = augOut.mixed
+      augmentedOut = augOut
+    }
+    
+    dataToUse.concurrentBatchedForEach(workers: workersCount, priority: device.qosPriority) { elements,
                                                                                          workerIndex,
                                                                                          indexRange,
                                                                                          processingCount,
                                                                                          workerId in
-      
-      let batchLabels: [Tensor] = Array(labels[indexRange])
       
       let outs = self.trainable.predict(batch: elements, context: .init(batchRange: indexRange,
                                                                         batchProcessingCount: processingCount,
@@ -202,23 +213,54 @@ open class BaseOptimizer: Optimizer {
         nil
       }
       
+      let batchLabels: [Tensor] = Array(labels[indexRange])
+
       for (index, out) in outs.enumerated() {
         let label = batchLabels[index]
         let input = wrtBatch?[index] ?? elements[index]
         
-        let loss = lossFunction.calculate(out, correct: label).sum(axis: -1).asScalar()
-        losses += loss / Tensor.Scalar(data.count)
+        let originalLoss = lossFunction.calculate(out, correct: label).sum(axis: -1)
+        var loss = originalLoss
+        
+        self.adjust(updating: &loss,
+                    index: index,
+                    augmentedOut: augmentedOut) { label in
+          lossFunction.calculate(out, correct: label).sum(axis: -1)
+        }
+      
+        losses += loss.asScalar() / Tensor.Scalar(data.count)
         
         if let reporter = self.metricsReporter {
           if validation {
             accuracy += reporter.calculateValAccuracy(out, label: label, binary: label.isScalar(), running: false) / Tensor.Scalar(data.count)
           } else {
-            accuracy += reporter.calculateAccuracy(out, label: label, binary: label.isScalar(), running: false) / Tensor.Scalar(data.count)
+            let trainingAccuracy = reporter.calculateAccuracy(out, label: label, binary: label.isScalar(), running: false)
+            
+            var localAccuracy = Tensor(trainingAccuracy)
+            
+            self.adjust(updating: &localAccuracy,
+                        index: index,
+                        augmentedOut: augmentedOut) { augLabel in
+              Tensor(reporter.calculateAccuracy(out,
+                                                label: augLabel,
+                                                binary: augLabel.isScalar(),
+                                                running: false))
+            }
+            
+            accuracy += localAccuracy.asScalar() / Tensor.Scalar(data.count)
           }
         }
         
         if requiresGradients {
-          let lossGradient = lossFunction.derivative(out, correct: label)
+          let originalDerivative = lossFunction.derivative(out, correct: label)
+          var lossGradient = originalDerivative
+          
+          self.adjust(updating: &lossGradient,
+                      index: index,
+                      augmentedOut: augmentedOut) { label in
+            lossFunction.derivative(out, correct: label)
+          }
+          
           let gradient = out.gradients(delta: lossGradient, wrt: input)
           accumulator.insert(gradient)
         }
@@ -248,5 +290,18 @@ open class BaseOptimizer: Optimizer {
       return (flatOutput, gradient, losses, accuracy)
     }
   }
+  
+  private func adjust(updating: inout Tensor,
+                      index: Int,
+                      augmentedOut: AugementedDatasetModel?,
+                      function: (_ label: Tensor) -> Tensor) {
+    guard let augmentation, let augmentedLabels = augmentedOut?.mixedLabels else { return }
+    
+    let augLabel = augmentedLabels[index]
+    let mixedLabelDerivative = function(augLabel)
+    
+    updating = augmentation.adjustForAugment(updating, mixedLabelDerivative)
+  }
+  
 }
 
