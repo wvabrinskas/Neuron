@@ -96,6 +96,8 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     get {
       var beta = beta
       beta.append(contentsOf: gamma)
+      beta.append(contentsOf: movingMean.storage)
+      beta.append(contentsOf: movingVariance.storage)
       return Tensor(beta)
     }
     set {}
