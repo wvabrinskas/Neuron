@@ -6,12 +6,12 @@
 //
 
 public enum Augmenter {
-  case mixup(Tensor.Scalar)
+  case mixup(Tensor.Scalar, Tensor.Scalar)
   
   var augmenting: Augmenting {
     switch self {
-    case .mixup(let alpha):
-      return Mixup(alpha: alpha)
+    case .mixup(let alpha, let beta):
+      return Mixup(alpha: alpha, beta: beta)
     }
   }
 }

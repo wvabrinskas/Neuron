@@ -153,7 +153,7 @@ final class MixupTests: XCTestCase {
   // MARK: - Augmenter Enum Tests
   
   func testAugmenterEnumMixup() {
-    let augmenter = Augmenter.mixup(0.3)
+    let augmenter = Augmenter.mixup(0.3, 0.3)
     let augmenting = augmenter.augmenting
     
     XCTAssertTrue(augmenting is Mixup)
