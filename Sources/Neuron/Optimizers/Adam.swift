@@ -183,7 +183,7 @@ public class Adam: BaseOptimizer {
 
       if let decayValue = shouldDecay, i < weights.count {
         let decayLR = learningRate * decayValue * weights[i]
-        delta -= decayLR
+        delta += decayLR
       }
 
       result[i] = delta
