@@ -239,7 +239,7 @@ Keep playing around with your new model and enjoy the network! Share your model 
 ## Tensor
 The core data structure in Neuron is `Tensor`. It is still conceptually a 3D tensor, but the internal architecture is now optimized around flat contiguous storage.
 
-### Tensor architecture (current)
+### Tensor architecture
 - `Tensor` is a reference type (`class`) and is `Codable`.
 - Data is stored in `storage: ContiguousArray<Tensor.Scalar>`.
 - Shape is stored in `size: TensorSize` (`columns`, `rows`, `depth`).
@@ -346,6 +346,31 @@ does the following:
 3. Uses the returned input gradients as the new upstream gradients for the next graph level.
 4. Repeats level-by-level until the graph is exhausted.
 5. If `wrt` is provided, traversal is filtered to branches whose `graphChain` contains that tensor, and stops once that tensor is reached.
+
+Example graph and gradient flow:
+
+```text
+Forward graph
+input_1 --> Dense_1 --> ReLU_1 --\
+                                  +--> Merge/Add --> output
+input_2 --> Dense_2 --> ReLU_2 --/
+
+Backward flow (reverse direction)
+dL/dOutput
+   |
+Merge/Add context
+  / \
+dL/dReLU_1        dL/dReLU_2
+    |                  |
+ReLU_1 context     ReLU_2 context
+    |                  |
+Dense_1 context    Dense_2 context
+  /   \              /   \
+dL/dInput_1 dL/dW1 dL/dInput_2 dL/dW2
+           dL/db1            dL/db2
+```
+
+If you call `.gradients(delta:wrt:)` with `wrt: input_1`, traversal stays on the left branch and returns gradients only for nodes on that path.
 
 So the chain rule is applied as:
 
