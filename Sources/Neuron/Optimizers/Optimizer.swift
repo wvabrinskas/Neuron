@@ -164,7 +164,7 @@ open class BaseOptimizer: Optimizer {
                 lossFunction: LossFunction,
                 validation: Bool = false,
                 requiresGradients: Bool = true) -> Output {
-        
+          
     if let wrt {
       guard wrt.count == data.count else {
         fatalError("The number of wrt inputs (\(wrt.count)) does not match the number of training examples (\(data.count)).")
@@ -213,54 +213,31 @@ open class BaseOptimizer: Optimizer {
         nil
       }
       
-      let batchLabels: [Tensor] = Array(labels[indexRange])
+      var batchLabels: [Tensor] = Array(labels[indexRange])
+      
+      if let mixedLabels = augmentedOut?.mixedLabels {
+        batchLabels = Array(mixedLabels[indexRange])
+      }
 
       for (index, out) in outs.enumerated() {
         let label = batchLabels[index]
         let input = wrtBatch?[index] ?? elements[index]
         
-        let originalLoss = lossFunction.calculate(out, correct: label).sum(axis: -1)
-        var loss = originalLoss
+        let loss = lossFunction.calculate(out, correct: label).sum(axis: -1)
         
-        self.adjust(updating: &loss,
-                    index: index,
-                    augmentedOut: augmentedOut) { label in
-          lossFunction.calculate(out, correct: label).sum(axis: -1)
-        }
-      
         losses += loss.asScalar() / Tensor.Scalar(data.count)
         
         if let reporter = self.metricsReporter {
           if validation {
             accuracy += reporter.calculateValAccuracy(out, label: label, binary: label.isScalar(), running: false) / Tensor.Scalar(data.count)
           } else {
-            let trainingAccuracy = reporter.calculateAccuracy(out, label: label, binary: label.isScalar(), running: false)
-            
-            var localAccuracy = Tensor(trainingAccuracy)
-            
-            self.adjust(updating: &localAccuracy,
-                        index: index,
-                        augmentedOut: augmentedOut) { augLabel in
-              Tensor(reporter.calculateAccuracy(out,
-                                                label: augLabel,
-                                                binary: augLabel.isScalar(),
-                                                running: false))
-            }
-            
-            accuracy += localAccuracy.asScalar() / Tensor.Scalar(data.count)
+            let localAccuracy = reporter.calculateAccuracy(out, label: label, binary: label.isScalar(), running: false)
+            accuracy += localAccuracy / Tensor.Scalar(data.count)
           }
         }
         
         if requiresGradients {
-          let originalDerivative = lossFunction.derivative(out, correct: label)
-          var lossGradient = originalDerivative
-          
-          self.adjust(updating: &lossGradient,
-                      index: index,
-                      augmentedOut: augmentedOut) { label in
-            lossFunction.derivative(out, correct: label)
-          }
-          
+          let lossGradient = lossFunction.derivative(out, correct: label)
           let gradient = out.gradients(delta: lossGradient, wrt: input)
           accumulator.insert(gradient)
         }
@@ -289,18 +266,6 @@ open class BaseOptimizer: Optimizer {
       
       return (flatOutput, gradient, losses, accuracy)
     }
-  }
-  
-  private func adjust(updating: inout Tensor,
-                      index: Int,
-                      augmentedOut: AugementedDatasetModel?,
-                      function: (_ label: Tensor) -> Tensor) {
-    guard let augmentation, let augmentedLabels = augmentedOut?.mixedLabels else { return }
-    
-    let augLabel = augmentedLabels[index]
-    let mixedLabelDerivative = function(augLabel)
-    
-    updating = augmentation.adjustForAugment(updating, mixedLabelDerivative)
   }
   
 }

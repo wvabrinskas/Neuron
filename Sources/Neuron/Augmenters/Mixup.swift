@@ -26,22 +26,22 @@ public final class Mixup: Augmenting {
   public func augment(_ input: TensorBatch, labels: TensorBatch) -> AugementedDatasetModel {
     start()
     
-    let randomIndicies = Array(0..<input.count).randomize()
-  
+    let randomIndices = Array(0..<input.count).randomize()
+    
+    var mixedInputs: TensorBatch = []
     var mixedLabels: TensorBatch = []
     
-    let mixed = zip(input, randomIndicies).map { x, i in
-      mixedLabels.append(labels[i])
-      return lambda * x + (1 - lambda) * input[i]
+    for (i, j) in randomIndices.enumerated() {
+      let mixedInput = lambda * input[i] + (1 - lambda) * input[j]
+      let mixedLabel = lambda * labels[i] + (1 - lambda) * labels[j]
+      
+      mixedInputs.append(mixedInput)
+      mixedLabels.append(mixedLabel)
     }
     
-    return .init(mixed: mixed,
+    return .init(mixed: mixedInputs,
                  mixedLabels: mixedLabels,
                  lambda: lambda)
-  }
-  
-  public func adjustForAugment(_ a: Tensor, _ b: Tensor) -> Tensor {
-    (lambda * a + (1 - lambda) * b)
   }
   
   private func start() {

@@ -24,5 +24,4 @@ public struct AugementedDatasetModel {
 
 public protocol Augmenting {
   func augment(_ inputs: TensorBatch, labels: TensorBatch) -> AugementedDatasetModel
-  func adjustForAugment(_ a: Tensor, _ b: Tensor) -> Tensor
 }
