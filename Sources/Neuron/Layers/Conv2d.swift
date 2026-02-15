@@ -197,13 +197,6 @@ public class Conv2d: BaseConvolutionalLayer {
       weightGradientSlices.append(contentsOf: filterGrads)
     }
     
-    // Bias gradients: sum of each depth slice of delta
-//    var biasStorage = Tensor.Value(repeating: 0, count: filterCount)
-//    for d in 0..<filterCount {
-//      biasStorage[d] = NumSwiftFlat.sum(delta.depthSlice(d))
-//    }
-//    
-    
     // Assemble input gradients tensor
     let inputSliceSize = inputSize.rows * inputSize.columns
     var inputStorage = Tensor.Value(repeating: 0, count: inputSliceSize * inputDepth)
@@ -293,6 +286,7 @@ public class Conv2d: BaseConvolutionalLayer {
   
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     // Split weight gradients into per-filter chunks (each filter has inputSize.depth depth slices)
+    // effectively a 4D tensor where each filter is (filterRows x filterColumns x inputDepth) x filterCount or [rows, columns, depth, count]
     let weightGradTensor = gradients.weights
     let slicesPerFilter = inputSize.depth
     let sliceSize = filterSize.rows * filterSize.columns

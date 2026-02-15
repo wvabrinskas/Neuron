@@ -98,6 +98,8 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
       beta.append(contentsOf: gamma)
       beta.append(contentsOf: movingMean.storage)
       beta.append(contentsOf: movingVariance.storage)
+      
+      // size is not needed here as gradients aren't applied from the optimizer
       return Tensor(beta)
     }
     set {}
@@ -133,6 +135,7 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     super.init(inputSize: inputSize,
                encodingType: .batchNormalize)
     
+    self.usesOptimizer = false
     setupTrainables()
     resetDeltas()
     

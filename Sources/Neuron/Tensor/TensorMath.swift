@@ -647,7 +647,7 @@ public extension Tensor {
       return Tensor(Tensor.Value(tensor.storage), size: tensor.size, context: context)
     }
     if tensor.isEmpty {
-      return Tensor(Tensor.Value(storage), size: size, context: context)
+      return self
     }
     
     let selfCols = size.columns
