@@ -241,9 +241,14 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
       var reduce = filters
       let first = reduce.removeFirst()
       
-      return reduce.reduce(first) { partialResult, new in
+      let out = reduce.reduce(first) { partialResult, new in
         partialResult.concat(new, axis: 2)
-      }
+      }.storage
+      
+      return Tensor(out, size: .init(rows: filterSize.rows,
+                                     columns: filterSize.columns,
+                                     depth: filterCount * inputSize.depth))
+      
     }
     set {
       fatalError("Please use the `filters` property instead to manage weights on Convolutional layers")

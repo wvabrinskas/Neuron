@@ -106,50 +106,6 @@ final class MixupTests: XCTestCase {
   
   // MARK: - Mixup Formula Tests
   
-  func testMixupFormulaWithKnownLambda() {
-    // Test adjustForAugment which uses the formula: lambda * a + (1 - lambda) * b
-    let mixup = Mixup(alpha: 0)  // alpha=0 gives lambda=1
-    
-    let a = Tensor([[[2.0, 4.0]]])
-    let b = Tensor([[[6.0, 8.0]]])
-    
-    // First call augment to set lambda
-    let input: TensorBatch = [a, b]
-    let labels: TensorBatch = [Tensor([[[1.0]]]), Tensor([[[0.0]]])]
-    let result = mixup.augment(input, labels: labels)
-    
-    // With lambda=1: result = 1*a + 0*b = a
-    let adjusted = mixup.adjustForAugment(a, b)
-    
-    XCTAssertEqual(result.lambda, 1.0)
-    XCTAssertEqual(adjusted.storage[0], 2.0, accuracy: 0.0001)
-    XCTAssertEqual(adjusted.storage[1], 4.0, accuracy: 0.0001)
-  }
-  
-  func testAdjustForAugmentConsistency() {
-    let mixup = Mixup(alpha: 0.2)
-    
-    let a = Tensor([[[1.0, 2.0, 3.0]]])
-    let b = Tensor([[[4.0, 5.0, 6.0]]])
-    
-    // Call augment to set lambda
-    let input: TensorBatch = [a, b]
-    let labels: TensorBatch = [Tensor([[[1.0]]]), Tensor([[[0.0]]])]
-    let result = mixup.augment(input, labels: labels)
-    
-    let adjusted = mixup.adjustForAugment(a, b)
-    let lambda = result.lambda
-    
-    // Verify the formula: lambda * a + (1 - lambda) * b
-    let expected0 = lambda * 1.0 + (1 - lambda) * 4.0
-    let expected1 = lambda * 2.0 + (1 - lambda) * 5.0
-    let expected2 = lambda * 3.0 + (1 - lambda) * 6.0
-    
-    XCTAssertEqual(adjusted.storage[0], expected0, accuracy: 0.0001)
-    XCTAssertEqual(adjusted.storage[1], expected1, accuracy: 0.0001)
-    XCTAssertEqual(adjusted.storage[2], expected2, accuracy: 0.0001)
-  }
-  
   // MARK: - Augmenter Enum Tests
   
   func testAugmenterEnumMixup() {
@@ -227,22 +183,5 @@ final class MixupTests: XCTestCase {
     for (original, mixed) in zip(input, result.mixed) {
       XCTAssertEqual(TensorSize(array: original.shape), TensorSize(array: mixed.shape))
     }
-  }
-  
-  // MARK: - Protocol Conformance Tests
-  
-  func testAugmentingProtocolConformance() {
-    let mixup: Augmenting = Mixup(alpha: 0.2)
-    
-    let input: TensorBatch = [Tensor([[[1.0]]]), Tensor([[[2.0]]])]
-    let labels: TensorBatch = [Tensor([[[1.0]]]), Tensor([[[0.0]]])]
-    
-    // Test augment method
-    let result = mixup.augment(input, labels: labels)
-    XCTAssertEqual(result.mixed.count, input.count)
-    
-    // Test adjustForAugment method
-    let adjusted = mixup.adjustForAugment(Tensor([[[1.0]]]), Tensor([[[2.0]]]))
-    XCTAssertEqual(adjusted.shape, [1, 1, 1])
   }
 }

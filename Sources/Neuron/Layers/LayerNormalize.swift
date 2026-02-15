@@ -13,7 +13,12 @@ public final class LayerNormalize: BaseLayer {
   public override var weights: Tensor {
     get {
       // For printing purposes. Not actually used
-      beta.concat(gamma, axis: 2)
+      let out = beta.concat(gamma, axis: 2)
+      
+      let outTensor = Tensor(out.storage, size: .init(rows: inputSize.rows,
+                                                      columns: inputSize.columns,
+                                                      depth: beta.size.depth + gamma.size.depth))
+      return outTensor
     }
     set {}
   }
