@@ -35,6 +35,25 @@ Feel free to send me suggestions on how to improve this. I would be delighted to
 
 ## When using Neuron it operates about 10X faster when you run with a `RELEASE` scheme. This is due to the compiler optimizations being set to the highest optimization value. If you find Neuron is running somewhat slowly this might be a reason why. 
 
+## Float16 quantization (current workflow)
+Neuron currently supports a compile-time Float16 mode behind the `QUANTIZED_F16` compiler flag.
+
+Because parent projects cannot reliably pass Swift compiler flags down into a Swift Package dependency, the current way to build a quantized model is:
+
+1. Clone `Neuron` locally.
+2. Point your app's Swift Package dependency to that local clone.
+3. In the local `Neuron` clone, edit `Package.swift` and add the following to the `Neuron` `.target`:
+
+```swift
+swiftSettings: [
+  .define("QUANTIZED_F16")
+]
+```
+
+4. Rebuild your project.
+
+This builds Neuron to use `Float16` instead of `Float`. It is not ideal, but it is the current supported path until package-level flag propagation is improved.
+
 # Before you begin developing
 Run `./scripts/onboard.sh` to install the Xcode templates that `Neuron` provides to quickly generate layer code templates.
 

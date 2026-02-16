@@ -1,10 +1,24 @@
 #!/bin/sh
 #
-# Pre-commit hook: Ensures CI guard checks are not commented out in test files.
+# Pre-commit hook:
+# 1) Ensures CI guard checks are not commented out in test files.
+# 2) Prevents commits when Package.swift enables QUANTIZED_F16.
 #
 # Tests that are expensive or require network access use:
 #   guard isGithubCI == false else { ... }
 # to skip on CI. This hook prevents accidentally committing with those guards commented out.
+
+# Check staged Package.swift for QUANTIZED_F16 define.
+STAGED_PACKAGE_FILE=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^Package\.swift$')
+if [ -n "$STAGED_PACKAGE_FILE" ]; then
+  STAGED_PACKAGE_CONTENT=$(git show ":Package.swift")
+
+  if echo "$STAGED_PACKAGE_CONTENT" | grep -q '\.define("QUANTIZED_F16")'; then
+    echo "ERROR: QUANTIZED_F16 is enabled in staged Package.swift."
+    echo "Commit rejected: remove '.define(\"QUANTIZED_F16\")' before committing."
+    exit 1
+  fi
+fi
 
 # Get list of staged .swift test files
 STAGED_TEST_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^Tests/.*\.swift$')
