@@ -188,7 +188,7 @@ open class BaseOptimizer: Optimizer {
     var dataToUse = data
     var augmentedOut: AugementedDatasetModel?
     
-    if let augmentation {
+    if let augmentation, validation == false {
       let augOut = augmentation.augment(dataToUse, labels: labels)
       dataToUse = augOut.mixed
       augmentedOut = augOut

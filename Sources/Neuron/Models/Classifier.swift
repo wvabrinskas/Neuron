@@ -44,21 +44,15 @@ public class Classifier {
   }
   
   public func fit(_ data: [DatasetModel], _ validation: [DatasetModel]) {
-    let batches = data.batched(into: batchSize)
-    let valBatches = validation.batched(into: batchSize)
-
-    //epochs
-    var trainingBatches: [(data: [Tensor], labels: [Tensor])] = []
-    batches.forEach { b in
-      let trainingSet = splitDataset(b)
-      trainingBatches.append(trainingSet)
-    }
-
-    var validationBatches: [(data: [Tensor], labels: [Tensor])] = []
-    valBatches.forEach { b in
-      let valSet = splitDataset(b)
-      validationBatches.append(valSet)
-    }
+    //shuffle data
+    let shuffledData = data.shuffled()
+    let trainingBatches = shuffledData
+      .batched(into: batchSize)
+      .map(splitDataset)
+    
+    let validationBatches = validation
+      .batched(into: batchSize)
+      .map(splitDataset)
     
     for i in 0..<epochs {
       let startTime = CFAbsoluteTimeGetCurrent()
@@ -101,10 +95,10 @@ public class Classifier {
         optimizer.metricsReporter?.update(metric: .loss, value: loss)
         optimizer.metricsReporter?.update(metric: .accuracy, value: result.accuracy)
 
-        let batchesCompletePercent = (round((Double(b) / Double(batches.count)) * 10000) / 10000) * 100
+        let batchesCompletePercent = (round((Double(b) / Double(trainingBatches.count)) * 10000) / 10000) * 100
         
         if log {
-          print("complete :", "\(b) / \(batches.count) -> \(batchesCompletePercent)%")
+          print("complete :", "\(b) / \(trainingBatches.count) -> \(batchesCompletePercent)%")
         }
         
         optimizer.apply(weightGradients) // single threaded
