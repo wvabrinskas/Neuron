@@ -23,5 +23,11 @@ public struct AugementedDatasetModel {
 }
 
 public protocol Augmenting {
+  /// Applies a data-augmentation transform to a mini-batch.
+  ///
+  /// - Parameters:
+  ///   - inputs: Input feature tensors.
+  ///   - labels: Label tensors aligned with `inputs`.
+  /// - Returns: Augmented inputs/labels and transform metadata.
   func augment(_ inputs: TensorBatch, labels: TensorBatch) -> AugementedDatasetModel
 }

@@ -41,6 +41,13 @@ public struct ExportHelper: ModelBuilder {
 
   }
   
+  /// Encodes and writes a Codable model to a `.smodel` file.
+  ///
+  /// - Parameters:
+  ///   - filename: Output filename without extension.
+  ///   - compress: When `true`, emits compact JSON; otherwise pretty-printed JSON.
+  ///   - model: Codable model to serialize.
+  /// - Returns: File URL for the written model, or `nil` on failure.
   public static func getModel<T: Codable>(filename: String = "model", compress: Bool = true, model: T) -> URL? {
     let fileManager = FileManager.default
 
@@ -69,6 +76,10 @@ public struct ExportHelper: ModelBuilder {
   }
   
   @_spi(Visualizer)
+  /// Builds a trainable model instance from a serialized model file URL.
+  ///
+  /// - Parameter url: URL to a `.smodel` file.
+  /// - Returns: Success with decoded model, or failure with decode/load error.
   public static func buildModel<T: Trainable>(_ url: URL) -> Result<T, Error> {
     do {
       let data = try Data(contentsOf: url, options: .mappedIfSafe)

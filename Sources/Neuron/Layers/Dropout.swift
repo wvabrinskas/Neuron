@@ -47,6 +47,9 @@ public final class Dropout: BaseLayer {
     self.outputSize = inputSize
   }
   
+  /// Encodes dropout configuration.
+  ///
+  /// - Parameter encoder: Encoder used for serialization.
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
@@ -54,6 +57,12 @@ public final class Dropout: BaseLayer {
     try container.encode(encodingType, forKey: .type)
   }
   
+  /// Applies dropout masking during training and scaling during inference.
+  ///
+  /// - Parameters:
+  ///   - tensor: Input tensor.
+  ///   - context: Network execution context.
+  /// - Returns: Dropout-transformed tensor with mask-aware backpropagation context.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let newMask = mask ?? generateMask() // testing purposes only
     
@@ -81,6 +90,11 @@ public final class Dropout: BaseLayer {
     return out
   }
   
+  /// Dropout has no trainable parameters, so this is a no-op.
+  ///
+  /// - Parameters:
+  ///   - gradients: Ignored.
+  ///   - learningRate: Ignored.
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {}
   
   override public func onInputSizeSet() {

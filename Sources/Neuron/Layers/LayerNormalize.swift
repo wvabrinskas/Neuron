@@ -73,6 +73,9 @@ public final class LayerNormalize: BaseLayer {
     setupTrainables()
   }
   
+  /// Encodes layer-normalization parameters.
+  ///
+  /// - Parameter encoder: Encoder used for serialization.
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
@@ -81,6 +84,12 @@ public final class LayerNormalize: BaseLayer {
     try container.encode(epsilon, forKey: .epsilon)
   }
   
+  /// Applies layer normalization over each depth slice.
+  ///
+  /// - Parameters:
+  ///   - tensor: Input tensor.
+  ///   - context: Network execution context.
+  /// - Returns: Normalized tensor with layer-norm backpropagation context.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let context = TensorContext { inputs, gradient, wrt in
       self.backwardFlat(inputs: inputs, gradient: gradient)
@@ -183,6 +192,11 @@ public final class LayerNormalize: BaseLayer {
             Tensor())
   }
   
+  /// Applies layer-normalization parameter updates.
+  ///
+  /// - Parameters:
+  ///   - gradients: Combined gamma/beta gradients packed in `weights`.
+  ///   - learningRate: Learning rate already reflected by optimizer gradients.
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     let gammaWeights = gradients.weights[0..., 0..., 0..<inputSize.depth]
     let betaWeights = gradients.weights[0..., 0..., inputSize.depth...]

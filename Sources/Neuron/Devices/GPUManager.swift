@@ -154,6 +154,13 @@ public class GPUManager {
 //    print(result)
 //  }
 //  
+  /// Runs an element-wise activation (or derivative) Metal compute kernel.
+  ///
+  /// - Parameters:
+  ///   - num: Flat scalar input buffer.
+  ///   - activationType: Activation function kernel to run.
+  ///   - derivate: When `true`, executes derivative kernel variant.
+  /// - Returns: Activated output buffer. Falls back to input on failure.
   public func activate(_ num: [Tensor.Scalar],
                        _ activationType: Activation,
                        derivate: Bool = false) -> [Tensor.Scalar] {

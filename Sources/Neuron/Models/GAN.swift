@@ -31,6 +31,17 @@ open class GAN {
   private let validationFrequency: Int
   internal let threadWorkers = Constants.maxWorkers
   
+  /// Creates a GAN trainer with generator/discriminator optimizers.
+  ///
+  /// - Parameters:
+  ///   - generator: Optimizer controlling generator updates.
+  ///   - discriminator: Optimizer controlling discriminator updates.
+  ///   - epochs: Number of training epochs.
+  ///   - batchSize: Batch size used for both networks.
+  ///   - discriminatorSteps: Number of discriminator updates per cycle.
+  ///   - generatorSteps: Number of generator updates per cycle.
+  ///   - discriminatorNoiseFactor: Optional label-noise factor for discriminator labels.
+  ///   - validationFrequency: Interval for calling `validateGenerator`.
   public init(generator: Optimizer,
               discriminator: Optimizer,
               epochs: Int = 100,
@@ -58,6 +69,11 @@ open class GAN {
     
   }
   
+  /// Trains GAN components on the provided dataset.
+  ///
+  /// - Parameters:
+  ///   - data: Real training samples.
+  ///   - validation: Validation samples used for periodic generation checks.
   public func fit(_ data: [DatasetModel], _ validation: [DatasetModel]) {
     let batches = data.batched(into: batchSize)
     let _ = validation.batched(into: batchSize)
@@ -124,18 +140,31 @@ open class GAN {
     onCompleted?()
   }
   
+  /// Generates one synthetic sample from random noise.
+  ///
+  /// - Returns: Generated tensor detached from the training graph.
   public func generate() -> Tensor {
     self.generator.isTraining = false
     let out = generator([noise()])
     return out.first?.detached() ?? Tensor()
   }
   
+  /// Runs discriminator inference on input tensors.
+  ///
+  /// - Parameter input: Tensors to score as real/fake.
+  /// - Returns: First discriminator output tensor.
   public func discriminate(_ input: [Tensor]) -> Tensor {
     let out = discriminator(input)
     return out.first ?? Tensor()
   }
   
   @discardableResult
+  /// Exports discriminator and generator models.
+  ///
+  /// - Parameters:
+  ///   - overrite: When `false`, appends timestamps to filenames.
+  ///   - compress: When `true`, writes compact JSON.
+  /// - Returns: Tuple of optional URLs for discriminator and generator models.
   public func export(overrite: Bool = false, compress: Bool = false) -> (discriminator: URL?, generator: URL?) {
     var urls: (URL?, URL?) = (nil, nil)
     if let generatorS = generator.trainable as? Sequential,

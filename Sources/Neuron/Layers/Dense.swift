@@ -60,6 +60,9 @@ public final class Dense: BaseLayer {
   }
   
   
+  /// Encodes dense layer parameters for persistence.
+  ///
+  /// - Parameter encoder: Encoder used for serialization.
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(weights, forKey: .weights)
@@ -98,6 +101,12 @@ public final class Dense: BaseLayer {
                      size: .init(rows: outputSizeCount, columns: inputs, depth: 1))
   }
   
+  /// Computes dense affine transformation `xW^T + b`.
+  ///
+  /// - Parameters:
+  ///   - tensor: Input tensor.
+  ///   - context: Network execution context.
+  /// - Returns: Dense output tensor with attached gradient context.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     
     let tensorContext = TensorContext { inputs, gradients, wrt in
@@ -125,6 +134,11 @@ public final class Dense: BaseLayer {
     return out
   }
   
+  /// Applies dense weight and optional bias updates.
+  ///
+  /// - Parameters:
+  ///   - gradients: Weight and bias gradients for this layer.
+  ///   - learningRate: Learning rate already reflected in optimizer gradient output.
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     weights = weights.copy() - gradients.weights
 

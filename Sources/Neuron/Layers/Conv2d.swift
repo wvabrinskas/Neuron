@@ -50,6 +50,10 @@ public class Conv2d: BaseConvolutionalLayer {
          type
   }
   
+  /// Decodes a convolution layer and restores its learned parameters.
+  ///
+  /// - Parameter decoder: Decoder containing serialized layer state.
+  /// - Throws: Decoding errors when payload is invalid.
   required convenience public init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
@@ -73,6 +77,9 @@ public class Conv2d: BaseConvolutionalLayer {
     self.filters = try container.decodeIfPresent([Tensor].self, forKey: .filters) ?? []
   }
   
+  /// Encodes convolution configuration and filter parameters.
+  ///
+  /// - Parameter encoder: Encoder used for serialization.
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
@@ -85,6 +92,7 @@ public class Conv2d: BaseConvolutionalLayer {
     try container.encode(encodingType, forKey: .type)
   }
   
+  /// Recomputes output shape when input shape changes.
   public override func onInputSizeSet() {
     super.onInputSizeSet()
     
@@ -96,6 +104,12 @@ public class Conv2d: BaseConvolutionalLayer {
     outputSize = TensorSize(array: [columns, rows, filterCount])
   }
   
+  /// Performs a convolution forward pass and constructs backprop context.
+  ///
+  /// - Parameters:
+  ///   - tensor: Input feature tensor.
+  ///   - context: Network execution context.
+  /// - Returns: Convolved output tensor.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
 
     let context = TensorContext { inputs, gradient, wrt in
@@ -284,6 +298,11 @@ public class Conv2d: BaseConvolutionalLayer {
     return results
   }
   
+  /// Applies convolution weight and bias updates from optimizer gradients.
+  ///
+  /// - Parameters:
+  ///   - gradients: Weight and bias gradients for this layer.
+  ///   - learningRate: Learning rate (already applied by optimizer gradient formulation).
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     // Split weight gradients into per-filter chunks (each filter has inputSize.depth depth slices)
     // effectively a 4D tensor where each filter is (filterRows x filterColumns x inputDepth) x filterCount or [rows, columns, depth, count]

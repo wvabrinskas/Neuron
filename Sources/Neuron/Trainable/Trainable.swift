@@ -35,12 +35,16 @@ public protocol Trainable: AnyObject, Codable, CustomDebugStringConvertible {
   static func `import`(_ url: URL) -> Self
   
   /// Performs a forward pass on the network
-  /// - Parameter data: The inputs
+  /// - Parameters:
+  ///   - data: The input tensor.
+  ///   - context: Batch/thread metadata propagated through layers.
   /// - Returns: The output of the network
   func predict(_ data: Tensor, context: NetworkContext) -> Tensor
   
   /// Performs a forward pass on the network
-  /// - Parameter batch: The batch of inputs
+  /// - Parameters:
+  ///   - batch: The input batch.
+  ///   - context: Batch/thread metadata propagated through layers.
   /// - Returns: An array of outputs
   func predict(batch: TensorBatch, context: NetworkContext) -> TensorBatch 
 
@@ -71,6 +75,13 @@ public extension Trainable {
   }
   
   @discardableResult
+  /// Exports the trainable as a `.smodel` file.
+  ///
+  /// - Parameters:
+  ///   - name: Optional filename prefix.
+  ///   - overrite: When `false`, appends a timestamp to avoid overwrite.
+  ///   - compress: When `true`, emits compact JSON.
+  /// - Returns: URL to the exported model file, or `nil` on write failure.
   func export(name: String? = nil, overrite: Bool = false, compress: Bool = true) -> URL? {
     let additional = overrite == false ? "-\(Date().timeIntervalSince1970)" : ""
     

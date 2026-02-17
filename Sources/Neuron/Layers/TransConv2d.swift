@@ -11,6 +11,10 @@ import NumSwiftC
 
 /// Performs a transposed 2d convolution on the inputs. Uses the same properties and initializers of `Conv2D`
 public final class TransConv2d: Conv2d {
+  /// Creates a transposed-convolution layer.
+  ///
+  /// Parameters match `Conv2d` and define filter, stride, padding, and
+  /// initializer behavior for transpose convolution.
   public override init(filterCount: Int,
                        inputSize: TensorSize? = nil,
                        strides: (rows: Int, columns: Int) = (1,1),
@@ -30,6 +34,7 @@ public final class TransConv2d: Conv2d {
                encodingType: .transConv2d)
   }
   
+  /// Recomputes transposed-convolution output shape for the current input size.
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     

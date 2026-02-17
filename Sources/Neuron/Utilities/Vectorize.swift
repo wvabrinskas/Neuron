@@ -28,9 +28,27 @@ public protocol Vectorizing {
   /// The current full vector storage of every value passed in keyed by the `Index`
   var inverseVector: InverseVector { get }
   @discardableResult
+  /// Converts items into integer token IDs.
+  ///
+  /// - Parameters:
+  ///   - items: Items to vectorize.
+  ///   - format: Optional start/end token formatting mode.
+  /// - Returns: Vectorized token IDs.
   func vectorize(_ items: [Item], format: VectorFormat) -> [Int]
+  /// Converts token IDs back into their original items.
+  ///
+  /// - Parameter vector: Token IDs to decode.
+  /// - Returns: Decoded items.
   func unvectorize(_ vector: [Int]) -> [Item]
+  /// Converts one-hot tensors back into original items.
+  ///
+  /// - Parameter vector: One-hot encoded tensor.
+  /// - Returns: Decoded items.
   func unvectorizeOneHot(_ vector: Tensor) -> [Item]
+  /// One-hot encodes input items.
+  ///
+  /// - Parameter items: Items to encode.
+  /// - Returns: One-hot tensor representation.
   func oneHot(_ items: [Item]) -> Tensor
 }
 
@@ -63,6 +81,10 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
   /// if set to true this will vectorize the input with an offset of `maxIndex` to reserve the first two vectors for start and end vectors
   private let startAndEndingEncoding: Bool
   
+  /// Creates a new vectorizer instance.
+  ///
+  /// - Parameter startAndEndingEncoding: Enables reserved start/end tokens at
+  ///   indices `0` and `1` for sequence workloads.
   public init(startAndEndingEncoding: Bool = false) {
     self.startAndEndingEncoding = startAndEndingEncoding
     
@@ -99,6 +121,12 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
   }
   
   @discardableResult
+  /// Converts input items into integer token IDs.
+  ///
+  /// - Parameters:
+  ///   - items: Items to vectorize.
+  ///   - format: Optional start/end token formatting behavior.
+  /// - Returns: Vectorized token indices.
   public func vectorize(_ items: [T], format: VectorFormat = .none) -> [Int] {
     var vectorized: [Int] = []
     
@@ -129,6 +157,10 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
     return vectorized
   }
   
+  /// Decodes one-hot encoded vectors back into original items.
+  ///
+  /// - Parameter vector: One-hot tensor where each depth slice is one token.
+  /// - Returns: Decoded item sequence.
   public func unvectorizeOneHot(_ vector: Tensor) -> [T] {
     var items: [T] = []
     let cols = vector.size.columns
@@ -147,6 +179,10 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
   }
   
   
+  /// Decodes integer token IDs back into original items.
+  ///
+  /// - Parameter vector: Integer token IDs.
+  /// - Returns: Decoded item sequence.
   public func unvectorize(_ vector: [Int]) -> [T] {
     var items: [T] = []
     

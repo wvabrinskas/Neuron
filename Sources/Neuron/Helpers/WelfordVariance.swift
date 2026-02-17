@@ -21,11 +21,17 @@ public final class WelfordVariance {
     setInputSize(inputSize)
   }
   
+  /// Configures input shape and resets accumulated statistics.
+  ///
+  /// - Parameter inputSize: Expected tensor shape for subsequent updates.
   public func setInputSize(_ inputSize: TensorSize) {
     self.inputSize = inputSize
     reset()
   }
   
+  /// Incorporates one tensor into running Welford mean/variance statistics.
+  ///
+  /// - Parameter inputs: Input tensor sample to accumulate.
   public func update(_ inputs: Tensor) {
     iterations += 1
     let iterScalar = iterations.asTensorScalar
@@ -40,6 +46,7 @@ public final class WelfordVariance {
     }
   }
   
+  /// Resets iteration count and running statistics to zeros.
   public func reset() {
     iterations = 0
     let sliceSize = inputSize.rows * inputSize.columns

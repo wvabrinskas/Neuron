@@ -107,7 +107,12 @@ public enum LossFunction {
       return predicted - smoothedCorreect
     }
   }
-
+  /// Calculates scalar loss for one prediction vector and label vector.
+  ///
+  /// - Parameters:
+  ///   - predicted: Predicted probabilities/logits for one sample.
+  ///   - correct: Ground-truth target values for the same sample.
+  /// - Returns: Scalar loss value.
   public func calculate(_ predicted: [Tensor.Scalar], correct: [Tensor.Scalar]) -> Tensor.Scalar {
     guard predicted.count == correct.count else {
       return 0

@@ -7,6 +7,9 @@
 
 public class EmptyRNNDataset: VectorizableDataset<String> {
   
+  /// Creates a placeholder dataset for inference-only RNN usage.
+  ///
+  /// - Parameter vocabSize: Vocabulary size expected by the loaded model.
   public init(vocabSize: Int) {
     super.init()
     self.vocabSize = vocabSize

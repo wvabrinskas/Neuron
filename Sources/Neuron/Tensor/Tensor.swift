@@ -19,6 +19,15 @@ public protocol TensorRange {
 /// Internally stores data as a flat `Tensor.Value` with `TensorSize` metadata.
 /// The `value` computed property provides backward-compatible access as a 3D `[[[Scalar]]]` array.
 public class Tensor: Equatable, Codable {
+  /// Compares two tensors by storage/shape or identity.
+  ///
+  /// Equality returns `true` when values and sizes match, or when both tensors
+  /// share the same internal identifier.
+  ///
+  /// - Parameters:
+  ///   - lhs: Left-hand tensor.
+  ///   - rhs: Right-hand tensor.
+  /// - Returns: `true` when tensors represent the same value or identity.
   public static func == (lhs: Tensor, rhs: Tensor) -> Bool {
     lhs.storage == rhs.storage && lhs.size == rhs.size || lhs.id == rhs.id
   }
@@ -40,6 +49,12 @@ public class Tensor: Equatable, Codable {
     let weights: [Tensor]
     let biases: [Tensor]
     
+    /// Creates a gradient container for input, weight, and bias derivatives.
+    ///
+    /// - Parameters:
+    ///   - input: Gradients with respect to upstream inputs.
+    ///   - weights: Gradients with respect to trainable weights.
+    ///   - biases: Gradients with respect to trainable biases.
     public init(input: [Tensor] = [],
                 weights: [Tensor] = [],
                 biases: [Tensor] = []) {
@@ -377,7 +392,11 @@ public class Tensor: Equatable, Codable {
   
   // MARK: - Graph
   
-  /// Prints the current graph all the way to the input.
+  /// Prints a human-readable view of this tensor's computation graph.
+  ///
+  /// - Parameters:
+  ///   - wrt: Optional node to constrain printed branches to a specific path.
+  ///   - deep: When `true`, recursively prints each child node's graph.
   public func printGraph(wrt: Tensor? = nil, deep: Bool = false) {
     var inputs: [ID: Tensor] = input
     
@@ -589,6 +608,9 @@ public class Tensor: Equatable, Codable {
     return Tensor(storage, size: size)
   }
   
+  /// Indicates whether this tensor represents exactly one scalar value.
+  ///
+  /// - Returns: `true` when shape is `[1, 1, 1]`.
   public func isScalar() -> Bool {
     size == TensorSize(rows: 1, columns: 1, depth: 1)
   }
@@ -624,6 +646,7 @@ public class Tensor: Equatable, Codable {
   
   // MARK: - Normalization / Clipping
   
+  /// Normalizes tensor values to unit L2 norm in place.
   public func l2Normalize() {
     let flatArray = Array(storage)
     let flatValue: Tensor.Scalar = flatArray.sumOfSquares
@@ -631,10 +654,16 @@ public class Tensor: Equatable, Codable {
     self.storage = Tensor.Value(normalized)
   }
   
+  /// Computes the L2 norm of the tensor values.
+  ///
+  /// - Returns: Euclidean norm over all scalar values.
   public func l2Norm() -> Scalar {
     Tensor.Scalar.sqrt(Array(storage).sumOfSquares)
   }
   
+  /// Clamps every element into the symmetric range `[-val, val]`.
+  ///
+  /// - Parameter val: Absolute clamp bound.
   public func clip(_ val: Scalar = 0.01) {
     for i in 0..<storage.count {
       storage[i] = Swift.max(-val, Swift.min(val, storage[i]))
@@ -643,6 +672,9 @@ public class Tensor: Equatable, Codable {
   
   // MARK: - Codable
   
+  /// Encodes tensor metadata and flat storage for persistence.
+  ///
+  /// - Parameter encoder: Encoder used to serialize this tensor.
   public func encode(to encoder: any Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(label, forKey: .label)

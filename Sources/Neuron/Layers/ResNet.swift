@@ -57,6 +57,13 @@ public final class ResNet: BaseLayer {
     return filterCount != inputSize.depth || stride != 1
   }
   
+  /// Creates a residual block with an optional projection shortcut.
+  ///
+  /// - Parameters:
+  ///   - inputSize: Optional known input shape.
+  ///   - initializer: Initializer used by internal convolution layers.
+  ///   - filterCount: Number of output channels for the block.
+  ///   - stride: Spatial stride for the first convolution/projection path.
   public init(inputSize: TensorSize? = nil,
               initializer: InitializerType = Constants.defaultInitializer,
               filterCount: Int,
@@ -147,6 +154,9 @@ public final class ResNet: BaseLayer {
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
   }
   
+  /// Encodes residual block configuration and internal path networks.
+  ///
+  /// - Parameter encoder: Encoder used for serialization.
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
@@ -157,6 +167,12 @@ public final class ResNet: BaseLayer {
     try container.encode(shortcutSequential, forKey: .shortcutSequential)
   }
   
+  /// Runs the residual block forward pass for a batch.
+  ///
+  /// - Parameters:
+  ///   - tensorBatch: Input batch.
+  ///   - context: Batch/thread metadata.
+  /// - Returns: Batch outputs after main path, shortcut add, and output ReLU.
   public override func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
     // we need to pass the full batch to BatchNormalize to calculate the global mean on each batch. Just like what happens when it's outside of the optimizer
     let detachedInputs = tensorBatch.map { $0.detached() }
@@ -194,6 +210,12 @@ public final class ResNet: BaseLayer {
     return outs
   }
   
+  /// Runs the residual block forward pass for a single tensor.
+  ///
+  /// - Parameters:
+  ///   - tensor: Input tensor.
+  ///   - context: Network execution context.
+  /// - Returns: Residual block output tensor.
   public override func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
     // we detach the input tensor because we want to stop at this tensor in respect to this sequential
     // not all the way up the graph to possibly other input layers
@@ -228,6 +250,11 @@ public final class ResNet: BaseLayer {
     return out
   }
   
+  /// Applies aggregated gradients to inner and shortcut subpaths.
+  ///
+  /// - Parameters:
+  ///   - gradients: Combined weight and bias gradients from backward pass.
+  ///   - learningRate: Learning rate used by sub-layer update paths.
   public override func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Tensor.Scalar) {
     // this isn't using the optimizer gradients at all...
         

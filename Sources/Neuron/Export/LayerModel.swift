@@ -19,6 +19,10 @@ public class LayerModel: Codable {
     case layer, type
   }
   
+  /// Decodes a polymorphic layer wrapper by reading its `EncodingType`.
+  ///
+  /// - Parameter decoder: Decoder containing layer payload and type tag.
+  /// - Throws: Decoding errors when the payload cannot be converted to a layer.
   public required init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     
@@ -34,6 +38,9 @@ public class LayerModel: Codable {
     preconditionFailure("Could not convert layer")
   }
 
+  /// Encodes a wrapped layer and its explicit type discriminator.
+  ///
+  /// - Parameter encoder: Encoder used for serialization.
   public func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     var nested = container.nestedUnkeyedContainer(forKey: .layer)
@@ -49,6 +56,10 @@ extension NumSwift.ConvPadding: Codable {
     case valid
   }
   
+  /// Decodes a `ConvPadding` value from its keyed representation.
+  ///
+  /// - Parameter decoder: Decoder containing either `same` or `valid`.
+  /// - Throws: Propagates decode errors from the keyed container.
   public init(from decoder: Decoder) throws {
     let values = try decoder.container(keyedBy: CodingKeys.self)
     
@@ -65,6 +76,9 @@ extension NumSwift.ConvPadding: Codable {
     self = .same
   }
   
+  /// Encodes a `ConvPadding` case to a keyed representation.
+  ///
+  /// - Parameter encoder: Encoder used for serialization.
   public func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     switch self {

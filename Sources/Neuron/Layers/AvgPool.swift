@@ -34,6 +34,9 @@ public final class AvgPool: BaseLayer {
     self.kernelSize = try container.decodeIfPresent(TensorSize.self, forKey: .kernelSize) ?? TensorSize(rows: 2, columns: 2, depth: 1)
   }
   
+  /// Encodes average-pooling configuration.
+  ///
+  /// - Parameter encoder: Encoder used for serialization.
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
@@ -41,6 +44,12 @@ public final class AvgPool: BaseLayer {
     try container.encode(kernelSize, forKey: .kernelSize)
   }
   
+  /// Performs average pooling over each kernel window.
+  ///
+  /// - Parameters:
+  ///   - tensor: Input tensor.
+  ///   - context: Network execution context.
+  /// - Returns: Pooled tensor with average-distribution backpropagation context.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     func backwards(input: Tensor, gradient: Tensor, wrt: Tensor?) -> (Tensor, Tensor, Tensor) {
       let rows = self.inputSize.rows
@@ -100,6 +109,11 @@ public final class AvgPool: BaseLayer {
   }
 
   
+  /// AvgPool has no trainable parameters, so this is a no-op.
+  ///
+  /// - Parameters:
+  ///   - gradients: Ignored.
+  ///   - learningRate: Ignored.
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     //
   }

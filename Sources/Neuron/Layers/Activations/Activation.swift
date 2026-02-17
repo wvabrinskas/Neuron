@@ -19,6 +19,9 @@ public enum Activation: Codable, Equatable {
   case geLu
   case none
   
+  /// Returns the numeric activation identifier used by Metal kernels.
+  ///
+  /// - Returns: Stable integer index for the activation case.
   public func index() -> Int {
     switch self {
     case .reLu: return 0
@@ -33,6 +36,9 @@ public enum Activation: Codable, Equatable {
     }
   }
   
+  /// Returns a human-readable activation name.
+  ///
+  /// - Returns: Activation name string (includes parameter for leaky ReLU).
   public func asString() -> String {
     switch self {
     case .reLu: return "reLu"
