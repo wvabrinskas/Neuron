@@ -14,13 +14,17 @@ public final class InferenceOnlyRNN: RNN<EmptyRNNDataset> {
   
   public init(device: Device = CPU(),
               returnSequence: Bool = true,
-              vocabSize: Int) {
+              vocabSize: Int,
+              network: Sequential) {
     super.init(device: device,
                returnSequence: returnSequence,
                dataset: EmptyRNNDataset(vocabSize: vocabSize),
                classifierParameters: .init(batchSize: 0, epochs: 0),
                optimizerParameters: .init(learningRate: 0),
                lstmParameters: .init(hiddenUnits: 0, inputUnits: 0))
+    
+    optimizer.trainable = network
+    optimizer.isTraining = false
   }
   
   public override func importFrom(data: Data?) async {
