@@ -8,6 +8,37 @@
 import Foundation
 import NumSwift
 
+
+// Used exclusively for inference on an RNN model
+public final class InferenceOnlyRNN: RNN<EmptyRNNDataset> {
+  
+  public init(device: Device = CPU(),
+              returnSequence: Bool = true,
+              vocabSize: Int) {
+    super.init(device: device,
+               returnSequence: returnSequence,
+               dataset: EmptyRNNDataset(vocabSize: vocabSize),
+               classifierParameters: .init(batchSize: 0, epochs: 0),
+               optimizerParameters: .init(learningRate: 0),
+               lstmParameters: .init(hiddenUnits: 0, inputUnits: 0))
+  }
+  
+  public override func importFrom(data: Data?) async {
+    guard let data else { return }
+    let n = Sequential.import(data)
+    optimizer.trainable = n
+    optimizer.isTraining = false
+  }
+  
+  public override func importFrom(url: URL?) async {
+    guard let url else { return }
+    let n = Sequential.import(url)
+    optimizer.trainable = n
+    optimizer.isTraining = false
+  }
+}
+
+
 public typealias RNNSupportedDatasetData = (training: [DatasetModel], val: [DatasetModel])
 public protocol RNNSupportedDataset {
   associatedtype Item: Hashable
@@ -131,6 +162,15 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
                killOnAccuracy: classifierParameters.killOnAccuracy,
                log: false,
                lossFunction: classifierParameters.lossFunction)
+  }
+  
+  public func importFrom(data: Data?) async {
+    guard let data else { return }
+    
+    await readyUp()
+    
+    let n = Sequential.import(data)
+    optimizer.trainable = n
   }
   
   public func importFrom(url: URL?) async {

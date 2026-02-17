@@ -5,8 +5,6 @@
 //  Created by William Vabrinskas on 1/9/26.
 //
 
-@testable import Neuron
-
 open class VectorizableDataset<VectorItem: Hashable>: RNNSupportedDataset {
 
   public let vectorizer: Vectorizer<VectorItem> = .init()
@@ -30,7 +28,7 @@ open class VectorizableDataset<VectorItem: Hashable>: RNNSupportedDataset {
     }
   }
   
-  public func build() async -> Neuron.RNNSupportedDatasetData {
+  open func build() async -> RNNSupportedDatasetData {
     ([], [])
   }
 }
