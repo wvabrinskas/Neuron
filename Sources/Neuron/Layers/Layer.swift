@@ -33,6 +33,7 @@ public enum EncodingType: String, Codable {
        selu,
        resNet,
        globalAvgPool,
+       depthwiseConv2d,
        none
 }
 
@@ -325,7 +326,7 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
     filters = weights
   }
   
-  private func initializeFilters() {
+  func initializeFilters() {
     guard filters.isEmpty else {
       return
     }
@@ -340,7 +341,7 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
           
           for _ in 0..<filterSize.1 {
             let weight = initializer.calculate(input: inputSize.depth * filterSize.rows * filterSize.columns,
-                                                out: inputSize.depth * filterSize.rows * filterSize.columns)
+                                                out: outputSize.depth * filterSize.rows * filterSize.columns)
             filterRow.append(weight)
           }
           
