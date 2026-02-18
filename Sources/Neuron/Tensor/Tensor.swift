@@ -849,34 +849,27 @@ public extension Tensor.Gradient {
     let allWeights = weights.reduce(Tensor()) { partialResult, new in
       partialResult.concat(new, axis: 2)
     }
-
     let allBiases = biases.reduce(Tensor()) { partialResult, new in
       partialResult.concat(new, axis: 2)
-    } 
-    
-    let l2Norm = allWeights.l2Norm()  
-    let l2NormBias = allBiases.l2Norm() 
-
-    var biases = biases
-    var weights = weights
-
-    if l2Norm > value {
-      let scalingFactor = value / l2Norm 
-      
-      let mappedWeights = weights.map { $0 * scalingFactor }
-
-      weights = mappedWeights
     }
 
-    if l2NormBias > value {
-      let scalingFactor = value / l2NormBias 
-      
-      let mappedBiases = biases.map { $0 * scalingFactor }
+    // Single global norm across weights AND biases combined
+    let weightNormSq = allWeights.l2Norm()
+    let biasNormSq = allBiases.l2Norm()
+    let globalNorm = Tensor.Scalar(sqrt(weightNormSq * weightNormSq + biasNormSq * biasNormSq))
 
-      biases = mappedBiases
+    guard globalNorm > value else {
+      return .init(input: input, weights: weights, biases: biases)
     }
 
-    return .init(input: input, weights: weights, biases: biases)
+    // One scaling factor applied to everything
+    let scalingFactor = value / globalNorm
+
+    return .init(
+      input: input,
+      weights: weights.map { $0 * scalingFactor },
+      biases: biases.map { $0 * scalingFactor }
+    )
   }
   
   static func applyMultiple(lhs: Tensor.Gradient,
