@@ -10,6 +10,13 @@ import NumSwift
 import Numerics
 
 public final class ExponentialDecay: BaseDecayFunction {
+  /// Creates an exponential learning-rate decay schedule.
+  ///
+  /// - Parameters:
+  ///   - learningRate: Initial learning rate.
+  ///   - decayRate: Multiplicative factor applied every `decaySteps`.
+  ///   - decaySteps: Step interval used by the decay equation.
+  ///   - staircase: When `true`, uses floor-stepped exponent updates.
   public override init(learningRate: Tensor.Scalar,
                        decayRate: Tensor.Scalar = 0.96,
                        decaySteps: Tensor.Scalar = 1000,
@@ -20,6 +27,7 @@ public final class ExponentialDecay: BaseDecayFunction {
                staircase: staircase)
   }
   
+  /// Advances the schedule and computes the next decayed learning rate.
   public override func step() {
     let exp: Tensor.Scalar
     if staircase {

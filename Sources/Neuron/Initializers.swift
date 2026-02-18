@@ -19,6 +19,9 @@ public enum InitializerType: Codable, Equatable {
   case heUniform
   case normal(std: Tensor.Scalar)
   
+  /// Creates an executable initializer from this initializer type.
+  ///
+  /// - Returns: `Initializer` wrapper configured for this case.
   public func build() -> Initializer {
     Initializer(type: self)
   }
@@ -51,6 +54,9 @@ public struct Initializer {
     }
   }
   
+  /// Creates an initializer strategy wrapper.
+  ///
+  /// - Parameter type: Weight initialization strategy.
   public init(type: InitializerType) {
     self.type = type
     switch type {
@@ -61,6 +67,12 @@ public struct Initializer {
     }
   }
   
+  /// Generates one initialized scalar value.
+  ///
+  /// - Parameters:
+  ///   - input: Fan-in size.
+  ///   - out: Fan-out size (used by Xavier variants).
+  /// - Returns: One initialized scalar sampled using the selected strategy.
   public func calculate(input: Int, out: Int = 0) -> Tensor.Scalar {
     switch type {
     
@@ -89,6 +101,13 @@ public struct Initializer {
     }
   }
   
+  /// Generates a tensor filled with initialized scalar values.
+  ///
+  /// - Parameters:
+  ///   - size: Target tensor shape.
+  ///   - input: Fan-in size.
+  ///   - out: Fan-out size (used by Xavier variants).
+  /// - Returns: Tensor populated with initialized values.
   public func calculate(size: TensorSize, input: Int, out: Int = 0) -> Tensor {
     var tensor: [[[Tensor.Scalar]]] = []
     
@@ -112,6 +131,9 @@ public struct Initializer {
 }
 
 extension Initializer: Codable {
+  /// Encodes the initializer strategy.
+  ///
+  /// - Parameter encoder: Encoder used for serialization.
   public func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: Self.CodingKeys.self)
     
@@ -129,6 +151,9 @@ extension Initializer: Codable {
     }
   }
   
+  /// Decodes an initializer strategy.
+  ///
+  /// - Parameter decoder: Decoder containing encoded initializer configuration.
   public init(from decoder: Decoder) throws {
     let values = try decoder.container(keyedBy: CodingKeys.self)
     self = .init(type: .heUniform)

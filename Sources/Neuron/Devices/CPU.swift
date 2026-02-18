@@ -16,6 +16,7 @@ public struct CPU: Device {
   public var qosPriority: DispatchQoS.QoSClass = .default
   public var type: DeviceType = .cpu
 
+  /// Creates a CPU-backed device implementation.
   public init() {}
 
   /// Calculates the convolution of the given inputs
@@ -87,6 +88,12 @@ public struct CPU: Device {
     type.derivate(input)
   }
   
+  /// Performs matrix multiplication for two tensors.
+  ///
+  /// - Parameters:
+  ///   - a: Left tensor.
+  ///   - b: Right tensor.
+  /// - Returns: Matrix product tensor.
   public func matmul(_ a: Tensor, _ b: Tensor) -> Tensor {
     a.matmul(b)
   }

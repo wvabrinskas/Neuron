@@ -40,7 +40,7 @@ public class GradientAccumulator {
   /// - Parameters:
   ///   - input: Gradient WRT to the input
   ///   - weights: Gradients WRT to each layer's weights
-  ///   - index: index to insert the gradient.
+  ///   - biases: Gradients WRT to each layer's biases
   public func insert(input: Tensor, weights: [Tensor], biases: [Tensor]) {
     let newWeightGradients = weights
     let newInputGradient = input

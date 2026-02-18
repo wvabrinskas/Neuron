@@ -10,6 +10,12 @@ import Numerics
 
 public struct BetaDistribution {
   
+  /// Samples a random scalar from a Beta(`alpha`, `beta`) distribution.
+  ///
+  /// - Parameters:
+  ///   - alpha: First Beta shape parameter.
+  ///   - beta: Second Beta shape parameter.
+  /// - Returns: Random value in `[0, 1]`.
   public static func randomBeta(_ alpha: Tensor.Scalar, _ beta: Tensor.Scalar) -> Tensor.Scalar {
     let x = randomGamma(shape: alpha)
     let y = randomGamma(shape: beta)

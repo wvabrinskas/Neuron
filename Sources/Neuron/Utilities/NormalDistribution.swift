@@ -14,6 +14,12 @@ public struct NormalDistribution {
   public let mean: Tensor.Scalar
   public let deviation: Tensor.Scalar
   
+  /// Creates a normal distribution sampler.
+  ///
+  /// - Parameters:
+  ///   - randomSource: Random source used for sampling.
+  ///   - mean: Distribution mean.
+  ///   - deviation: Standard deviation (must be non-negative).
   public init(randomSource: GKRandomSource = GKRandomSource(), mean: Tensor.Scalar = 0, deviation: Tensor.Scalar = 0.01) {
     precondition(deviation >= 0)
     self.randomSource = randomSource
@@ -21,6 +27,9 @@ public struct NormalDistribution {
     self.deviation = deviation
   }
   
+  /// Samples the next scalar value from the distribution.
+  ///
+  /// - Returns: Random scalar drawn from `N(mean, deviation^2)`.
   public func nextScalar() -> Tensor.Scalar {
     guard deviation > 0 else { return mean }
     
@@ -31,6 +40,10 @@ public struct NormalDistribution {
     return z1 * deviation + mean
   }
   
+  /// Computes the log probability density for a given value.
+  ///
+  /// - Parameter value: Scalar for which to evaluate log-density.
+  /// - Returns: Log-probability under this normal distribution.
   public func logProb(value: Tensor.Scalar) -> Tensor.Scalar {
     let loc = mean
     let variance = deviation * deviation
@@ -48,6 +61,11 @@ public class Gaussian {
   private var std: Double
   private var mean: Double
   
+  /// Creates a Box-Muller Gaussian sampler.
+  ///
+  /// - Parameters:
+  ///   - std: Standard deviation.
+  ///   - mean: Distribution mean.
   public init(std: Double, mean: Double) {
     self.std = std
     self.mean = mean

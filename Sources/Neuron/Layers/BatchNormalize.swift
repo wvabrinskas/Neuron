@@ -119,7 +119,15 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     let std: Tensor.Value
   }
   
-  /// Default initializer for Batch Normalize layer
+  /// Creates a batch-normalization layer.
+  ///
+  /// - Parameters:
+  ///   - gamma: Optional per-channel scale parameters.
+  ///   - beta: Optional per-channel bias parameters.
+  ///   - momentum: Moving-average momentum for inference statistics.
+  ///   - movingMean: Optional preloaded moving mean tensor.
+  ///   - movingVariance: Optional preloaded moving variance tensor.
+  ///   - inputSize: Optional input tensor shape.
   public init(gamma: [Tensor.Scalar] = [],
               beta: [Tensor.Scalar] = [],
               momentum: Tensor.Scalar = 0.99,
@@ -192,6 +200,9 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     self.outputSize = inputSize
   }
   
+  /// Encodes batch-normalization parameters and running statistics.
+  ///
+  /// - Parameter encoder: Encoder used for serialization.
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
@@ -203,10 +214,21 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
   }
   
   // actual forward pass happens here from the super class
+  /// Updates running batch statistics for one tensor during synchronized batching.
+  ///
+  /// - Parameters:
+  ///   - tensor: Tensor participating in the current batch.
+  ///   - context: Batch/thread metadata used for synchronization.
   public override func performThreadBatchingForwardPass(tensor: Tensor, context: NetworkContext) {
     updateWelford(inputs: tensor, context: context)
   }
   
+  /// Applies batch normalization to an input tensor.
+  ///
+  /// - Parameters:
+  ///   - tensor: Input tensor.
+  ///   - context: Batch/thread metadata used for synchronized statistics.
+  /// - Returns: Normalized tensor with attached backpropagation context.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let forward = normalize(inputs: tensor, context: context)
     let normalizations = forward.normalized
@@ -233,6 +255,11 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     return out
   }
   
+  /// Applies gradients to `gamma` and `beta`, then resets batch accumulators.
+  ///
+  /// - Parameters:
+  ///   - gradients: Unused optimizer gradient tuple for this layer type.
+  ///   - learningRate: Learning rate used to scale `gamma`/`beta` updates.
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     super.apply(gradients: gradients, learningRate: learningRate)
     
@@ -246,6 +273,7 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     welfordVariance.reset()
   }
   
+  /// Rebuilds internal trainables when input shape changes.
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     outputSize = inputSize

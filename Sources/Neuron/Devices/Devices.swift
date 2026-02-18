@@ -25,6 +25,17 @@ public protocol Device {
   var type: DeviceType { get }
   var qosPriority: DispatchQoS.QoSClass { get set }
 
+  /// Computes a 2D convolution on flat tensor storage.
+  ///
+  /// - Parameters:
+  ///   - signal: Input feature-map slice.
+  ///   - filter: Convolution kernel slice.
+  ///   - strides: Row/column stride.
+  ///   - padding: Padding mode.
+  ///   - filterSize: Kernel shape.
+  ///   - inputSize: Input spatial shape.
+  ///   - outputSize: Optional explicit output shape hint.
+  /// - Returns: Flat convolution output.
   func conv2d(signal: Tensor.Value,
               filter: Tensor.Value,
               strides: (Int, Int),
@@ -33,6 +44,17 @@ public protocol Device {
               inputSize: (rows: Int, columns: Int),
               outputSize: (rows: Int, columns: Int)?) -> Tensor.Value
   
+  /// Computes a transposed 2D convolution on flat tensor storage.
+  ///
+  /// - Parameters:
+  ///   - signal: Input feature-map slice.
+  ///   - filter: Transposed-convolution kernel slice.
+  ///   - strides: Row/column stride.
+  ///   - padding: Padding mode.
+  ///   - filterSize: Kernel shape.
+  ///   - inputSize: Input spatial shape.
+  ///   - outputSize: Optional explicit output shape hint.
+  /// - Returns: Flat transposed-convolution output.
   func transConv2d(signal: Tensor.Value,
                           filter: Tensor.Value,
                           strides: (Int, Int),
@@ -41,7 +63,25 @@ public protocol Device {
                           inputSize: (rows: Int, columns: Int),
                           outputSize: (rows: Int, columns: Int)?) -> Tensor.Value
   
+  /// Applies an activation function element-wise.
+  ///
+  /// - Parameters:
+  ///   - input: Tensor to activate.
+  ///   - type: Activation type to apply.
+  /// - Returns: Activated tensor.
   func activate(_ input: Tensor, _ type: Activation) -> Tensor
+  /// Applies an activation derivative element-wise.
+  ///
+  /// - Parameters:
+  ///   - input: Tensor to differentiate.
+  ///   - type: Activation derivative to compute.
+  /// - Returns: Tensor containing derivative values.
   func derivate(_ input: Tensor, _ type: Activation) -> Tensor
+  /// Computes matrix multiplication between two tensors.
+  ///
+  /// - Parameters:
+  ///   - a: Left tensor.
+  ///   - b: Right tensor.
+  /// - Returns: Matrix product tensor.
   func matmul(_ a: Tensor, _ b: Tensor) -> Tensor
 }

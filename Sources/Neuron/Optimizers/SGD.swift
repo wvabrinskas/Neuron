@@ -13,6 +13,17 @@ public class SGD: BaseOptimizer {
   private var v: [Tensor.Value] = []
   private var vb: [Tensor.Value] = []
 
+  /// Creates an SGD optimizer with optional momentum and clipping.
+  ///
+  /// - Parameters:
+  ///   - trainable: Model whose parameters will be optimized.
+  ///   - device: Execution device for forward/backward math.
+  ///   - learningRate: Step size applied to parameter updates.
+  ///   - batchSize: Number of samples per optimization step.
+  ///   - momentum: Momentum coefficient applied to gradient velocity.
+  ///   - weightClip: Optional weight clipping threshold.
+  ///   - gradientClip: Optional gradient clipping threshold.
+  ///   - augmenter: Optional training-time data augmenter.
   public init(_ trainable: Trainable,
               device: Device = CPU(),
               learningRate: Tensor.Scalar,
@@ -35,6 +46,7 @@ public class SGD: BaseOptimizer {
                augmenter: augmenter)
   }
   
+  /// Applies one SGD update using the currently accumulated gradients.
   public override func step() {
     var gradients = gradientAccumulator.accumulate()
 
@@ -84,6 +96,7 @@ public class SGD: BaseOptimizer {
     }
   }
   
+  /// Clears internal velocity buffers and resets inherited optimizer state.
   public override func reset() {
     v.removeAll(keepingCapacity: true)
     vb.removeAll(keepingCapacity: true)

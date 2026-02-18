@@ -10,6 +10,20 @@ import NumSwift
 
 /// Convienence class for Adam with weight decay as default to `0.004`
 public final class AdamW: Adam {
+  /// Creates an AdamW optimizer with decoupled weight decay enabled.
+  ///
+  /// - Parameters:
+  ///   - trainable: Model whose parameters will be optimized.
+  ///   - device: Execution device for forward/backward math.
+  ///   - learningRate: Base learning rate.
+  ///   - batchSize: Number of samples per optimization step.
+  ///   - b1: Exponential decay for first-moment estimates.
+  ///   - b2: Exponential decay for second-moment estimates.
+  ///   - eps: Numerical stability epsilon.
+  ///   - weightDecayValue: Decoupled weight decay coefficient.
+  ///   - weightClip: Optional weight clipping threshold.
+  ///   - gradientClip: Optional gradient clipping threshold.
+  ///   - augmenter: Optional training-time data augmenter.
   public init(_ trainable: Trainable,
               device: Device = CPU(),
               learningRate: Tensor.Scalar,
@@ -58,6 +72,20 @@ public class Adam: BaseOptimizer {
   private var t: Tensor.Scalar = 1
   private let weightDecay: WeightDecay
   
+  /// Creates an Adam optimizer.
+  ///
+  /// - Parameters:
+  ///   - trainable: Model whose parameters will be optimized.
+  ///   - device: Execution device for forward/backward math.
+  ///   - learningRate: Base learning rate.
+  ///   - batchSize: Number of samples per optimization step.
+  ///   - b1: Exponential decay for first-moment estimates.
+  ///   - b2: Exponential decay for second-moment estimates.
+  ///   - eps: Numerical stability epsilon.
+  ///   - weightDecay: Optional decoupled weight decay configuration.
+  ///   - weightClip: Optional weight clipping threshold.
+  ///   - gradientClip: Optional gradient clipping threshold.
+  ///   - augmenter: Optional training-time data augmenter.
   public init(_ trainable: Trainable,
               device: Device = CPU(),
               learningRate: Tensor.Scalar,
@@ -82,6 +110,7 @@ public class Adam: BaseOptimizer {
     build()
   }
   
+  /// Applies one Adam optimization step from accumulated gradients.
   public override func step() {
     var gradients = gradientAccumulator.accumulate()
     
@@ -192,6 +221,7 @@ public class Adam: BaseOptimizer {
     return result
   }
   
+  /// Resets Adam moment buffers and step counters.
   public override func reset() {
     t = 1
     m.removeAll(keepingCapacity: true)

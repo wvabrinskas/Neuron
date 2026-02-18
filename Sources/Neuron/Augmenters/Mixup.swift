@@ -23,6 +23,12 @@ public final class Mixup: Augmenting {
     self.beta = beta
   }
   
+  /// Applies Mixup augmentation to an input batch and labels.
+  ///
+  /// - Parameters:
+  ///   - input: Input feature tensors.
+  ///   - labels: Corresponding label tensors.
+  /// - Returns: Mixed inputs, mixed labels, and sampled mix coefficient.
   public func augment(_ input: TensorBatch, labels: TensorBatch) -> AugementedDatasetModel {
     start()
     

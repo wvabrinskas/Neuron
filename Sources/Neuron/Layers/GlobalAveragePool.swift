@@ -7,6 +7,9 @@ import Foundation
 import NumSwift
 
 public final class GlobalAvgPool: BaseLayer {
+  /// Creates a global-average-pooling layer.
+  ///
+  /// - Parameter inputSize: Optional input shape; if supplied, output shape is derived immediately.
   public init(inputSize: TensorSize = TensorSize(array: [])) {
     super.init(inputSize: inputSize,
                biasEnabled: false,
@@ -28,12 +31,21 @@ public final class GlobalAvgPool: BaseLayer {
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
   }
   
+  /// Encodes global-average-pooling configuration.
+  ///
+  /// - Parameter encoder: Encoder used for serialization.
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(encodingType, forKey: .type)
   }
   
+  /// Computes global spatial means per channel.
+  ///
+  /// - Parameters:
+  ///   - tensor: Input tensor.
+  ///   - context: Network execution context.
+  /// - Returns: Tensor of per-channel averages with shape `(1, depth, 1)`.
   public override func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
     
     let tensorContext = TensorContext { [inputSize] inputs, gradient, wrt in

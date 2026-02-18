@@ -12,6 +12,13 @@ import NumSwift
 // Used exclusively for inference on an RNN model
 public final class InferenceOnlyRNN: RNN<EmptyRNNDataset> {
   
+  /// Creates an inference-only RNN wrapper around an existing network.
+  ///
+  /// - Parameters:
+  ///   - device: Execution device.
+  ///   - returnSequence: Whether sequence outputs include all timesteps.
+  ///   - vocabSize: Vocabulary size used for decoding predictions.
+  ///   - network: Pretrained sequential network.
   public init(device: Device = CPU(),
               returnSequence: Bool = true,
               vocabSize: Int,
@@ -27,6 +34,9 @@ public final class InferenceOnlyRNN: RNN<EmptyRNNDataset> {
     optimizer.isTraining = false
   }
   
+  /// Imports a serialized sequential network from raw data.
+  ///
+  /// - Parameter data: Serialized model data.
   public override func importFrom(data: Data?) async {
     guard let data else { return }
     let n = Sequential.import(data)
@@ -34,6 +44,9 @@ public final class InferenceOnlyRNN: RNN<EmptyRNNDataset> {
     optimizer.isTraining = false
   }
   
+  /// Imports a serialized sequential network from a file URL.
+  ///
+  /// - Parameter url: URL to serialized model file.
   public override func importFrom(url: URL?) async {
     guard let url else { return }
     let n = Sequential.import(url)
@@ -48,9 +61,26 @@ public protocol RNNSupportedDataset {
   associatedtype Item: Hashable
   
   var vocabSize: Int { get }
+  /// One-hot encodes dataset items.
+  ///
+  /// - Parameter items: Items to encode.
+  /// - Returns: One-hot tensor representation.
   func oneHot(_ items: [Item]) -> Tensor
+  /// Vectorizes dataset items into index-based representation.
+  ///
+  /// - Parameter items: Items to vectorize.
+  /// - Returns: Tensor containing vectorized token IDs.
   func vectorize(_ items: [Item]) -> Tensor
+  /// Decodes model output tensor values back into dataset items.
+  ///
+  /// - Parameters:
+  ///   - data: Tensor to decode.
+  ///   - oneHot: Whether `data` is one-hot encoded.
+  /// - Returns: Decoded item sequence.
   func getWord(for data: Tensor, oneHot: Bool) -> [Item]
+  /// Builds training and validation datasets for RNN training.
+  ///
+  /// - Returns: Tuple containing training and validation datasets.
   func build() async -> RNNSupportedDatasetData
 }
 
@@ -61,6 +91,13 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
     let embeddingInitializer: InitializerType
     let lstmInitializer: InitializerType
 
+    /// Creates LSTM architecture parameters for an RNN.
+    ///
+    /// - Parameters:
+    ///   - hiddenUnits: Number of hidden LSTM units.
+    ///   - inputUnits: Embedding width fed into LSTM.
+    ///   - embeddingInitializer: Initializer for embedding weights.
+    ///   - lstmInitializer: Initializer for LSTM gate/output weights.
     public init(hiddenUnits: Int,
                 inputUnits: Int,
                 embeddingInitializer: InitializerType = .xavierUniform,
@@ -80,6 +117,15 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
     let weightDecay: Adam.WeightDecay
     let metricsReporter: MetricsReporter?
     
+    /// Creates optimizer hyperparameters for RNN training.
+    ///
+    /// - Parameters:
+    ///   - learningRate: Base learning rate.
+    ///   - b1: Adam beta1.
+    ///   - b2: Adam beta2.
+    ///   - eps: Numerical stability epsilon.
+    ///   - weightDecay: Optional Adam weight-decay behavior.
+    ///   - metricsReporter: Optional metrics reporter.
     public init(learningRate: Tensor.Scalar,
                 b1: Tensor.Scalar = 0.9,
                 b2: Tensor.Scalar = 0.999,
@@ -102,6 +148,14 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
     let killOnAccuracy: Bool
     let lossFunction: LossFunction
     
+    /// Creates training-loop parameters for `Classifier` behavior.
+    ///
+    /// - Parameters:
+    ///   - batchSize: Batch size used during training.
+    ///   - epochs: Number of training epochs.
+    ///   - accuracyThreshold: Early-stop threshold policy.
+    ///   - killOnAccuracy: Stops training when threshold is reached.
+    ///   - lossFunction: Loss function used for optimization.
     public init(batchSize: Int,
                 epochs: Int,
                 accuracyThreshold: AccuracyThreshold = .init(value: 0.9, averageCount: 5),
@@ -129,6 +183,16 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
   private let optimizerParameters: OptimizerParameters
   private let lstmParameters: RNNLSTMParameters
   
+  /// Creates an RNN trainer parameterized by a dataset provider.
+  ///
+  /// - Parameters:
+  ///   - device: Execution device.
+  ///   - returnSequence: Whether model returns full timestep sequence.
+  ///   - dataset: Dataset adapter that vectorizes and builds samples.
+  ///   - classifierParameters: Training loop configuration.
+  ///   - optimizerParameters: Optimizer hyperparameters.
+  ///   - lstmParameters: LSTM architecture hyperparameters.
+  ///   - extraLayers: Additional layers appended after embedding/LSTM.
   public init(device: Device = CPU(),
               returnSequence: Bool = true,
               dataset: Dataset,
@@ -168,6 +232,9 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
                lossFunction: classifierParameters.lossFunction)
   }
   
+  /// Imports a serialized network from raw bytes and prepares the trainer.
+  ///
+  /// - Parameter data: Serialized model data.
   public func importFrom(data: Data?) async {
     guard let data else { return }
     
@@ -177,6 +244,9 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
     optimizer.trainable = n
   }
   
+  /// Imports a serialized network from disk and prepares the trainer.
+  ///
+  /// - Parameter url: URL to serialized model file.
   public func importFrom(url: URL?) async {
     guard let url else { return }
     
@@ -186,6 +256,7 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
     optimizer.trainable = n
   }
   
+  /// Builds dataset/network state (if needed) and runs training.
   public func train() async {
     optimizer.isTraining = true
     
@@ -196,6 +267,15 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
     }
   }
   
+  /// Generates token sequences using iterative autoregressive prediction.
+  ///
+  /// - Parameters:
+  ///   - with: Optional starting token/string prefix.
+  ///   - count: Number of sequences to generate.
+  ///   - maxWordLength: Maximum generated token count per sequence.
+  ///   - randomizeSelection: Samples next token probabilistically when `true`.
+  ///   - endingMark: Token that terminates generation.
+  /// - Returns: Generated string sequences.
   public func predict(starting with: String? = nil,
                       count: Int = 1,
                       maxWordLength: Int = 20,
@@ -276,6 +356,7 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
 
   }
   
+  /// Ensures dataset-derived network state is built and compiled once.
   public func readyUp() async {
     if ready == false || datasetData == nil {
       datasetData = await dataset.build()

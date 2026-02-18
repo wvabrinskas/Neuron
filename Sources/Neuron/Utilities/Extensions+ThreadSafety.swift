@@ -9,6 +9,10 @@ import Foundation
 
 public extension NSRecursiveLock {
   @discardableResult
+  /// Executes a closure while holding the recursive lock.
+  ///
+  /// - Parameter block: Work performed while locked.
+  /// - Returns: Value returned from `block`.
   func with<T>(_ block: () throws -> T) rethrows -> T {
     lock()
     defer { unlock() }
@@ -18,6 +22,10 @@ public extension NSRecursiveLock {
 
 public extension NSLock {
   @discardableResult
+  /// Executes a closure while holding the lock.
+  ///
+  /// - Parameter block: Work performed while locked.
+  /// - Returns: Value returned from `block`.
   func with<T>(_ block: () throws -> T) rethrows -> T {
     lock()
     defer { unlock() }
@@ -30,6 +38,9 @@ public struct Atomic<Value> {
   private let lock = NSLock()
   private var value: Value
   
+  /// Creates an atomic wrapper around an initial value.
+  ///
+  /// - Parameter wrappedValue: Initial stored value.
   public init(wrappedValue: Value) {
     self.value = wrappedValue
   }
@@ -75,6 +86,9 @@ extension OperationQueue {
 
 public final class SynchronousOperationQueue: OperationQueue, @unchecked Sendable {
   
+  /// Creates a serial operation queue for synchronous barrier-style workloads.
+  ///
+  /// - Parameter name: Optional queue name for diagnostics.
   public init(name: String? = nil) {
     super.init()
     

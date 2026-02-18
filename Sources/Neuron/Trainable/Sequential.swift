@@ -15,6 +15,17 @@ public struct NetworkContext: Sendable {
   public let totalInBatch: Int
   public let threadId: UUID
   
+  /// Creates contextual metadata for a single forward-pass invocation.
+  ///
+  /// This context is propagated through layers so batch-aware layers can
+  /// coordinate worker-specific state and synchronization.
+  ///
+  /// - Parameters:
+  ///   - indexInBatch: Index of the current sample within the active batch chunk.
+  ///   - batchRange: Global range represented by this worker chunk.
+  ///   - batchProcessingCount: Number of items processed in this worker chunk.
+  ///   - totalInBatch: Total sample count in the full batch.
+  ///   - threadId: Identifier used by concurrent batch workers.
   public init(indexInBatch: Int = 0,
               batchRange: CountableRange<Int> = 0..<1,
               batchProcessingCount: Int = 1,
@@ -65,6 +76,10 @@ public final class Sequential: Trainable, Logger {
     case layers
   }
   
+  /// Reconstructs a `Sequential` model from a serialized `.smodel` file URL.
+  ///
+  /// - Parameter url: File URL pointing to a previously exported model.
+  /// - Returns: Decoded `Sequential` instance.
   public static func `import`(_ url: URL) -> Self {
     let result: Result<Self, Error> =  ExportHelper.buildModel(url)
     switch result {
@@ -76,6 +91,10 @@ public final class Sequential: Trainable, Logger {
   }
   
   @_spi(Visualizer)
+  /// Reconstructs a `Sequential` model directly from encoded model data.
+  ///
+  /// - Parameter data: Serialized model bytes.
+  /// - Returns: Decoded `Sequential` instance.
   public static func `import`(_ data: Data) -> Self {
     let result: Result<Self, Error> =  ExportHelper.buildModel(data)
     switch result {
@@ -86,10 +105,16 @@ public final class Sequential: Trainable, Logger {
     }
   }
   
+  /// Creates a sequential container from an explicit variadic layer list.
+  ///
+  /// - Parameter layers: Ordered layers to execute during forward passes.
   public init(_ layers: Layer...) {
     self.layers = layers
   }
   
+  /// Creates a sequential container from a layer builder closure.
+  ///
+  /// - Parameter layers: Closure returning layers in execution order.
   public init(_ layers: () -> [Layer]) {
     self.layers = layers()
   }
@@ -106,19 +131,39 @@ public final class Sequential: Trainable, Logger {
     self.init({ layers })
   }
   
+  /// Runs inference on a single tensor using call syntax.
+  ///
+  /// - Parameters:
+  ///   - data: Input tensor.
+  ///   - context: Batch/thread metadata propagated through the network.
+  /// - Returns: Final network output tensor.
   public func callAsFunction(_ data: Tensor, context: NetworkContext) -> Tensor {
     predict(data, context: context)
   }
   
+  /// Runs inference on a batch of tensors using call syntax.
+  ///
+  /// - Parameters:
+  ///   - data: Input tensor batch.
+  ///   - context: Batch/thread metadata propagated through the network.
+  /// - Returns: Output tensor batch in input order.
   public func callAsFunction(_ data: TensorBatch, context: NetworkContext) -> TensorBatch {
     predict(batch: data, context: context)
   }
   
+  /// Encodes this network and its layers for persistence.
+  ///
+  /// - Parameter encoder: Encoder used for serialization.
   public func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(layers.map { LayerModel(layer: $0) }, forKey: .layers)
   }
   
+  /// Applies one set of accumulated layer gradients to all layers.
+  ///
+  /// - Parameters:
+  ///   - gradients: Gradient payload where each index maps to a layer.
+  ///   - learningRate: Scalar step size used by layer update rules.
   public func apply(gradients: Tensor.Gradient, learningRate: Tensor.Scalar) {
     for i in 0..<layers.count {
       let layer = layers[i]
@@ -128,6 +173,12 @@ public final class Sequential: Trainable, Logger {
     }
   }
   
+  /// Performs a full forward pass for a batch.
+  ///
+  /// - Parameters:
+  ///   - batch: Input tensors to process in order.
+  ///   - context: Batch/thread metadata for downstream layers.
+  /// - Returns: Output tensors produced by the last layer.
   public func predict(batch: TensorBatch, context: NetworkContext) -> TensorBatch {
     precondition(isCompiled, "Please call compile() on the \(self) before attempting to fit")
     
@@ -148,6 +199,12 @@ public final class Sequential: Trainable, Logger {
     return outputTensors
   }
   
+  /// Performs a full forward pass for one tensor.
+  ///
+  /// - Parameters:
+  ///   - data: Input tensor.
+  ///   - context: Batch/thread metadata for downstream layers.
+  /// - Returns: Output tensor produced by the last layer.
   public func predict(_ data: Tensor, context: NetworkContext) -> Tensor {
     precondition(isCompiled, "Please call compile() on the \(self) before attempting to fit")
     
@@ -163,6 +220,10 @@ public final class Sequential: Trainable, Logger {
     return outputTensor
   }
   
+  /// Validates layer connectivity and propagates inferred input sizes.
+  ///
+  /// The first layer must have an explicit `inputSize`; subsequent layers
+  /// receive their input sizes from the previous layer's output shape.
   public func compile() {
     var inputSize: TensorSize = TensorSize(array: [])
     var i = 0
@@ -203,6 +264,10 @@ public final class Sequential: Trainable, Logger {
     isCompiled = true
   }
   
+  /// Exports all layer weights in layer order.
+  ///
+  /// - Returns: Nested weight tensor collection per layer.
+  /// - Throws: `LayerErrors` if the network has not been compiled.
   public func exportWeights() throws -> [[Tensor]] {
     guard isCompiled else {
       throw LayerErrors.generic(error: "Please compile the trainable first before attempting to export weights.")
@@ -211,6 +276,10 @@ public final class Sequential: Trainable, Logger {
     return try layers.map { try $0.exportWeights() }
   }
   
+  /// Imports precomputed weights for each layer.
+  ///
+  /// - Parameter weights: Nested tensor list where each entry maps to a layer.
+  /// - Throws: `LayerErrors` when the network is not compiled or shapes mismatch.
   public func importWeights(_ weights: [[Tensor]]) throws {
     guard isCompiled else {
       throw LayerErrors.generic(error: "Please compile the trainable first before attempting to import weights.")

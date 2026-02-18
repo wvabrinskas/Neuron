@@ -24,17 +24,41 @@ public protocol Optimizer: AnyObject {
   var batchSize: Int { get }
   var augmenter: Augmenter? { get set }
 
+  /// Runs inference via call syntax.
+  ///
+  /// - Parameter data: Input tensor batch.
+  /// - Returns: Prediction tensors.
   func callAsFunction(_ data: [Tensor]) -> [Tensor]
+  /// Adds gradients to the optimizer's accumulator/state.
+  ///
+  /// - Parameter gradients: Newly computed gradients to accumulate.
   func apply(_ gradients: Tensor.Gradient)
+  /// Clears any currently accumulated gradients.
   func zeroGradients()
+  /// Applies one optimization step using accumulated gradients.
   func step()
+  /// Resets optimizer-specific running state.
   func reset()
+  /// Performs one fit iteration on a batch.
+  ///
+  /// - Parameters:
+  ///   - data: Input tensors.
+  ///   - labels: Ground-truth labels for `data`.
+  ///   - wrt: Optional explicit gradient target tensors.
+  ///   - lossFunction: Loss function used for optimization.
+  ///   - validation: Whether this run is validation-only.
+  ///   - requiresGradients: Whether gradients should be computed.
+  /// - Returns: Outputs, gradients, loss, and accuracy for the batch.
   func fit(_ data: [Tensor],
            labels: [Tensor],
            wrt: TensorBatch?,
            lossFunction: LossFunction,
            validation: Bool,
            requiresGradients: Bool) -> Output
+  /// Runs prediction for a batch without training updates.
+  ///
+  /// - Parameter data: Input tensors.
+  /// - Returns: Prediction tensors.
   func predict(_ data: [Tensor]) -> [Tensor]
 }
 
@@ -81,6 +105,16 @@ open class BaseOptimizer: Optimizer {
   private let workersCount = Constants.maxWorkers
   private var augmentation: Augmenting? = nil
 
+  /// Creates an optimizer base configured to train a `Trainable` network.
+  ///
+  /// - Parameters:
+  ///   - trainable: Network whose layer parameters will be updated.
+  ///   - learningRate: Base learning rate (unless a decay function overrides it).
+  ///   - batchSize: Number of samples processed per optimization step.
+  ///   - metricsReporter: Optional reporter that collects loss/timing metrics.
+  ///   - weightClip: Optional per-layer weight clipping threshold.
+  ///   - gradientClip: Optional gradient clipping threshold.
+  ///   - augmenter: Optional data augmentation policy applied during training.
   public init(trainable: Trainable,
               learningRate: Tensor.Scalar,
               batchSize: Int,
@@ -101,12 +135,19 @@ open class BaseOptimizer: Optimizer {
     self.augmentation = augmenter?.augmenting
   }
   
+  /// Finalizes an optimization step after gradients have been applied.
+  ///
+  /// Subclasses should override to implement algorithm-specific updates, then
+  /// call `super.step()` to advance decay/timer bookkeeping.
   public func step() {
     // override
     decayFunction?.step()
     metricsReporter?.endTimer(metric: .optimizerRunTime)
   }
   
+  /// Resets optimizer-managed state (for example momentum/Adam moments).
+  ///
+  /// Subclasses should clear algorithm-specific buffers, then call `super.reset()`.
   public func reset() {
     // override
     decayFunction?.reset()
@@ -129,6 +170,7 @@ open class BaseOptimizer: Optimizer {
     }
   }
   
+  /// Clears all accumulated gradients before processing a new batch.
   open func zeroGradients() {
     metricsReporter?.startTimer(metric: .optimizerRunTime)
     gradientAccumulator.clear()
@@ -140,10 +182,18 @@ open class BaseOptimizer: Optimizer {
     gradientAccumulator.insert(newGradients)
   }
   
+  /// Runs inference on a tensor batch via call syntax.
+  ///
+  /// - Parameter data: Batch of input tensors.
+  /// - Returns: Predictions in input order.
   open func callAsFunction(_ data: [Tensor]) -> [Tensor] {
     predict(data)
   }
   
+  /// Performs batched forward prediction without parameter updates.
+  ///
+  /// - Parameter data: Batch of input tensors.
+  /// - Returns: Forward outputs from the underlying trainable.
   open func predict(_ data: [Tensor]) -> [Tensor] {
     isTraining = false
     
@@ -158,6 +208,16 @@ open class BaseOptimizer: Optimizer {
     return results
   }
   
+  /// Runs one training/validation iteration over the provided batch.
+  ///
+  /// - Parameters:
+  ///   - data: Input tensors.
+  ///   - labels: Ground-truth tensors aligned with `data`.
+  ///   - wrt: Optional tensors specifying explicit backpropagation targets.
+  ///   - lossFunction: Loss used for value and derivative computation.
+  ///   - validation: Flag indicating validation mode (no parameter updates).
+  ///   - requiresGradients: Whether to compute and return gradients.
+  /// - Returns: Batch outputs, aggregated gradients, loss, and accuracy.
   open func fit(_ data: TensorBatch,
                 labels: TensorBatch,
                 wrt: TensorBatch? = nil,

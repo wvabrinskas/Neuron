@@ -217,6 +217,9 @@ public final class LSTM: BaseLayer {
     }
   }
   
+  /// Encodes LSTM gate/output parameters and topology metadata.
+  ///
+  /// - Parameter encoder: Encoder used for serialization.
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(outputSize, forKey: .outputSize)
@@ -326,6 +329,11 @@ public final class LSTM: BaseLayer {
   }
   
   
+  /// Applies accumulated LSTM gate/output gradients to trainable parameters.
+  ///
+  /// - Parameters:
+  ///   - gradients: Combined weight and bias gradient tensors.
+  ///   - learningRate: Learning rate already reflected by optimizer gradient scaling.
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     /*
      order of weights in tensor...
