@@ -1,0 +1,72 @@
+name: Auto Documentation
+
+on:
+  pull_request:
+    branches: [develop]
+    types: [closed]
+
+jobs:
+  generate-docs:
+    # Only run when a PR is merged (not just closed) and NOT from the bot itself
+    if: >
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.user.login != 'github-actions[bot]' &&
+      !startsWith(github.event.pull_request.head.ref, 'auto-docs/')
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate missing documentation
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SOURCES_DIR: Sources
+        run: |
+          python .github/scripts/generate_docs.py
+          echo "has_changes=$(git diff --quiet && echo false || echo true)" >> "$GITHUB_OUTPUT"
+        id: generate
+
+      - name: Create Pull Request
+        if: steps.generate.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          BRANCH="auto-docs/pr-${PR_NUMBER}"
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git checkout -b "$BRANCH"
+          git add -A
+          git commit -m "docs: add missing documentation from PR #${PR_NUMBER}"
+          git push origin "$BRANCH"
+          
+          BODY="## 📝 Auto-generated Documentation
+
+          Triggered by PR #${PR_NUMBER} merged into \`develop\`.
+
+          $(cat /tmp/doc_summary.md 2>/dev/null || echo 'Documentation comments added for undocumented public declarations.')
+
+          ---
+          *This PR was auto-generated. Please review the doc comments for accuracy.*"
+
+          gh pr create \
+            --base develop \
+            --head "$BRANCH" \
+            --title "docs: add missing documentation (PR #${PR_NUMBER})" \
+            --body "$BODY" \
+            --label "documentation"
