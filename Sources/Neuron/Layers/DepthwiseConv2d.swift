@@ -410,7 +410,7 @@ public class DepthwiseConv2d: BaseConvolutionalLayer {
   /// - Parameter input: Input tensor of shape `(W, H, D)`.
   /// - Returns: Flat output storage of length `outputSize.rows × outputSize.columns × inputSize.depth`.
   internal func conv(_ input: Tensor) -> Tensor.Value {
-    var resultStorage: Tensor.Value = []
+    var resultStorage: Tensor = Tensor(Tensor.Value(repeating: 0, count: outputSize.columns * outputSize.rows * outputSize.depth), size: outputSize)
     
     Array(0..<self.inputSize.depth).concurrentForEach(workers: Constants.maxWorkers) { _, i in
       let currentFilter = self.filters[i].storage
@@ -429,10 +429,10 @@ public class DepthwiseConv2d: BaseConvolutionalLayer {
         conv = conv + bias
       }
       
-      resultStorage.append(contentsOf: conv)
+      resultStorage.setDepthSlice(i, conv)
     }
     
-    return resultStorage
+    return resultStorage.storage
   }
   
   /// Returns a 180°-rotated copy of every depth slice in the given filter tensor.
