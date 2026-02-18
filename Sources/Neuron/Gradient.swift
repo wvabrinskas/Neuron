@@ -7,10 +7,11 @@
 
 import Foundation
 import NumSwift
+import Atomics
 
 /// Accumulates gradients returning the average gradients for each layer w.r.t the weights and an array of gradients w.r.t to each input
 public class GradientAccumulator {
-  private var iterations: Int = 0
+  private var iterations = ManagedAtomic<Int>(0)
   private var biasGradients: [Tensor] = []//gradients w.r.t to each layer's weights
   private var weightGradients: [Tensor] = []//gradients w.r.t to each layer's weights
   private var inputGradients: [Tensor] = [] //gradients w.r.t to each top level input
@@ -25,7 +26,7 @@ public class GradientAccumulator {
     biasGradients.removeAll(keepingCapacity: true)
     weightGradients.removeAll(keepingCapacity: true)
     inputGradients.removeAll(keepingCapacity: true)
-    iterations = 0
+    iterations.store(0, ordering: .relaxed)
   }
   
   /// Inserts the gradients into the accumulator
@@ -43,8 +44,11 @@ public class GradientAccumulator {
   ///   - weights: Gradients WRT to each layer's weights
   ///   - biases: Gradients WRT to each layer's biases
   public func insert(input: Tensor, weights: [Tensor], biases: [Tensor]) {
+    
+    iterations.wrappingIncrement(by: 1, ordering: .relaxed)
+    
     lock.with {
-      iterations += 1
+      
       if weightGradients.isEmpty {
         weightGradients = weights
       } else {
@@ -74,9 +78,10 @@ public class GradientAccumulator {
     var weight: [Tensor] = weightGradients
     var bias: [Tensor] = biasGradients
     
-    if iterations > 1 && average {
-      weight = weightGradients / iterations.asTensorScalar
-      bias = biasGradients / iterations.asTensorScalar
+    let iterationsAtomic = iterations.load(ordering: .acquiring)
+    if iterationsAtomic > 1 && average {
+      weight = weightGradients / iterationsAtomic.asTensorScalar
+      bias = biasGradients / iterationsAtomic.asTensorScalar
     }
         // average the gradients
     return .init(input: inputGradients, weights: weight, biases: bias)
