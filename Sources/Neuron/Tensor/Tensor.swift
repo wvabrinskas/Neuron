@@ -790,7 +790,7 @@ extension Array where Element == Tensor {
     
     return result
   }
-  
+
   static func *(lhs: [Tensor], rhs: Tensor.Scalar) -> Self {
     var result: [Tensor] = []
     
