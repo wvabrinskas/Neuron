@@ -11,8 +11,6 @@ public final class ResNet: BaseLayer {
   private var innerBlockSequential = Sequential()
   private var shortcutSequential = Sequential()
   private let outputRelu = ReLu()
-  private let accumulator = GradientAccumulator()
-  private let shortCutAccumulator = GradientAccumulator()
   
   private let filterCount: Int
   private let stride: Int

@@ -234,7 +234,7 @@ open class BaseOptimizer: Optimizer {
     isTraining = !validation
         
     metricsReporter?.startTimer(metric: .batchTime)
-    let accumulator = GradientAccumulator()
+   // let accumulator = GradientAccumulator()
   
     var losses: Tensor.Scalar = 0
     var accuracy: Tensor.Scalar = 0
@@ -254,12 +254,17 @@ open class BaseOptimizer: Optimizer {
       augmentedOut = augOut
     }
     
+    var accumulators = (0..<workersCount).map { _ in GradientAccumulator() }
+    
     dataToUse.concurrentBatchedForEach(workers: workersCount, priority: device.qosPriority) { elements,
                                                                                          workerIndex,
                                                                                          indexRange,
                                                                                          processingCount,
                                                                                          workerId in
       
+      let accumulator = accumulators[workerIndex]
+      accumulator.average = false
+
       let outs = self.trainable.predict(batch: elements, context: .init(batchRange: indexRange,
                                                                         batchProcessingCount: processingCount,
                                                                         totalInBatch: data.count,
@@ -304,12 +309,20 @@ open class BaseOptimizer: Optimizer {
       }
     }
     
-    let flatOutput = outputs.flatMap { $0 }
-    
     metricsReporter?.endTimer(metric: .batchTime)
-    
+
+    let flatOutput = outputs.flatMap { $0 }
+
     if requiresGradients {
-      let accumulated = accumulator.accumulate(clearAtEnd: true)
+      
+      // account for too many accumulators. we allocate for each thread but that might not be needed
+      accumulators = accumulators.compactMap { $0.isEmpty ? nil : $0 }
+      
+      var accumulatedGradients = accumulators.map { $0.accumulate() }
+      let first = accumulatedGradients.removeFirst()
+      
+      let accumulated = accumulatedGradients.reduce(first, +) / batchSize.asTensorScalar
+      
       let weightGradientsAcc: [Tensor] = accumulated.weights
       let inputGradientsAcc: [Tensor] = accumulated.input
       let biasGradientAcc: [Tensor] = accumulated.biases
