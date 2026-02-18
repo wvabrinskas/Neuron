@@ -378,6 +378,16 @@ public extension Tensor {
     }
   }
   
+  func testInvalid() {
+    for val in storage {
+      if val.isNormal == false {
+        print(self)
+        fatalError()
+        return
+      }
+    }
+  }
+  
   func testInf() {
     for val in storage {
       if val.isInfinite {

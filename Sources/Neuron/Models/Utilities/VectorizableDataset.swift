@@ -5,11 +5,69 @@
 //  Created by William Vabrinskas on 1/9/26.
 //
 
-open class VectorizableDataset<VectorItem: Hashable>: RNNSupportedDataset {
+import Foundation
 
-  public let vectorizer: Vectorizer<VectorItem> = .init()
+
+public typealias VectorizingDatasetData = (training: [DatasetModel], val: [DatasetModel])
+public protocol VectorizingDataset {
+  associatedtype Item: VectorizableItem
   
+  var vectorizer: Vectorizer<Item> { get }
+  
+  var vocabSize: Int { get }
+  /// One-hot encodes dataset items.
+  ///
+  /// - Parameter items: Items to encode.
+  /// - Returns: One-hot tensor representation.
+  func oneHot(_ items: [Item]) -> Tensor
+  /// Vectorizes dataset items into index-based representation.
+  ///
+  /// - Parameter items: Items to vectorize.
+  /// - Returns: Tensor containing vectorized token IDs.
+  func vectorize(_ items: [Item]) -> Tensor
+  /// Decodes model output tensor values back into dataset items.
+  ///
+  /// - Parameters:
+  ///   - data: Tensor to decode.
+  ///   - oneHot: Whether `data` is one-hot encoded.
+  /// - Returns: Decoded item sequence.
+  func getWord(for data: Tensor, oneHot: Bool) -> [Item]
+  /// Builds training and validation datasets for RNN training.
+  ///
+  /// - Returns: Tuple containing training and validation datasets.
+  func build() async -> VectorizingDatasetData
+  
+  static func build(url: URL) -> Self
+  
+  @_spi(Visualizer)
+  static func build(data: Data) -> Self
+  
+  func export(name: String?, overrite: Bool, compress: Bool) -> URL?
+}
+
+open class VectorizableDataset<VectorItem: VectorizableItem>: VectorizingDataset {
+
+  public let vectorizer: Vectorizer<VectorItem>
+
   public var vocabSize: Int = 0
+
+  public required init(vectorizer: Vectorizer<VectorItem> = .init()) {
+    self.vectorizer = vectorizer
+    self.vocabSize = vectorizer.vector.count
+  }
+
+  public static func build(url: URL) -> Self {
+    Self.init(vectorizer: Vectorizer<VectorItem>.import(url))
+  }
+
+  @_spi(Visualizer)
+  public static func build(data: Data) -> Self {
+    return Self.init(vectorizer: Vectorizer<VectorItem>.import(data))
+  }
+  
+  public func export(name: String?, overrite: Bool, compress: Bool) -> URL?  {
+    vectorizer.export(name: name, overrite: overrite, compress: compress)
+  }
   
   /// One-hot encodes the provided items using the internal vectorizer.
   ///
@@ -47,7 +105,7 @@ open class VectorizableDataset<VectorItem: Hashable>: RNNSupportedDataset {
   /// Subclasses should override with concrete dataset construction.
   ///
   /// - Returns: Empty training/validation datasets by default.
-  open func build() async -> RNNSupportedDatasetData {
+  open func build() async -> VectorizingDatasetData {
     ([], [])
   }
 }

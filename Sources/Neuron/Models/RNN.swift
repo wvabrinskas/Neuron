@@ -8,83 +8,10 @@
 import Foundation
 import NumSwift
 
-
-// Used exclusively for inference on an RNN model
-public final class InferenceOnlyRNN: RNN<EmptyRNNDataset> {
+public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == String {
   
-  /// Creates an inference-only RNN wrapper around an existing network.
-  ///
-  /// - Parameters:
-  ///   - device: Execution device.
-  ///   - returnSequence: Whether sequence outputs include all timesteps.
-  ///   - vocabSize: Vocabulary size used for decoding predictions.
-  ///   - network: Pretrained sequential network.
-  public init(device: Device = CPU(),
-              returnSequence: Bool = true,
-              vocabSize: Int,
-              network: Sequential) {
-    super.init(device: device,
-               returnSequence: returnSequence,
-               dataset: EmptyRNNDataset(vocabSize: vocabSize),
-               classifierParameters: .init(batchSize: 0, epochs: 0),
-               optimizerParameters: .init(learningRate: 0),
-               lstmParameters: .init(hiddenUnits: 0, inputUnits: 0))
-    
-    optimizer.trainable = network
-    optimizer.isTraining = false
-  }
+  //public typealias Dataset = VectorizingDataset
   
-  /// Imports a serialized sequential network from raw data.
-  ///
-  /// - Parameter data: Serialized model data.
-  public override func importFrom(data: Data?) async {
-    guard let data else { return }
-    let n = Sequential.import(data)
-    optimizer.trainable = n
-    optimizer.isTraining = false
-  }
-  
-  /// Imports a serialized sequential network from a file URL.
-  ///
-  /// - Parameter url: URL to serialized model file.
-  public override func importFrom(url: URL?) async {
-    guard let url else { return }
-    let n = Sequential.import(url)
-    optimizer.trainable = n
-    optimizer.isTraining = false
-  }
-}
-
-
-public typealias RNNSupportedDatasetData = (training: [DatasetModel], val: [DatasetModel])
-public protocol RNNSupportedDataset {
-  associatedtype Item: Hashable
-  
-  var vocabSize: Int { get }
-  /// One-hot encodes dataset items.
-  ///
-  /// - Parameter items: Items to encode.
-  /// - Returns: One-hot tensor representation.
-  func oneHot(_ items: [Item]) -> Tensor
-  /// Vectorizes dataset items into index-based representation.
-  ///
-  /// - Parameter items: Items to vectorize.
-  /// - Returns: Tensor containing vectorized token IDs.
-  func vectorize(_ items: [Item]) -> Tensor
-  /// Decodes model output tensor values back into dataset items.
-  ///
-  /// - Parameters:
-  ///   - data: Tensor to decode.
-  ///   - oneHot: Whether `data` is one-hot encoded.
-  /// - Returns: Decoded item sequence.
-  func getWord(for data: Tensor, oneHot: Bool) -> [Item]
-  /// Builds training and validation datasets for RNN training.
-  ///
-  /// - Returns: Tuple containing training and validation datasets.
-  func build() async -> RNNSupportedDatasetData
-}
-
-public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item == String {
   public struct RNNLSTMParameters {
     let hiddenUnits: Int
     let inputUnits: Int
@@ -169,14 +96,14 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
     }
   }
   
-  private let dataset: Dataset
+  var dataset: Dataset
   private var lstm: LSTM?
   private var embedding: Embedding?
   private var vocabSize: Int = 0
   private var wordLength: Int = 0
   private var extraLayers: [Layer]
   private var ready: Bool = false
-  private var datasetData: RNNSupportedDatasetData?
+  private var datasetData: VectorizingDatasetData?
   private let returnSequence: Bool
   
   private let classifierParameters: ClassifierParameters
@@ -232,14 +159,26 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
                lossFunction: classifierParameters.lossFunction)
   }
   
+  public override func export(overrite: Bool = false, compress: Bool = true) -> URL? {
+    fatalError("Please use exportWithVectors")
+  }
+  
+  public func exportWithVectors(overrite: Bool = false, compress: Bool = true) -> (model: URL?, vectors: URL?) {
+    let model = super.export(overrite: overrite, compress: compress)
+    let dataset = dataset.export(name: "vectors", overrite: overrite, compress: compress)
+    return (model, dataset)
+  }
+  
   /// Imports a serialized network from raw bytes and prepares the trainer.
   ///
   /// - Parameter data: Serialized model data.
-  public func importFrom(data: Data?) async {
-    guard let data else { return }
+  public func importFrom(data: Data?, vectors: Data?) async {
+    guard let data, let vectors else { return }
+    
+    dataset = Dataset.build(data: vectors)
     
     await readyUp()
-    
+      
     let n = Sequential.import(data)
     optimizer.trainable = n
   }
@@ -247,8 +186,10 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
   /// Imports a serialized network from disk and prepares the trainer.
   ///
   /// - Parameter url: URL to serialized model file.
-  public func importFrom(url: URL?) async {
-    guard let url else { return }
+  public func importFrom(url: URL?, vectors: URL?) async {
+    guard let url, let vectors else { return }
+    
+    dataset = Dataset.build(url: vectors)
     
     await readyUp()
     
@@ -367,7 +308,7 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
     }
   }
   
-  private func compile(dataset: RNNSupportedDatasetData) {
+  private func compile(dataset: VectorizingDatasetData) {
     guard let first = dataset.training.first else { fatalError("Could not build network with dataset") }
     
     let vocabSize = self.dataset.vocabSize

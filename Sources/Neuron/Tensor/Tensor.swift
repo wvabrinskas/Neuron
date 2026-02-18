@@ -840,7 +840,7 @@ extension Array where Element == Tensor {
 
 public extension Tensor.Gradient {
   
-  func l2NomalizeWeightsAndBiases() {
+  func l2NomalizeWeightsAndBiases() { 
     weights.forEach { $0.l2Normalize() }
     biases.forEach { $0.l2Normalize() }
   }
@@ -867,8 +867,8 @@ public extension Tensor.Gradient {
 
     return .init(
       input: input,
-      weights: weights.map { $0 * scalingFactor },
-      biases: biases.map { $0 * scalingFactor }
+      weights: weights * scalingFactor,
+      biases: biases * scalingFactor
     )
   }
   

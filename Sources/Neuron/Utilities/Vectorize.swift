@@ -9,13 +9,14 @@ import Foundation
 import NumSwiftC
 import NumSwift
 
-public typealias VectorizableItem = Hashable & Equatable
+public typealias VectorizableItem = Hashable & Equatable & Codable
 
 public enum VectorFormat {
   case start, end, none
 }
 
-public protocol Vectorizing {
+
+public protocol Vectorizing: Tokenizing {
   associatedtype Item: VectorizableItem
   typealias Vector = [Item: Int]
   typealias InverseVector = [Int: Item]
@@ -53,10 +54,11 @@ public protocol Vectorizing {
 }
 
 
+
 /// Takes an input and turns it in to a vector array of integers indicating its value.
 /// ex. Can take a string and apply a integer value to the word so that if it came up again
 /// it would return the same integer value for that word.
-public class Vectorizer<T: VectorizableItem>: Vectorizing {
+public class Vectorizer<T: VectorizableItem>: Vectorizing, Codable {
   public typealias Item = T
   public private(set) var vector: Vector = [:]
   public private(set) var inverseVector: InverseVector = [:]
@@ -93,6 +95,33 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
     }
   }
   
+  /// Reconstructs a `Vectorizer` model from a serialized `.stkns` file URL.
+  ///
+  /// - Parameter url: File URL pointing to a previously exported model.
+  /// - Returns: Decoded `Sequential` instance.
+  public static func `import`(_ url: URL) -> Self {
+    let result: Result<Self, Error> =  ExportHelper.buildTokens(url)
+    switch result {
+    case .success(let model):
+      return model
+    case .failure(let error):
+      preconditionFailure(error.localizedDescription)
+    }
+  }
+  
+  /// Reconstructs a `Sequential` model directly from encoded model data.
+  ///
+  /// - Parameter data: Serialized model bytes.
+  /// - Returns: Decoded `Sequential` instance.
+  public static func `import`(_ data: Data) -> Self {
+    let result: Result<Self, Error> =  ExportHelper.buildTokens(data)
+    switch result {
+    case .success(let model):
+      return model
+    case .failure(let error):
+      preconditionFailure(error.localizedDescription)
+    }
+  }
   
   /// One hot vectorizes a input that has already been vectorized.
   ///  `NOTE: Please call `vectorize` on your input first before calling `oneHot` otherwise it will not work
@@ -163,7 +192,6 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
   /// - Returns: Decoded item sequence.
   public func unvectorizeOneHot(_ vector: Tensor) -> [T] {
     var items: [T] = []
-    let cols = vector.size.columns
     
     for d in 0..<vector.size.depth {
       let slice = vector.depthSlice(d)
@@ -197,10 +225,6 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
   
   // MARK: Private
   func formatItem(item: T) -> T {
-//    if let i = item as? String {
-//      return i.lowercased() as? T ?? item
-//    }
-//    
     return item
   }
 }
