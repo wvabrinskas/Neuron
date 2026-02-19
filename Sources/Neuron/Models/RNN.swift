@@ -305,6 +305,8 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
   
   /// Ensures dataset-derived network state is built and compiled once.
   public func readyUp() async {
+    vocabSize = dataset.vocabSize
+
     if ready == false || datasetData == nil {
       datasetData = await dataset.build()
       
@@ -320,11 +322,9 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
       return
     }
     
-    let vocabSize = self.dataset.vocabSize
     // average length of the word
     let wordLength = first.data.shape[2] // expect int vectorized array where each value is an index into the vocab size. TODO: enforce this
     
-    self.vocabSize = vocabSize
     self.wordLength = wordLength
     
     let lstm = LSTM(inputUnits: lstmParameters.inputUnits,
