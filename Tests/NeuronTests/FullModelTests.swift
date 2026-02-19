@@ -33,6 +33,10 @@ class MockRNNDataset: VectorizableDataset<String> {
     super.init()
   }
   
+  required init(vectorizer: Vectorizer<String> = .init()) {
+    fatalError("init(vectorizer:) has not been implemented")
+  }
+  
   override func build() async -> Neuron.VectorizingDatasetData {
     // First pass: vectorize all inputs to build vocabulary
     for inputString in inputStrings {
