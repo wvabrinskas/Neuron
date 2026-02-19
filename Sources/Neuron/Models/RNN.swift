@@ -96,7 +96,11 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
     }
   }
   
-  var dataset: Dataset
+  var dataset: Dataset {
+    didSet {
+      vocabSize = dataset.vocabSize
+    }
+  }
   private var lstm: LSTM?
   private var embedding: Embedding?
   private var vocabSize: Int = 0
