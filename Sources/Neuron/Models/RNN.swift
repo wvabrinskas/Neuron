@@ -140,6 +140,8 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
     self.dataset = dataset
     self.extraLayers = extraLayers()
     
+    self.vocabSize = dataset.vocabSize
+    
     let network = Sequential { [] }
     
     let optimizer = Adam(network,
@@ -313,7 +315,10 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
   }
   
   private func compile(dataset: VectorizingDatasetData) {
-    guard let first = dataset.training.first else { fatalError("Could not build network with dataset") }
+    guard let first = dataset.training.first else {
+      print("Could not build network with dataset")
+      return
+    }
     
     let vocabSize = self.dataset.vocabSize
     // average length of the word
