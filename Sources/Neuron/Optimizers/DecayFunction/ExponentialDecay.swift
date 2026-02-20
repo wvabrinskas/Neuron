@@ -28,7 +28,9 @@ public final class ExponentialDecay: BaseDecayFunction {
   }
   
   /// Advances the schedule and computes the next decayed learning rate.
-  public override func step() {
+  public override func step(type: DecayStepType) {
+    guard case .batch = type else { return }
+    
     let exp: Tensor.Scalar
     if staircase {
       exp = Tensor.Scalar(Int(globalSteps) / Int(decaySteps))
@@ -38,6 +40,6 @@ public final class ExponentialDecay: BaseDecayFunction {
     
     decayedLearningRate = originalLearningRate * Tensor.Scalar.pow(decayRate, exp)
     
-    super.step()
+    super.step(type: type)
   }
 }

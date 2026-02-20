@@ -127,6 +127,8 @@ public class Classifier {
         optimizer.metricsReporter?.report()
       }
       
+      optimizer.onEpochEnd(epoch: i)
+      
       onEpochCompleted?()
       print("----epoch \(i) completed: \(CFAbsoluteTimeGetCurrent() - startTime)s-----")
     }

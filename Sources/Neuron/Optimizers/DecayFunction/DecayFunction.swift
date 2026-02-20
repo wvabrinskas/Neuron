@@ -8,12 +8,16 @@
 import Foundation
 import NumSwift
 
+public enum DecayStepType {
+  case batch, epoch(Int)
+}
+
 public protocol DecayFunction {
   var decayedLearningRate: Tensor.Scalar { get }
   /// Resets decay state back to its initial learning-rate value.
   func reset()
   /// Advances decay state by one optimization step.
-  func step()
+  func step(type: DecayStepType)
 }
 
 open class BaseDecayFunction: DecayFunction {
@@ -53,7 +57,7 @@ open class BaseDecayFunction: DecayFunction {
   ///
   /// Subclasses should override to compute `decayedLearningRate` and then call
   /// `super.step()` to keep step accounting in sync.
-  open func step() {
+  open func step(type: DecayStepType) {
     // override and apply function here
     globalSteps += 1
   }

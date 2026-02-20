@@ -60,6 +60,8 @@ public protocol Optimizer: AnyObject {
   /// - Parameter data: Input tensors.
   /// - Returns: Prediction tensors.
   func predict(_ data: [Tensor]) -> [Tensor]
+  
+  func onEpochEnd(epoch: Int)
 }
 
 // TODO: allow for arbitrary weight shape in Optimizer, so we dont have to cram all weights into a 3D tensor
@@ -141,7 +143,7 @@ open class BaseOptimizer: Optimizer {
   /// call `super.step()` to advance decay/timer bookkeeping.
   public func step() {
     // override
-    decayFunction?.step()
+    decayFunction?.step(type: .batch)
     metricsReporter?.endTimer(metric: .optimizerRunTime)
   }
   
@@ -339,6 +341,10 @@ open class BaseOptimizer: Optimizer {
       
       return (flatOutput, gradient, losses, accuracy)
     }
+  }
+  
+  open func onEpochEnd(epoch: Int) {
+    decayFunction?.step(type: .epoch(epoch))
   }
   
 }
