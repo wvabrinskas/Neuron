@@ -8,11 +8,17 @@
 import Foundation
 import Logger
 
+/// Metadata propagated through each layer during a forward pass, providing batch and concurrency context.
 public struct NetworkContext: Sendable {
+/// The global index range of samples assigned to this worker chunk within the full batch.
   public let batchRange: CountableRange<Int>
+/// The position of the current sample within the active worker batch chunk.
   public let indexInBatch: Int
+/// The number of samples being processed in this worker's chunk of the batch.
   public let batchProcessingCount: Int
+/// The total number of samples in the full batch across all workers.
   public let totalInBatch: Int
+/// A unique identifier for the thread or concurrent worker processing this batch chunk.
   public let threadId: UUID
   
   /// Creates contextual metadata for a single forward-pass invocation.
@@ -39,10 +45,14 @@ public struct NetworkContext: Sendable {
   }
 }
 
+/// A sequential neural network model that chains layers in order for forward and backward passes.
 public final class Sequential: Trainable, Logger {
+/// Controls the verbosity of log output produced by this model.
   public var logLevel: LogLevel = .low
   
+/// A human-readable identifier for this model instance.
   public var name: String = "Sequential"
+/// The compute device used for inference and training; propagates to all contained layers when set.
   public var device: Device = CPU() {
     didSet {
       layers.forEach { layer in
@@ -56,14 +66,18 @@ public final class Sequential: Trainable, Logger {
     }
   }
   
+/// Indicates whether the model is in training mode; propagates to all contained layers when set.
   public var isTraining: Bool = true {
     didSet {
       layers.forEach { $0.isTraining = isTraining }
     }
   }
   
+/// The ordered collection of layers that make up the network.
   public var layers: [Layer] = []
+/// Indicates whether the model has been compiled and is ready for training or inference.
   public var isCompiled: Bool = false
+/// The number of samples processed per forward pass; propagates to all contained layers when set.
   public var batchSize: Int = 1 {
     didSet {
       layers.forEach { l in

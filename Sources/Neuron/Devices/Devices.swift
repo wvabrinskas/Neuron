@@ -8,6 +8,7 @@
 import Foundation
 import NumSwift
 
+/// Represents the type of compute device available for tensor operations.
 public enum DeviceType: String, Codable {
   case cpu, gpu
   
@@ -21,6 +22,10 @@ public enum DeviceType: String, Codable {
   }
 }
 
+/// Defines the interface for a compute device capable of performing tensor operations.
+///
+/// Conforming types provide hardware-specific implementations of neural network
+/// primitives such as convolution, activation, and pooling.
 public protocol Device {
   var type: DeviceType { get }
   var qosPriority: DispatchQoS.QoSClass { get set }

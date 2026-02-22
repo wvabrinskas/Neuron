@@ -8,6 +8,7 @@
 import Foundation
 import NumSwift
 
+/// An enumeration of supported metric types used to track training and evaluation statistics.
 public enum Metric: String {
   case loss
   case accuracy
@@ -23,6 +24,7 @@ public enum Metric: String {
   case batchConcurrency
 }
 
+/// A protocol that defines the interface for objects that collect and store training metrics.
 public protocol MetricLogger: AnyObject {
   var metricsToGather: Set<Metric> { get set }
   var metrics: [Metric: Tensor.Scalar] { get set }
@@ -132,7 +134,9 @@ internal extension MetricCalculator {
 }
 
 @dynamicMemberLookup
+/// A class that collects, aggregates, and periodically reports training metrics during model training loops.
 public class MetricsReporter: MetricCalculator {
+/// A lock used to synchronize concurrent access to shared metric state.
   public var lock: NSLock = NSLock()
   internal var totalValCorrectGuesses: Int = 0
   internal var totalValGuesses: Int = 0
@@ -146,14 +150,21 @@ public class MetricsReporter: MetricCalculator {
   
   private var timerQueue = SynchronousOperationQueue(name: "metrics_reporter")
   
+/// The set of metrics that this reporter is configured to gather and record.
   public var metricsToGather: Set<Metric>
+/// A dictionary storing the current scalar values for each recorded metric.
   public var metrics: [Metric : Tensor.Scalar] = [:]
+/// An optional closure called with the current metrics dictionary each time the reporting frequency threshold is reached.
   public var receive: ((_ metrics: [Metric: Tensor.Scalar]) -> ())? = nil
   
   deinit {
     timerQueue.cancelAllOperations()
   }
   
+/// Retrieves a metric value by its raw string name using dynamic member lookup.
+  ///
+  /// - Parameter member: The raw string name of the metric to look up.
+  /// - Returns: The scalar value for the matching metric, or `nil` if the name does not correspond to a known metric.
   public subscript(dynamicMember member: String) -> Tensor.Scalar? {
     guard let metric = Metric(rawValue: member) else { return nil }
     return metrics[metric]

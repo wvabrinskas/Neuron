@@ -8,8 +8,11 @@
 import Foundation
 import Combine
 
+/// A model representing a single supervised learning sample consisting of input data and its corresponding label.
 public struct DatasetModel: Equatable {
+  /// The input feature tensor for this dataset sample.
   public var data: Tensor
+  /// The ground-truth label tensor for this dataset sample.
   public var label: Tensor
   
   /// Creates one supervised dataset sample.

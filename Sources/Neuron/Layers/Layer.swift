@@ -51,6 +51,7 @@ public protocol ConvolutionalLayer: Layer {
   var padding: NumSwift.ConvPadding { get }
 }
 
+/// A batch of tensors used as input or output for a layer.
 public typealias TensorBatch = [Tensor]
 /// The the object that perform ML operations
 public protocol Layer: AnyObject, Codable {
@@ -101,10 +102,12 @@ public protocol Layer: AnyObject, Codable {
   func importWeights(_ weights: [Tensor]) throws
 }
 
+/// Errors that can occur during layer operations such as weight importing.
 public enum LayerErrors: Error, LocalizedError {
   case weightImportError
   case generic(error: String)
   
+/// A human-readable description of the error that occurred.
   public var errorDescription: String? {
     switch self {
     case .weightImportError:
@@ -116,32 +119,45 @@ public enum LayerErrors: Error, LocalizedError {
 }
 
 extension Layer {
+/// Default implementation of `extraEncodables` returning an empty dictionary.
   public var extraEncodables: [String: Codable]? {
     return [:]
   }
 }
 
 open class BaseLayer: Layer {
+/// A base class providing default implementations of common `Layer` properties and behaviors.
   public var details: String {
     """
     Input: \(formatTensorSize(inputSize)) → Output: \(formatTensorSize(outputSize))
     """
   }
   
+/// A human-readable summary of the layer's input and output sizes.
   public var encodingType: EncodingType
+/// The encoding type used to identify this layer during serialization.
   public var inputSize: TensorSize = .init() {
     didSet {
       onInputSizeSet()
     }
   }
+/// The input tensor size for this layer. Setting this triggers `onInputSizeSet()` to reconfigure the layer.
   public var outputSize: TensorSize = .init()
+/// The output tensor size produced by this layer.
   public var weights: Tensor = .init()
+/// The learnable weight parameters of this layer.
   public var biases: Tensor = .init()
+/// The learnable bias parameters of this layer.
   public var biasEnabled: Bool = false
+/// Whether bias parameters are applied during the forward pass.
   public var trainable: Bool = true
+/// Whether this layer's parameters are updated during training.
   public var isTraining: Bool = true
+/// Whether this layer is currently in training mode, affecting behaviors such as dropout.
   public var initializer: Initializer
+/// The weight initializer strategy used to initialize this layer's parameters.
   public var device: Device = CPU()
+/// The compute device (e.g., CPU or GPU) used to execute this layer's operations.
   public var batchSize: Int = 1 {
     didSet {
       onBatchSizeSet()
@@ -150,6 +166,7 @@ open class BaseLayer: Layer {
   
   // defines whether the gradients are run through the optimizer before being applied.
   // this could be useful if a layer manages its own weight updates
+/// The number of samples processed in a single forward/backward pass. Setting this triggers `onBatchSizeSet()`.
   public var usesOptimizer: Bool = true
   
   /// Creates a new base layer configuration.
@@ -301,6 +318,7 @@ open class BaseLayer: Layer {
 }
 
 open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
+/// Whether gradients are passed through the optimizer before being applied. Set to `false` if the layer manages its own weight updates.
   public override var details: String {
     super.details +
     """
@@ -311,6 +329,7 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
     """
   }
   
+/// A human-readable summary including filter count, strides, and padding configuration.
   public override var weights: Tensor {
     get {
       var reduce = filters
@@ -329,10 +348,15 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
       fatalError("Please use the `filters` property instead to manage weights on Convolutional layers")
     }
   }
+/// A combined tensor representation of all convolutional filters, concatenated along the depth axis.
   public var filterCount: Int
+/// The number of convolutional filters applied at this layer.
   public var filters: [Tensor] = []
+/// The collection of filter tensors used for convolution.
   public var filterSize: (rows: Int, columns: Int)
+/// The spatial dimensions (rows and columns) of each filter kernel.
   public var strides: (rows: Int, columns: Int)
+/// The step size (rows and columns) used when sliding the filter over the input.
   public var padding: NumSwift.ConvPadding
   
   /// Default initializer for a 2d convolutional layer
@@ -441,10 +465,12 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
 
 open class BaseActivationLayer: BaseLayer, ActivationLayer {
   
+/// The padding strategy applied to the input before convolution.
   public override var details: String {
       ""
   }
   
+/// The activation function type applied by this layer.
   public let type: Activation
 
   /// Creates a base activation layer.
@@ -477,6 +503,10 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
   ///   - context: Network execution context.
   /// - Returns: Activated output tensor.
   @discardableResult
+/// Performs the forward pass by applying the layer's activation function to the input tensor and building the backward graph.
+  /// - Parameter tensor: The input tensor to activate.
+  /// - Parameter context: The network context for the current pass. Defaults to a new context.
+  /// - Returns: A new tensor containing the activated values with a configured backward context.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     
     let context = TensorContext { inputs, gradient, wrt in

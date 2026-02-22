@@ -83,14 +83,19 @@ import NumSwift
 /// This two-phase approach (statistics collection + individual normalization) ensures correct
 /// batch normalization while maximizing concurrency.
 public final class BatchNormalize: BaseThreadBatchingLayer {
+  /// Learnable scale parameters applied after normalization, one per depth slice.
   public var gamma: [Tensor.Scalar] = []
+  /// Learnable shift parameters applied after normalization, one per depth slice.
   public var beta: [Tensor.Scalar] = []
   /// Per-depth-slice moving mean, stored as flat arrays
   public var movingMean: Tensor = .init()
   /// Per-depth-slice moving variance, stored as flat arrays
   public var movingVariance: Tensor = .init()
   
+  /// The momentum factor used to update moving mean and variance during training.
   public let momentum: Tensor.Scalar
+  /// A combined tensor of beta, gamma, moving mean, and moving variance values, used for display purposes only.
+  /// Setting this property has no effect.
   public override var weights: Tensor {
     // only used for print purposes.
     get {
@@ -105,6 +110,7 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     set {}
   }
   
+  /// Indicates whether the layer should accumulate inputs into batches, returning `true` during training.
   public override var shouldPerformBatching: Bool {
     isTraining
   }
@@ -152,6 +158,7 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     }
   }
   
+  /// Coding keys used to encode and decode the batch-normalization layer's persistent properties.
   public enum CodingKeys: String, CodingKey {
     case gamma, beta, momentum, movingMean, movingVariance, inputSize
   }

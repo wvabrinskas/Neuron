@@ -10,6 +10,8 @@ import NumSwift
 
 /// Performs a layer normalization function.
 public final class LayerNormalize: BaseLayer {
+  /// The combined weights tensor of beta and gamma, used primarily for display and inspection purposes.
+  /// - Returns: A `Tensor` containing the concatenated beta and gamma values shaped to the input size.
   public override var weights: Tensor {
     get {
       // For printing purposes. Not actually used
@@ -24,10 +26,13 @@ public final class LayerNormalize: BaseLayer {
   }
 
   private var epsilon: Tensor.Scalar
+  /// The gamma scaling parameter used in layer normalization.
   public var gamma: Tensor = .init()
+  /// The beta shift parameter used in layer normalization.
   public var beta: Tensor = .init()
   @Atomic private var iterations: Int = 0
 
+  /// Coding keys used for encoding and decoding the layer normalization layer.
   public enum CodingKeys: String, CodingKey {
     case gamma, beta, epsilon, inputSize
   }

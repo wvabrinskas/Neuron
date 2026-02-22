@@ -7,8 +7,19 @@
 
 import Foundation
 
+/// A context object that stores backpropagation logic for a tensor operation.
+///
+/// `TensorContext` holds a closure used during the backward pass to compute
+/// gradients with respect to inputs, weights, and biases.
 public struct TensorContext: Codable {
+/// A tuple containing the computed gradients for the input, weight, and bias tensors.
   public typealias TensorBackpropResult = (input: Tensor, weight: Tensor, bias: Tensor)
+/// A closure type that computes backpropagation gradients.
+///
+/// - Parameter inputs: The forward-pass input tensor.
+/// - Parameter gradient: The incoming gradient tensor from the next layer.
+/// - Parameter wrt: An optional tensor indicating the parameter to differentiate with respect to.
+/// - Returns: A `TensorBackpropResult` containing gradients for input, weight, and bias.
   public typealias TensorContextFunction = (_ inputs: Tensor, _ gradient: Tensor, _ wrt: Tensor?) -> TensorBackpropResult
   var backpropagate: TensorContextFunction
   

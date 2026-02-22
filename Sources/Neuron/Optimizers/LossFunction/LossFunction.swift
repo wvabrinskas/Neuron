@@ -8,6 +8,8 @@
 import Foundation
 import NumSwift
 
+/// An enumeration of common loss functions used for training neural networks.
+/// Each case represents a different strategy for measuring prediction error.
 public enum LossFunction {
   case meanSquareError
   case crossEntropy

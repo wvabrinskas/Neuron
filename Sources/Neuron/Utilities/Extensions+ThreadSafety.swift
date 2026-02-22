@@ -34,6 +34,7 @@ public extension NSLock {
 }
 
 @propertyWrapper
+/// A property wrapper that provides thread-safe access to a value using an NSLock.
 public struct Atomic<Value> {
   private let lock = NSLock()
   private var value: Value
@@ -45,6 +46,7 @@ public struct Atomic<Value> {
     self.value = wrappedValue
   }
   
+/// The wrapped value, accessed and mutated in a thread-safe manner using a lock.
   public var wrappedValue: Value {
     get {
       lock.lock()
@@ -84,6 +86,7 @@ extension OperationQueue {
   }
 }
 
+/// A thread-safe, serial operation queue that executes one operation at a time.
 public final class SynchronousOperationQueue: OperationQueue, @unchecked Sendable {
   
   /// Creates a serial operation queue for synchronous barrier-style workloads.

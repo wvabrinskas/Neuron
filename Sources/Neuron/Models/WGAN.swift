@@ -9,9 +9,12 @@ import Foundation
 import NumSwift
 
 open class WGAN: GAN {
+  /// The label assigned to real samples in WGAN training, set to -1.0 per the Wasserstein formulation.
   public override var realLabel: Tensor.Scalar { -1.0 }
+  /// The label assigned to fake (generated) samples in WGAN training, set to 1.0 per the Wasserstein formulation.
   public override var fakeLabel: Tensor.Scalar { 1.0 }
   
+  /// The loss function used for WGAN training, set to Wasserstein loss.
   public override var lossFunction: LossFunction { .wasserstein  }
   
   override func discriminatorStep(_ real: [Tensor], labels: [Tensor]) {

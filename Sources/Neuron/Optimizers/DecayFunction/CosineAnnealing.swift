@@ -9,6 +9,10 @@ import Foundation
 import NumSwift
 import Numerics
 
+/// A learning-rate schedule that anneals the learning rate following a cosine curve.
+///
+/// The learning rate is decreased from `maxLR` to `minLR` over the specified number of epochs
+/// using a cosine annealing strategy.
 public final class CosineAnnealingDecay: BaseDecayFunction {
   private let minLR: Tensor.Scalar
   private let maxLR: Tensor.Scalar

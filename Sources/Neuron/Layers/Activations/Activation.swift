@@ -8,6 +8,10 @@
 import Foundation
 import Numerics
 
+/// Represents supported activation functions for neural network layers.
+///
+/// Each case corresponds to a specific mathematical activation function
+/// that can be applied element-wise to a tensor during forward and backward passes.
 public enum Activation: Codable, Equatable {
   case reLu
   case sigmoid

@@ -10,8 +10,17 @@ import NumSwift
 import Numerics
 
 open class WGANGP: GAN {
+  /// The label assigned to real samples in the Wasserstein GAN-GP framework.
+  ///
+  /// Returns -1.0 to follow the WGAN-GP convention where real samples are labeled negatively.
   public override var realLabel: Tensor.Scalar { -1.0 }
+  /// The label assigned to fake (generated) samples in the Wasserstein GAN-GP framework.
+  ///
+  /// Returns 1.0 to follow the WGAN-GP convention where fake samples are labeled positively.
   public override var fakeLabel: Tensor.Scalar { 1.0 }
+  /// The gradient penalty coefficient used to enforce the Lipschitz constraint.
+  ///
+  /// Scales the gradient penalty term added to the discriminator loss. Higher values enforce the constraint more strongly.
   public var lambda: Tensor.Scalar = 0.1
 
   private struct GradientPenalty {
@@ -26,6 +35,9 @@ open class WGANGP: GAN {
     }
   }
   
+  /// The loss function used by this GAN, set to Wasserstein loss.
+  ///
+  /// Returns the Wasserstein loss function, which measures the distance between real and generated data distributions.
   public override var lossFunction: LossFunction { .wasserstein  }
   
   override func discriminatorStep(_ real: [Tensor], labels: [Tensor]) {

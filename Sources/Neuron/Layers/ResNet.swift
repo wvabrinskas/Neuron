@@ -6,6 +6,11 @@
 import Foundation
 import NumSwift
 
+/// A residual network (ResNet) block layer that applies a skip connection around an inner block of operations.
+///
+/// This layer implements the residual learning framework, where the input is added to the output
+/// of the inner block sequence, optionally projecting the input via a shortcut sequential when
+/// the dimensions do not match.
 public final class ResNet: BaseLayer {
   
   private var innerBlockSequential = Sequential()
@@ -16,6 +21,10 @@ public final class ResNet: BaseLayer {
   private let stride: Int
   private var training: Bool = true
   
+  /// A Boolean value indicating whether the layer is in training mode.
+  ///
+  /// Setting this property propagates the training state to both the inner block
+  /// sequential and the shortcut sequential.
   public override var isTraining: Bool {
     get {
       super.isTraining
@@ -26,6 +35,11 @@ public final class ResNet: BaseLayer {
     }
   }
   
+  /// The concatenated weights of the inner block and, if input projection is required, the shortcut sequential.
+  ///
+  /// Getting this property exports and flattens weights from the inner block sequential,
+  /// appending the shortcut sequential weights when input projection is enabled, and
+  /// concatenates them into a single `Tensor` along axis 2.
   public override var weights: Tensor {
     get {
       let innerBlockWeights = (try? innerBlockSequential.exportWeights()) ?? []

@@ -8,10 +8,12 @@
 import Foundation
 import NumSwift
 
+/// A recurrent neural network classifier that operates on a vectorizing dataset of `String` items.
 public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == String {
   
   //public typealias Dataset = VectorizingDataset
   
+  /// Parameters defining the LSTM architecture used within the RNN.
   public struct RNNLSTMParameters {
     let hiddenUnits: Int
     let inputUnits: Int
@@ -36,6 +38,7 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
     }
   }
   
+  /// Parameters defining the optimizer configuration for RNN training.
   public struct OptimizerParameters {
     let learningRate: Tensor.Scalar
     let b1: Tensor.Scalar
@@ -68,6 +71,7 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
     }
   }
   
+  /// Parameters controlling the training loop behavior of the classifier.
   public struct ClassifierParameters {
     let batchSize: Int
     let epochs: Int
@@ -165,10 +169,22 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
                lossFunction: classifierParameters.lossFunction)
   }
   
+  /// Exports the RNN model along with its embedding vectors to disk.
+  ///
+  /// - Parameters:
+  ///   - overrite: Whether to overwrite an existing file at the destination.
+  ///   - compress: Whether to compress the exported files.
+  /// - Returns: A tuple containing the URL of the exported model and the URL of the exported vectors, either of which may be `nil` on failure.
   public override func export(overrite: Bool = false, compress: Bool = true) -> URL? {
     fatalError("Please use exportWithVectors")
   }
   
+  /// Exports the RNN model along with its associated word vectors.
+  ///
+  /// - Parameters:
+  ///   - overrite: Whether to overwrite existing exported files.
+  ///   - compress: Whether to compress the exported output.
+  /// - Returns: A tuple containing the optional URL for the exported model and the optional URL for the exported vectors.
   public func exportWithVectors(overrite: Bool = false, compress: Bool = true) -> (model: URL?, vectors: URL?) {
     let model = super.export(overrite: overrite, compress: compress)
     let dataset = dataset.export(name: "vectors", overrite: overrite, compress: compress)

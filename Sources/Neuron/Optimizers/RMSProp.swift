@@ -8,6 +8,7 @@
 import Foundation
 import NumSwift
 
+/// An optimizer that implements the RMSProp algorithm, which maintains a moving average of squared gradients to normalize the gradient.
 public class RMSProp: BaseOptimizer {
   private var b: Tensor.Scalar = 0.9
   private var v: [Tensor.Value] = []

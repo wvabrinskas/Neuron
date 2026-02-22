@@ -8,6 +8,8 @@
 import Foundation
 import Numerics
 
+/// A distribution that models random variables constrained to the interval [0, 1],
+/// parameterized by two positive shape parameters alpha and beta.
 public struct BetaDistribution {
   
   /// Samples a random scalar from a Beta(`alpha`, `beta`) distribution.

@@ -10,6 +10,7 @@ import NumSwift
 
 /// Performs a dropout operation on the inputs based on the chance percentage. The mask changes on every `apply` called.
 public final class Dropout: BaseLayer {
+  /// A string describing the details of the Dropout layer, including the dropout chance.
   public override var details: String {
     super.details +
     """

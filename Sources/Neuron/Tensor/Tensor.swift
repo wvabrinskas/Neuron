@@ -9,6 +9,8 @@ import Foundation
 import NumSwift
 import NumSwiftC
 
+/// A protocol that wraps a `RangeExpression<Int>` for use in tensor subscript operations.
+/// Conforming types provide a `range` property used to slice tensor dimensions.
 public protocol TensorRange {
   associatedtype T: RangeExpression<Int>
   var range: T { get }
@@ -33,14 +35,20 @@ public class Tensor: Equatable, Codable {
   }
 
   #if QUANTIZED_F16
+/// A type alias representing an individual scalar element stored in a `Tensor`.
+  /// Resolves to `Float16` when the `Float16` compiler flag is set, otherwise `Float`.
   public typealias Scalar = Float16
   #else
+/// A type alias representing an individual scalar element stored in a `Tensor`.
+  /// Resolves to `Float` when the `Float16` compiler flag is not set.
   public typealias Scalar = Float
   #endif
   
   /// The legacy nested-array type for tensor data. Prefer using `storage` and `size` for new code.
   public typealias Data = [[[Scalar]]]
+/// A flat contiguous array of `Scalar` values used as the internal storage for tensor data.
   public typealias Value = ContiguousArray<Scalar> //[Scalar]
+/// A unique identifier type for `Tensor` instances.
   public typealias ID = UInt64
   
   /// Gradient object returned from `gradient` calculation on the Tensor. Contains gradients w.r.t to the `input`, w.r.t to the `weights`, and w.r.t to the `biases`
@@ -120,6 +128,13 @@ public class Tensor: Equatable, Codable {
   /// Computes the flat index for a given (column, row, depth) coordinate.
   /// Memory layout: `index = d * rows * columns + r * columns + c`
   @inline(__always)
+/// Computes the flat storage index for an element at the given (column, row, depth) coordinates.
+  ///
+  /// - Parameters:
+  ///   - c: The column index.
+  ///   - r: The row index.
+  ///   - d: The depth index.
+  /// - Returns: The corresponding flat index into the `storage` array.
   public func flatIndex(column c: Int, row r: Int, depth d: Int) -> Int {
     d * size.rows * size.columns + r * size.columns + c
   }
@@ -690,6 +705,8 @@ public class Tensor: Equatable, Codable {
 // MARK: - Debug Description
 
 extension Tensor: CustomDebugStringConvertible {
+/// A human-readable description of the tensor, including its shape, label, and formatted values.
+  /// Useful for debugging; prints each depth slice with row and column layout.
   public var debugDescription: String {
     var string = """
                  <Tensor \n

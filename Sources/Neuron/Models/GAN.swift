@@ -9,19 +9,29 @@ import Foundation
 import NumSwift
 
 open class GAN {
+  /// Indicates whether training data is real or generated (fake).
   public enum TrainingType: String {
     case real, fake
   }
 
+  /// The optimizer responsible for updating the generator network.
   public var generator: Optimizer
+  /// The optimizer responsible for updating the discriminator network.
   public var discriminator: Optimizer
+  /// A closure that produces a noise tensor used as input to the generator.
   public var noise: () -> Tensor
+  /// An optional closure called at the end of each training epoch.
+  /// - Parameter epoch: The index of the completed epoch.
   public var onEpochCompleted: ((_ epoch: Int) -> ())? = nil
+  /// An optional closure called periodically to validate generator output.
+  /// - Parameter output: The tensor produced by the generator for validation.
   public var validateGenerator: ((_ output: Tensor) -> ())? = nil
+  /// An optional closure called when training has fully completed.
   public var onCompleted: (() -> ())? = nil
   public private(set) var lossFunction: LossFunction = .minimaxBinaryCrossEntropy
   public private(set) var fakeLabel: Tensor.Scalar = 0
   public private(set) var realLabel: Tensor.Scalar = 1
+  /// The number of epochs for which the GAN will be trained.
   public var epochs: Int
   
   internal let batchSize: Int

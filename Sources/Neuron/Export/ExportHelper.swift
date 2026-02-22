@@ -7,8 +7,10 @@
 
 import Foundation
 
+/// A helper struct providing utilities for exporting model data to various file formats.
 public struct ExportHelper: ModelBuilder {
   
+/// Defines supported file extensions for exported model files.
   public enum FileExtensions: String {
     case smodel, stokens
   }

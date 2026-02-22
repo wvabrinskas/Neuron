@@ -8,6 +8,7 @@
 import Foundation
 import NumSwift
 
+/// A high-level training wrapper that manages classification model training, validation, and early stopping.
 public class Classifier {
   private var batchSize: Int
   private let epochs: Int
@@ -17,7 +18,9 @@ public class Classifier {
   private let killOnAccuracy: Bool
   private let accuracyMonitor: AccuracyMonitor
   
+/// An optional closure called when the target accuracy threshold is reached.
   public var onAccuracyReached: (() -> ())? = nil
+/// An optional closure called at the completion of each training epoch.
   public var onEpochCompleted: (() -> ())? = nil
   
   public private(set) var optimizer: Optimizer

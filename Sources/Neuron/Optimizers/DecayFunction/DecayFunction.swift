@@ -8,10 +8,18 @@
 import Foundation
 import NumSwift
 
+/// Defines the granularity at which a decay step is applied.
+///
+/// - `batch`: Decay is applied once per batch.
+/// - `epoch`: Decay is applied once per epoch, with an associated integer epoch index.
 public enum DecayStepType {
   case batch, epoch(Int)
 }
 
+/// A protocol defining a learning-rate decay schedule.
+///
+/// Types conforming to `DecayFunction` provide a decayed learning rate
+/// and support resetting and stepping through the decay schedule.
 public protocol DecayFunction {
   var decayedLearningRate: Tensor.Scalar { get }
   /// Resets decay state back to its initial learning-rate value.
@@ -21,6 +29,7 @@ public protocol DecayFunction {
 }
 
 open class BaseDecayFunction: DecayFunction {
+/// The current decayed learning rate value.
   public var decayedLearningRate: Tensor.Scalar
   
   let originalLearningRate: Tensor.Scalar

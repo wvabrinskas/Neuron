@@ -8,6 +8,8 @@
 import Foundation
 import NumSwift
 
+/// A codable wrapper that encapsulates a polymorphic `Layer` instance,
+/// enabling encoding and decoding of different layer types via a type discriminator.
 public class LayerModel: Codable {
   var layer: Layer
   
@@ -15,6 +17,7 @@ public class LayerModel: Codable {
     self.layer = layer
   }
   
+  /// Coding keys used for encoding and decoding the layer and its type discriminator.
   public enum CodingKeys: String, CodingKey {
     case layer, type
   }

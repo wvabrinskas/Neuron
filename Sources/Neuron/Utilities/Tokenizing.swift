@@ -7,6 +7,7 @@
 
 import Foundation
 
+/// A protocol that defines tokenization capabilities with support for encoding, decoding, and exporting trained models.
 public protocol Tokenizing: Codable {
   @discardableResult
   /// Exports the trainable as a `.stkns` file.
