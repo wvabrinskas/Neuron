@@ -8,8 +8,14 @@
 import Foundation
 import NumSwift
 
+/// A device abstraction representing GPU-accelerated computation.
+///
+/// Wraps the shared `GPUManager` and conforms to the `Device` protocol,
+/// providing GPU-backed implementations of neural network operations.
 public class GPU: Device {
+  /// The Quality of Service priority used when dispatching GPU work.
   public var qosPriority: DispatchQoS.QoSClass = .default
+  /// The device type identifier, always `.gpu` for this class.
   public var type: DeviceType = .gpu
 
   private let manager = GPUManager.shared

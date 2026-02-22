@@ -9,6 +9,7 @@ import Foundation
 import NumSwift
 import Numerics
 
+/// A learning-rate scheduler that applies exponential decay over training steps.
 public final class ExponentialDecay: BaseDecayFunction {
   /// Creates an exponential learning-rate decay schedule.
   ///

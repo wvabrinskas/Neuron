@@ -9,9 +9,12 @@ import Foundation
 import GameplayKit
 import Numerics
 
+/// A sampler that generates random values from a normal (Gaussian) distribution.
 public struct NormalDistribution {
   private let randomSource: GKRandomSource
+  /// The mean (expected value) of the normal distribution.
   public let mean: Tensor.Scalar
+  /// The standard deviation of the normal distribution.
   public let deviation: Tensor.Scalar
   
   /// Creates a normal distribution sampler.
@@ -53,6 +56,7 @@ public struct NormalDistribution {
   }
 }
 
+/// A Gaussian random number generator using the Box-Muller transform.
 public class Gaussian {
   // stored properties
   private var s : Double = 0.0
@@ -71,6 +75,9 @@ public class Gaussian {
     self.mean = mean
   }
   
+  /// A randomly sampled value from the Gaussian distribution using the Box-Muller transform.
+  ///
+  /// - Returns: A `Double` sampled from the distribution with the configured mean and standard deviation.
   public var gaussRand : Double  {
     var u1, u2, v1, x : Double
     if !cachedNumberExists {

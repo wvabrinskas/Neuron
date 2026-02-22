@@ -6,6 +6,7 @@
 import Foundation
 import NumSwift
 
+/// A layer that computes the global average of each feature map, reducing spatial dimensions to a single value per channel.
 public final class GlobalAvgPool: BaseLayer {
   /// Creates a global-average-pooling layer.
   ///

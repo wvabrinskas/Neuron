@@ -7,9 +7,18 @@
 
 import Foundation
 
+/// A namespace for global configuration constants used throughout the framework.
 public struct Constants {
+/// The default weight initializer type applied when initializing neural network layers.
+  ///
+  /// Defaults to `.heNormal`, which is suitable for layers using ReLU activations.
   public static var defaultInitializer: InitializerType = .heNormal
   
+/// The maximum number of worker threads to use for parallel operations.
+  ///
+  /// Determined at runtime by querying the number of performance CPU cores and rounding
+  /// down to the nearest power of two to allow even work distribution across threads.
+  /// Falls back to `4` if the core count cannot be determined.
   public static var maxWorkers: Int = {
     if let perfCores = getSysctlIntValue("hw.perflevel0.physicalcpu") {
       // find closest power of 2 as batch sizes are usually broken up in powers of 2. Eg. 16, 32, 64

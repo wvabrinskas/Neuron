@@ -8,6 +8,10 @@
 import Foundation
 import NumSwift
 
+/// Computes running variance and mean using Welford's online algorithm.
+///
+/// Maintains per-depth-slice mean and M2 accumulators to support
+/// numerically stable incremental variance computation over a stream of tensors.
 public final class WelfordVariance {
   /// Per-depth-slice means stored as flat arrays
   @Atomic public private(set) var means: [Tensor.Value] = []

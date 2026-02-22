@@ -118,6 +118,10 @@ public class DepthwiseConv2d: BaseConvolutionalLayer {
     self.filters = try container.decodeIfPresent([Tensor].self, forKey: .filters) ?? []
   }
   
+  /// Encodes the layer's configuration and parameters into the given encoder.
+  ///
+  /// - Parameter encoder: The encoder to write data to.
+  /// - Throws: An error if any of the values fail to encode.
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)

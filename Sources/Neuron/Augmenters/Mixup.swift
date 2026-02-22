@@ -6,6 +6,8 @@
 import Foundation
 import NumSwift
 
+/// A data augmentation technique that interpolates between pairs of training examples and their labels.
+/// Uses a Beta distribution to sample mixing coefficients for blending inputs and targets.
 public final class Mixup: Augmenting {
   private let alpha: Tensor.Scalar
   private let beta: Tensor.Scalar

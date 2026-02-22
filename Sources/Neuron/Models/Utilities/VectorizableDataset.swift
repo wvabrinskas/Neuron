@@ -8,7 +8,12 @@
 import Foundation
 
 
+/// A tuple containing training and validation dataset model arrays.
 public typealias VectorizingDatasetData = (training: [DatasetModel], val: [DatasetModel])
+/// A protocol for datasets that support vectorization of their items.
+///
+/// Conforming types provide a vectorizer, vocabulary size, and methods
+/// for encoding items as one-hot tensors or index-based tensors.
 public protocol VectorizingDataset {
   associatedtype Item: VectorizableItem
   
@@ -47,8 +52,12 @@ public protocol VectorizingDataset {
 
 open class VectorizableDataset<VectorItem: VectorizableItem>: VectorizingDataset {
 
+/// The vectorizer used to encode and decode dataset items.
   public let vectorizer: Vectorizer<VectorItem>
 
+/// The number of unique tokens in the vocabulary.
+///
+/// Reflects the size of the vectorizer's internal vector mapping.
   public var vocabSize: Int = 0
 
   public required init(vectorizer: Vectorizer<VectorItem> = .init()) {
@@ -56,15 +65,29 @@ open class VectorizableDataset<VectorItem: VectorizableItem>: VectorizingDataset
     self.vocabSize = vectorizer.vector.count
   }
 
+/// Creates a dataset instance by importing a vectorizer from a file URL.
+///
+/// - Parameter url: The file URL from which to import the vectorizer.
+/// - Returns: A new instance initialized with the imported vectorizer.
   public static func build(url: URL) -> Self {
     Self.init(vectorizer: Vectorizer<VectorItem>.import(url))
   }
 
   @_spi(Visualizer)
+/// Creates a dataset instance by importing a vectorizer from raw data.
+///
+/// - Parameter data: The raw data from which to import the vectorizer.
+/// - Returns: A new instance initialized with the imported vectorizer.
   public static func build(data: Data) -> Self {
     return Self.init(vectorizer: Vectorizer<VectorItem>.import(data))
   }
   
+/// Exports the vectorizer to a file and returns the resulting file URL.
+///
+/// - Parameter name: An optional name for the exported file.
+/// - Parameter overrite: Whether to overwrite an existing file at the destination.
+/// - Parameter compress: Whether to compress the exported file.
+/// - Returns: The URL of the exported file, or `nil` if export failed.
   public func export(name: String?, overrite: Bool, compress: Bool) -> URL?  {
     vectorizer.export(name: name, overrite: overrite, compress: compress)
   }

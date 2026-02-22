@@ -49,12 +49,22 @@ public final class AdamW: Adam {
   }
 }
 
+/// An optimizer that implements the Adam (Adaptive Moment Estimation) algorithm.
+/// Combines the benefits of momentum-based and adaptive learning rate methods
+/// to efficiently update trainable parameters during training.
 public class Adam: BaseOptimizer {
+  /// Defines the weight decay strategy applied during parameter updates.
+  ///
+  /// - `none`: No weight decay is applied.
+  /// - `decay`: Applies L2 weight decay with the specified scalar coefficient.
   public enum WeightDecay {
     case none
     case decay(Tensor.Scalar)
   }
   
+  /// The trainable model whose parameters will be optimized.
+  /// Setting this property triggers a rebuild of the optimizer's internal state
+  /// to match the new model's parameter shapes.
   public override var trainable: Trainable {
     didSet {
       build()

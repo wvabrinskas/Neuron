@@ -9,13 +9,24 @@ import Foundation
 import NumSwiftC
 import NumSwift
 
+/// A type alias representing the requirements for an item that can be vectorized.
+/// Conforming types must be `Hashable`, `Equatable`, and `Codable`.
 public typealias VectorizableItem = Hashable & Equatable & Codable
 
+/// Specifies the format applied when encoding a vector sequence.
+///
+/// - `start`: Prepend a start token to the vector.
+/// - `end`: Append an end token to the vector.
+/// - `none`: Apply no additional formatting tokens.
 public enum VectorFormat {
   case start, end, none
 }
 
 
+/// A protocol for types that can convert sequences of items into integer vector representations.
+///
+/// `Vectorizing` extends `Tokenizing` and provides bidirectional mappings between
+/// items and integer indices, supporting optional start and end token formatting.
 public protocol Vectorizing: Tokenizing {
   associatedtype Item: VectorizableItem
   typealias Vector = [Item: Int]
@@ -59,6 +70,8 @@ public protocol Vectorizing: Tokenizing {
 /// ex. Can take a string and apply a integer value to the word so that if it came up again
 /// it would return the same integer value for that word.
 public class Vectorizer<T: VectorizableItem>: Vectorizing, Codable {
+/// The maximum index currently assigned, representing the next available index offset
+/// after reserving indices for start and end tokens.
   public typealias Item = T
   public private(set) var vector: Vector = [:]
   public private(set) var inverseVector: InverseVector = [:]

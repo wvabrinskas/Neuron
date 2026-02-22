@@ -8,6 +8,7 @@
 import Foundation
 import NumSwift
 
+/// Stochastic Gradient Descent optimizer with optional momentum and gradient/weight clipping support.
 public class SGD: BaseOptimizer {
   private let momentum: Tensor.Scalar
   private var v: [Tensor.Value] = []

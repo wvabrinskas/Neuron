@@ -8,6 +8,10 @@
 import Foundation
 import NumSwift
 
+/// A protocol defining the interface for optimizers that update trainable network parameters.
+///
+/// Conforming types manage the training loop, gradient computation, weight updates,
+/// and optional augmentation or metrics reporting.
 public protocol Optimizer: AnyObject {
   typealias Gradient = (weights: Tensor, biases: Tensor)
   typealias Output = (outputs: [Tensor], gradients: Tensor.Gradient, loss: Tensor.Scalar, accuracy: Tensor.Scalar)
@@ -66,11 +70,17 @@ public protocol Optimizer: AnyObject {
 
 // TODO: allow for arbitrary weight shape in Optimizer, so we dont have to cram all weights into a 3D tensor
 open class BaseOptimizer: Optimizer {
+  /// An optional augmenter applied to input data during training.
   public var augmenter: Augmenter?
+  /// An optional decay function that adjusts the learning rate over time.
   public var decayFunction: DecayFunction?
+  /// The trainable network whose parameters are updated by this optimizer.
   public var trainable: Trainable
+  /// The number of samples processed in each optimization step.
   public var batchSize: Int
+  /// A flag indicating whether gradient calculations should be passed through without modification.
   public var passthroughGradientCalculation: Bool = false
+  /// The current learning rate, returning the decayed value if a decay function is set, otherwise the base rate.
   public var learningRate: Tensor.Scalar {
     get {
       if let decayFunction {
@@ -83,11 +93,17 @@ open class BaseOptimizer: Optimizer {
       localLearningRate = newValue
     }
   }
+  /// A flag indicating whether the optimizer and its trainable network are in training mode.
+  ///
+  /// Setting this value propagates the training state to the underlying trainable network.
   public var isTraining: Bool = true {
     didSet {
       trainable.isTraining = isTraining
     }
   }
+  /// The compute device used for training, either CPU or GPU.
+  ///
+  /// Updating this value propagates the device selection to the underlying trainable network.
   public var device: Device = CPU() {
     didSet {
       switch device.type {
@@ -99,9 +115,13 @@ open class BaseOptimizer: Optimizer {
     }
   }
 
+  /// An optional reporter used to collect and publish training metrics such as loss and timing.
   public var metricsReporter: MetricsReporter?
+  /// A gradient accumulator that aggregates gradients across multiple steps before applying updates.
   public var gradientAccumulator: GradientAccumulator = .init()
+  /// An optional threshold used to clip weight values after each update step.
   public var weightClip: Tensor.Scalar?
+  /// An optional threshold used to clip gradient values before applying weight updates.
   public var gradientClip: Tensor.Scalar?
   private var localLearningRate: Tensor.Scalar
   private let workersCount = Constants.maxWorkers
