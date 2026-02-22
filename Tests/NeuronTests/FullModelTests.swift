@@ -214,7 +214,7 @@ final class FullModelTests: XCTestCase {
     let batchSize = 64
     
     do {
-      let fileURL = try Resource(name: "pretrained-classifier-color", type: "smodel").url
+      let fileURL = try Resource(name: "pretrained-classifier-color", type: ExportHelper.FileExtensions.smodel.rawValue).url
       
       let n = Sequential.import(fileURL)
       let optim = Adam(n, learningRate: 0.0001, batchSize: batchSize)

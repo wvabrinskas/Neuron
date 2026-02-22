@@ -127,7 +127,7 @@ public class Adam: BaseOptimizer {
       
       // only apply optimizer gradient if the layer is trainable by the optimizer
       if layer.trainable, layer.usesOptimizer {
-        adamGradient = run(gradient: gradient, biasGradient: biasGradient, index: i, weights: layer.weights)
+        adamGradient = run(gradient: gradient, biasGradient: biasGradient, index: i, weights: layer.weights, bias: layer.biases)
       }
             
       layer.apply(gradients: adamGradient, learningRate: learningRate)
@@ -148,7 +148,7 @@ public class Adam: BaseOptimizer {
     trainable.compile()
   }
   
-  private func run(gradient: Tensor, biasGradient: Tensor, index: Int, weights: Tensor) -> Optimizer.Gradient {
+  private func run(gradient: Tensor, biasGradient: Tensor, index: Int, weights: Tensor, bias: Tensor) -> Optimizer.Gradient {
     let i = index
     let gradCount = gradient.storage.count
 
@@ -174,7 +174,7 @@ public class Adam: BaseOptimizer {
     let biases = apply(m: &mb[i],
                        v: &vb[i],
                        gradient: biasGradient.storage,
-                       weights: weights.storage,
+                       weights: bias.storage,
                        size: biasGradient.size)
     
     return (Tensor(result, size: gradient.size), Tensor(biases, size: biasGradient.size))

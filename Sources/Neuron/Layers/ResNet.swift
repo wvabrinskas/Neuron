@@ -270,11 +270,8 @@ public final class ResNet: BaseLayer {
     var weightGradients: [Tensor] = []
     var biasGradients: [Tensor] = []
     
-    var shortcutWeightOffset: Int = 0
-    var shortcutBiasOffset: Int = 0
-    
-    var lastTotalWeights: Int = 0
-    var lastTotalBiases: Int = 0
+    var currentWeightOffset: Int = 0
+    var currentBiasOffset: Int = 0
     
     var d = 0
     
@@ -289,11 +286,11 @@ public final class ResNet: BaseLayer {
       // this should be correct given how we calculate weight size at each layer
       let size = layer.weights.size
       let totalWeights = size.rows * size.columns * size.depth
-      let indexOffset = d * lastTotalWeights
+      let indexOffset = currentWeightOffset
       
       let biasSize = layer.biases.size
       let totalBiases = biasSize.rows * biasSize.columns * biasSize.depth
-      let indexBiasOffset = d * lastTotalBiases
+      let indexBiasOffset = currentBiasOffset
       
       let layerWeights = Tensor(Tensor.Value(gradients.weights.storage[indexOffset..<indexOffset + totalWeights]), size: size)
       let layerBiases = Tensor(Tensor.Value(gradients.biases.storage[indexBiasOffset..<indexBiasOffset + totalBiases]), size: biasSize)
@@ -301,13 +298,8 @@ public final class ResNet: BaseLayer {
       weightGradients.append(layerWeights)
       biasGradients.append(layerBiases)
       
-      shortcutWeightOffset += totalWeights
-      shortcutBiasOffset += totalBiases
-      
-      lastTotalBiases = totalBiases
-      lastTotalWeights = totalWeights
-      
-      d += 1
+      currentWeightOffset += totalWeights
+      currentBiasOffset += totalBiases
     }
     
     innerBlockSequential.apply(gradients: .init(input: [],
@@ -316,7 +308,7 @@ public final class ResNet: BaseLayer {
                                learningRate: learningRate)
     
     applyGradientsToShortcutBlock(gradients: gradients,
-                                  offsets: (shortcutWeightOffset, shortcutBiasOffset),
+                                  offsets: (currentWeightOffset, currentBiasOffset),
                                   learningRate: learningRate)
   }
   
@@ -333,9 +325,7 @@ public final class ResNet: BaseLayer {
     
     var lastTotalWeights: Int = 0
     var lastTotalBiases: Int = 0
-    
-    var d = 0
-    
+        
     for layer in shortcutSequential.layers {
       guard layer.usesOptimizer else {
         // add placeholder for layers that don't need gradients
@@ -347,11 +337,11 @@ public final class ResNet: BaseLayer {
       // this should be correct given how we calculate weight size at each layer
       let size = layer.weights.size
       let totalWeights = size.rows * size.columns * size.depth
-      let indexOffset = (d * lastTotalWeights) + shortcutWeightOffset
+      let indexOffset = lastTotalWeights + shortcutWeightOffset
       
       let biasSize = layer.biases.size
       let totalBiases = biasSize.rows * biasSize.columns * biasSize.depth
-      let indexBiasOffset = (d * lastTotalBiases) + shortcutBiasOffset
+      let indexBiasOffset = lastTotalBiases + shortcutBiasOffset
       
       let layerWeights = Tensor(Tensor.Value(gradients.weights.storage[indexOffset..<indexOffset + totalWeights]), size: size)
       let layerBiases = Tensor(Tensor.Value(gradients.biases.storage[indexBiasOffset..<indexBiasOffset + totalBiases]), size: biasSize)
@@ -359,10 +349,8 @@ public final class ResNet: BaseLayer {
       weightGradients.append(layerWeights)
       biasGradients.append(layerBiases)
       
-      lastTotalBiases = totalBiases
-      lastTotalWeights = totalWeights
-      
-      d += 1
+      lastTotalBiases += totalBiases
+      lastTotalWeights += totalWeights
     }
     
     shortcutSequential.apply(gradients: .init(input: [],

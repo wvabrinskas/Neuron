@@ -9,6 +9,10 @@ import Foundation
 
 public struct ExportHelper: ModelBuilder {
   
+  public enum FileExtensions: String {
+    case smodel, stokens
+  }
+  
   /// Accepts an array of T generics and returns the array as a CSV url that was saved to disk
   /// - Parameter data: The data to encode to a CSV
   /// - Returns: The url that points to the written file. nil if it failed to write
@@ -41,7 +45,7 @@ public struct ExportHelper: ModelBuilder {
 
   }
   
-  /// Encodes and writes a Codable vectorizor / tokenizer to a `.stkns` file.
+  /// Encodes and writes a Codable vectorizor / tokenizer to a `.stokens` file.
   ///
   /// - Parameters:
   ///   - filename: Output filename without extension.
@@ -61,7 +65,7 @@ public struct ExportHelper: ModelBuilder {
       let dict = try encoder.encode(model)
       
       let path = try fileManager.url(for: .documentDirectory, in: .allDomainsMask, appropriateFor: nil, create: false)
-      let fileName = "\(filename).stkns"
+      let fileName = "\(filename).\(FileExtensions.stokens.rawValue)"
       let fileURL = path.appendingPathComponent(fileName)
       
       try dict.write(to: fileURL)
@@ -95,7 +99,7 @@ public struct ExportHelper: ModelBuilder {
       let dict = try encoder.encode(model)
       
       let path = try fileManager.url(for: .documentDirectory, in: .allDomainsMask, appropriateFor: nil, create: false)
-      let fileName = "\(filename).smodel"
+      let fileName = "\(filename).\(FileExtensions.smodel.rawValue)"
       let fileURL = path.appendingPathComponent(fileName)
       
       try dict.write(to: fileURL)

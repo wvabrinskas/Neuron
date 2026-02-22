@@ -32,5 +32,4 @@ public struct Constants {
     }
     return nil
   }
-
 }
