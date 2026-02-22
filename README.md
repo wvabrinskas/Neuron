@@ -29,7 +29,7 @@ To become a sponsor and support the development of Neuron, simply click on the "
 
 Feel free to send me suggestions on how to improve this. I would be delighted to learn more!! You can also feel free to assign issues here. Run the unit tests as well to learn how the project works!
 
-[Full Documentation](https://williamvabrinskas.com/Neuron/documentation/neuron/)
+[Full Documentation](https://williamvabrinskas.com/pages/documentation/neuron/)
 
 # Important Developer Note!
 
