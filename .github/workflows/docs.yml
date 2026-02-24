@@ -17,6 +17,7 @@ jobs:
 
       - name: Generate Documentation
         run: |
+          mkdir -p ./docs-output
           swift package \
             --allow-writing-to-directory ./docs-output \
             generate-documentation \
