@@ -17,7 +17,9 @@ jobs:
 
       - name: Generate Documentation
         run: |
-          swift package generate-documentation \
+          swift package \
+            --allow-writing-to-directory ./docs-output \
+            generate-documentation \
             --target Neuron \
             --output-path ./docs-output \
             --hosting-base-path pages
