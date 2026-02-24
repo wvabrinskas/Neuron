@@ -21,7 +21,7 @@ jobs:
             --allow-writing-to-directory ./docs-output \
             generate-documentation \
             --target Neuron \
-            --output-path ./docs-output \
+            --output-path ./docs-output/Neuron.doccarchive \
             --hosting-base-path pages
 
       - name: Upload .doccarchive artifact
