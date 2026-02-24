@@ -17,17 +17,13 @@ jobs:
 
       - name: Generate Documentation
         run: |
-          swift package generate-documentation \
+          mkdir -p ./docs-output
+          swift package \
+            --allow-writing-to-directory ./docs-output \
+            generate-documentation \
             --target Neuron \
-            --output-path ./docs-output \
+            --output-path ./docs-output/Neuron.doccarchive \
             --hosting-base-path pages
-
-      - name: Upload .doccarchive artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Neuron.doccarchive
-          path: ./docs-output/Neuron.doccarchive
-          if-no-files-found: error
 
       - name: Checkout GitHub Pages repo
         uses: actions/checkout@v4
@@ -45,6 +41,7 @@ jobs:
           cd gh-pages
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin https://x-access-token:${{ secrets.PAGES_DEPLOY_TOKEN }}@github.com/wvabrinskas/wvabrinskas.github.io.git
           git add pages/
           git diff --cached --quiet || git commit -m "docs: update Neuron documentation"
           git push
