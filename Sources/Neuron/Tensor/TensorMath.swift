@@ -378,6 +378,16 @@ public extension Tensor {
     }
   }
   
+  func testInvalid() {
+    for val in storage {
+      if val.isNormal == false {
+        print(self)
+        fatalError()
+        return
+      }
+    }
+  }
+  
   func testInf() {
     for val in storage {
       if val.isInfinite {
@@ -647,7 +657,7 @@ public extension Tensor {
       return Tensor(Tensor.Value(tensor.storage), size: tensor.size, context: context)
     }
     if tensor.isEmpty {
-      return Tensor(Tensor.Value(storage), size: size, context: context)
+      return self
     }
     
     let selfCols = size.columns

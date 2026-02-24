@@ -19,12 +19,20 @@ extension MTLTexture {
   }
 }
 
+/// A 2D array of `CFloat` values used as input data for GPU computations.
 public typealias DataType = [[CFloat]]
+/// A `CFloat` value representing the result of a GPU computation.
 public typealias ResultType = CFloat
 
+/// Manages GPU compute operations using Metal, including pipeline creation and execution.
 public class GPUManager {
+/// The shared singleton instance of `GPUManager`.
   public static let shared = GPUManager()
   
+/// Represents the available Metal shader functions for GPU computation.
+  ///
+  /// - `activation`: Applies an activation function to the input data.
+  /// - `derivate`: Computes the derivative of the activation function.
   public enum MetalFunction: String {
     case activation, derivate
   }
@@ -154,6 +162,13 @@ public class GPUManager {
 //    print(result)
 //  }
 //  
+  /// Runs an element-wise activation (or derivative) Metal compute kernel.
+  ///
+  /// - Parameters:
+  ///   - num: Flat scalar input buffer.
+  ///   - activationType: Activation function kernel to run.
+  ///   - derivate: When `true`, executes derivative kernel variant.
+  /// - Returns: Activated output buffer. Falls back to input on failure.
   public func activate(_ num: [Tensor.Scalar],
                        _ activationType: Activation,
                        derivate: Bool = false) -> [Tensor.Scalar] {

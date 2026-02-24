@@ -8,12 +8,25 @@
 import Foundation
 import NumSwift
 
+/// An optimizer that implements the RMSProp algorithm, which maintains a moving average of squared gradients to normalize the gradient.
 public class RMSProp: BaseOptimizer {
   private var b: Tensor.Scalar = 0.9
   private var v: [Tensor.Value] = []
   private var vb: [Tensor.Value] = []
   private var eps: Tensor.Scalar = .stabilityFactor
 
+  /// Creates an RMSProp optimizer.
+  ///
+  /// - Parameters:
+  ///   - trainable: Model whose parameters will be optimized.
+  ///   - device: Execution device for forward/backward math.
+  ///   - learningRate: Base learning rate.
+  ///   - batchSize: Number of samples per optimization step.
+  ///   - b: Exponential decay for moving squared-gradient average.
+  ///   - eps: Numerical stability epsilon.
+  ///   - weightClip: Optional weight clipping threshold.
+  ///   - gradientClip: Optional gradient clipping threshold.
+  ///   - augmenter: Optional training-time data augmenter.
   public init(_ trainable: Trainable,
               device: Device = CPU(),
               learningRate: Tensor.Scalar,
@@ -21,7 +34,8 @@ public class RMSProp: BaseOptimizer {
               b: Tensor.Scalar = 0.9,
               eps: Tensor.Scalar = .stabilityFactor,
               weightClip: Tensor.Scalar? = nil,
-              gradientClip: Tensor.Scalar? = nil) {
+              gradientClip: Tensor.Scalar? = nil,
+              augmenter: Augmenter? = nil) {
     self.eps = eps
     self.b = b
 
@@ -34,9 +48,11 @@ public class RMSProp: BaseOptimizer {
                learningRate: learningRate,
                batchSize: batchSize,
                weightClip: weightClip,
-               gradientClip: gradientClip)
+               gradientClip: gradientClip,
+               augmenter: augmenter)
   }
   
+  /// Applies one RMSProp optimization step.
   public override func step() {
     var gradients = gradientAccumulator.accumulate()
     
@@ -62,6 +78,7 @@ public class RMSProp: BaseOptimizer {
     }
   }
   
+  /// Clears RMSProp running-stat buffers and inherited optimizer state.
   public override func reset() {
     v.removeAll(keepingCapacity: true)
     vb.removeAll(keepingCapacity: true)

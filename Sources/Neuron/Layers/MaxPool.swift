@@ -43,12 +43,21 @@ public final class MaxPool: BaseLayer {
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
   }
   
+  /// Encodes max-pooling layer configuration.
+  ///
+  /// - Parameter encoder: Encoder used for serialization.
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(encodingType, forKey: .type)
   }
   
+  /// Performs 2x2 max pooling on each depth slice.
+  ///
+  /// - Parameters:
+  ///   - tensor: Input tensor.
+  ///   - context: Network execution context.
+  /// - Returns: Pooled tensor with routing indices captured for backpropagation.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     var poolingGradients: PoolingGradient = .init(tensorId: tensor.id, indicies: [])
     
@@ -121,6 +130,11 @@ public final class MaxPool: BaseLayer {
   private func setGradients(indicies: [[PoolingIndex]], id: Tensor.ID) {
   }
   
+  /// MaxPool has no trainable parameters, so this is a no-op.
+  ///
+  /// - Parameters:
+  ///   - gradients: Ignored.
+  ///   - learningRate: Ignored.
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
   }
   

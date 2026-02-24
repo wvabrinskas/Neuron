@@ -8,6 +8,7 @@
 import Foundation
 import NumSwift
 
+/// A high-level training wrapper that manages classification model training, validation, and early stopping.
 public class Classifier {
   private var batchSize: Int
   private let epochs: Int
@@ -17,11 +18,23 @@ public class Classifier {
   private let killOnAccuracy: Bool
   private let accuracyMonitor: AccuracyMonitor
   
+/// An optional closure called when the target accuracy threshold is reached.
   public var onAccuracyReached: (() -> ())? = nil
+/// An optional closure called at the completion of each training epoch.
   public var onEpochCompleted: (() -> ())? = nil
   
   public private(set) var optimizer: Optimizer
   
+  /// Creates a classifier training wrapper around an optimizer/trainable pair.
+  ///
+  /// - Parameters:
+  ///   - optimizer: Optimizer responsible for updates and inference.
+  ///   - epochs: Total epoch count for `fit`.
+  ///   - batchSize: Mini-batch size used during training/validation.
+  ///   - accuracyThreshold: Early-stop threshold configuration.
+  ///   - killOnAccuracy: Stops training when threshold is reached.
+  ///   - log: Enables per-batch progress printing.
+  ///   - lossFunction: Loss used for optimization.
   public init(optimizer: Optimizer,
               epochs: Int = 100,
               batchSize: Int,
@@ -39,26 +52,29 @@ public class Classifier {
     self.accuracyMonitor = .init(threshold: accuracyThreshold)
   }
   
+  /// Runs inference for a batch of tensors.
+  ///
+  /// - Parameter data: Input tensors.
+  /// - Returns: Model predictions.
   public func feed(_ data: [Tensor]) -> [Tensor] {
     optimizer(data)
   }
   
+  /// Trains the classifier for the configured number of epochs.
+  ///
+  /// - Parameters:
+  ///   - data: Training dataset.
+  ///   - validation: Validation dataset sampled each epoch.
   public func fit(_ data: [DatasetModel], _ validation: [DatasetModel]) {
-    let batches = data.batched(into: batchSize)
-    let valBatches = validation.batched(into: batchSize)
-
-    //epochs
-    var trainingBatches: [(data: [Tensor], labels: [Tensor])] = []
-    batches.forEach { b in
-      let trainingSet = splitDataset(b)
-      trainingBatches.append(trainingSet)
-    }
-
-    var validationBatches: [(data: [Tensor], labels: [Tensor])] = []
-    valBatches.forEach { b in
-      let valSet = splitDataset(b)
-      validationBatches.append(valSet)
-    }
+    //shuffle data
+    let shuffledData = data.shuffled()
+    let trainingBatches = shuffledData
+      .batched(into: batchSize)
+      .map(splitDataset)
+    
+    let validationBatches = validation
+      .batched(into: batchSize)
+      .map(splitDataset)
     
     for i in 0..<epochs {
       let startTime = CFAbsoluteTimeGetCurrent()
@@ -101,10 +117,10 @@ public class Classifier {
         optimizer.metricsReporter?.update(metric: .loss, value: loss)
         optimizer.metricsReporter?.update(metric: .accuracy, value: result.accuracy)
 
-        let batchesCompletePercent = (round((Double(b) / Double(batches.count)) * 10000) / 10000) * 100
+        let batchesCompletePercent = (round((Double(b) / Double(trainingBatches.count)) * 10000) / 10000) * 100
         
         if log {
-          print("complete :", "\(b) / \(batches.count) -> \(batchesCompletePercent)%")
+          print("complete :", "\(b) / \(trainingBatches.count) -> \(batchesCompletePercent)%")
         }
         
         optimizer.apply(weightGradients) // single threaded
@@ -114,6 +130,8 @@ public class Classifier {
         optimizer.metricsReporter?.report()
       }
       
+      optimizer.onEpochEnd(epoch: i)
+      
       onEpochCompleted?()
       print("----epoch \(i) completed: \(CFAbsoluteTimeGetCurrent() - startTime)s-----")
     }
@@ -122,6 +140,12 @@ public class Classifier {
   }
   
   @discardableResult
+  /// Exports the underlying sequential model when available.
+  ///
+  /// - Parameters:
+  ///   - overrite: When `false`, appends a timestamp to avoid overwrite.
+  ///   - compress: When `true`, writes compact JSON.
+  /// - Returns: URL to exported model, or `nil` when unsupported.
   public func export(overrite: Bool = false, compress: Bool = true) -> URL? {
     if let network = optimizer.trainable as? Sequential {
       return network.export(overrite: overrite, compress: compress)

@@ -75,6 +75,9 @@ public final class Embedding: BaseLayer {
     self.outputSize = try container.decodeIfPresent(TensorSize.self, forKey: .outputSize) ?? TensorSize(array: [])
   }
   
+  /// Encodes embedding parameters and shape metadata.
+  ///
+  /// - Parameter encoder: Encoder used for serialization.
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(weights, forKey: .weights)
@@ -146,6 +149,11 @@ public final class Embedding: BaseLayer {
     return out
   }
   
+  /// Applies embedding weight updates from optimizer gradients.
+  ///
+  /// - Parameters:
+  ///   - gradients: Gradients with embedding-weight derivatives in `weights`.
+  ///   - learningRate: Learning rate used when `usesOptimizer == false`.
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     if trainable {
       if usesOptimizer {

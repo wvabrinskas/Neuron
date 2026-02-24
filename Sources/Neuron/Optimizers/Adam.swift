@@ -10,6 +10,20 @@ import NumSwift
 
 /// Convienence class for Adam with weight decay as default to `0.004`
 public final class AdamW: Adam {
+  /// Creates an AdamW optimizer with decoupled weight decay enabled.
+  ///
+  /// - Parameters:
+  ///   - trainable: Model whose parameters will be optimized.
+  ///   - device: Execution device for forward/backward math.
+  ///   - learningRate: Base learning rate.
+  ///   - batchSize: Number of samples per optimization step.
+  ///   - b1: Exponential decay for first-moment estimates.
+  ///   - b2: Exponential decay for second-moment estimates.
+  ///   - eps: Numerical stability epsilon.
+  ///   - weightDecayValue: Decoupled weight decay coefficient.
+  ///   - weightClip: Optional weight clipping threshold.
+  ///   - gradientClip: Optional gradient clipping threshold.
+  ///   - augmenter: Optional training-time data augmenter.
   public init(_ trainable: Trainable,
               device: Device = CPU(),
               learningRate: Tensor.Scalar,
@@ -19,7 +33,8 @@ public final class AdamW: Adam {
               eps: Tensor.Scalar = .stabilityFactor,
               weightDecayValue: Tensor.Scalar = 0.004,
               weightClip: Tensor.Scalar? = nil,
-              gradientClip: Tensor.Scalar? = nil) {
+              gradientClip: Tensor.Scalar? = nil,
+              augmenter: Augmenter? = nil) {
     super.init(trainable,
                device: device,
                learningRate: learningRate,
@@ -29,16 +44,27 @@ public final class AdamW: Adam {
                eps: eps,
                weightDecay: .decay(weightDecayValue),
                weightClip: weightClip,
-               gradientClip: gradientClip)
+               gradientClip: gradientClip,
+               augmenter: augmenter)
   }
 }
 
+/// An optimizer that implements the Adam (Adaptive Moment Estimation) algorithm.
+/// Combines the benefits of momentum-based and adaptive learning rate methods
+/// to efficiently update trainable parameters during training.
 public class Adam: BaseOptimizer {
+  /// Defines the weight decay strategy applied during parameter updates.
+  ///
+  /// - `none`: No weight decay is applied.
+  /// - `decay`: Applies L2 weight decay with the specified scalar coefficient.
   public enum WeightDecay {
     case none
     case decay(Tensor.Scalar)
   }
   
+  /// The trainable model whose parameters will be optimized.
+  /// Setting this property triggers a rebuild of the optimizer's internal state
+  /// to match the new model's parameter shapes.
   public override var trainable: Trainable {
     didSet {
       build()
@@ -56,6 +82,20 @@ public class Adam: BaseOptimizer {
   private var t: Tensor.Scalar = 1
   private let weightDecay: WeightDecay
   
+  /// Creates an Adam optimizer.
+  ///
+  /// - Parameters:
+  ///   - trainable: Model whose parameters will be optimized.
+  ///   - device: Execution device for forward/backward math.
+  ///   - learningRate: Base learning rate.
+  ///   - batchSize: Number of samples per optimization step.
+  ///   - b1: Exponential decay for first-moment estimates.
+  ///   - b2: Exponential decay for second-moment estimates.
+  ///   - eps: Numerical stability epsilon.
+  ///   - weightDecay: Optional decoupled weight decay configuration.
+  ///   - weightClip: Optional weight clipping threshold.
+  ///   - gradientClip: Optional gradient clipping threshold.
+  ///   - augmenter: Optional training-time data augmenter.
   public init(_ trainable: Trainable,
               device: Device = CPU(),
               learningRate: Tensor.Scalar,
@@ -65,7 +105,8 @@ public class Adam: BaseOptimizer {
               eps: Tensor.Scalar = .stabilityFactor,
               weightDecay: WeightDecay = .none,
               weightClip: Tensor.Scalar? = nil,
-              gradientClip: Tensor.Scalar? = nil) {
+              gradientClip: Tensor.Scalar? = nil,
+              augmenter: Augmenter? = nil) {
     self.b1 = b1
     self.b2 = b2
     self.eps = eps
@@ -74,10 +115,12 @@ public class Adam: BaseOptimizer {
                learningRate: learningRate,
                batchSize: batchSize,
                weightClip: weightClip,
-               gradientClip: gradientClip)
+               gradientClip: gradientClip,
+               augmenter: augmenter)
     build()
   }
   
+  /// Applies one Adam optimization step from accumulated gradients.
   public override func step() {
     var gradients = gradientAccumulator.accumulate()
     
@@ -94,7 +137,7 @@ public class Adam: BaseOptimizer {
       
       // only apply optimizer gradient if the layer is trainable by the optimizer
       if layer.trainable, layer.usesOptimizer {
-        adamGradient = run(gradient: gradient, biasGradient: biasGradient, index: i, weights: layer.weights)
+        adamGradient = run(gradient: gradient, biasGradient: biasGradient, index: i, weights: layer.weights, bias: layer.biases)
       }
             
       layer.apply(gradients: adamGradient, learningRate: learningRate)
@@ -115,7 +158,7 @@ public class Adam: BaseOptimizer {
     trainable.compile()
   }
   
-  private func run(gradient: Tensor, biasGradient: Tensor, index: Int, weights: Tensor) -> Optimizer.Gradient {
+  private func run(gradient: Tensor, biasGradient: Tensor, index: Int, weights: Tensor, bias: Tensor) -> Optimizer.Gradient {
     let i = index
     let gradCount = gradient.storage.count
 
@@ -141,7 +184,7 @@ public class Adam: BaseOptimizer {
     let biases = apply(m: &mb[i],
                        v: &vb[i],
                        gradient: biasGradient.storage,
-                       weights: weights.storage,
+                       weights: bias.storage,
                        size: biasGradient.size)
     
     return (Tensor(result, size: gradient.size), Tensor(biases, size: biasGradient.size))
@@ -179,7 +222,7 @@ public class Adam: BaseOptimizer {
 
       if let decayValue = shouldDecay, i < weights.count {
         let decayLR = learningRate * decayValue * weights[i]
-        delta -= decayLR
+        delta += decayLR
       }
 
       result[i] = delta
@@ -188,6 +231,7 @@ public class Adam: BaseOptimizer {
     return result
   }
   
+  /// Resets Adam moment buffers and step counters.
   public override func reset() {
     t = 1
     m.removeAll(keepingCapacity: true)

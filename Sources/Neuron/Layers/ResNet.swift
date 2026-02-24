@@ -6,18 +6,25 @@
 import Foundation
 import NumSwift
 
+/// A residual network (ResNet) block layer that applies a skip connection around an inner block of operations.
+///
+/// This layer implements the residual learning framework, where the input is added to the output
+/// of the inner block sequence, optionally projecting the input via a shortcut sequential when
+/// the dimensions do not match.
 public final class ResNet: BaseLayer {
   
   private var innerBlockSequential = Sequential()
   private var shortcutSequential = Sequential()
   private let outputRelu = ReLu()
-  private let accumulator = GradientAccumulator()
-  private let shortCutAccumulator = GradientAccumulator()
   
   private let filterCount: Int
   private let stride: Int
   private var training: Bool = true
   
+  /// A Boolean value indicating whether the layer is in training mode.
+  ///
+  /// Setting this property propagates the training state to both the inner block
+  /// sequential and the shortcut sequential.
   public override var isTraining: Bool {
     get {
       super.isTraining
@@ -28,6 +35,11 @@ public final class ResNet: BaseLayer {
     }
   }
   
+  /// The concatenated weights of the inner block and, if input projection is required, the shortcut sequential.
+  ///
+  /// Getting this property exports and flattens weights from the inner block sequential,
+  /// appending the shortcut sequential weights when input projection is enabled, and
+  /// concatenates them into a single `Tensor` along axis 2.
   public override var weights: Tensor {
     get {
       let innerBlockWeights = (try? innerBlockSequential.exportWeights()) ?? []
@@ -57,6 +69,13 @@ public final class ResNet: BaseLayer {
     return filterCount != inputSize.depth || stride != 1
   }
   
+  /// Creates a residual block with an optional projection shortcut.
+  ///
+  /// - Parameters:
+  ///   - inputSize: Optional known input shape.
+  ///   - initializer: Initializer used by internal convolution layers.
+  ///   - filterCount: Number of output channels for the block.
+  ///   - stride: Spatial stride for the first convolution/projection path.
   public init(inputSize: TensorSize? = nil,
               initializer: InitializerType = Constants.defaultInitializer,
               filterCount: Int,
@@ -147,6 +166,9 @@ public final class ResNet: BaseLayer {
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
   }
   
+  /// Encodes residual block configuration and internal path networks.
+  ///
+  /// - Parameter encoder: Encoder used for serialization.
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
@@ -157,6 +179,12 @@ public final class ResNet: BaseLayer {
     try container.encode(shortcutSequential, forKey: .shortcutSequential)
   }
   
+  /// Runs the residual block forward pass for a batch.
+  ///
+  /// - Parameters:
+  ///   - tensorBatch: Input batch.
+  ///   - context: Batch/thread metadata.
+  /// - Returns: Batch outputs after main path, shortcut add, and output ReLU.
   public override func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
     // we need to pass the full batch to BatchNormalize to calculate the global mean on each batch. Just like what happens when it's outside of the optimizer
     let detachedInputs = tensorBatch.map { $0.detached() }
@@ -194,6 +222,12 @@ public final class ResNet: BaseLayer {
     return outs
   }
   
+  /// Runs the residual block forward pass for a single tensor.
+  ///
+  /// - Parameters:
+  ///   - tensor: Input tensor.
+  ///   - context: Network execution context.
+  /// - Returns: Residual block output tensor.
   public override func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
     // we detach the input tensor because we want to stop at this tensor in respect to this sequential
     // not all the way up the graph to possibly other input layers
@@ -228,41 +262,135 @@ public final class ResNet: BaseLayer {
     return out
   }
   
+  /// Applies aggregated gradients to inner and shortcut subpaths.
+  ///
+  /// - Parameters:
+  ///   - gradients: Combined weight and bias gradients from backward pass.
+  ///   - learningRate: Learning rate used by sub-layer update paths.
   public override func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Tensor.Scalar) {
-    
-    let sequentialGradients = accumulator.accumulate(clearAtEnd: true)
-    innerBlockSequential.apply(gradients: sequentialGradients, learningRate: learningRate)
-    
-    if shouldProjectInput {
-      let shortCutGradients = shortCutAccumulator.accumulate(clearAtEnd: true)
-      shortcutSequential.apply(gradients: shortCutGradients, learningRate: learningRate)
+    // this isn't using the optimizer gradients at all...
+        
+    guard gradients.weights.isEmpty == false else {
+      return
     }
+    
+    applyGradientsToInnerBlock(gradients: gradients,
+                               learningRate: learningRate)
   }
   
   // MARK: - Private
   
+  private func applyGradientsToInnerBlock(gradients: (weights: Tensor, biases: Tensor), learningRate: Tensor.Scalar) {
+    var weightGradients: [Tensor] = []
+    var biasGradients: [Tensor] = []
+    
+    var currentWeightOffset: Int = 0
+    var currentBiasOffset: Int = 0
+    
+    var d = 0
+    
+    for layer in innerBlockSequential.layers {
+      guard layer.usesOptimizer else {
+        // add placeholder for layers that don't need gradients
+        weightGradients.append(Tensor())
+        biasGradients.append(Tensor())
+        continue
+      }
+      
+      // this should be correct given how we calculate weight size at each layer
+      let size = layer.weights.size
+      let totalWeights = size.rows * size.columns * size.depth
+      let indexOffset = currentWeightOffset
+      
+      let biasSize = layer.biases.size
+      let totalBiases = biasSize.rows * biasSize.columns * biasSize.depth
+      let indexBiasOffset = currentBiasOffset
+      
+      let layerWeights = Tensor(Tensor.Value(gradients.weights.storage[indexOffset..<indexOffset + totalWeights]), size: size)
+      let layerBiases = Tensor(Tensor.Value(gradients.biases.storage[indexBiasOffset..<indexBiasOffset + totalBiases]), size: biasSize)
+
+      weightGradients.append(layerWeights)
+      biasGradients.append(layerBiases)
+      
+      currentWeightOffset += totalWeights
+      currentBiasOffset += totalBiases
+    }
+    
+    innerBlockSequential.apply(gradients: .init(input: [],
+                                                weights: weightGradients,
+                                                biases: biasGradients),
+                               learningRate: learningRate)
+    
+    applyGradientsToShortcutBlock(gradients: gradients,
+                                  offsets: (currentWeightOffset, currentBiasOffset),
+                                  learningRate: learningRate)
+  }
+  
+  private func applyGradientsToShortcutBlock(gradients: (weights: Tensor, biases: Tensor),
+                                             offsets: (weights: Int, biases: Int),
+                                             learningRate: Tensor.Scalar) {
+    guard shouldProjectInput else { return }
+    
+    let shortcutWeightOffset = offsets.weights
+    let shortcutBiasOffset = offsets.biases
+    
+    var weightGradients: [Tensor] = []
+    var biasGradients: [Tensor] = []
+    
+    var lastTotalWeights: Int = 0
+    var lastTotalBiases: Int = 0
+        
+    for layer in shortcutSequential.layers {
+      guard layer.usesOptimizer else {
+        // add placeholder for layers that don't need gradients
+        weightGradients.append(Tensor())
+        biasGradients.append(Tensor())
+        continue
+      }
+      
+      // this should be correct given how we calculate weight size at each layer
+      let size = layer.weights.size
+      let totalWeights = size.rows * size.columns * size.depth
+      let indexOffset = lastTotalWeights + shortcutWeightOffset
+      
+      let biasSize = layer.biases.size
+      let totalBiases = biasSize.rows * biasSize.columns * biasSize.depth
+      let indexBiasOffset = lastTotalBiases + shortcutBiasOffset
+      
+      let layerWeights = Tensor(Tensor.Value(gradients.weights.storage[indexOffset..<indexOffset + totalWeights]), size: size)
+      let layerBiases = Tensor(Tensor.Value(gradients.biases.storage[indexBiasOffset..<indexBiasOffset + totalBiases]), size: biasSize)
+      
+      weightGradients.append(layerWeights)
+      biasGradients.append(layerBiases)
+      
+      lastTotalBiases += totalBiases
+      lastTotalWeights += totalWeights
+    }
+    
+    shortcutSequential.apply(gradients: .init(input: [],
+                                              weights: weightGradients,
+                                              biases: biasGradients),
+                             learningRate: learningRate)
+    
+  }
+  
   private func buildForward(input: Tensor, reLuOut: Tensor, detachedInput: Tensor, copiedInputTensor: Tensor) -> Tensor {
-    let tensorContext = TensorContext { [accumulator, shortCutAccumulator, shouldProjectInput, innerBlockSequential, shortcutSequential, reLuOut] inputs, gradient, wrt in
+    let tensorContext = TensorContext { [shouldProjectInput, innerBlockSequential, shortcutSequential, reLuOut] inputs, gradient, wrt in
       
       let reluGradients = reLuOut.gradients(delta: gradient, wrt: detachedInput)
 
       let reluGradientsWrtProjectedInput = reLuOut.gradients(delta: gradient, wrt: copiedInputTensor)
             
-      let blockGradientsWeights = Array(reluGradients.weights[0..<innerBlockSequential.layers.count])
-      let blockGradientsBiases = Array(reluGradients.biases[0..<innerBlockSequential.layers.count])
+      var weightGradients = Array(reluGradients.weights[0..<innerBlockSequential.layers.count]).flatMap { $0.storage }
       
-      accumulator.insert(.init(input: [], // we dont need these
-                               weights: blockGradientsWeights,
-                               biases: blockGradientsBiases))
+      var biasGradients = Array(reluGradients.biases[0..<innerBlockSequential.layers.count]).flatMap { $0.storage }
       
       if shouldProjectInput {
         let shortCutGradientsWeights = Array(reluGradientsWrtProjectedInput.weights[0..<shortcutSequential.layers.count])
         let shortCutGradientsBiases = Array(reluGradientsWrtProjectedInput.biases[0..<shortcutSequential.layers.count])
         
-        shortCutAccumulator.insert(.init(input: [], // we dont need these
-                                         weights: shortCutGradientsWeights,
-                                         biases: shortCutGradientsBiases))
-        
+        weightGradients.append(contentsOf: shortCutGradientsWeights.flatMap(\.storage))
+        biasGradients.append(contentsOf: shortCutGradientsBiases.flatMap(\.storage))
       }
       
       let gradientToAdd = if shouldProjectInput {
@@ -272,7 +400,7 @@ public final class ResNet: BaseLayer {
       }
       
       let wrtInputs = reluGradients.input[safe: 0, Tensor()] + gradientToAdd // add gradient FROM skip connection. Direct path for gradients
-      return (wrtInputs, Tensor(), Tensor())
+      return (wrtInputs, Tensor(weightGradients), Tensor(biasGradients))
     }
     
     let out = Tensor(reLuOut.storage, size: reLuOut.size, context: tensorContext)

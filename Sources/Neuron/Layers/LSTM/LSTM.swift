@@ -12,19 +12,29 @@ import NumSwift
 /// preceeded by an `Embedding` layer as that's the expected input rather than the raw
 /// text input itself.
 public final class LSTM: BaseLayer {
+  /// Weights tensor for the forget gate of the LSTM cell.
   public var forgetGateWeights: Tensor = Tensor()
+  /// Biases tensor for the forget gate of the LSTM cell.
   public var forgetGateBiases: Tensor = Tensor()
   
+  /// Weights tensor for the input gate of the LSTM cell.
   public var inputGateWeights: Tensor = Tensor()
+  /// Biases tensor for the input gate of the LSTM cell.
   public var inputGateBiases: Tensor = Tensor()
   
+  /// Weights tensor for the gate gate (cell gate) of the LSTM cell.
   public var gateGateWeights: Tensor = Tensor()
+  /// Biases tensor for the gate gate (cell gate) of the LSTM cell.
   public var gateGateBiases: Tensor = Tensor()
   
+  /// Weights tensor for the output gate of the LSTM cell.
   public var outputGateWeights: Tensor = Tensor()
+  /// Biases tensor for the output gate of the LSTM cell.
   public var outputGateBiases: Tensor = Tensor()
   
+  /// Weights tensor for projecting the hidden state to the output of the LSTM layer.
   public var hiddenOutputWeights: Tensor = Tensor()
+  /// Biases tensor for projecting the hidden state to the output of the LSTM layer.
   public var hiddenOutputBiases: Tensor = Tensor()
   
   private var hiddenUnits: Int
@@ -33,6 +43,9 @@ public final class LSTM: BaseLayer {
   private var batchLength: Int
   private let returnSequence: Bool
   
+  /// A concatenated view of all gate weight tensors (forget, input, gate, output, and hidden-output).
+  ///
+  /// Setting this property directly is not supported; use the individual gate weight properties instead.
   public override var weights: Tensor {
     get {
       forgetGateWeights.concat(inputGateWeights, axis: 2)
@@ -45,6 +58,9 @@ public final class LSTM: BaseLayer {
     }
   }
   
+  /// A concatenated view of all gate bias tensors (forget, input, gate, output, and hidden-output).
+  ///
+  /// Setting this property directly is not supported; use the individual gate bias properties instead.
   public override var biases: Tensor {
     get {
       forgetGateBiases.concat(inputGateBiases, axis: 0)
@@ -57,6 +73,7 @@ public final class LSTM: BaseLayer {
     }
   }
   
+  /// A container holding the activation tensors produced by each gate of an LSTM cell for a single time step.
   public class LSTMActivations {
     let forgetGate: Tensor
     let inputGate: Tensor
@@ -81,6 +98,7 @@ public final class LSTM: BaseLayer {
     }
   }
   
+  /// A cache storing intermediate values computed during an LSTM forward pass, used for backpropagation.
   public class Cache {
     var lstm: LSTMActivations
     var cell: Tensor
@@ -217,6 +235,9 @@ public final class LSTM: BaseLayer {
     }
   }
   
+  /// Encodes LSTM gate/output parameters and topology metadata.
+  ///
+  /// - Parameter encoder: Encoder used for serialization.
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(outputSize, forKey: .outputSize)
@@ -326,6 +347,11 @@ public final class LSTM: BaseLayer {
   }
   
   
+  /// Applies accumulated LSTM gate/output gradients to trainable parameters.
+  ///
+  /// - Parameters:
+  ///   - gradients: Combined weight and bias gradient tensors.
+  ///   - learningRate: Learning rate already reflected by optimizer gradient scaling.
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     /*
      order of weights in tensor...

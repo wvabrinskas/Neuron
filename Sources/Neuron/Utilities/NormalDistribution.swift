@@ -9,11 +9,20 @@ import Foundation
 import GameplayKit
 import Numerics
 
+/// A sampler that generates random values from a normal (Gaussian) distribution.
 public struct NormalDistribution {
   private let randomSource: GKRandomSource
+  /// The mean (expected value) of the normal distribution.
   public let mean: Tensor.Scalar
+  /// The standard deviation of the normal distribution.
   public let deviation: Tensor.Scalar
   
+  /// Creates a normal distribution sampler.
+  ///
+  /// - Parameters:
+  ///   - randomSource: Random source used for sampling.
+  ///   - mean: Distribution mean.
+  ///   - deviation: Standard deviation (must be non-negative).
   public init(randomSource: GKRandomSource = GKRandomSource(), mean: Tensor.Scalar = 0, deviation: Tensor.Scalar = 0.01) {
     precondition(deviation >= 0)
     self.randomSource = randomSource
@@ -21,6 +30,9 @@ public struct NormalDistribution {
     self.deviation = deviation
   }
   
+  /// Samples the next scalar value from the distribution.
+  ///
+  /// - Returns: Random scalar drawn from `N(mean, deviation^2)`.
   public func nextScalar() -> Tensor.Scalar {
     guard deviation > 0 else { return mean }
     
@@ -31,6 +43,10 @@ public struct NormalDistribution {
     return z1 * deviation + mean
   }
   
+  /// Computes the log probability density for a given value.
+  ///
+  /// - Parameter value: Scalar for which to evaluate log-density.
+  /// - Returns: Log-probability under this normal distribution.
   public func logProb(value: Tensor.Scalar) -> Tensor.Scalar {
     let loc = mean
     let variance = deviation * deviation
@@ -40,6 +56,7 @@ public struct NormalDistribution {
   }
 }
 
+/// A Gaussian random number generator using the Box-Muller transform.
 public class Gaussian {
   // stored properties
   private var s : Double = 0.0
@@ -48,11 +65,19 @@ public class Gaussian {
   private var std: Double
   private var mean: Double
   
+  /// Creates a Box-Muller Gaussian sampler.
+  ///
+  /// - Parameters:
+  ///   - std: Standard deviation.
+  ///   - mean: Distribution mean.
   public init(std: Double, mean: Double) {
     self.std = std
     self.mean = mean
   }
   
+  /// A randomly sampled value from the Gaussian distribution using the Box-Muller transform.
+  ///
+  /// - Returns: A `Double` sampled from the distribution with the configured mean and standard deviation.
   public var gaussRand : Double  {
     var u1, u2, v1, x : Double
     if !cachedNumberExists {

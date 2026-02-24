@@ -9,13 +9,25 @@ import Foundation
 import NumSwiftC
 import NumSwift
 
-public typealias VectorizableItem = Hashable & Equatable
+/// A type alias representing the requirements for an item that can be vectorized.
+/// Conforming types must be `Hashable`, `Equatable`, and `Codable`.
+public typealias VectorizableItem = Hashable & Equatable & Codable
 
+/// Specifies the format applied when encoding a vector sequence.
+///
+/// - `start`: Prepend a start token to the vector.
+/// - `end`: Append an end token to the vector.
+/// - `none`: Apply no additional formatting tokens.
 public enum VectorFormat {
   case start, end, none
 }
 
-public protocol Vectorizing {
+
+/// A protocol for types that can convert sequences of items into integer vector representations.
+///
+/// `Vectorizing` extends `Tokenizing` and provides bidirectional mappings between
+/// items and integer indices, supporting optional start and end token formatting.
+public protocol Vectorizing: Tokenizing {
   associatedtype Item: VectorizableItem
   typealias Vector = [Item: Int]
   typealias InverseVector = [Int: Item]
@@ -28,17 +40,38 @@ public protocol Vectorizing {
   /// The current full vector storage of every value passed in keyed by the `Index`
   var inverseVector: InverseVector { get }
   @discardableResult
+  /// Converts items into integer token IDs.
+  ///
+  /// - Parameters:
+  ///   - items: Items to vectorize.
+  ///   - format: Optional start/end token formatting mode.
+  /// - Returns: Vectorized token IDs.
   func vectorize(_ items: [Item], format: VectorFormat) -> [Int]
+  /// Converts token IDs back into their original items.
+  ///
+  /// - Parameter vector: Token IDs to decode.
+  /// - Returns: Decoded items.
   func unvectorize(_ vector: [Int]) -> [Item]
+  /// Converts one-hot tensors back into original items.
+  ///
+  /// - Parameter vector: One-hot encoded tensor.
+  /// - Returns: Decoded items.
   func unvectorizeOneHot(_ vector: Tensor) -> [Item]
+  /// One-hot encodes input items.
+  ///
+  /// - Parameter items: Items to encode.
+  /// - Returns: One-hot tensor representation.
   func oneHot(_ items: [Item]) -> Tensor
 }
+
 
 
 /// Takes an input and turns it in to a vector array of integers indicating its value.
 /// ex. Can take a string and apply a integer value to the word so that if it came up again
 /// it would return the same integer value for that word.
-public class Vectorizer<T: VectorizableItem>: Vectorizing {
+public class Vectorizer<T: VectorizableItem>: Vectorizing, Codable {
+/// The maximum index currently assigned, representing the next available index offset
+/// after reserving indices for start and end tokens.
   public typealias Item = T
   public private(set) var vector: Vector = [:]
   public private(set) var inverseVector: InverseVector = [:]
@@ -63,6 +96,10 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
   /// if set to true this will vectorize the input with an offset of `maxIndex` to reserve the first two vectors for start and end vectors
   private let startAndEndingEncoding: Bool
   
+  /// Creates a new vectorizer instance.
+  ///
+  /// - Parameter startAndEndingEncoding: Enables reserved start/end tokens at
+  ///   indices `0` and `1` for sequence workloads.
   public init(startAndEndingEncoding: Bool = false) {
     self.startAndEndingEncoding = startAndEndingEncoding
     
@@ -71,6 +108,33 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
     }
   }
   
+  /// Reconstructs a `Vectorizer` model from a serialized `.stkns` file URL.
+  ///
+  /// - Parameter url: File URL pointing to a previously exported model.
+  /// - Returns: Decoded `Sequential` instance.
+  public static func `import`(_ url: URL) -> Self {
+    let result: Result<Self, Error> =  ExportHelper.buildTokens(url)
+    switch result {
+    case .success(let model):
+      return model
+    case .failure(let error):
+      preconditionFailure(error.localizedDescription)
+    }
+  }
+  
+  /// Reconstructs a `Sequential` model directly from encoded model data.
+  ///
+  /// - Parameter data: Serialized model bytes.
+  /// - Returns: Decoded `Sequential` instance.
+  public static func `import`(_ data: Data) -> Self {
+    let result: Result<Self, Error> =  ExportHelper.buildTokens(data)
+    switch result {
+    case .success(let model):
+      return model
+    case .failure(let error):
+      preconditionFailure(error.localizedDescription)
+    }
+  }
   
   /// One hot vectorizes a input that has already been vectorized.
   ///  `NOTE: Please call `vectorize` on your input first before calling `oneHot` otherwise it will not work
@@ -99,6 +163,12 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
   }
   
   @discardableResult
+  /// Converts input items into integer token IDs.
+  ///
+  /// - Parameters:
+  ///   - items: Items to vectorize.
+  ///   - format: Optional start/end token formatting behavior.
+  /// - Returns: Vectorized token indices.
   public func vectorize(_ items: [T], format: VectorFormat = .none) -> [Int] {
     var vectorized: [Int] = []
     
@@ -129,9 +199,12 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
     return vectorized
   }
   
+  /// Decodes one-hot encoded vectors back into original items.
+  ///
+  /// - Parameter vector: One-hot tensor where each depth slice is one token.
+  /// - Returns: Decoded item sequence.
   public func unvectorizeOneHot(_ vector: Tensor) -> [T] {
     var items: [T] = []
-    let cols = vector.size.columns
     
     for d in 0..<vector.size.depth {
       let slice = vector.depthSlice(d)
@@ -147,6 +220,10 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
   }
   
   
+  /// Decodes integer token IDs back into original items.
+  ///
+  /// - Parameter vector: Integer token IDs.
+  /// - Returns: Decoded item sequence.
   public func unvectorize(_ vector: [Int]) -> [T] {
     var items: [T] = []
     
@@ -161,10 +238,6 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing {
   
   // MARK: Private
   func formatItem(item: T) -> T {
-//    if let i = item as? String {
-//      return i.lowercased() as? T ?? item
-//    }
-//    
     return item
   }
 }

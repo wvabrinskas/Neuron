@@ -8,6 +8,10 @@
 import Foundation
 import NumSwift
 
+/// Computes running variance and mean using Welford's online algorithm.
+///
+/// Maintains per-depth-slice mean and M2 accumulators to support
+/// numerically stable incremental variance computation over a stream of tensors.
 public final class WelfordVariance {
   /// Per-depth-slice means stored as flat arrays
   @Atomic public private(set) var means: [Tensor.Value] = []
@@ -21,11 +25,17 @@ public final class WelfordVariance {
     setInputSize(inputSize)
   }
   
+  /// Configures input shape and resets accumulated statistics.
+  ///
+  /// - Parameter inputSize: Expected tensor shape for subsequent updates.
   public func setInputSize(_ inputSize: TensorSize) {
     self.inputSize = inputSize
     reset()
   }
   
+  /// Incorporates one tensor into running Welford mean/variance statistics.
+  ///
+  /// - Parameter inputs: Input tensor sample to accumulate.
   public func update(_ inputs: Tensor) {
     iterations += 1
     let iterScalar = iterations.asTensorScalar
@@ -40,6 +50,7 @@ public final class WelfordVariance {
     }
   }
   
+  /// Resets iteration count and running statistics to zeros.
   public func reset() {
     iterations = 0
     let sliceSize = inputSize.rows * inputSize.columns

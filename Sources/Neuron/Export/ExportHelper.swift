@@ -7,7 +7,13 @@
 
 import Foundation
 
+/// A helper struct providing utilities for exporting model data to various file formats.
 public struct ExportHelper: ModelBuilder {
+  
+/// Defines supported file extensions for exported model files.
+  public enum FileExtensions: String {
+    case smodel, stokens
+  }
   
   /// Accepts an array of T generics and returns the array as a CSV url that was saved to disk
   /// - Parameter data: The data to encode to a CSV
@@ -41,6 +47,47 @@ public struct ExportHelper: ModelBuilder {
 
   }
   
+  /// Encodes and writes a Codable vectorizor / tokenizer to a `.stokens` file.
+  ///
+  /// - Parameters:
+  ///   - filename: Output filename without extension.
+  ///   - compress: When `true`, emits compact JSON; otherwise pretty-printed JSON.
+  ///   - model: Codable model to serialize.
+  /// - Returns: File URL for the written model, or `nil` on failure.
+  public static func getTokens<T: Codable>(filename: String = "tokens", compress: Bool = true, model: T) -> URL? {
+    let fileManager = FileManager.default
+
+    do {
+      let encoder = JSONEncoder()
+      
+      if compress == false {
+        encoder.outputFormatting = .prettyPrinted
+      }
+      
+      let dict = try encoder.encode(model)
+      
+      let path = try fileManager.url(for: .documentDirectory, in: .allDomainsMask, appropriateFor: nil, create: false)
+      let fileName = "\(filename).\(FileExtensions.stokens.rawValue)"
+      let fileURL = path.appendingPathComponent(fileName)
+      
+      try dict.write(to: fileURL)
+
+      return fileURL
+      
+    } catch {
+      print("error creating file")
+      return nil
+      
+    }
+  }
+  
+  /// Encodes and writes a Codable model to a `.smodel` file.
+  ///
+  /// - Parameters:
+  ///   - filename: Output filename without extension.
+  ///   - compress: When `true`, emits compact JSON; otherwise pretty-printed JSON.
+  ///   - model: Codable model to serialize.
+  /// - Returns: File URL for the written model, or `nil` on failure.
   public static func getModel<T: Codable>(filename: String = "model", compress: Bool = true, model: T) -> URL? {
     let fileManager = FileManager.default
 
@@ -54,7 +101,7 @@ public struct ExportHelper: ModelBuilder {
       let dict = try encoder.encode(model)
       
       let path = try fileManager.url(for: .documentDirectory, in: .allDomainsMask, appropriateFor: nil, create: false)
-      let fileName = "\(filename).smodel"
+      let fileName = "\(filename).\(FileExtensions.smodel.rawValue)"
       let fileURL = path.appendingPathComponent(fileName)
       
       try dict.write(to: fileURL)
@@ -69,6 +116,10 @@ public struct ExportHelper: ModelBuilder {
   }
   
   @_spi(Visualizer)
+  /// Builds a trainable model instance from a serialized model file URL.
+  ///
+  /// - Parameter url: URL to a `.smodel` file.
+  /// - Returns: Success with decoded model, or failure with decode/load error.
   public static func buildModel<T: Trainable>(_ url: URL) -> Result<T, Error> {
     do {
       let data = try Data(contentsOf: url, options: .mappedIfSafe)
@@ -91,4 +142,33 @@ public struct ExportHelper: ModelBuilder {
       return .failure(error)
     }
   }
+  
+  @_spi(Visualizer)
+  /// Builds a trainable model instance from a serialized model file URL.
+  ///
+  /// - Parameter url: URL to a `.smodel` file.
+  /// - Returns: Success with decoded model, or failure with decode/load error.
+  public static func buildTokens<T: Tokenizing>(_ url: URL) -> Result<T, Error> {
+    do {
+      let data = try Data(contentsOf: url, options: .mappedIfSafe)
+      return buildTokens(data)
+    } catch {
+      return .failure(error)
+    }
+  }
+  
+  internal static func buildTokens<T: Tokenizing>(_ data: Data) -> Result<T, Error> {
+    do {
+      let modelResult: Result<T?, Error> = self.build(data)
+      if let model = try modelResult.get() {
+        return .success(model)
+      }
+      
+      return .failure(BuildError.emptyJson)
+      
+    } catch {
+      return .failure(error)
+    }
+  }
 }
+

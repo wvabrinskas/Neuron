@@ -29,11 +29,30 @@ To become a sponsor and support the development of Neuron, simply click on the "
 
 Feel free to send me suggestions on how to improve this. I would be delighted to learn more!! You can also feel free to assign issues here. Run the unit tests as well to learn how the project works!
 
-[Full Documentation](https://williamvabrinskas.com/Neuron/documentation/neuron/)
+[Full Documentation](https://williamvabrinskas.com/pages/documentation/neuron/)
 
 # Important Developer Note!
 
 ## When using Neuron it operates about 10X faster when you run with a `RELEASE` scheme. This is due to the compiler optimizations being set to the highest optimization value. If you find Neuron is running somewhat slowly this might be a reason why. 
+
+## Float16 quantization (current workflow)
+Neuron currently supports a compile-time Float16 mode behind the `QUANTIZED_F16` compiler flag.
+
+Because parent projects cannot reliably pass Swift compiler flags down into a Swift Package dependency, the current way to build a quantized model is:
+
+1. Clone `Neuron` locally.
+2. Point your app's Swift Package dependency to that local clone.
+3. In the local `Neuron` clone, edit `Package.swift` and add the following to the `Neuron` `.target`:
+
+```swift
+swiftSettings: [
+  .define("QUANTIZED_F16")
+]
+```
+
+4. Rebuild your project.
+
+This builds Neuron to use `Float16` instead of `Float`. It is not ideal, but it is the current supported path until package-level flag propagation is improved.
 
 # Before you begin developing
 Run `./scripts/onboard.sh` to install the Xcode templates that `Neuron` provides to quickly generate layer code templates.
@@ -234,189 +253,161 @@ You can also print your network to the console by calling `print` on the `Sequen
 ## Finishing up
 Keep playing around with your new model and enjoy the network! Share your model on the Discord or ask for some other models that others have made! 
 # Basics Background
-## How does Neuron work? 
+## How does Neuron work?
+
 ## Tensor
-The main backbone of Neuron is the `Tensor` object. This object is basically a glorified 3D array of numbers. All `Tensor` objects are 3D arrays however they can contain any type of array in-between. Its size is defined by a `TensorSize` object defining `columns`, `rows`, `depth`.
+The core data structure in Neuron is `Tensor`. It is still conceptually a 3D tensor, but the internal architecture is now optimized around flat contiguous storage.
+
+### Tensor architecture
+- `Tensor` is a reference type (`class`) and is `Codable`.
+- Data is stored in `storage: ContiguousArray<Tensor.Scalar>`.
+- Shape is stored in `size: TensorSize` (`columns`, `rows`, `depth`).
+- `shape` returns `[columns, rows, depth]`.
+- Indexing uses flat row-major depth slices:
+  - `index = d * rows * columns + r * columns + c`
+
+This is significantly faster and avoids repeated nested-array allocations in hot paths.
 
 ```swift
 public class Tensor: Equatable, Codable {
-  ...
-    
-  public init() {
-    self.value = []
-    self.context = TensorContext()
-  }
-  
-  public init(_ data: Scalar? = nil, context: TensorContext = TensorContext()) {
-    if let data = data {
-      self.value = [[[data]]]
-    } else {
-      self.value = []
-    }
-    
-    self.context = context
-  }
-  
-  public init(_ data: [Scalar], context: TensorContext = TensorContext()) {
-    self.value = [[data]]
-    self.context = context
-  }
-  
-  public init(_ data: [[Scalar]], context: TensorContext = TensorContext()) {
-    self.value = [data]
-    self.context = context
-  }
-  
-  public init(_ data: Data, context: TensorContext = TensorContext()) {
-    self.value = data
-    self.context = context
-  }
+  public typealias Value = ContiguousArray<Scalar>
+
+  public internal(set) var storage: Tensor.Value
+  public internal(set) var size: TensorSize
+  internal let context: TensorContext
+  internal var graph: [ID: Tensor] = [:]
+  internal var graphChain: Set<ID> = []
 }
 ```
 
-Above are the initializers that `Tensor` supports. More in-depth documentation on `Tensor` can be found [here](https://williamvabrinskas.com/Neuron/documentation/neuron/tensor). 
-
-### Arithmetic
-You can perform basic arithmetic opterations directly to a `Tensor` object as well. 
-```swift
-static func * (Tensor, Tensor.Scalar) -> Tensor
-static func * (Tensor, Tensor) -> Tensor
-static func + (Tensor, Tensor) -> Tensor
-static func + (Tensor, Tensor.Scalar) -> Tensor
-static func - (Tensor, Tensor.Scalar) -> Tensor
-static func - (Tensor, Tensor) -> Tensor
-static func / (Tensor, Tensor.Scalar) -> Tensor
-static func / (Tensor, Tensor) -> Tensor
-static func == (Tensor, Tensor) -> Bool
-```
-
-### Building a backpropagation graph
-You can attach a `Tensor` to another `Tensor`'s graph by calling `setGraph(_ tensor: Tensor)` on the `Tensor` whose `graph` you'd like to set. 
+Common initializers:
 
 ```swift
-let inputTensor = Tensor([1,2,3,4])
-var outputTensor = Tensor([2])
-
-outputTensor.setGraph(inputTensor)
+Tensor()                                  // empty
+Tensor(Tensor.Scalar(1.0))                // scalar: 1x1x1
+Tensor([1, 2, 3])                         // 1D -> columns x 1 x 1
+Tensor([[1, 2], [3, 4]])                  // 2D -> columns x rows x 1
+Tensor([[[...]]])                         // 3D
+Tensor(storage, size: someTensorSize)     // direct flat-storage init
 ```
 
-Doing so will set the `inputTensor` as the `graph` to the `outputTensor`. This means that when calling `.gradients` on the `outputTensor` the operation will look as such: 
+More in-depth documentation on `Tensor` is [here](https://williamvabrinskas.com/Neuron/documentation/neuron/tensor).
 
+### Building a graph
+Each output tensor stores links to parent tensors through `setGraph(_:)` (or internally `setGraphSafe(_:)` for cycle protection). In normal model training you usually do not need to call this manually; layers and `Sequential` wire the graph for you.
+
+```swift
+let input = Tensor([1, 2, 3, 4])
+let output = input * input
+// output now has graph connections to input tensors
 ```
-delta -> outputTensor.context(inputTensor) -> gradients w.r.t to inputTensor
-```
 
-Unless you're building a graph yourself or doing something custom, you'll never have to set a graph yourself. This will be handled by the `Sequential` object.
-
-### Gradients
+## Gradients
 More in-depth `TensorContext` documentation can be found [here](https://williamvabrinskas.com/Neuron/documentation/neuron/tensorcontext).
 
-Neuron performs gradient descent operations using `Tensor` objects and their accompanying `TensorContext`.
-`Tensor` objects contain an internal property called `context` which is of type `TensorContext`. `TensorContext` is an object that contains the backpropagtion information for that given `Tensor`. As of right now Neuron doesn't have a full auto-grad setup yet however `Tensor` objects with their `TensorContext` provides some type of auto-grad. 
+### What is `TensorContext`?
+`TensorContext` is the local backprop rule attached to a tensor. Its job is to answer:
+
+> “Given upstream gradient `dL/dOut`, what are `dL/dInput`, `dL/dWeight`, and `dL/dBias` for this operation?”
 
 ```swift
 public struct TensorContext: Codable {
-  public typealias TensorBackpropResult = (input: Tensor, weight: Tensor)
-  public typealias TensorContextFunction = (_ inputs: Tensor, _ gradient: Tensor) -> TensorBackpropResult
-  var backpropagate: TensorContextFunction
-  
-  public init(backpropagate: TensorContextFunction? = nil) {
-    let defaultFunction = { (input: Tensor, gradient: Tensor) in
-      return (Tensor(gradient.value), Tensor())
-    }
-    
-    self.backpropagate = backpropagate ?? defaultFunction
-  }
-  
-  public func encode(to encoder: Encoder) throws {}
-  
-  public init(from decoder: Decoder) throws {
-    self = TensorContext()
-  }
+  public typealias TensorBackpropResult = (input: Tensor, weight: Tensor, bias: Tensor)
+  public typealias TensorContextFunction = (_ inputs: Tensor, _ gradient: Tensor, _ wrt: Tensor?) -> TensorBackpropResult
 }
 ```
 
-When calling `.gradients(delta: SomeTensor, wrt: SomeInputTensor)` on a `Tensor` that has an attached `graph` it wil automatically backpropagate all the way through the `graph` with respect to the `wrt` `Tensor` and return a `Tensor.Gradient` object. 
+Purpose of `TensorContext`:
+- Encapsulates the derivative logic for one node/operation.
+- Keeps the chain rule local to where the forward op was created.
+- Lets the same graph walker work for tensor ops and trainable layers.
+- Returns parameter gradients (`weight`, `bias`) when applicable.
 
-When adding `wrt` to the `.gradients(delta: SomeTensor, wrt: SomeInputTensor)` function call it will result in the gradient being calculated with respect to the `wrt` `Tensor`. Leaving this out will result in all branches being added to the gradients output.
+If no custom context is provided, the default behavior passes the incoming gradient through to `input` and returns empty weight/bias tensors.
 
-```swift
-public struct Gradient {
-  let input: [Tensor]
-  let weights: [Tensor]
-  let biases: [Tensor]
-  
-  public init(input: [Tensor] = [],
-              weights: [Tensor] = [],
-              biases: [Tensor] = []) {
-    self.input = input
-    self.weights = weights
-    self.biases = biases
-  }
-}
-```
+### Which functions currently have autograd?
+Autograd is currently implemented where a new tensor is created with a `TensorContext` and graph links.
 
-An example of a graph with multiple inputs and how to calculate gradients with respect to a specific input:
+Tensor-level autograd (`Tensor` ↔ `Tensor`):
+- `static func + (Tensor, Tensor) -> Tensor`
+- `static func - (Tensor, Tensor) -> Tensor`
+- `static func * (Tensor, Tensor) -> Tensor`
+- `static func / (Tensor, Tensor) -> Tensor`
+- Broadcasting paths used by those operators:
+  - `addAlong(axis:value:)`
+  - `subtractAlong(axis:value:)`
+  - `multiplyAlong(axis:value:)`
+  - `divideAlong(axis:value:)`
 
-```
-  input_1
-    |
-  Dense0  input_2
-    |       |
-  Dense1  Dense2
-    |       |
-  Relu1   Relu2
-    \     /
-      \   /
-      Dense3 (dual input graph built here)
-    /     \
-  Relu3   out_2 
-    |
-  out_1 (gradients calculated here)
-```
+Layer-level autograd (forward creates output `TensorContext`):
+- `Dense`, `Conv2d`, `BatchNormalize`, `LayerNormalize`
+- `MaxPool`, `AvgPool`, `GlobalAveragePool`
+- `Dropout`, `Flatten`, `Reshape`
+- `Embedding`, `LSTM`, `ResNet`
+- Activation forwards (`BaseActivationLayer`) and `Softmax` override
 
-The forward pass would be as follows:
+Important note: scalar overloads like `Tensor + Scalar` or utility math/reduction helpers do not create a new autograd node by themselves. Most training gradients come from layer forward contexts and tensor-tensor ops listed above.
+
+### How `.gradients(delta:wrt:)` is calculated
+Calling:
 
 ```swift
-// feed forward
-let inputAtDense0 = Tensor.fillWith(value: 1, size: dense_0.inputSize)
-inputAtDense0.label = "input_1"
-
-let dense0Out = dense_0(inputAtDense0)
-let dense1Out = dense(dense0Out)
-let reluOut1 = relu(dense1Out)
-
-let inputAtDense2 = Tensor.fillWith(value: 0.8, size: dense2.inputSize)
-inputAtDense2.label = "input_2"
-
-let reluOut2 = relu2(dense2(inputAtDense2))
-
-let dense3Out1 = dense3(reluOut1)
-
-dense3Out1.setGraph(reluOut1)
-dense3Out1.setGraph(reluOut2)
-
-let out1 = relu3(dense3Out1) // branch_1 out
-
-let out2 = dense3(reluOut2) // branch_2 out
+let g = output.gradients(delta: lossGradient, wrt: inputTensor)
 ```
 
-To get the gradients w.r.t to `input_1` you would call:
+does the following:
 
-```swift
-// branch 1 backwards
-let branch1Error = Tensor.fillWith(value: 0.5, size: relu3.outputSize)
-let branch1Backwards = out1.gradients(delta: branch1Error, wrt: inputAtDense0)
+1. Starts at `output` and calls its local context backprop function for each direct parent in `output.graph`.
+2. Collects returned gradients into three arrays:
+   - input gradients
+   - weight gradients
+   - bias gradients
+3. Uses the returned input gradients as the new upstream gradients for the next graph level.
+4. Repeats level-by-level until the graph is exhausted.
+5. If `wrt` is provided, traversal is filtered to branches whose `graphChain` contains that tensor, and stops once that tensor is reached.
+
+Example graph and gradient flow:
+
+```text
+Forward graph
+input_1 --> Dense_1 --> ReLU_1 --\
+                                  +--> Merge/Add --> output
+input_2 --> Dense_2 --> ReLU_2 --/
+
+Backward flow (reverse direction)
+dL/dOutput
+   |
+Merge/Add context
+  / \
+dL/dReLU_1        dL/dReLU_2
+    |                  |
+ReLU_1 context     ReLU_2 context
+    |                  |
+Dense_1 context    Dense_2 context
+  /   \              /   \
+dL/dInput_1 dL/dW1 dL/dInput_2 dL/dW2
+           dL/db1            dL/db2
 ```
 
-This will return a `Tensor.Gradient` object with the gradients w.r.t to `input_1`. 
+If you call `.gradients(delta:wrt:)` with `wrt: input_1`, traversal stays on the left branch and returns gradients only for nodes on that path.
 
-To get the gradients w.r.t to `input_2` you would call:
+So the chain rule is applied as:
 
-```swift
-// branch 2 backwards
-let branch2Error = Tensor.fillWith(value: 0.5, size: dense3.outputSize)
-let branch2Backwards = out2.gradients(delta: branch2Error, wrt: inputAtDense2)
+```
+upstream delta
+  -> current tensor context.backpropagate(...)
+  -> propagated input deltas
+  -> next parent contexts
+  -> ...
 ```
 
-A `Tensor.Gradient` object will contain all the gradients you'll need to perform a backpropagation step in the `Optimizer`. This object contains gradients w.r.t the `input`, w.r.t the `weights`, and w.r.t the `biases` of the graph. 
+### `Tensor.Gradient` (TensorGradients)
+`Tensor.gradients(...)` returns `Tensor.Gradient`, which packages:
+- gradients w.r.t. graph inputs
+- gradients w.r.t. trainable weights
+- gradients w.r.t. trainable biases
+
+These are what the optimizer consumes to update model parameters.
+
+### Batch gradient accumulation
+`GradientAccumulator` collects per-example `Tensor.Gradient` values and can average them across a batch before optimizer application. This is the object used inside optimizer training loops to merge gradients safely.

@@ -8,24 +8,25 @@
 import Foundation
 import NumSwift
 
-public typealias RNNSupportedDatasetData = (training: [DatasetModel], val: [DatasetModel])
-public protocol RNNSupportedDataset {
-  associatedtype Item: Hashable
+/// A recurrent neural network classifier that operates on a vectorizing dataset of `String` items.
+public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == String {
   
-  var vocabSize: Int { get }
-  func oneHot(_ items: [Item]) -> Tensor
-  func vectorize(_ items: [Item]) -> Tensor
-  func getWord(for data: Tensor, oneHot: Bool) -> [Item]
-  func build() async -> RNNSupportedDatasetData
-}
-
-public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item == String {
+  //public typealias Dataset = VectorizingDataset
+  
+  /// Parameters defining the LSTM architecture used within the RNN.
   public struct RNNLSTMParameters {
     let hiddenUnits: Int
     let inputUnits: Int
     let embeddingInitializer: InitializerType
     let lstmInitializer: InitializerType
 
+    /// Creates LSTM architecture parameters for an RNN.
+    ///
+    /// - Parameters:
+    ///   - hiddenUnits: Number of hidden LSTM units.
+    ///   - inputUnits: Embedding width fed into LSTM.
+    ///   - embeddingInitializer: Initializer for embedding weights.
+    ///   - lstmInitializer: Initializer for LSTM gate/output weights.
     public init(hiddenUnits: Int,
                 inputUnits: Int,
                 embeddingInitializer: InitializerType = .xavierUniform,
@@ -37,6 +38,7 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
     }
   }
   
+  /// Parameters defining the optimizer configuration for RNN training.
   public struct OptimizerParameters {
     let learningRate: Tensor.Scalar
     let b1: Tensor.Scalar
@@ -45,6 +47,15 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
     let weightDecay: Adam.WeightDecay
     let metricsReporter: MetricsReporter?
     
+    /// Creates optimizer hyperparameters for RNN training.
+    ///
+    /// - Parameters:
+    ///   - learningRate: Base learning rate.
+    ///   - b1: Adam beta1.
+    ///   - b2: Adam beta2.
+    ///   - eps: Numerical stability epsilon.
+    ///   - weightDecay: Optional Adam weight-decay behavior.
+    ///   - metricsReporter: Optional metrics reporter.
     public init(learningRate: Tensor.Scalar,
                 b1: Tensor.Scalar = 0.9,
                 b2: Tensor.Scalar = 0.999,
@@ -60,6 +71,7 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
     }
   }
   
+  /// Parameters controlling the training loop behavior of the classifier.
   public struct ClassifierParameters {
     let batchSize: Int
     let epochs: Int
@@ -67,6 +79,14 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
     let killOnAccuracy: Bool
     let lossFunction: LossFunction
     
+    /// Creates training-loop parameters for `Classifier` behavior.
+    ///
+    /// - Parameters:
+    ///   - batchSize: Batch size used during training.
+    ///   - epochs: Number of training epochs.
+    ///   - accuracyThreshold: Early-stop threshold policy.
+    ///   - killOnAccuracy: Stops training when threshold is reached.
+    ///   - lossFunction: Loss function used for optimization.
     public init(batchSize: Int,
                 epochs: Int,
                 accuracyThreshold: AccuracyThreshold = .init(value: 0.9, averageCount: 5),
@@ -80,20 +100,34 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
     }
   }
   
-  private let dataset: Dataset
+  var dataset: Dataset {
+    didSet {
+      vocabSize = dataset.vocabSize
+    }
+  }
   private var lstm: LSTM?
   private var embedding: Embedding?
   private var vocabSize: Int = 0
   private var wordLength: Int = 0
   private var extraLayers: [Layer]
   private var ready: Bool = false
-  private var datasetData: RNNSupportedDatasetData?
+  private var datasetData: VectorizingDatasetData?
   private let returnSequence: Bool
   
   private let classifierParameters: ClassifierParameters
   private let optimizerParameters: OptimizerParameters
   private let lstmParameters: RNNLSTMParameters
   
+  /// Creates an RNN trainer parameterized by a dataset provider.
+  ///
+  /// - Parameters:
+  ///   - device: Execution device.
+  ///   - returnSequence: Whether model returns full timestep sequence.
+  ///   - dataset: Dataset adapter that vectorizes and builds samples.
+  ///   - classifierParameters: Training loop configuration.
+  ///   - optimizerParameters: Optimizer hyperparameters.
+  ///   - lstmParameters: LSTM architecture hyperparameters.
+  ///   - extraLayers: Additional layers appended after embedding/LSTM.
   public init(device: Device = CPU(),
               returnSequence: Bool = true,
               dataset: Dataset,
@@ -109,6 +143,8 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
     self.returnSequence = returnSequence
     self.dataset = dataset
     self.extraLayers = extraLayers()
+    
+    self.vocabSize = dataset.vocabSize
     
     let network = Sequential { [] }
     
@@ -133,8 +169,49 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
                lossFunction: classifierParameters.lossFunction)
   }
   
-  public func importFrom(url: URL?) async {
-    guard let url else { return }
+  /// Exports the RNN model along with its embedding vectors to disk.
+  ///
+  /// - Parameters:
+  ///   - overrite: Whether to overwrite an existing file at the destination.
+  ///   - compress: Whether to compress the exported files.
+  /// - Returns: A tuple containing the URL of the exported model and the URL of the exported vectors, either of which may be `nil` on failure.
+  public override func export(overrite: Bool = false, compress: Bool = true) -> URL? {
+    fatalError("Please use exportWithVectors")
+  }
+  
+  /// Exports the RNN model along with its associated word vectors.
+  ///
+  /// - Parameters:
+  ///   - overrite: Whether to overwrite existing exported files.
+  ///   - compress: Whether to compress the exported output.
+  /// - Returns: A tuple containing the optional URL for the exported model and the optional URL for the exported vectors.
+  public func exportWithVectors(overrite: Bool = false, compress: Bool = true) -> (model: URL?, vectors: URL?) {
+    let model = super.export(overrite: overrite, compress: compress)
+    let dataset = dataset.export(name: "vectors", overrite: overrite, compress: compress)
+    return (model, dataset)
+  }
+  
+  /// Imports a serialized network from raw bytes and prepares the trainer.
+  ///
+  /// - Parameter data: Serialized model data.
+  public func importFrom(data: Data?, vectors: Data?) async {
+    guard let data, let vectors else { return }
+    
+    dataset = Dataset.build(data: vectors)
+    
+    await readyUp()
+      
+    let n = Sequential.import(data)
+    optimizer.trainable = n
+  }
+  
+  /// Imports a serialized network from disk and prepares the trainer.
+  ///
+  /// - Parameter url: URL to serialized model file.
+  public func importFrom(url: URL?, vectors: URL?) async {
+    guard let url, let vectors else { return }
+    
+    dataset = Dataset.build(url: vectors)
     
     await readyUp()
     
@@ -142,6 +219,7 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
     optimizer.trainable = n
   }
   
+  /// Builds dataset/network state (if needed) and runs training.
   public func train() async {
     optimizer.isTraining = true
     
@@ -152,6 +230,15 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
     }
   }
   
+  /// Generates token sequences using iterative autoregressive prediction.
+  ///
+  /// - Parameters:
+  ///   - with: Optional starting token/string prefix.
+  ///   - count: Number of sequences to generate.
+  ///   - maxWordLength: Maximum generated token count per sequence.
+  ///   - randomizeSelection: Samples next token probabilistically when `true`.
+  ///   - endingMark: Token that terminates generation.
+  /// - Returns: Generated string sequences.
   public func predict(starting with: String? = nil,
                       count: Int = 1,
                       maxWordLength: Int = 20,
@@ -232,7 +319,10 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
 
   }
   
+  /// Ensures dataset-derived network state is built and compiled once.
   public func readyUp() async {
+    vocabSize = dataset.vocabSize
+
     if ready == false || datasetData == nil {
       datasetData = await dataset.build()
       
@@ -242,14 +332,15 @@ public class RNN<Dataset: RNNSupportedDataset>: Classifier where Dataset.Item ==
     }
   }
   
-  private func compile(dataset: RNNSupportedDatasetData) {
-    guard let first = dataset.training.first else { fatalError("Could not build network with dataset") }
+  private func compile(dataset: VectorizingDatasetData) {
+    guard let first = dataset.training.first else {
+      print("Could not build network with dataset")
+      return
+    }
     
-    let vocabSize = self.dataset.vocabSize
     // average length of the word
     let wordLength = first.data.shape[2] // expect int vectorized array where each value is an index into the vocab size. TODO: enforce this
     
-    self.vocabSize = vocabSize
     self.wordLength = wordLength
     
     let lstm = LSTM(inputUnits: lstmParameters.inputUnits,

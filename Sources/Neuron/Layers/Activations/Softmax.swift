@@ -23,6 +23,9 @@ public final class Softmax: BaseActivationLayer {
     self.outputSize = inputSize
   }
   
+  /// Encodes softmax layer configuration.
+  ///
+  /// - Parameter encoder: Encoder used for serialization.
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
@@ -37,6 +40,12 @@ public final class Softmax: BaseActivationLayer {
                encodingType: .softmax)
   }
   
+  /// Applies softmax normalization row-wise for each depth slice.
+  ///
+  /// - Parameters:
+  ///   - tensor: Input logits tensor.
+  ///   - context: Network execution context.
+  /// - Returns: Softmax probabilities with passthrough gradient context.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let context = TensorContext { inputs, gradient, wrt in
       let wrtInputGradient = Tensor(Tensor.Value(gradient.storage), size: gradient.size)

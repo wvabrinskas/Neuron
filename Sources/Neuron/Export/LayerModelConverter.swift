@@ -8,7 +8,11 @@
 import Foundation
 import NumSwift
 
+/// A utility struct responsible for converting encoded layer data into concrete `Layer` instances.
 public struct LayerModelConverter {
+  /// Coding keys used for decoding layer model data.
+  ///
+  /// - `layer`: The key corresponding to the encoded layer payload.
   public enum CodingKeys: String, CodingKey {
     case layer
   }
@@ -60,6 +64,8 @@ public struct LayerModelConverter {
       layer = try getLayer(layer: ResNet.self, container: con)
     case .globalAvgPool:
       layer = try getLayer(layer: GlobalAvgPool.self, container: con)
+    case .depthwiseConv2d:
+      layer = try getLayer(layer: DepthwiseConv2d.self, container: con)
     case .none:
       layer = nil
     }

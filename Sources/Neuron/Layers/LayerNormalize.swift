@@ -10,19 +10,29 @@ import NumSwift
 
 /// Performs a layer normalization function.
 public final class LayerNormalize: BaseLayer {
+  /// The combined weights tensor of beta and gamma, used primarily for display and inspection purposes.
+  /// - Returns: A `Tensor` containing the concatenated beta and gamma values shaped to the input size.
   public override var weights: Tensor {
     get {
       // For printing purposes. Not actually used
-      beta.concat(gamma, axis: 2)
+      let out = beta.concat(gamma, axis: 2)
+      
+      let outTensor = Tensor(out.storage, size: .init(rows: inputSize.rows,
+                                                      columns: inputSize.columns,
+                                                      depth: beta.size.depth + gamma.size.depth))
+      return outTensor
     }
     set {}
   }
 
   private var epsilon: Tensor.Scalar
+  /// The gamma scaling parameter used in layer normalization.
   public var gamma: Tensor = .init()
+  /// The beta shift parameter used in layer normalization.
   public var beta: Tensor = .init()
   @Atomic private var iterations: Int = 0
 
+  /// Coding keys used for encoding and decoding the layer normalization layer.
   public enum CodingKeys: String, CodingKey {
     case gamma, beta, epsilon, inputSize
   }
@@ -68,6 +78,9 @@ public final class LayerNormalize: BaseLayer {
     setupTrainables()
   }
   
+  /// Encodes layer-normalization parameters.
+  ///
+  /// - Parameter encoder: Encoder used for serialization.
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
@@ -76,6 +89,12 @@ public final class LayerNormalize: BaseLayer {
     try container.encode(epsilon, forKey: .epsilon)
   }
   
+  /// Applies layer normalization over each depth slice.
+  ///
+  /// - Parameters:
+  ///   - tensor: Input tensor.
+  ///   - context: Network execution context.
+  /// - Returns: Normalized tensor with layer-norm backpropagation context.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let context = TensorContext { inputs, gradient, wrt in
       self.backwardFlat(inputs: inputs, gradient: gradient)
@@ -178,6 +197,11 @@ public final class LayerNormalize: BaseLayer {
             Tensor())
   }
   
+  /// Applies layer-normalization parameter updates.
+  ///
+  /// - Parameters:
+  ///   - gradients: Combined gamma/beta gradients packed in `weights`.
+  ///   - learningRate: Learning rate already reflected by optimizer gradients.
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     let gammaWeights = gradients.weights[0..., 0..., 0..<inputSize.depth]
     let betaWeights = gradients.weights[0..., 0..., inputSize.depth...]

@@ -8,18 +8,31 @@
 import Foundation
 import NumSwift
 
+/// Stochastic Gradient Descent optimizer with optional momentum and gradient/weight clipping support.
 public class SGD: BaseOptimizer {
   private let momentum: Tensor.Scalar
   private var v: [Tensor.Value] = []
   private var vb: [Tensor.Value] = []
 
+  /// Creates an SGD optimizer with optional momentum and clipping.
+  ///
+  /// - Parameters:
+  ///   - trainable: Model whose parameters will be optimized.
+  ///   - device: Execution device for forward/backward math.
+  ///   - learningRate: Step size applied to parameter updates.
+  ///   - batchSize: Number of samples per optimization step.
+  ///   - momentum: Momentum coefficient applied to gradient velocity.
+  ///   - weightClip: Optional weight clipping threshold.
+  ///   - gradientClip: Optional gradient clipping threshold.
+  ///   - augmenter: Optional training-time data augmenter.
   public init(_ trainable: Trainable,
               device: Device = CPU(),
               learningRate: Tensor.Scalar,
               batchSize: Int,
               momentum: Tensor.Scalar = 0.9,
               weightClip: Tensor.Scalar? = nil,
-              gradientClip: Tensor.Scalar? = nil) {
+              gradientClip: Tensor.Scalar? = nil,
+              augmenter: Augmenter? = nil) {
     self.momentum = momentum
     
     trainable.compile()
@@ -30,9 +43,11 @@ public class SGD: BaseOptimizer {
                learningRate: learningRate,
                batchSize: batchSize,
                weightClip: weightClip,
-               gradientClip: gradientClip)
+               gradientClip: gradientClip,
+               augmenter: augmenter)
   }
   
+  /// Applies one SGD update using the currently accumulated gradients.
   public override func step() {
     var gradients = gradientAccumulator.accumulate()
 
@@ -82,6 +97,7 @@ public class SGD: BaseOptimizer {
     }
   }
   
+  /// Clears internal velocity buffers and resets inherited optimizer state.
   public override func reset() {
     v.removeAll(keepingCapacity: true)
     vb.removeAll(keepingCapacity: true)

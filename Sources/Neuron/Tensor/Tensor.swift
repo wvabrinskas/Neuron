@@ -9,6 +9,8 @@ import Foundation
 import NumSwift
 import NumSwiftC
 
+/// A protocol that wraps a `RangeExpression<Int>` for use in tensor subscript operations.
+/// Conforming types provide a `range` property used to slice tensor dimensions.
 public protocol TensorRange {
   associatedtype T: RangeExpression<Int>
   var range: T { get }
@@ -19,19 +21,34 @@ public protocol TensorRange {
 /// Internally stores data as a flat `Tensor.Value` with `TensorSize` metadata.
 /// The `value` computed property provides backward-compatible access as a 3D `[[[Scalar]]]` array.
 public class Tensor: Equatable, Codable {
+  /// Compares two tensors by storage/shape or identity.
+  ///
+  /// Equality returns `true` when values and sizes match, or when both tensors
+  /// share the same internal identifier.
+  ///
+  /// - Parameters:
+  ///   - lhs: Left-hand tensor.
+  ///   - rhs: Right-hand tensor.
+  /// - Returns: `true` when tensors represent the same value or identity.
   public static func == (lhs: Tensor, rhs: Tensor) -> Bool {
     lhs.storage == rhs.storage && lhs.size == rhs.size || lhs.id == rhs.id
   }
 
   #if QUANTIZED_F16
+/// A type alias representing an individual scalar element stored in a `Tensor`.
+  /// Resolves to `Float16` when the `Float16` compiler flag is set, otherwise `Float`.
   public typealias Scalar = Float16
   #else
+/// A type alias representing an individual scalar element stored in a `Tensor`.
+  /// Resolves to `Float` when the `Float16` compiler flag is not set.
   public typealias Scalar = Float
   #endif
   
   /// The legacy nested-array type for tensor data. Prefer using `storage` and `size` for new code.
   public typealias Data = [[[Scalar]]]
+/// A flat contiguous array of `Scalar` values used as the internal storage for tensor data.
   public typealias Value = ContiguousArray<Scalar> //[Scalar]
+/// A unique identifier type for `Tensor` instances.
   public typealias ID = UInt64
   
   /// Gradient object returned from `gradient` calculation on the Tensor. Contains gradients w.r.t to the `input`, w.r.t to the `weights`, and w.r.t to the `biases`
@@ -40,6 +57,12 @@ public class Tensor: Equatable, Codable {
     let weights: [Tensor]
     let biases: [Tensor]
     
+    /// Creates a gradient container for input, weight, and bias derivatives.
+    ///
+    /// - Parameters:
+    ///   - input: Gradients with respect to upstream inputs.
+    ///   - weights: Gradients with respect to trainable weights.
+    ///   - biases: Gradients with respect to trainable biases.
     public init(input: [Tensor] = [],
                 weights: [Tensor] = [],
                 biases: [Tensor] = []) {
@@ -105,6 +128,13 @@ public class Tensor: Equatable, Codable {
   /// Computes the flat index for a given (column, row, depth) coordinate.
   /// Memory layout: `index = d * rows * columns + r * columns + c`
   @inline(__always)
+/// Computes the flat storage index for an element at the given (column, row, depth) coordinates.
+  ///
+  /// - Parameters:
+  ///   - c: The column index.
+  ///   - r: The row index.
+  ///   - d: The depth index.
+  /// - Returns: The corresponding flat index into the `storage` array.
   public func flatIndex(column c: Int, row r: Int, depth d: Int) -> Int {
     d * size.rows * size.columns + r * size.columns + c
   }
@@ -377,7 +407,11 @@ public class Tensor: Equatable, Codable {
   
   // MARK: - Graph
   
-  /// Prints the current graph all the way to the input.
+  /// Prints a human-readable view of this tensor's computation graph.
+  ///
+  /// - Parameters:
+  ///   - wrt: Optional node to constrain printed branches to a specific path.
+  ///   - deep: When `true`, recursively prints each child node's graph.
   public func printGraph(wrt: Tensor? = nil, deep: Bool = false) {
     var inputs: [ID: Tensor] = input
     
@@ -589,6 +623,9 @@ public class Tensor: Equatable, Codable {
     return Tensor(storage, size: size)
   }
   
+  /// Indicates whether this tensor represents exactly one scalar value.
+  ///
+  /// - Returns: `true` when shape is `[1, 1, 1]`.
   public func isScalar() -> Bool {
     size == TensorSize(rows: 1, columns: 1, depth: 1)
   }
@@ -624,6 +661,7 @@ public class Tensor: Equatable, Codable {
   
   // MARK: - Normalization / Clipping
   
+  /// Normalizes tensor values to unit L2 norm in place.
   public func l2Normalize() {
     let flatArray = Array(storage)
     let flatValue: Tensor.Scalar = flatArray.sumOfSquares
@@ -631,10 +669,16 @@ public class Tensor: Equatable, Codable {
     self.storage = Tensor.Value(normalized)
   }
   
+  /// Computes the L2 norm of the tensor values.
+  ///
+  /// - Returns: Euclidean norm over all scalar values.
   public func l2Norm() -> Scalar {
     Tensor.Scalar.sqrt(Array(storage).sumOfSquares)
   }
   
+  /// Clamps every element into the symmetric range `[-val, val]`.
+  ///
+  /// - Parameter val: Absolute clamp bound.
   public func clip(_ val: Scalar = 0.01) {
     for i in 0..<storage.count {
       storage[i] = Swift.max(-val, Swift.min(val, storage[i]))
@@ -643,6 +687,9 @@ public class Tensor: Equatable, Codable {
   
   // MARK: - Codable
   
+  /// Encodes tensor metadata and flat storage for persistence.
+  ///
+  /// - Parameter encoder: Encoder used to serialize this tensor.
   public func encode(to encoder: any Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(label, forKey: .label)
@@ -658,6 +705,8 @@ public class Tensor: Equatable, Codable {
 // MARK: - Debug Description
 
 extension Tensor: CustomDebugStringConvertible {
+/// A human-readable description of the tensor, including its shape, label, and formatted values.
+  /// Useful for debugging; prints each depth slice with row and column layout.
   public var debugDescription: String {
     var string = """
                  <Tensor \n
@@ -758,7 +807,7 @@ extension Array where Element == Tensor {
     
     return result
   }
-  
+
   static func *(lhs: [Tensor], rhs: Tensor.Scalar) -> Self {
     var result: [Tensor] = []
     
@@ -808,7 +857,7 @@ extension Array where Element == Tensor {
 
 public extension Tensor.Gradient {
   
-  func l2NomalizeWeightsAndBiases() {
+  func l2NomalizeWeightsAndBiases() { 
     weights.forEach { $0.l2Normalize() }
     biases.forEach { $0.l2Normalize() }
   }
@@ -817,34 +866,27 @@ public extension Tensor.Gradient {
     let allWeights = weights.reduce(Tensor()) { partialResult, new in
       partialResult.concat(new, axis: 2)
     }
-
     let allBiases = biases.reduce(Tensor()) { partialResult, new in
       partialResult.concat(new, axis: 2)
-    } 
-    
-    let l2Norm = allWeights.l2Norm()  
-    let l2NormBias = allBiases.l2Norm() 
-
-    var biases = biases
-    var weights = weights
-
-    if l2Norm > value {
-      let scalingFactor = value / l2Norm 
-      
-      let mappedWeights = weights.map { $0 * scalingFactor }
-
-      weights = mappedWeights
     }
 
-    if l2NormBias > value {
-      let scalingFactor = value / l2NormBias 
-      
-      let mappedBiases = biases.map { $0 * scalingFactor }
+    // Single global norm across weights AND biases combined
+    let weightNormSq = allWeights.l2Norm()
+    let biasNormSq = allBiases.l2Norm()
+    let globalNorm = Tensor.Scalar(sqrt(weightNormSq * weightNormSq + biasNormSq * biasNormSq))
 
-      biases = mappedBiases
+    guard globalNorm > value else {
+      return .init(input: input, weights: weights, biases: biases)
     }
 
-    return .init(input: input, weights: weights, biases: biases)
+    // One scaling factor applied to everything
+    let scalingFactor = value / globalNorm
+
+    return .init(
+      input: input,
+      weights: weights * scalingFactor,
+      biases: biases * scalingFactor
+    )
   }
   
   static func applyMultiple(lhs: Tensor.Gradient,

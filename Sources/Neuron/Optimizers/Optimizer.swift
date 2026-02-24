@@ -8,6 +8,10 @@
 import Foundation
 import NumSwift
 
+/// A protocol defining the interface for optimizers that update trainable network parameters.
+///
+/// Conforming types manage the training loop, gradient computation, weight updates,
+/// and optional augmentation or metrics reporting.
 public protocol Optimizer: AnyObject {
   typealias Gradient = (weights: Tensor, biases: Tensor)
   typealias Output = (outputs: [Tensor], gradients: Tensor.Gradient, loss: Tensor.Scalar, accuracy: Tensor.Scalar)
@@ -22,27 +26,61 @@ public protocol Optimizer: AnyObject {
   var gradientAccumulator: GradientAccumulator { get }
   var decayFunction: DecayFunction? { get set }
   var batchSize: Int { get }
+  var augmenter: Augmenter? { get set }
 
+  /// Runs inference via call syntax.
+  ///
+  /// - Parameter data: Input tensor batch.
+  /// - Returns: Prediction tensors.
   func callAsFunction(_ data: [Tensor]) -> [Tensor]
+  /// Adds gradients to the optimizer's accumulator/state.
+  ///
+  /// - Parameter gradients: Newly computed gradients to accumulate.
   func apply(_ gradients: Tensor.Gradient)
+  /// Clears any currently accumulated gradients.
   func zeroGradients()
+  /// Applies one optimization step using accumulated gradients.
   func step()
+  /// Resets optimizer-specific running state.
   func reset()
+  /// Performs one fit iteration on a batch.
+  ///
+  /// - Parameters:
+  ///   - data: Input tensors.
+  ///   - labels: Ground-truth labels for `data`.
+  ///   - wrt: Optional explicit gradient target tensors.
+  ///   - lossFunction: Loss function used for optimization.
+  ///   - validation: Whether this run is validation-only.
+  ///   - requiresGradients: Whether gradients should be computed.
+  /// - Returns: Outputs, gradients, loss, and accuracy for the batch.
   func fit(_ data: [Tensor],
            labels: [Tensor],
            wrt: TensorBatch?,
            lossFunction: LossFunction,
            validation: Bool,
            requiresGradients: Bool) -> Output
+  /// Runs prediction for a batch without training updates.
+  ///
+  /// - Parameter data: Input tensors.
+  /// - Returns: Prediction tensors.
   func predict(_ data: [Tensor]) -> [Tensor]
+  
+  func onEpochEnd(epoch: Int)
 }
 
 // TODO: allow for arbitrary weight shape in Optimizer, so we dont have to cram all weights into a 3D tensor
 open class BaseOptimizer: Optimizer {
+  /// An optional augmenter applied to input data during training.
+  public var augmenter: Augmenter?
+  /// An optional decay function that adjusts the learning rate over time.
   public var decayFunction: DecayFunction?
+  /// The trainable network whose parameters are updated by this optimizer.
   public var trainable: Trainable
+  /// The number of samples processed in each optimization step.
   public var batchSize: Int
+  /// A flag indicating whether gradient calculations should be passed through without modification.
   public var passthroughGradientCalculation: Bool = false
+  /// The current learning rate, returning the decayed value if a decay function is set, otherwise the base rate.
   public var learningRate: Tensor.Scalar {
     get {
       if let decayFunction {
@@ -55,11 +93,17 @@ open class BaseOptimizer: Optimizer {
       localLearningRate = newValue
     }
   }
+  /// A flag indicating whether the optimizer and its trainable network are in training mode.
+  ///
+  /// Setting this value propagates the training state to the underlying trainable network.
   public var isTraining: Bool = true {
     didSet {
       trainable.isTraining = isTraining
     }
   }
+  /// The compute device used for training, either CPU or GPU.
+  ///
+  /// Updating this value propagates the device selection to the underlying trainable network.
   public var device: Device = CPU() {
     didSet {
       switch device.type {
@@ -71,18 +115,35 @@ open class BaseOptimizer: Optimizer {
     }
   }
 
+  /// An optional reporter used to collect and publish training metrics such as loss and timing.
   public var metricsReporter: MetricsReporter?
+  /// A gradient accumulator that aggregates gradients across multiple steps before applying updates.
   public var gradientAccumulator: GradientAccumulator = .init()
+  /// An optional threshold used to clip weight values after each update step.
   public var weightClip: Tensor.Scalar?
+  /// An optional threshold used to clip gradient values before applying weight updates.
   public var gradientClip: Tensor.Scalar?
   private var localLearningRate: Tensor.Scalar
-  
+  private let workersCount = Constants.maxWorkers
+  private var augmentation: Augmenting? = nil
+
+  /// Creates an optimizer base configured to train a `Trainable` network.
+  ///
+  /// - Parameters:
+  ///   - trainable: Network whose layer parameters will be updated.
+  ///   - learningRate: Base learning rate (unless a decay function overrides it).
+  ///   - batchSize: Number of samples processed per optimization step.
+  ///   - metricsReporter: Optional reporter that collects loss/timing metrics.
+  ///   - weightClip: Optional per-layer weight clipping threshold.
+  ///   - gradientClip: Optional gradient clipping threshold.
+  ///   - augmenter: Optional data augmentation policy applied during training.
   public init(trainable: Trainable,
               learningRate: Tensor.Scalar,
               batchSize: Int,
               metricsReporter: MetricsReporter? = nil,
               weightClip: Tensor.Scalar? = nil,
-              gradientClip: Tensor.Scalar? = nil) {
+              gradientClip: Tensor.Scalar? = nil,
+              augmenter: Augmenter? = nil) {
     self.trainable = trainable
     self.metricsReporter = metricsReporter
     self.weightClip = weightClip
@@ -90,16 +151,25 @@ open class BaseOptimizer: Optimizer {
     self.localLearningRate = learningRate
     self.batchSize = batchSize
     self.learningRate = learningRate
-    
+    self.augmenter = augmenter
     trainable.batchSize = batchSize
+    
+    self.augmentation = augmenter?.augmenting
   }
   
+  /// Finalizes an optimization step after gradients have been applied.
+  ///
+  /// Subclasses should override to implement algorithm-specific updates, then
+  /// call `super.step()` to advance decay/timer bookkeeping.
   public func step() {
     // override
-    decayFunction?.step()
+    decayFunction?.step(type: .batch)
     metricsReporter?.endTimer(metric: .optimizerRunTime)
   }
   
+  /// Resets optimizer-managed state (for example momentum/Adam moments).
+  ///
+  /// Subclasses should clear algorithm-specific buffers, then call `super.reset()`.
   public func reset() {
     // override
     decayFunction?.reset()
@@ -122,6 +192,7 @@ open class BaseOptimizer: Optimizer {
     }
   }
   
+  /// Clears all accumulated gradients before processing a new batch.
   open func zeroGradients() {
     metricsReporter?.startTimer(metric: .optimizerRunTime)
     gradientAccumulator.clear()
@@ -133,10 +204,18 @@ open class BaseOptimizer: Optimizer {
     gradientAccumulator.insert(newGradients)
   }
   
+  /// Runs inference on a tensor batch via call syntax.
+  ///
+  /// - Parameter data: Batch of input tensors.
+  /// - Returns: Predictions in input order.
   open func callAsFunction(_ data: [Tensor]) -> [Tensor] {
     predict(data)
   }
   
+  /// Performs batched forward prediction without parameter updates.
+  ///
+  /// - Parameter data: Batch of input tensors.
+  /// - Returns: Forward outputs from the underlying trainable.
   open func predict(_ data: [Tensor]) -> [Tensor] {
     isTraining = false
     
@@ -151,13 +230,23 @@ open class BaseOptimizer: Optimizer {
     return results
   }
   
+  /// Runs one training/validation iteration over the provided batch.
+  ///
+  /// - Parameters:
+  ///   - data: Input tensors.
+  ///   - labels: Ground-truth tensors aligned with `data`.
+  ///   - wrt: Optional tensors specifying explicit backpropagation targets.
+  ///   - lossFunction: Loss used for value and derivative computation.
+  ///   - validation: Flag indicating validation mode (no parameter updates).
+  ///   - requiresGradients: Whether to compute and return gradients.
+  /// - Returns: Batch outputs, aggregated gradients, loss, and accuracy.
   open func fit(_ data: TensorBatch,
                 labels: TensorBatch,
                 wrt: TensorBatch? = nil,
                 lossFunction: LossFunction,
                 validation: Bool = false,
                 requiresGradients: Bool = true) -> Output {
-    
+          
     if let wrt {
       guard wrt.count == data.count else {
         fatalError("The number of wrt inputs (\(wrt.count)) does not match the number of training examples (\(data.count)).")
@@ -167,28 +256,37 @@ open class BaseOptimizer: Optimizer {
     isTraining = !validation
         
     metricsReporter?.startTimer(metric: .batchTime)
-    let accumulator = GradientAccumulator()
+   // let accumulator = GradientAccumulator()
   
     var losses: Tensor.Scalar = 0
     var accuracy: Tensor.Scalar = 0
-    
-    // TODO: Batch consolidation: https://github.com/wvabrinskas/Neuron/issues/36
-    
-    let workersCount = Constants.maxWorkers
+        
     let concurrencySplit = Tensor.Scalar(data.count) / Tensor.Scalar(workersCount)
     
     var outputs: [[Tensor]] = [[Tensor]].init(repeating: [], count: workersCount)
 
     metricsReporter?.update(metric: .batchConcurrency, value: concurrencySplit)
     
-    data.concurrentBatchedForEach(workers: workersCount, priority: device.qosPriority) { elements,
+    var dataToUse = data
+    var augmentedOut: AugementedDatasetModel?
+    
+    if let augmentation, validation == false {
+      let augOut = augmentation.augment(dataToUse, labels: labels)
+      dataToUse = augOut.mixed
+      augmentedOut = augOut
+    }
+    
+    var accumulators = (0..<workersCount).map { _ in GradientAccumulator() }
+    
+    dataToUse.concurrentBatchedForEach(workers: workersCount, priority: device.qosPriority) { elements,
                                                                                          workerIndex,
                                                                                          indexRange,
                                                                                          processingCount,
                                                                                          workerId in
       
-      let batchLabels: [Tensor] = Array(labels[indexRange])
-      
+      let accumulator = accumulators[workerIndex]
+      accumulator.average = false
+
       let outs = self.trainable.predict(batch: elements, context: .init(batchRange: indexRange,
                                                                         batchProcessingCount: processingCount,
                                                                         totalInBatch: data.count,
@@ -202,18 +300,26 @@ open class BaseOptimizer: Optimizer {
         nil
       }
       
+      var batchLabels: [Tensor] = Array(labels[indexRange])
+      
+      if let mixedLabels = augmentedOut?.mixedLabels {
+        batchLabels = Array(mixedLabels[indexRange])
+      }
+
       for (index, out) in outs.enumerated() {
         let label = batchLabels[index]
         let input = wrtBatch?[index] ?? elements[index]
         
-        let loss = lossFunction.calculate(out, correct: label).sum(axis: -1).asScalar()
-        losses += loss / Tensor.Scalar(data.count)
+        let loss = lossFunction.calculate(out, correct: label).sum(axis: -1)
+        
+        losses += loss.asScalar() / Tensor.Scalar(data.count)
         
         if let reporter = self.metricsReporter {
           if validation {
             accuracy += reporter.calculateValAccuracy(out, label: label, binary: label.isScalar(), running: false) / Tensor.Scalar(data.count)
           } else {
-            accuracy += reporter.calculateAccuracy(out, label: label, binary: label.isScalar(), running: false) / Tensor.Scalar(data.count)
+            let localAccuracy = reporter.calculateAccuracy(out, label: label, binary: label.isScalar(), running: false)
+            accuracy += localAccuracy / Tensor.Scalar(data.count)
           }
         }
         
@@ -225,12 +331,20 @@ open class BaseOptimizer: Optimizer {
       }
     }
     
-    let flatOutput = outputs.flatMap { $0 }
-    
     metricsReporter?.endTimer(metric: .batchTime)
-    
+
+    let flatOutput = outputs.flatMap { $0 }
+
     if requiresGradients {
-      let accumulated = accumulator.accumulate(clearAtEnd: true)
+      
+      // account for too many accumulators. we allocate for each thread but that might not be needed
+      accumulators = accumulators.compactMap { $0.isEmpty ? nil : $0 }
+      
+      var accumulatedGradients = accumulators.map { $0.accumulate() }
+      let first = accumulatedGradients.removeFirst()
+      
+      let accumulated = accumulatedGradients.reduce(first, +) / batchSize.asTensorScalar
+      
       let weightGradientsAcc: [Tensor] = accumulated.weights
       let inputGradientsAcc: [Tensor] = accumulated.input
       let biasGradientAcc: [Tensor] = accumulated.biases
@@ -248,5 +362,10 @@ open class BaseOptimizer: Optimizer {
       return (flatOutput, gradient, losses, accuracy)
     }
   }
+  
+  open func onEpochEnd(epoch: Int) {
+    decayFunction?.step(type: .epoch(epoch))
+  }
+  
 }
 

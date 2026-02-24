@@ -8,12 +8,22 @@
 import Foundation
 import NumSwift
 
+/// A device abstraction representing GPU-accelerated computation.
+///
+/// Wraps the shared `GPUManager` and conforms to the `Device` protocol,
+/// providing GPU-backed implementations of neural network operations.
 public class GPU: Device {
+  /// The Quality of Service priority used when dispatching GPU work.
   public var qosPriority: DispatchQoS.QoSClass = .default
+  /// The device type identifier, always `.gpu` for this class.
   public var type: DeviceType = .gpu
 
   private let manager = GPUManager.shared
   
+  /// Performs 2D convolution on the GPU device abstraction.
+  ///
+  /// Currently routed through the flat NumSwift backend while GPU kernels
+  /// continue to evolve.
   public func conv2d(signal: Tensor.Value,
                      filter: Tensor.Value,
                      strides: (Int, Int),
@@ -29,6 +39,10 @@ public class GPU: Device {
                         inputSize: inputSize)
   }
   
+  /// Performs transposed 2D convolution on the GPU device abstraction.
+  ///
+  /// Currently routed through the flat NumSwift backend while GPU kernels
+  /// continue to evolve.
   public func transConv2d(signal: Tensor.Value,
                           filter: Tensor.Value,
                           strides: (Int, Int),
@@ -45,6 +59,12 @@ public class GPU: Device {
   }
   
   
+  /// Applies an activation function using the GPU activation pipeline.
+  ///
+  /// - Parameters:
+  ///   - input: Input tensor.
+  ///   - type: Activation to apply.
+  /// - Returns: Activated tensor with original shape.
   public func activate(_ input: Tensor, _ type: Activation) -> Tensor {
     let flat = Array(input.storage)
     let activated = self.manager.activate(flat, type)
@@ -54,6 +74,12 @@ public class GPU: Device {
     return Tensor(reshaped)
   }
   
+  /// Applies an activation derivative using the GPU activation pipeline.
+  ///
+  /// - Parameters:
+  ///   - input: Input tensor.
+  ///   - type: Activation derivative to evaluate.
+  /// - Returns: Tensor containing derivative values.
   public func derivate(_ input: Tensor, _ type: Activation) -> Tensor {
     let flat = Array(input.storage)
     let activated = self.manager.activate(flat, type, derivate: true)
@@ -63,6 +89,12 @@ public class GPU: Device {
     return Tensor(reshaped)
   }
   
+  /// Performs matrix multiplication for two tensors.
+  ///
+  /// - Parameters:
+  ///   - a: Left tensor.
+  ///   - b: Right tensor.
+  /// - Returns: Matrix product tensor.
   public func matmul(_ a: Tensor, _ b: Tensor) -> Tensor {
     a.matmul(b)
   }

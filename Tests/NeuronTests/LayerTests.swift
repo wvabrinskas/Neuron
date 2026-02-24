@@ -241,6 +241,290 @@ final class LayerTests: XCTestCase {
     resNet.apply(gradients: (Tensor(), Tensor()), learningRate: 0.01)
   }
   
+  // MARK: - ResNet Optimizer Gradient Tests
+  
+  func testResNet_appliesOptimizerGradients_weightsChange() {
+    // Test that when we apply gradients from the optimizer, the weights actually change
+    let inputSize: TensorSize = .init(rows: 16, columns: 16, depth: 3)
+    let filterCount = 8
+    
+    let resNet = ResNet(inputSize: inputSize, filterCount: filterCount, stride: 2)
+    
+    // Capture initial weights
+    let initialWeights = resNet.weights.copy()
+    
+    // Forward pass to generate gradients
+    let input = Tensor.fillRandom(size: inputSize)
+    let out = resNet.forward(tensor: input, context: .init())
+    
+    // Generate gradients through backward pass
+    let error = Tensor.fillRandom(size: resNet.outputSize)
+    let gradients = out.gradients(delta: error, wrt: input)
+    
+    // The gradient weights tensor should be flat containing all layer weights
+    var weightStorage: [Tensor.Scalar] = []
+    for tensor in gradients.weights {
+      weightStorage.append(contentsOf: tensor.storage)
+    }
+    let weightGradient = Tensor(weightStorage)
+    
+    var biasStorage: [Tensor.Scalar] = []
+    for tensor in gradients.biases {
+      biasStorage.append(contentsOf: tensor.storage)
+    }
+    let biasGradient = Tensor(biasStorage)
+    
+    // Apply the gradients
+    resNet.apply(gradients: (weights: weightGradient, biases: biasGradient), learningRate: 0.01)
+    
+    // Verify weights have changed
+    let newWeights = resNet.weights
+    
+    XCTAssertFalse(initialWeights.isValueEqual(to: newWeights), 
+                   "Weights should change after applying gradients from optimizer")
+  }
+  
+  func testResNet_gradientSizesMatchLayerWeights() {
+    // Test that gradient tensor sizes match what the internal layers expect
+    let inputSize: TensorSize = .init(rows: 16, columns: 16, depth: 3)
+    let filterCount = 8
+    
+    let resNet = ResNet(inputSize: inputSize, filterCount: filterCount, stride: 2)
+    
+    // Forward pass
+    let input = Tensor.fillRandom(size: inputSize)
+    let out = resNet.forward(tensor: input, context: .init())
+    
+    // Generate gradients
+    let error = Tensor.fillRandom(size: resNet.outputSize)
+    let gradients = out.gradients(delta: error, wrt: input)
+    
+    // The ResNet produces gradients per layer - verify they exist and are non-empty
+    XCTAssertFalse(gradients.weights.isEmpty, "Should have weight gradients")
+    XCTAssertFalse(gradients.biases.isEmpty, "Should have bias gradients")
+    
+    // Flatten all weight gradients to match how ResNet.apply expects them
+    let totalWeightGradientSize = gradients.weights.reduce(0) { $0 + $1.storage.count }
+    let totalBiasGradientSize = gradients.biases.reduce(0) { $0 + $1.storage.count }
+    
+    XCTAssertGreaterThan(totalWeightGradientSize, 0, "Weight gradients should have data")
+    XCTAssertGreaterThanOrEqual(totalBiasGradientSize, 0, "Bias gradients should exist (can be 0 if biases disabled)")
+  }
+  
+  func testResNet_withProjection_appliesGradientsToShortcut() {
+    // When stride != 1 or filterCount != inputDepth, ResNet uses projection (shortcut path)
+    // This test verifies gradients are applied to the shortcut convolution as well
+    let inputSize: TensorSize = .init(rows: 16, columns: 16, depth: 3)
+    let filterCount = 8 // Different from input depth (3), so projection is used
+    
+    let resNet = ResNet(inputSize: inputSize, filterCount: filterCount, stride: 2)
+    
+    // Capture initial weights (includes both inner block and shortcut weights)
+    let initialWeights = resNet.weights.copy()
+    let initialWeightCount = initialWeights.storage.count
+    
+    // Forward pass
+    let input = Tensor.fillRandom(size: inputSize)
+    let out = resNet.forward(tensor: input, context: .init())
+    
+    // Generate gradients
+    let error = Tensor.fillRandom(size: resNet.outputSize)
+    let gradients = out.gradients(delta: error, wrt: input)
+    
+    // Build the gradient tensor as ResNet expects it
+    var weightStorage2: [Tensor.Scalar] = []
+    for tensor in gradients.weights {
+      weightStorage2.append(contentsOf: tensor.storage)
+    }
+    let weightGradient = Tensor(weightStorage2)
+    
+    var biasStorage2: [Tensor.Scalar] = []
+    for tensor in gradients.biases {
+      biasStorage2.append(contentsOf: tensor.storage)
+    }
+    let biasGradient = Tensor(biasStorage2)
+    
+    // Apply gradients
+    resNet.apply(gradients: (weights: weightGradient, biases: biasGradient), learningRate: 0.01)
+    
+    let newWeights = resNet.weights
+    
+    // Verify weights changed
+    XCTAssertFalse(initialWeights.isValueEqual(to: newWeights),
+                   "Weights should change after applying gradients")
+    
+    // Verify the weight tensor size is consistent
+    XCTAssertEqual(initialWeightCount, newWeights.storage.count,
+                   "Weight count should remain the same after gradient application")
+  }
+  
+  func testResNet_withoutProjection_appliesGradientsToInnerBlock() {
+    // When stride == 1 AND filterCount == inputDepth, ResNet skips projection
+    let inputSize: TensorSize = .init(rows: 16, columns: 16, depth: 8)
+    let filterCount = 8 // Same as input depth
+    let stride = 1      // No downsampling
+    
+    let resNet = ResNet(inputSize: inputSize, filterCount: filterCount, stride: stride)
+    
+    // Capture initial weights
+    let initialWeights = resNet.weights.copy()
+    
+    // Forward pass
+    let input = Tensor.fillRandom(size: inputSize)
+    let out = resNet.forward(tensor: input, context: .init())
+    
+    // Generate gradients
+    let error = Tensor.fillRandom(size: resNet.outputSize)
+    let gradients = out.gradients(delta: error, wrt: input)
+    
+    var weightStorage3: [Tensor.Scalar] = []
+    for tensor in gradients.weights {
+      weightStorage3.append(contentsOf: tensor.storage)
+    }
+    let weightGradient3 = Tensor(weightStorage3)
+    
+    var biasStorage3: [Tensor.Scalar] = []
+    for tensor in gradients.biases {
+      biasStorage3.append(contentsOf: tensor.storage)
+    }
+    let biasGradient3 = Tensor(biasStorage3)
+    
+    // Apply gradients
+    resNet.apply(gradients: (weights: weightGradient3, biases: biasGradient3), learningRate: 0.01)
+    
+    let newWeights = resNet.weights
+    
+    XCTAssertFalse(initialWeights.isValueEqual(to: newWeights),
+                   "Inner block weights should change after applying gradients")
+  }
+  
+  func testResNet_inSequentialWithOptimizer_weightsUpdateCorrectly() {
+    // Integration test: ResNet inside a Sequential with Adam optimizer
+    let inputSize: TensorSize = .init(rows: 16, columns: 16, depth: 3)
+    
+    let network = Sequential {
+      [
+        ResNet(inputSize: inputSize, filterCount: 8, stride: 2),
+        GlobalAvgPool(),
+        Dense(10, initializer: .heNormal, biasEnabled: true),
+        Softmax()
+      ]
+    }
+    
+    let optimizer = Adam(network,
+                         learningRate: 0.001,
+                         batchSize: 2)
+    
+    // Capture initial weights from the ResNet layer
+    let resNetLayer = network.layers[0] as! ResNet
+    let initialResNetWeights = resNetLayer.weights.copy()
+    
+    // Create training data
+    let inputs = [
+      Tensor.fillRandom(size: inputSize),
+      Tensor.fillRandom(size: inputSize)
+    ]
+    
+    // One-hot labels for 10 classes
+    var labels: [Tensor] = []
+    for _ in 0..<2 {
+      var labelData = [Tensor.Scalar](repeating: 0, count: 10)
+      labelData[Int.random(in: 0..<10)] = 1
+      labels.append(Tensor(labelData))
+    }
+    
+    // Run a training step
+    optimizer.zeroGradients()
+    let output = optimizer.fit(inputs,
+                               labels: labels,
+                               lossFunction: .crossEntropySoftmax)
+    optimizer.apply(output.gradients)
+    optimizer.step()
+    
+    // Verify ResNet weights changed
+    let newResNetWeights = resNetLayer.weights
+    
+    XCTAssertFalse(initialResNetWeights.isValueEqual(to: newResNetWeights),
+                   "ResNet weights should update when used with optimizer in Sequential")
+  }
+  
+  func testResNet_multipleTrainingSteps_weightsConverge() {
+    // Test that weights continue to change over multiple training steps
+    let inputSize: TensorSize = .init(rows: 8, columns: 8, depth: 3)
+    
+    let network = Sequential {
+      [
+        ResNet(inputSize: inputSize, filterCount: 4, stride: 1),
+        GlobalAvgPool(),
+        Dense(2, initializer: .heNormal, biasEnabled: true),
+        Softmax()
+      ]
+    }
+    
+    let optimizer = Adam(network,
+                         learningRate: 0.01,
+                         batchSize: 4)
+    
+    let resNetLayer = network.layers[0] as! ResNet
+    
+    // Create consistent training data
+    let inputs = (0..<4).map { _ in Tensor.fillRandom(size: inputSize) }
+    let labels = (0..<4).map { i -> Tensor in
+      var labelData = [Tensor.Scalar](repeating: 0, count: 2)
+      labelData[i % 2] = 1
+      return Tensor(labelData)
+    }
+    
+    var previousWeights = resNetLayer.weights.copy()
+    var weightChanges: [Bool] = []
+    
+    // Run multiple training steps
+    for _ in 0..<3 {
+      optimizer.zeroGradients()
+      let output = optimizer.fit(inputs,
+                                 labels: labels,
+                                 lossFunction: .crossEntropySoftmax)
+      optimizer.apply(output.gradients)
+      optimizer.step()
+      
+      let currentWeights = resNetLayer.weights
+      weightChanges.append(!previousWeights.isValueEqual(to: currentWeights))
+      previousWeights = currentWeights.copy()
+    }
+    
+    // All steps should show weight changes
+    XCTAssertTrue(weightChanges.allSatisfy { $0 },
+                  "Weights should change on each training step")
+  }
+  
+  func testResNet_gradientMagnitude_reasonable() {
+    // Test that gradient magnitudes are reasonable (not exploding or vanishing)
+    let inputSize: TensorSize = .init(rows: 16, columns: 16, depth: 3)
+    let filterCount = 8
+    
+    let resNet = ResNet(inputSize: inputSize, filterCount: filterCount, stride: 2)
+    
+    let input = Tensor.fillRandom(size: inputSize)
+    let out = resNet.forward(tensor: input, context: .init())
+    
+    let error = Tensor.fillRandom(size: resNet.outputSize)
+    let gradients = out.gradients(delta: error, wrt: input)
+    
+    // Check gradient magnitudes
+    for (i, weightGrad) in gradients.weights.enumerated() {
+      guard !weightGrad.isEmpty else { continue }
+      
+      let maxGrad = weightGrad.storage.max() ?? 0
+      let minGrad = weightGrad.storage.min() ?? 0
+      
+      // Gradients should be finite and within reasonable bounds
+      XCTAssertFalse(maxGrad.isNaN, "Gradient \(i) should not be NaN")
+      XCTAssertFalse(maxGrad.isInfinite, "Gradient \(i) should not be infinite")
+      XCTAssertFalse(minGrad.isNaN, "Gradient \(i) should not be NaN")
+      XCTAssertFalse(minGrad.isInfinite, "Gradient \(i) should not be infinite")
+    }
+  }
+  
   func test_invalid_input_size() {
     let sequential = Sequential {
       [

@@ -33,6 +33,7 @@ public enum EncodingType: String, Codable {
        selu,
        resNet,
        globalAvgPool,
+       depthwiseConv2d,
        none
 }
 
@@ -50,6 +51,7 @@ public protocol ConvolutionalLayer: Layer {
   var padding: NumSwift.ConvPadding { get }
 }
 
+/// A batch of tensors used as input or output for a layer.
 public typealias TensorBatch = [Tensor]
 /// The the object that perform ML operations
 public protocol Layer: AnyObject, Codable {
@@ -68,17 +70,44 @@ public protocol Layer: AnyObject, Codable {
   var usesOptimizer: Bool { get set }
   var batchSize: Int { get set }
   @discardableResult
+  /// Runs the layer's forward transformation for a single tensor.
+  ///
+  /// - Parameters:
+  ///   - tensor: Input tensor.
+  ///   - context: Network execution context for batch/thread metadata.
+  /// - Returns: Output tensor for this layer.
   func forward(tensor: Tensor, context: NetworkContext) -> Tensor
+  /// Runs the layer's forward transformation for a tensor batch.
+  ///
+  /// - Parameters:
+  ///   - tensorBatch: Input batch.
+  ///   - context: Network execution context for batch/thread metadata.
+  /// - Returns: Output batch in input order.
   func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch
+  /// Applies parameter updates to the layer.
+  ///
+  /// - Parameters:
+  ///   - gradients: Gradient tuple for this layer.
+  ///   - learningRate: Optimizer learning-rate scalar.
   func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar)
+  /// Exports trainable parameter tensors for persistence.
+  ///
+  /// - Returns: Layer-owned parameter tensors.
+  /// - Throws: `LayerErrors` when weights are not initialized.
   func exportWeights() throws -> [Tensor]
+  /// Imports trainable parameter tensors for this layer.
+  ///
+  /// - Parameter weights: Parameter tensors matching the layer's expected shapes.
+  /// - Throws: `LayerErrors` when tensor counts or shapes are invalid.
   func importWeights(_ weights: [Tensor]) throws
 }
 
+/// Errors that can occur during layer operations such as weight importing.
 public enum LayerErrors: Error, LocalizedError {
   case weightImportError
   case generic(error: String)
   
+/// A human-readable description of the error that occurred.
   public var errorDescription: String? {
     switch self {
     case .weightImportError:
@@ -90,32 +119,45 @@ public enum LayerErrors: Error, LocalizedError {
 }
 
 extension Layer {
+/// Default implementation of `extraEncodables` returning an empty dictionary.
   public var extraEncodables: [String: Codable]? {
     return [:]
   }
 }
 
 open class BaseLayer: Layer {
+/// A base class providing default implementations of common `Layer` properties and behaviors.
   public var details: String {
     """
     Input: \(formatTensorSize(inputSize)) → Output: \(formatTensorSize(outputSize))
     """
   }
   
+/// A human-readable summary of the layer's input and output sizes.
   public var encodingType: EncodingType
+/// The encoding type used to identify this layer during serialization.
   public var inputSize: TensorSize = .init() {
     didSet {
       onInputSizeSet()
     }
   }
+/// The input tensor size for this layer. Setting this triggers `onInputSizeSet()` to reconfigure the layer.
   public var outputSize: TensorSize = .init()
+/// The output tensor size produced by this layer.
   public var weights: Tensor = .init()
+/// The learnable weight parameters of this layer.
   public var biases: Tensor = .init()
+/// The learnable bias parameters of this layer.
   public var biasEnabled: Bool = false
+/// Whether bias parameters are applied during the forward pass.
   public var trainable: Bool = true
+/// Whether this layer's parameters are updated during training.
   public var isTraining: Bool = true
+/// Whether this layer is currently in training mode, affecting behaviors such as dropout.
   public var initializer: Initializer
+/// The weight initializer strategy used to initialize this layer's parameters.
   public var device: Device = CPU()
+/// The compute device (e.g., CPU or GPU) used to execute this layer's operations.
   public var batchSize: Int = 1 {
     didSet {
       onBatchSizeSet()
@@ -124,8 +166,16 @@ open class BaseLayer: Layer {
   
   // defines whether the gradients are run through the optimizer before being applied.
   // this could be useful if a layer manages its own weight updates
+/// The number of samples processed in a single forward/backward pass. Setting this triggers `onBatchSizeSet()`.
   public var usesOptimizer: Bool = true
   
+  /// Creates a new base layer configuration.
+  ///
+  /// - Parameters:
+  ///   - inputSize: Optional known input shape for eager setup.
+  ///   - initializer: Weight initializer strategy.
+  ///   - biasEnabled: Whether the layer should use bias parameters.
+  ///   - encodingType: Serialized layer type identifier.
   public init(inputSize: TensorSize? = nil,
               initializer: InitializerType = Constants.defaultInitializer,
               biasEnabled: Bool = false,
@@ -141,6 +191,12 @@ open class BaseLayer: Layer {
   }
   
   @discardableResult
+  /// Convenience call-syntax wrapper around `forward(tensor:context:)`.
+  ///
+  /// - Parameters:
+  ///   - tensor: Input tensor.
+  ///   - context: Network execution context.
+  /// - Returns: Layer output tensor.
   open func callAsFunction(_ tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     forward(tensor: tensor, context: context)
   }
@@ -150,10 +206,21 @@ open class BaseLayer: Layer {
     self.init(encodingType: .none)
   }
   
+  /// Encodes layer configuration for persistence.
+  ///
+  /// Subclasses should override and encode their own fields.
+  ///
+  /// - Parameter encoder: Encoder used for serialization.
   public func encode(to encoder: Encoder) throws {
     // override
   }
   
+  /// Default batch forward implementation that iterates over each tensor.
+  ///
+  /// - Parameters:
+  ///   - tensorBatch: Input batch.
+  ///   - context: Network execution context.
+  /// - Returns: Layer outputs for each input tensor.
   public func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
     var result: TensorBatch = []
     
@@ -165,25 +232,46 @@ open class BaseLayer: Layer {
   }
   
   @discardableResult
+  /// Default single-tensor forward placeholder.
+  ///
+  /// Subclasses must override with the layer's actual forward math.
+  ///
+  /// - Parameters:
+  ///   - tensor: Input tensor.
+  ///   - context: Network execution context.
+  /// - Returns: Placeholder tensor.
   public func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
     // override
     .init()
   }
   
   // guarenteed to be single threaded operation
+  /// Default parameter application placeholder.
+  ///
+  /// Subclasses should override to update weights/biases from gradients.
+  ///
+  /// - Parameters:
+  ///   - gradients: Gradient tuple for this layer.
+  ///   - learningRate: Optimizer learning rate.
   public func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     // override
   }
   
   // MARK: Internal
+  /// Lifecycle hook invoked when `inputSize` changes.
   public func onInputSizeSet() {
     // override
   }
   
+  /// Lifecycle hook invoked when `batchSize` changes.
   public func onBatchSizeSet() {
     // override
   }
   
+  /// Exports this layer's primary weight tensor.
+  ///
+  /// - Returns: Single weight tensor for simple layers.
+  /// - Throws: `LayerErrors` if weights are not initialized.
   public func exportWeights() throws -> [Tensor] {
     guard self.weights.isEmpty == false else {
       throw LayerErrors.generic(error: "\(encodingType.rawValue.capitalized) weights have not been initialized.")
@@ -192,6 +280,10 @@ open class BaseLayer: Layer {
     return [weights]
   }
   
+  /// Imports this layer's primary weight tensor.
+  ///
+  /// - Parameter weights: Array containing exactly one weight tensor.
+  /// - Throws: `LayerErrors` when count/shape are invalid.
   public func importWeights(_ weights: [Tensor]) throws {
     guard self.weights.isEmpty == false else {
       throw LayerErrors.generic(error: "\(encodingType.rawValue.capitalized) weights have not been initialized.")
@@ -226,6 +318,7 @@ open class BaseLayer: Layer {
 }
 
 open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
+/// Whether gradients are passed through the optimizer before being applied. Set to `false` if the layer manages its own weight updates.
   public override var details: String {
     super.details +
     """
@@ -236,23 +329,34 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
     """
   }
   
+/// A human-readable summary including filter count, strides, and padding configuration.
   public override var weights: Tensor {
     get {
       var reduce = filters
       let first = reduce.removeFirst()
       
-      return reduce.reduce(first) { partialResult, new in
+      let out = reduce.reduce(first) { partialResult, new in
         partialResult.concat(new, axis: 2)
-      }
+      }.storage
+      
+      return Tensor(out, size: .init(rows: filterSize.rows,
+                                     columns: filterSize.columns,
+                                     depth: filterCount * inputSize.depth))
+      
     }
     set {
       fatalError("Please use the `filters` property instead to manage weights on Convolutional layers")
     }
   }
+/// A combined tensor representation of all convolutional filters, concatenated along the depth axis.
   public var filterCount: Int
+/// The number of convolutional filters applied at this layer.
   public var filters: [Tensor] = []
+/// The collection of filter tensors used for convolution.
   public var filterSize: (rows: Int, columns: Int)
+/// The spatial dimensions (rows and columns) of each filter kernel.
   public var strides: (rows: Int, columns: Int)
+/// The step size (rows and columns) used when sliding the filter over the input.
   public var padding: NumSwift.ConvPadding
   
   /// Default initializer for a 2d convolutional layer
@@ -298,6 +402,10 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
     initializeFilters()
   }
   
+  /// Exports convolution filters as the trainable weight set.
+  ///
+  /// - Returns: Filter tensors in filter index order.
+  /// - Throws: `LayerErrors` if filters are not initialized.
   public override func exportWeights() throws -> [Tensor] {
     guard filters.isEmpty == false else {
       throw LayerErrors.generic(error: "\(encodingType.rawValue.capitalized) weights have not been initialized.")
@@ -306,6 +414,10 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
     return filters
   }
   
+  /// Imports convolution filters for this layer.
+  ///
+  /// - Parameter weights: Filter tensors matching existing filter shapes.
+  /// - Throws: `LayerErrors` if filters are missing or shape mismatches occur.
   public override func importWeights(_ weights: [Tensor]) throws {
     guard filters.isEmpty == false else {
       throw LayerErrors.generic(error: "\(encodingType.rawValue.capitalized) weights have not been initialized.")
@@ -320,7 +432,7 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
     filters = weights
   }
   
-  private func initializeFilters() {
+  func initializeFilters() {
     guard filters.isEmpty else {
       return
     }
@@ -335,7 +447,7 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
           
           for _ in 0..<filterSize.1 {
             let weight = initializer.calculate(input: inputSize.depth * filterSize.rows * filterSize.columns,
-                                                out: inputSize.depth * filterSize.rows * filterSize.columns)
+                                                out: outputSize.depth * filterSize.rows * filterSize.columns)
             filterRow.append(weight)
           }
           
@@ -353,12 +465,20 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
 
 open class BaseActivationLayer: BaseLayer, ActivationLayer {
   
+/// The padding strategy applied to the input before convolution.
   public override var details: String {
       ""
   }
   
+/// The activation function type applied by this layer.
   public let type: Activation
 
+  /// Creates a base activation layer.
+  ///
+  /// - Parameters:
+  ///   - inputSize: Optional known input shape.
+  ///   - type: Activation function represented by this layer.
+  ///   - encodingType: Serialized layer type identifier.
   public init(inputSize: TensorSize? = nil,
               type: Activation,
               encodingType: EncodingType) {
@@ -376,7 +496,17 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
               encodingType: .none)
   }
   
+  /// Applies the activation function and builds backpropagation context.
+  ///
+  /// - Parameters:
+  ///   - tensor: Input tensor.
+  ///   - context: Network execution context.
+  /// - Returns: Activated output tensor.
   @discardableResult
+/// Performs the forward pass by applying the layer's activation function to the input tensor and building the backward graph.
+  /// - Parameter tensor: The input tensor to activate.
+  /// - Parameter context: The network context for the current pass. Defaults to a new context.
+  /// - Returns: A new tensor containing the activated values with a configured backward context.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     
     let context = TensorContext { inputs, gradient, wrt in
@@ -433,6 +563,12 @@ open class BaseThreadBatchingLayer: BaseLayer {
 
   private let condition = NSCondition()
 
+  /// Performs synchronized batch-aware forward processing.
+  ///
+  /// - Parameters:
+  ///   - tensorBatch: Input batch chunk for this worker.
+  ///   - context: Batch/thread metadata used for synchronization.
+  /// - Returns: Forward outputs from `BaseLayer` after synchronization.
   public override func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
     if shouldPerformBatching {
 
@@ -465,11 +601,23 @@ open class BaseThreadBatchingLayer: BaseLayer {
     return super.forward(tensorBatch: tensorBatch, context: context)
   }
 
+  /// Resets thread-batching iteration state after parameter updates.
+  ///
+  /// - Parameters:
+  ///   - gradients: Gradient tuple forwarded to `BaseLayer`.
+  ///   - learningRate: Optimizer learning rate.
   public override func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Tensor.Scalar) {
     super.apply(gradients: gradients, learningRate: learningRate)
     iterations.store(0, ordering: .relaxed)
   }
 
+  /// Hook executed once per tensor during synchronized batch processing.
+  ///
+  /// Subclasses must override to update batch-shared statistics/state.
+  ///
+  /// - Parameters:
+  ///   - tensor: Current tensor in the batch chunk.
+  ///   - context: Batch/thread metadata.
   open func performThreadBatchingForwardPass(tensor: Tensor, context: NetworkContext) {
     fatalError("must override")
   }

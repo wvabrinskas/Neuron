@@ -10,8 +10,7 @@ import NumSwift
 
 /// Performs a GeLu activation.
 public final class GeLu: BaseActivationLayer {
-  /// Default initializer for a leaky relu activation function.
-  /// - Parameter limit: The alpha limit value for leaky relu.
+  /// Creates a GeLU activation layer.
   public init() {    
     super.init(type: .geLu,
                encodingType: .leakyRelu)
@@ -31,6 +30,9 @@ public final class GeLu: BaseActivationLayer {
     self.outputSize = inputSize
   }
   
+  /// Encodes GeLU layer configuration.
+  ///
+  /// - Parameter encoder: Encoder used for serialization.
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)

@@ -29,9 +29,15 @@ class MockRNNDataset: VectorizableDataset<String> {
     self.maxLength = inputStrings.max(by: { $0.count < $1.count })?.count ?? 0
     self.trainingCount = trainingCount
     self.validationCount = validationCount
+    
+    super.init()
   }
   
-  override func build() async -> Neuron.RNNSupportedDatasetData {
+  required init(vectorizer: Vectorizer<String> = .init()) {
+    fatalError("init(vectorizer:) has not been implemented")
+  }
+  
+  override func build() async -> Neuron.VectorizingDatasetData {
     // First pass: vectorize all inputs to build vocabulary
     for inputString in inputStrings {
       vectorizer.vectorize(inputString.fill(with: ".",
@@ -208,7 +214,7 @@ final class FullModelTests: XCTestCase {
     let batchSize = 64
     
     do {
-      let fileURL = try Resource(name: "pretrained-classifier-color", type: "smodel").url
+      let fileURL = try Resource(name: "pretrained-classifier-color", type: ExportHelper.FileExtensions.smodel.rawValue).url
       
       let n = Sequential.import(fileURL)
       let optim = Adam(n, learningRate: 0.0001, batchSize: batchSize)
@@ -276,6 +282,11 @@ final class FullModelTests: XCTestCase {
     rnn.onEpochCompleted = {
       let r = rnn.predict(count: 10, maxWordLength: 20, randomizeSelection: false)
       print(r)
+      
+      let exports = rnn.exportWithVectors(overrite: true, compress: true)
+      
+      print(exports)
+      
       // let s = rnn.predict(count: 10, maxWordLength: 20, randomizeSelection: false)
       // print(s)
     }
