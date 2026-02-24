@@ -25,13 +25,6 @@ jobs:
             --output-path ./docs-output/Neuron.doccarchive \
             --hosting-base-path pages
 
-      - name: Upload .doccarchive artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Neuron.doccarchive
-          path: ./docs-output/Neuron.doccarchive
-          if-no-files-found: error
-
       - name: Checkout GitHub Pages repo
         uses: actions/checkout@v4
         with:
