@@ -365,15 +365,15 @@ public final class LSTM: BaseLayer {
      */
     
     // Split weight gradients along depth (each gate's weights are one depth slice)
-    let gLayerTensors = gradients.weights.split(into: 1, axis: 2)
+    let gLayerTensors = gradients.weights
     
-    if gLayerTensors.count >= 5,
-       let forgetGateWeightGrads = gLayerTensors[safe: 0],
-       let inputGateWeightGrads = gLayerTensors[safe: 1],
-       let gateGateWeightGrads = gLayerTensors[safe: 2],
-       let outputGateWeightGrads = gLayerTensors[safe: 3] {
+    if gLayerTensors.size.depth >= 5 {
+      let forgetGateWeightGrads = gLayerTensors.depthSliceTensor(0)
+      let inputGateWeightGrads = gLayerTensors.depthSliceTensor(1)
+      let gateGateWeightGrads = gLayerTensors.depthSliceTensor(2)
+      let outputGateWeightGrads = gLayerTensors.depthSliceTensor(3)
       
-      let hiddenOutputWeightGradients = gLayerTensors[4][..<hiddenUnits, 0..<vocabSize, 0...]
+      let hiddenOutputWeightGradients = gLayerTensors[..<hiddenUnits, ..<vocabSize, 4...]
       
       forgetGateWeightGrads.l2Normalize()
       inputGateWeightGrads.l2Normalize()
