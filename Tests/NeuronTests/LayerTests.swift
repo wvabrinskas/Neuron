@@ -137,7 +137,7 @@ final class LayerTests: XCTestCase {
     
     do {
       let jsonOut = try JSONEncoder().encode(layerNorm)
-      let jsonIn = try JSONDecoder().decode(LayerNormalize.self, from: jsonOut)
+      let jsonIn = try JSONDecoder().decode(InstanceNormalize.self, from: jsonOut)
       
       let outWeights = jsonIn.weights
       
