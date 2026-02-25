@@ -321,11 +321,14 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
   
   /// Ensures dataset-derived network state is built and compiled once.
   public func readyUp() async {
+    // do it twice just incase we imported a dataset and there's no data to build
     vocabSize = dataset.vocabSize
 
     if ready == false || datasetData == nil {
       datasetData = await dataset.build()
       
+      vocabSize = dataset.vocabSize
+
       if let datasetData {
         compile(dataset: datasetData)
       }

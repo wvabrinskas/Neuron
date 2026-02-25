@@ -90,24 +90,17 @@ public struct Initializer {
       return orthogonalTensor(size: size, gain: gain)
     }
 
-    var tensor: [[[Tensor.Scalar]]] = []
+    var tensor: Tensor.Value = .init(repeating: 0, count: size.depth * size.rows * size.columns)
 
-    for _ in 0..<size.depth {
-      var rows: [[Tensor.Scalar]] = []
-
-      for _ in 0..<size.rows {
-        var columns: [Tensor.Scalar] = []
-
-        for _ in 0..<size.columns {
-          columns.append(calculate(input: input, out: out))
+    for d in 0..<size.depth {
+      for r in 0..<size.rows {
+        for c in 0..<size.columns {
+          tensor[d * size.rows * size.columns + r * size.columns + c] = calculate(input: input, out: out)
         }
-        rows.append(columns)
       }
-
-      tensor.append(rows)
     }
 
-    return Tensor(tensor)
+    return Tensor(tensor, size: size)
   }
   
   /// Generates one initialized scalar value.
