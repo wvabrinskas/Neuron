@@ -439,26 +439,12 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
     }
     
     for _ in 0..<filterCount {
-      var kernels: [[[Tensor.Scalar]]] = []
-      for _ in 0..<inputSize.depth {
-        var kernel: [[Tensor.Scalar]] = []
-        
-        for _ in 0..<filterSize.0 {
-          var filterRow: [Tensor.Scalar] = []
-          
-          for _ in 0..<filterSize.1 {
-            let weight = initializer.calculate(input: inputSize.depth * filterSize.rows * filterSize.columns,
-                                                out: outputSize.depth * filterSize.rows * filterSize.columns)
-            filterRow.append(weight)
-          }
-          
-          kernel.append(filterRow)
-        }
-        
-        kernels.append(kernel)
-      }
+      let filter = initializer.calculate(size: .init(rows: filterSize.rows,
+                                                     columns: filterSize.columns,
+                                                     depth: inputSize.depth),
+                                         input: inputSize.depth * filterSize.rows * filterSize.columns,
+                                         out: outputSize.depth * filterSize.rows * filterSize.columns)
       
-      let filter = Tensor(kernels)
       filters.append(filter)
     }
   }

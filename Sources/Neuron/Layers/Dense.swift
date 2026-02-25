@@ -86,19 +86,12 @@ public final class Dense: BaseLayer {
       return
     }
     
-    var newWeights: Tensor.Value = []
     let outputSizeCount = outputSize.columns
-        
-    for _ in 0..<outputSizeCount {
-      for _ in 0..<inputs {
-        let w = initializer.calculate(input: inputs,
-                                       out: outputSizeCount)
-        newWeights.append(w)
-      }
-    }
     
-    weights = Tensor(newWeights,
-                     size: .init(rows: outputSizeCount, columns: inputs, depth: 1))
+    weights = initializer.calculate(size: .init(rows: outputSizeCount,
+                                                columns: inputs,
+                                                depth: 1),
+                                    input: inputs, out: outputSizeCount)
   }
   
   /// Computes dense affine transformation `xW^T + b`.
