@@ -66,6 +66,8 @@ public struct LayerModelConverter {
       layer = try getLayer(layer: GlobalAvgPool.self, container: con)
     case .depthwiseConv2d:
       layer = try getLayer(layer: DepthwiseConv2d.self, container: con)
+    case .instanceNorm:
+      layer = try getLayer(layer: InstanceNormalize.self, container: con)
     case .none:
       layer = nil
     }

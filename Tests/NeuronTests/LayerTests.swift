@@ -128,6 +128,25 @@ final class LayerTests: XCTestCase {
     }
   }
   
+  func testInstanceNormalizeDecodeEncode() {
+    let inputSize: TensorSize = .init(rows: 16, columns: 16, depth: 8)
+    
+    let layerNorm = InstanceNormalize(inputSize: inputSize)
+    
+    let expectedWeights = layerNorm.weights
+    
+    do {
+      let jsonOut = try JSONEncoder().encode(layerNorm)
+      let jsonIn = try JSONDecoder().decode(InstanceNormalize.self, from: jsonOut)
+      
+      let outWeights = jsonIn.weights
+      
+      XCTAssertTrue(expectedWeights.isValueEqual(to: outWeights))
+    } catch {
+      XCTFail(error.localizedDescription)
+    }
+  }
+  
   func testBatchNormalizeDecodeEncode() {
     let inputSize: TensorSize = .init(rows: 16, columns: 16, depth: 8)
     

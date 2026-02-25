@@ -1,15 +1,12 @@
 //
-//  File.swift
-//  
+//  InstanceNormalization.swift
 //
-//  Created by William Vabrinskas on 6/22/22.
 //
 
 import Foundation
 import NumSwift
 
-/// Performs a layer normalization function.
-public final class LayerNormalize: BaseLayer {
+public final class InstanceNormalize: BaseLayer {
   /// The combined weights tensor of beta and gamma, used primarily for display and inspection purposes.
   /// - Returns: A `Tensor` containing the concatenated beta and gamma values shaped to the input size.
   public override var weights: Tensor {
@@ -17,9 +14,9 @@ public final class LayerNormalize: BaseLayer {
       // For printing purposes. Not actually used
       let out = beta.concat(gamma, axis: 2)
       
-      let outTensor = Tensor(out.storage, size: .init(rows: beta.size.rows,
-                                                      columns: beta.size.columns,
-                                                      depth: beta.size.depth + gamma.size.depth))
+      let outTensor = Tensor(out.storage, size: .init(rows: 1,
+                                                      columns: beta.size.columns + gamma.size.columns,
+                                                      depth: 1))
       return outTensor
     }
     set {}
@@ -52,7 +49,7 @@ public final class LayerNormalize: BaseLayer {
     
     super.init(inputSize: inputSize,
                biasEnabled: false,
-               encodingType: .layerNormalize)
+               encodingType: .instanceNorm)
     
     if let inputSize {
       self.outputSize = inputSize
@@ -112,61 +109,88 @@ public final class LayerNormalize: BaseLayer {
   }
 
   private func normalizeFlat(inputs: Tensor) -> Tensor.Value {
-    let sliceSize = inputSize.rows * inputSize.columns * inputSize.depth
+    let depth = inputs.size.depth
+    let sliceSize = inputSize.rows * inputSize.columns
     let total = Tensor.Scalar(sliceSize)
+    var outStorage = Tensor.Value(repeating: 0, count: inputs.storage.count)
     
-    let gammaSlice = gamma
-    let betaSlice = beta
+    for i in 0..<depth {
+      let gammaSlice = gamma.storage[i]
+      let betaSlice = beta.storage[i]
+      
+      let slice = inputs.depthSlice(i)
+      let mean = slice.mean
+      
+      let centered = slice - mean
+      let variance = centered.sumOfSquares / total
+      let std = Tensor.Scalar.sqrt(variance + epsilon)
+      
+      let normalized = centered / std
+      // result = normalized * gamma[i] + beta[i]
+      let scaled = normalized * gammaSlice + betaSlice
+      
+      let offset = i * sliceSize
+      for j in 0..<sliceSize { outStorage[offset + j] = scaled[j] }
+    }
     
-    let slice = inputs
-    let mean = slice.mean().asScalar()
-    
-    let centered = slice - mean
-    let variance = centered.sumOfSquares().asScalar() / total
-    let std = Tensor.Scalar.sqrt(variance + epsilon)
-    
-    let normalized = centered / std
-    
-    let scaled = normalized * gammaSlice + betaSlice
-    
-    return scaled.storage
+    return outStorage
   }
   
   private func backwardFlat(inputs: Tensor, gradient: Tensor) -> (input: Tensor, weight: Tensor, bias: Tensor) {
-    let gammaTensor = gamma.asScalar()
-    let featureTensor = inputs
-    let gradTensor = gradient
+    let depth = inputs.size.depth
     
-    let N = Tensor.Scalar(inputSize.rows * inputSize.columns * inputSize.depth)
+    // We use Tensor operations per-depth for the complex backward math
+    // but construct depth-1 Tensors from flat slices instead of going through .value
+    var dInputSlices = [Tensor.Value]()
+    var dGammaSlices = [Tensor.Value]()
+    var dBetaSlices = [Tensor.Value]()
     
-    let mean = featureTensor.mean(axis: -1).asScalar()
-    let variance = featureTensor.variance(axis: -1).asScalar()
-    let varianceEpsilon = variance + epsilon
-    let std = Tensor.Scalar.sqrt(varianceEpsilon)
-    
-    let inputsMinusMean = featureTensor - mean
-    let x_norm = inputsMinusMean / std
-    
-    // For weight updates - keep feature shape (4, 2, 2)
-    let dL_dbeta = gradTensor   // already the right shape if no batch dim
-    let dL_dgamma = x_norm * gradTensor
+    for i in 0..<depth {
+      let gammaTensor = gamma.storage[i]
+      let featureTensor = inputs.depthSliceTensor(i)
+      let gradTensor = gradient.depthSliceTensor(i)
+      
+      let N = Tensor.Scalar(inputSize.rows * inputSize.columns)
+      
+      let mean = featureTensor.mean(axis: -1).asScalar()
+      let variance = featureTensor.variance(axis: -1).asScalar()
+      let varianceEpsilon = variance + epsilon
+      let std = Tensor.Scalar.sqrt(varianceEpsilon)
+      
+      let inputsMinusMean = featureTensor - mean
+      let x_norm = inputsMinusMean / std
+      
+      let dL_dbeta = gradTensor.sum(axis: -1).asScalar()
+      let dL_dgamma = (x_norm * gradTensor).sum(axis: -1).asScalar()
+      
+      let invNStd = gammaTensor * (Tensor.Scalar(1) / (N * std))
+      let line2 = N * gradTensor
+      let line3 = dL_dbeta                          // sum(dOut)
+      let line4 = x_norm                            // x̂
+      let line5 = dL_dgamma                         // sum(dOut * x̂)
 
-    // Scalars just for the dl_dx formula
-    let sumGrad = gradTensor.sum()           // scalar
-    let sumGradXnorm = (x_norm * gradTensor).sum()  // scalar
+      let dl_dx = invNStd * (line2 - line3 - line4 * line5)
+      
+      dInputSlices.append(dl_dx.storage)
+      dGammaSlices.append([dL_dgamma])
+      dBetaSlices.append([dL_dbeta])
+    }
     
-    let invNStd = gammaTensor * (Tensor.Scalar(1) / (N * std))
-    let line2 = N * gradTensor
-    let line3 = sumGrad                          // sum(dOut)
-    let line4 = x_norm                            // x̂
-    let line5 = sumGradXnorm                         // sum(dOut * x̂)
-
-    let dl_dx = invNStd * (line2 - line3 - line4 * line5)
+    // Assemble full tensors from per-depth slices
+    var dInputStorage = Tensor.Value()
+    dInputSlices.forEach { dInputStorage.append(contentsOf: $0) }
     
-    let deltaWeights = dL_dgamma.concat(dL_dbeta, axis: 2)
-        
-    return (Tensor(dl_dx.storage, size: inputs.size),
-            deltaWeights,
+    var dGammaStorage = Tensor.Value()
+    dGammaSlices.forEach { dGammaStorage.append(contentsOf: $0) }
+    
+    var dBetaStorage = Tensor.Value()
+    dBetaSlices.forEach { dBetaStorage.append(contentsOf: $0) }
+    
+    let dGammaTensor = Tensor(dGammaStorage, size: TensorSize(rows: 1, columns: depth, depth: 1))
+    let dBetaTensor = Tensor(dBetaStorage, size: TensorSize(rows: 1, columns: depth, depth: 1))
+    
+    return (Tensor(dInputStorage, size: inputs.size),
+            dGammaTensor.concat(dBetaTensor, axis: 2),
             Tensor())
   }
   
@@ -185,11 +209,12 @@ public final class LayerNormalize: BaseLayer {
   
   private func setupTrainables() {
     if gamma.isEmpty {
-      self.gamma = Tensor.fillWith(value: 1.0, size: inputSize)
+      self.gamma = Tensor.fillWith(value: 1.0, size: .init(rows: 1, columns: inputSize.depth, depth: 1))
     }
     
     if beta.isEmpty {
-      self.beta = Tensor.fillWith(value: 0.0, size: inputSize)
+      self.beta = Tensor.fillWith(value: 0.0, size: .init(rows: 1, columns: inputSize.depth, depth: 1))
     }
   }
 }
+
