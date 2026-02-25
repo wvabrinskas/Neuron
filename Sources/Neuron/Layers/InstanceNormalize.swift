@@ -1,15 +1,12 @@
 //
-//  File.swift
-//  
+//  InstanceNormalization.swift
 //
-//  Created by William Vabrinskas on 6/22/22.
 //
 
 import Foundation
 import NumSwift
 
-/// Performs a layer normalization function.
-public final class LayerNormalize: BaseLayer {
+public final class InstanceNormalize: BaseLayer {
   /// The combined weights tensor of beta and gamma, used primarily for display and inspection purposes.
   /// - Returns: A `Tensor` containing the concatenated beta and gamma values shaped to the input size.
   public override var weights: Tensor {
@@ -52,7 +49,7 @@ public final class LayerNormalize: BaseLayer {
     
     super.init(inputSize: inputSize,
                biasEnabled: false,
-               encodingType: .layerNormalize)
+               encodingType: .instanceNorm)
     
     if let inputSize {
       self.outputSize = inputSize
@@ -220,3 +217,4 @@ public final class LayerNormalize: BaseLayer {
     }
   }
 }
+

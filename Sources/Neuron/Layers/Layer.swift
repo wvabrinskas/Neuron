@@ -34,6 +34,7 @@ public enum EncodingType: String, Codable {
        resNet,
        globalAvgPool,
        depthwiseConv2d,
+       instanceNorm,
        none
 }
 
