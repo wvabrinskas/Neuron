@@ -7,6 +7,7 @@
 
 import Foundation
 import GameplayKit
+import NumSwift
 
 /// Weight initializer methods
 public enum InitializerType: Codable, Equatable {
@@ -189,19 +190,19 @@ public struct Initializer {
   }
 
   private func dot(_ a: [Tensor.Scalar], _ b: [Tensor.Scalar]) -> Tensor.Scalar {
-    zip(a, b).reduce(0) { $0 + $1.0 * $1.1 }
+    (a * b).sum
   }
 
   private func subtract(_ a: [Tensor.Scalar], _ b: [Tensor.Scalar]) -> [Tensor.Scalar] {
-    zip(a, b).map { $0 - $1 }
+    a - b
   }
 
   private func scale(_ a: [Tensor.Scalar], by s: Tensor.Scalar) -> [Tensor.Scalar] {
-    a.map { $0 * s }
+    a * s
   }
 
   private func magnitude(_ a: [Tensor.Scalar]) -> Tensor.Scalar {
-    Tensor.Scalar.sqrt(a.reduce(0) { $0 + $1 * $1 })
+    Tensor.Scalar.sqrt(a.sumOfSquares)
   }
 }
 
@@ -247,7 +248,18 @@ extension Initializer: Codable {
         } else {
           self = .init(type: .normal(std: 1))
         }
-      } else {
+      } else if k == .orthogonal {
+        if let val = try values.decodeIfPresent(String.self, forKey: .orthogonal) {
+          let split = val.split(separator: "-")[safe: 1, ""]
+          if let gain = Tensor.Scalar(split) {
+            self = .init(type: .orthogonal(gain: gain))
+          } else {
+            self = .init(type: .orthogonal(gain: 1))
+          }
+        } else {
+          self = .init(type: .orthogonal(gain: 1))
+        }
+    } else {
         self = .init(type: k.type)
       }
     }
