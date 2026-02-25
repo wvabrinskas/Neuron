@@ -200,8 +200,8 @@ public final class InstanceNormalize: BaseLayer {
   ///   - gradients: Combined gamma/beta gradients packed in `weights`.
   ///   - learningRate: Learning rate already reflected by optimizer gradients.
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
-    let gammaWeights = gradients.weights[0..<gamma.size.columns, 0..., 0...]
-    let betaWeights = gradients.weights[gamma.size.columns..., 0..., 0...]
+    let gammaWeights = gradients.weights.depthSliceTensor(0)
+    let betaWeights = gradients.weights.depthSliceTensor(1)
 
     gamma = gamma - gammaWeights
     beta = beta - betaWeights

@@ -437,7 +437,7 @@ final class NeuronTests: XCTestCase {
     
     XCTAssert(gradient.input.first?.isEmpty == false)
     XCTAssert(gradient.input.first!.isValueEqual(to: .fillWith(value: 0, size: input.size), accuracy: 0.0001))
-    XCTAssert(gradient.weights.first!.isValueEqual(to: .init([0, 0, 4, 4], size: .init(rows: 1, columns: 4, depth: 1)), accuracy: 0.0001))
+    XCTAssert(gradient.weights.first!.isValueEqual(to: .init([0, 0, 4, 4], size: .init(rows: 1, columns: 2, depth: 2)), accuracy: 0.0001))
   }
   
   
