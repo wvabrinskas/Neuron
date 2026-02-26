@@ -68,6 +68,8 @@ public struct LayerModelConverter {
       layer = try getLayer(layer: DepthwiseConv2d.self, container: con)
     case .instanceNorm:
       layer = try getLayer(layer: InstanceNormalize.self, container: con)
+    case .rexNet:
+      layer = try getLayer(layer: RexNet.self, container: con)
     case .none:
       layer = nil
     }
