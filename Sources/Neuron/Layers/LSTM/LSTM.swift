@@ -399,15 +399,17 @@ public final class LSTM: BaseLayer {
      
      hiddenOutputWeightBiases = 4
      */
-    let gBiasLayerTensors = gradients.biases.split(into: 1, axis: 2)
+    let gBiasLayerTensors = gradients.biases
     
     if biasEnabled,
-       gBiasLayerTensors.count >= 5,
-       let forgetGateBiasGrads = gBiasLayerTensors[safe: 0],
-       let inputGateBiasGrads = gBiasLayerTensors[safe: 1],
-       let gateGateBiasGrads = gBiasLayerTensors[safe: 2],
-       let outputGateBiasGrads = gBiasLayerTensors[safe: 3],
-       let hiddenOutputBiasGradients = gBiasLayerTensors[safe: 4] {
+       gBiasLayerTensors.size.depth >= 5 {
+      
+      let forgetGateBiasGrads = gBiasLayerTensors.depthSliceTensor(0)
+      let inputGateBiasGrads = gBiasLayerTensors.depthSliceTensor(1)
+      let gateGateBiasGrads = gBiasLayerTensors.depthSliceTensor(2)
+      let outputGateBiasGrads = gBiasLayerTensors.depthSliceTensor(3)
+      
+      let hiddenOutputBiasGradients = gBiasLayerTensors[..<vocabSize, 0..., 4...]
       
       forgetGateBiases = forgetGateBiases.copy() - forgetGateBiasGrads
       inputGateBiases = inputGateBiases.copy() - inputGateBiasGrads
