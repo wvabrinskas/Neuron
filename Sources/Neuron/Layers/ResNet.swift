@@ -352,13 +352,14 @@ public final class ResNet: BaseLayerGroup {
         biasGradients.append(contentsOf: shortCutGradientsBiases.flatMap(\.storage))
       }
       
-      let gradientToAdd = if shouldProjectInput {
+      let gradientsToadd = if shouldProjectInput {
         reluGradientsWrtProjectedInput.input[safe: 0, Tensor()]
       } else {
         gradient
       }
       
-      let wrtInputs = reluGradients.input[safe: 0, Tensor()] + gradientToAdd // add gradient FROM skip connection. Direct path for gradients
+      let wrtInputs = reluGradients.input[safe: 0, Tensor()] + gradientsToadd
+      
       return (wrtInputs, Tensor(weightGradients), Tensor(biasGradients))
     }
     

@@ -148,7 +148,8 @@ public enum Activation: Codable, Equatable {
       return input > 0 ? 1 : limit
     case .swish:
       let x = input
-      return (Tensor.Scalar.exp(-x) * (x + 1) + 1) / Tensor.Scalar.pow((1 + Tensor.Scalar.exp(-x)), 2)
+      let out = (Tensor.Scalar.exp(-x) * (x + 1) + 1) / Tensor.Scalar.pow((1 + Tensor.Scalar.exp(-x)), 2)
+      return out
     case .tanh:
       let tan = self.activate(input: input)
       return 1 - (Tensor.Scalar.pow(tan, 2))
