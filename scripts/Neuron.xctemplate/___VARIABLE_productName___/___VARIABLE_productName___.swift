@@ -12,9 +12,9 @@ import Foundation
 import NumSwift
 
 public final class ___VARIABLE_productName___: BaseLayer {
-  public init(inputSize: TensorSize = TensorSize(array: [])) {
+  public init(inputSize: TensorSize = TensorSize(array: []), initializer: InitializerType = .heNormal) {
     super.init(inputSize: inputSize,
-               initializer: nil,
+               initializer: initializer,
                biasEnabled: false,
                encodingType: .___VARIABLE_encodingType___)
   }
@@ -26,6 +26,7 @@ public final class ___VARIABLE_productName___: BaseLayer {
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     /// do something when the input size is set when calling `compile` on `Sequential`
+    /// like setting the output size or initializing the weights
   }
   
   convenience public required init(from decoder: Decoder) throws {
@@ -41,7 +42,7 @@ public final class ___VARIABLE_productName___: BaseLayer {
   }
   
   public override func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
-    let context = TensorContext { inputs, gradient in
+    let context = TensorContext { inputs, gradient, wrt in
       // backpropogation calculation
       return (Tensor(), Tensor(), Tensor())
     }
