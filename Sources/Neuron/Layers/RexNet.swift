@@ -24,6 +24,7 @@ public final class RexNet: BaseLayerGroup {
               initializer: InitializerType = Constants.defaultInitializer,
               strides: (rows: Int, columns: Int) = (1,1),
               outChannels: Int,
+              squeeze: Int = 0,
               expandRatio: Tensor.Scalar = 0) {
     
     self.expandRatio = expandRatio
@@ -70,6 +71,21 @@ public final class RexNet: BaseLayerGroup {
       layers.append(contentsOf: depthWiseLayers)
       
       // Step 3: Squeeze-and-Excite (optional)
+      if squeeze > 0 {
+        let squeezeLayers: [Layer] = [
+          GlobalAvgPool(),
+          Dense(Int(inputSize.depth) / squeeze,
+                initializer: initializer,
+                biasEnabled: true),
+          ReLu(),
+          Dense(inputSize.depth,
+                initializer: initializer,
+                biasEnabled: true),
+          Sigmoid(),
+        ]
+        
+        layers.append(contentsOf: squeezeLayers)
+      }
       
       // Step 4: Project back down to out_channels
       let projectLayers: [Layer] = [

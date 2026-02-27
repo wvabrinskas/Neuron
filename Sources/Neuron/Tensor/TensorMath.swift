@@ -223,12 +223,12 @@ public extension Tensor {
       }
     }
     
-    let copied = value.copy()
-    
     let context = TensorContext { inputs, gradient, wrt in
-      if let wrt, (value.graphChain.contains(wrt.id) || value.id == wrt.id) {
+      let copied = value.copy()
+
+      if (value.graphChain.contains(wrt.id) || value.id == wrt.id) {
         
-        let result = gradient * (-1 * (inputs / (copied * copied)))
+        let result = gradient * (-1 * (self / (copied * copied)))
         
         return (result, Tensor(), Tensor())
       }
@@ -269,10 +269,14 @@ public extension Tensor {
       }
     }
     
-    let copied = value.copy()
-
     let context = TensorContext { inputs, gradient, wrt in
-      return (gradient * copied, Tensor(), Tensor())
+      // if we have a wrt we go down the path that has the wrt in it, and if that's
+      // value then it will have to be self used in the calculation
+      if (value.graphChain.contains(wrt.id) || value.id == wrt.id) {
+        return (gradient * self.copy(), Tensor(), Tensor())
+      }
+      
+      return (gradient.copy() * value.copy(), Tensor(), Tensor())
     }
     
     let out = applyAlong(axis: axis, input: value, block)
@@ -346,7 +350,7 @@ public extension Tensor {
     }
     
     let context = TensorContext { inputs, gradient, wrt in
-      if let wrt, (value.graphChain.contains(wrt.id) || value.id == wrt.id) {
+      if (value.graphChain.contains(wrt.id) || value.id == wrt.id) {
         return (gradient * -1, Tensor(), Tensor())
       }
 
@@ -819,7 +823,7 @@ public extension Tensor {
     let result = lhs.storage - rhs.storage
     
     let context = TensorContext { inputs, gradient, wrt in
-      if let wrt, (rhs.graphChain.contains(wrt.id) || rhs.id == wrt.id) {
+      if (rhs.graphChain.contains(wrt.id) || rhs.id == wrt.id) {
         return (gradient * -1, Tensor(), Tensor())
       }
 
@@ -845,9 +849,14 @@ public extension Tensor {
     // Accelerate-backed flat element-wise multiply
     let result = lhs.storage * rhs.storage
     
-    let copied = rhs.copy()
     let context = TensorContext { inputs, gradient, wrt in
-      return (gradient * copied, Tensor(), Tensor())
+      // if we have a wrt we go down the path that has the wrt in it, and if that's
+      // value then it will have to be self used in the calculation
+      if (rhs.graphChain.contains(wrt.id) || rhs.id == wrt.id) {
+        return (gradient * lhs.copy(), Tensor(), Tensor())
+      }
+      
+      return (gradient.copy() * rhs.copy(), Tensor(), Tensor())
     }
     
     let new = Tensor(result, size: lhs.size, context: context)
@@ -869,11 +878,12 @@ public extension Tensor {
     // Accelerate-backed flat element-wise divide
     let result = lhs.storage / rhs.storage
     
-    let copied = rhs.copy()
     let context = TensorContext { inputs, gradient, wrt  in
-      if let wrt, (rhs.graphChain.contains(wrt.id) || rhs.id == wrt.id) {
+      let copied = rhs.copy()
+
+      if (rhs.graphChain.contains(wrt.id) || rhs.id == wrt.id) {
         
-        let result = gradient * (-1 * (inputs / (copied * copied)))
+        let result = gradient * (-1 * (lhs.copy() / (copied * copied)))
         
         return (result, Tensor(), Tensor())
       }

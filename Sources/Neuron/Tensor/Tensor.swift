@@ -649,7 +649,9 @@ public class Tensor: Equatable, Codable {
         }
       }
       
-      let newGrads = context.backpropagate(input, delta, wrt)
+      // we also get gradients wrt to the input, this allows us to do auto grad
+      // in the arithmetic
+      let newGrads = context.backpropagate(input, delta, wrt ?? input)
 
       inputGradients.insert(newGrads.input, at: 0)
       weightGradients.insert(newGrads.weight, at: 0)

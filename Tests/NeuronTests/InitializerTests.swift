@@ -106,9 +106,9 @@ final class InitializerTests: XCTestCase {
         let d = rowDot(tensor: tensor, row: i, otherRow: j, depth: 0, cols: cols)
         if i == j {
           // ||gain * v||^2 = gain^2 * ||v||^2 = 1
-          XCTAssertEqual(d, 1.0, accuracy: 1e-5)
+          XCTAssertEqual(d, 1.0, accuracy: 1e-6)
         } else {
-          XCTAssertEqual(d, 0.0, accuracy: 1e-5)
+          XCTAssertEqual(d, 0.0, accuracy: 1e-6)
         }
       }
     }

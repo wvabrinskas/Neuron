@@ -70,6 +70,10 @@ public struct LayerModelConverter {
       layer = try getLayer(layer: InstanceNormalize.self, container: con)
     case .rexNet:
       layer = try getLayer(layer: RexNet.self, container: con)
+    case .add:
+      layer = try getLayer(layer: Add.self, container: con)
+    case .multiply:
+      layer = try getLayer(layer: Multiply.self, container: con)
     case .none:
       layer = nil
     }

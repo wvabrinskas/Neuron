@@ -200,8 +200,10 @@ public final class Sequential: Trainable, Logger {
     
     layers.forEach { layer in
       let newTensors = layer.forward(tensorBatch: outputTensors, context: context)
-      
+
       for (i, tensor) in newTensors.enumerated() {
+        tensor.label = layer.encodingType.rawValue
+
         if tensor.graph[outputTensors[i].id] == nil {
           tensor.setGraph(outputTensors[i])
         }

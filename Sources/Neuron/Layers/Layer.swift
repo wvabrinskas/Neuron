@@ -36,6 +36,8 @@ public enum EncodingType: String, Codable {
        depthwiseConv2d,
        instanceNorm,
        rexNet,
+       add,
+       multiply,
        none
 }
 
@@ -125,6 +127,81 @@ extension Layer {
   public var extraEncodables: [String: Codable]? {
     return [:]
   }
+}
+
+open class ArithmecticLayer: BaseLayer {
+  // looks up through the tensor input graph to find the first input tensor with this label applied.
+  // and applies the arithmetic to it that the layer defines along with the input to this layer
+  var applyTo: EncodingType
+  
+  override public var usesOptimizer: Bool { get { false } set { } }
+  
+  init(inputSize: TensorSize? = nil,
+       initializer: InitializerType = Constants.defaultInitializer,
+       biasEnabled: Bool = false,
+       encodingType: EncodingType,
+       applyTo: EncodingType) {
+    self.applyTo = applyTo
+    
+    super.init(inputSize: inputSize,
+               initializer: initializer,
+               biasEnabled: biasEnabled,
+               encodingType: encodingType)
+  }
+
+  enum CodingKeys: String, CodingKey {
+    case inputSize, type, applyTo
+  }
+  
+  open func function(input: Tensor, other: Tensor) -> Tensor {
+    fatalError("override in subclass")
+  }
+  
+  override public func onInputSizeSet() {
+    super.onInputSizeSet()
+    /// do something when the input size is set when calling `compile` on `Sequential`
+    /// like setting the output size or initializing the weights
+    outputSize = inputSize
+  }
+  
+  required convenience public init(from decoder: Decoder) throws {
+    self.init(encodingType: .add, applyTo: .none)
+  }
+  
+  public override func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    try container.encode(inputSize, forKey: .inputSize)
+    try container.encode(encodingType, forKey: .type)
+    try container.encode(applyTo, forKey: .applyTo)
+  }
+
+  func lookupInput(input: Tensor) -> Tensor? {
+    let out = input.graph.first(where: { $0.value.label == encodingType.rawValue })
+    return out?.value
+  }
+  
+  
+  public override func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
+    
+    guard let other = lookupInput(input: tensor) else {
+      assertionFailure("could not find reference input tensor in graph")
+      return Tensor()
+    }
+    
+    let out = function(input: tensor, other: other)
+    
+    let context = TensorContext { inputs, gradient, wrt in
+      // backpropogation calculation
+      let gradients = out.gradients(delta: gradient, wrt: wrt)
+      
+      
+      return (Tensor(), Tensor(), Tensor())
+    }
+    
+    // forward calculation
+    return out
+  }
+  
 }
 
 open class BaseLayer: Layer {
