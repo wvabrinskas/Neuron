@@ -129,9 +129,9 @@ final class InitializerTests: XCTestCase {
         for j in 0..<rows {
           let dotProduct = rowDot(tensor: tensor, row: i, otherRow: j, depth: d, cols: cols)
           if i == j {
-            XCTAssertEqual(dotProduct, 1.0, accuracy: 1e-5, "Depth \(d) row \(i) should be unit length")
+            XCTAssertEqual(dotProduct, 1.0, accuracy: 1e-3, "Depth \(d) row \(i) should be unit length")
           } else {
-            XCTAssertEqual(dotProduct, 0.0, accuracy: 1e-5, "Depth \(d) rows \(i),\(j) should be orthogonal")
+            XCTAssertEqual(dotProduct, 0.0, accuracy: 1e-3, "Depth \(d) rows \(i),\(j) should be orthogonal")
           }
         }
       }

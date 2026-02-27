@@ -117,4 +117,18 @@ final class ArithmeticTests: XCTestCase {
     XCTAssertEqual(f.gradients(delta: loss, wrt: x).input.first!.asScalar(), 12.75, accuracy: 0.00001)
     XCTAssertEqual(f.gradients(delta: loss, wrt: y).input.first!.asScalar(), -8.5, accuracy: 0.00001)
   }
+  
+  
+  func test_addLayer() {
+    let sequential = Sequential (
+      Dense(1, inputs: 1),
+      ReLu(),
+      Add(applyTo: .dense)
+    )
+    
+    sequential.compile()
+    
+    let input = Tensor(-1.0)
+    
+  }
 }
