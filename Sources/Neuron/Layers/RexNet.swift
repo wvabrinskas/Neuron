@@ -25,7 +25,8 @@ public final class RexNet: BaseLayerGroup {
               strides: (rows: Int, columns: Int) = (1,1),
               outChannels: Int,
               squeeze: Int = 0,
-              expandRatio: Tensor.Scalar = 0) {
+              expandRatio: Tensor.Scalar = 0,
+              linkId: String = UUID().uuidString) {
     
     self.expandRatio = expandRatio
     self.strides = strides
@@ -34,6 +35,7 @@ public final class RexNet: BaseLayerGroup {
     super.init(inputSize: inputSize,
                initializer: initializer,
                biasEnabled: false,
+               linkId: linkId,
                encodingType: .rexNet) { inputSize in
       var layers: [Layer] = []
       

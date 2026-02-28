@@ -16,10 +16,13 @@ public final class Reshape: BaseLayer {
   /// - Parameters:
   ///   - size: The size to reshape to.
   ///   - inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
-  public init(to size: TensorSize, inputSize: TensorSize? = nil) {
+  public init(to size: TensorSize,
+              inputSize: TensorSize? = nil,
+              linkId: String = UUID().uuidString) {
     reshapeSize = size
     super.init(inputSize: inputSize,
                biasEnabled: false,
+               linkId: linkId,
                encodingType: .reshape)
   }
   

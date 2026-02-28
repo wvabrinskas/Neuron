@@ -151,7 +151,8 @@ public final class LSTM: BaseLayer {
               biasEnabled: Bool = false,
               initializer: InitializerType = .xavierNormal,
               hiddenUnits: Int,
-              vocabSize: Int) {
+              vocabSize: Int,
+              linkId: String = UUID().uuidString) {
     let inputSize = TensorSize(rows: 1,
                                columns: vocabSize,
                                depth: batchLength)
@@ -164,6 +165,7 @@ public final class LSTM: BaseLayer {
     super.init(inputSize: inputSize,
                initializer: initializer,
                biasEnabled: biasEnabled,
+               linkId: linkId,
                encodingType: .lstm)
     
     initializeWeights()

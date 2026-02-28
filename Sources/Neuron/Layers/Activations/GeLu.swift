@@ -11,8 +11,9 @@ import NumSwift
 /// Performs a GeLu activation.
 public final class GeLu: BaseActivationLayer {
   /// Creates a GeLU activation layer.
-  public init() {    
+  public init(linkId: String = UUID().uuidString) {
     super.init(type: .geLu,
+               linkId: linkId,
                encodingType: .leakyRelu)
   }
   

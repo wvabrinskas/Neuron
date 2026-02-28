@@ -313,7 +313,7 @@ public extension Tensor {
     
     let context = TensorContext { inputs, gradient, wrt in
       let copy = gradient.copy()
-      copy.label = "addition"
+      copy.label = "addition_input_grad"
       return (copy, Tensor(), Tensor())
     }
     

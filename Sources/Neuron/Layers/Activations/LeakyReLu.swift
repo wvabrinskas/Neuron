@@ -14,10 +14,12 @@ public final class LeakyReLu: BaseActivationLayer {
   
   /// Default initializer for a leaky relu activation function.
   /// - Parameter limit: The alpha limit value for leaky relu.
-  public init(limit: Tensor.Scalar = 0.01) {
+  public init(limit: Tensor.Scalar = 0.01,
+              linkId: String = UUID().uuidString) {
     self.limit = limit
     
     super.init(type: .leakyRelu(limit: limit),
+               linkId: linkId,
                encodingType: .leakyRelu)
   }
   

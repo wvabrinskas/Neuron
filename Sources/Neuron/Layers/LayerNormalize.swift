@@ -45,13 +45,15 @@ public final class LayerNormalize: BaseLayer {
   public init(epsilon: Tensor.Scalar = .stabilityFactor,
               gamma: Tensor = .init(),
               beta: Tensor = .init(),
-              inputSize: TensorSize? = nil) {
+              inputSize: TensorSize? = nil,
+              linkId: String = UUID().uuidString) {
     self.epsilon = epsilon
     self.beta = beta
     self.gamma = gamma
     
     super.init(inputSize: inputSize,
                biasEnabled: false,
+               linkId: linkId,
                encodingType: .layerNormalize)
     
     if let inputSize {

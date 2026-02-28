@@ -11,9 +11,11 @@ public final class GlobalAvgPool: BaseLayer {
   /// Creates a global-average-pooling layer.
   ///
   /// - Parameter inputSize: Optional input shape; if supplied, output shape is derived immediately.
-  public init(inputSize: TensorSize = TensorSize(array: [])) {
+  public init(inputSize: TensorSize = TensorSize(array: []),
+              linkId: String = UUID().uuidString) {
     super.init(inputSize: inputSize,
                biasEnabled: false,
+               linkId: linkId,
                encodingType: .globalAvgPool)
   }
   

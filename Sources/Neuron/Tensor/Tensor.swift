@@ -51,6 +51,8 @@ public class Tensor: Equatable, Codable {
 /// A unique identifier type for `Tensor` instances.
   public typealias ID = UInt64
   
+  public private(set) var branchGradients: [Tensor.ID: Tensor] = [:]
+  
   /// Gradient object returned from `gradient` calculation on the Tensor. Contains gradients w.r.t to the `input`, w.r.t to the `weights`, and w.r.t to the `biases`
   public struct Gradient {
     let input: [Tensor]
@@ -507,6 +509,10 @@ public class Tensor: Equatable, Codable {
     return true
   }
   
+  public func setGradientBranch(_ gradient: Tensor) {
+    branchGradients[gradient.id] = gradient
+  }
+  
   // MARK: - Graph Management
   
   /// Sets the input graph to this Tensor
@@ -514,6 +520,9 @@ public class Tensor: Equatable, Codable {
   /// - Parameter breakCycles: If true, will create a copy of the tensor to prevent reference cycles, keeping the context of the original tensor (default: false)
   public func setGraph(_ tensor: Tensor, breakCycles: Bool = false) {
     let tensorToStore = breakCycles ? tensor.copy(keepContext: true) : tensor
+    if breakCycles {
+      tensorToStore.label = "\(label) (copied)"
+    }
     graph[tensorToStore.id] = tensorToStore
     graphChain.insert(tensorToStore.id)
     graphChain.formUnion(tensorToStore.graphChain)

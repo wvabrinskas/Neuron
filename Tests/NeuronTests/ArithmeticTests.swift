@@ -120,15 +120,30 @@ final class ArithmeticTests: XCTestCase {
   
   
   func test_addLayer() {
+    let dense = Dense(1,
+                      inputs: 1,
+                      linkId: "shortcut")
+    
     let sequential = Sequential (
-      Dense(1, inputs: 1),
+      dense,
       ReLu(),
-      Add(applyTo: .dense)
+      Add(linkTo: "shortcut")
     )
     
     sequential.compile()
     
-    let input = Tensor(-1.0)
+    dense.weights = .init(1.0)
     
+    let input = Tensor(2)
+    
+    let out = sequential(input, context: .init())
+    
+    let loss = LossFunction.meanSquareError.derivative(out, correct: .init(10.0))
+    
+    let gradients = out.gradients(delta: loss, wrt: input)
+    
+    print(gradients.input)
+    
+    XCTAssertEqual(out.asScalar(), 4.0)
   }
 }

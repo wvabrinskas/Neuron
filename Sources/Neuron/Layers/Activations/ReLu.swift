@@ -17,9 +17,11 @@ public final class ReLu: BaseActivationLayer {
   
   /// Default initializer for a Relu activation.
   /// - Parameter inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
-  public init(inputSize: TensorSize? = nil) {
+  public init(inputSize: TensorSize? = nil,
+              linkId: String = UUID().uuidString) {
     super.init(inputSize: inputSize,
                type: .reLu,
+               linkId: linkId,
                encodingType: .relu)
   }
   

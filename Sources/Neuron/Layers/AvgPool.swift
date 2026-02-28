@@ -13,11 +13,14 @@ public final class AvgPool: BaseLayer {
   private var kernelSize: TensorSize
   /// Default initializer for max pooling.
   /// - Parameter inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
-  public init(inputSize: TensorSize? = nil, kernelSize: (rows: Int, columns: Int) = (rows: 2, columns: 2)) {
+  public init(inputSize: TensorSize? = nil,
+              kernelSize: (rows: Int, columns: Int) = (rows: 2, columns: 2),
+              linkId: String = UUID().uuidString) {
     self.kernelSize = .init(rows: kernelSize.rows, columns: kernelSize.columns, depth: 1)
     
     super.init(inputSize: inputSize,
                biasEnabled: false,
+               linkId: linkId,
                encodingType: .avgPool)
   }
   

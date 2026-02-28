@@ -27,6 +27,7 @@ public class Conv2d: BaseConvolutionalLayer {
                        filterSize: (rows: Int, columns: Int) = (3,3),
                        initializer: InitializerType = .heNormal,
                        biasEnabled: Bool = false,
+                       linkId: String = UUID().uuidString,
                        encodingType: EncodingType = .conv2d) {
     
     super.init(filterCount: filterCount,
@@ -36,6 +37,7 @@ public class Conv2d: BaseConvolutionalLayer {
                filterSize: filterSize,
                initializer: initializer,
                biasEnabled: biasEnabled,
+               linkId: linkId,
                encodingType: encodingType)
   }
   

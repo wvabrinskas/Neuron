@@ -6,7 +6,7 @@
 //
 
 import NumSwift
-
+import Foundation
 
 public protocol LayerGrouping: Layer, BaseLayer {
   var innerBlockSequential: Sequential { get }
@@ -50,6 +50,7 @@ public class BaseLayerGroup: BaseLayer, LayerGrouping {
   public init(inputSize: TensorSize?,
               initializer: InitializerType,
               biasEnabled: Bool = false,
+              linkId: String = UUID().uuidString,
               encodingType: EncodingType,
               layers: @escaping (_ inputSize: TensorSize) -> [Layer]) {
     
@@ -57,6 +58,7 @@ public class BaseLayerGroup: BaseLayer, LayerGrouping {
     super.init(inputSize: inputSize,
                initializer: initializer,
                biasEnabled: biasEnabled,
+               linkId: linkId,
                encodingType: encodingType)
   }
   

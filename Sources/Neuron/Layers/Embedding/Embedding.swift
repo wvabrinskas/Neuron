@@ -19,7 +19,8 @@ public final class Embedding: BaseLayer {
               vocabSize: Int,
               batchLength: Int,
               initializer: InitializerType = .xavierNormal,
-              trainable: Bool = false) {
+              trainable: Bool = false,
+              linkId: String = UUID().uuidString) {
     self.inputUnits = inputUnits
     self.vocabSize = vocabSize
     self.batchLength = batchLength
@@ -28,6 +29,7 @@ public final class Embedding: BaseLayer {
                                      columns: 1,
                                      depth: batchLength),
                initializer: initializer, biasEnabled: false,
+               linkId: linkId,
                encodingType: .embedding)
     
     self.outputSize = TensorSize(rows: 1, columns: inputUnits, depth: batchLength)

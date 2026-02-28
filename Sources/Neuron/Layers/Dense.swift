@@ -18,16 +18,19 @@ public final class Dense: BaseLayer {
   ///   - inputs: Optional input count at this layer. If this is the first layer you will need to set this.
   ///   - initializer: Weight / filter initializer function. Default: `.heNormal`
   ///   - biasEnabled: Boolean defining if the filters have a bias applied. Default: `false`
+  ///   - linkId: Set this to reference the output of this layer in an arithmetic layer. eg a Shortcut path
   public init(_ nodes: Int,
               inputs: Int? = nil,
               initializer: InitializerType = .heNormal,
-              biasEnabled: Bool = false) {
+              biasEnabled: Bool = false,
+              linkId: String = UUID().uuidString) {
     
     self.nodes = nodes
     
     super.init(inputSize: nil,
                initializer: initializer,
                biasEnabled: biasEnabled,
+               linkId: linkId,
                encodingType: .dense)
     
     self.outputSize = TensorSize(array: [nodes, 1, 1])
@@ -120,7 +123,6 @@ public final class Dense: BaseLayer {
     }
     
     let out = Tensor(dotProducts.storage, size: dotProducts.size, context: tensorContext)
-    out.label = "Dense"
     
     out.setGraph(tensor)
 

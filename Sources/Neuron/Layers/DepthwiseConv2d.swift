@@ -73,6 +73,7 @@ public class DepthwiseConv2d: BaseConvolutionalLayer {
               filterSize: (rows: Int, columns: Int) = (3,3),
               initializer: InitializerType = .heNormal,
               biasEnabled: Bool = false,
+              linkId: String = UUID().uuidString,
               encodingType: EncodingType = .depthwiseConv2d) {
     
     super.init(filterCount: 1,
@@ -82,6 +83,7 @@ public class DepthwiseConv2d: BaseConvolutionalLayer {
                filterSize: filterSize,
                initializer: initializer,
                biasEnabled: biasEnabled,
+               linkId: linkId,
                encodingType: encodingType)
     
   }

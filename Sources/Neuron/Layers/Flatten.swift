@@ -12,9 +12,11 @@ import NumSwift
 public final class Flatten: BaseLayer {
   /// Default initializer for Flatten layer.
   /// - Parameter inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
-  public init(inputSize: TensorSize? = nil) {
+  public init(inputSize: TensorSize? = nil,
+              linkId: String = UUID().uuidString) {
     super.init(inputSize: inputSize,
                biasEnabled: false,
+               linkId: linkId,
                encodingType: .flatten)
   }
   

@@ -78,13 +78,15 @@ public final class ResNet: BaseLayerGroup {
   public init(inputSize: TensorSize? = nil,
               initializer: InitializerType = Constants.defaultInitializer,
               filterCount: Int,
-              stride: Int = 1) {
+              stride: Int = 1,
+              linkId: String = UUID().uuidString) {
     self.filterCount = filterCount
     self.stride = stride
     
     super.init(inputSize: inputSize,
                initializer: initializer,
                biasEnabled: false,
+               linkId: linkId,
                encodingType: .resNet,
                layers: { inputSize in
       [

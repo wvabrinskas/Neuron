@@ -139,7 +139,8 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
               momentum: Tensor.Scalar = 0.99,
               movingMean: Tensor = .init(),
               movingVariance: Tensor = .init(),
-              inputSize: TensorSize? = nil) {
+              inputSize: TensorSize? = nil,
+              linkId: String = UUID().uuidString) {
     self.gamma = gamma
     self.beta = beta
     self.movingMean = movingMean
@@ -147,6 +148,7 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     self.momentum = momentum
     
     super.init(inputSize: inputSize,
+               linkId: linkId,
                encodingType: .batchNormalize)
     
     self.usesOptimizer = false
