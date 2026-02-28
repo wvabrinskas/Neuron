@@ -136,12 +136,7 @@ open class ArithmecticLayer: BaseLayer {
   var linkTo: String
   
   override public var usesOptimizer: Bool { get { false } set { } }
-  
-  // instead of applyTo consider using a linkTo ID that is set custom
-  // like Dense(linkID: "shortcut")
-  // Add(linkTo: "shortcut")
-  // then dense sets the ID of the output to that linkID
-  // make sure we remove the override in the sequential where set the label
+
   init(inputSize: TensorSize? = nil,
        initializer: InitializerType = Constants.defaultInitializer,
        biasEnabled: Bool = false,
@@ -200,31 +195,20 @@ open class ArithmecticLayer: BaseLayer {
     // make a copy of "other" here and "input" and then reference those
     let out = function(input: tensor, other: other)
     
-    let tensorContext = TensorContext { inputs, gradient, wrt in
-      // backpropogate through self
-      let addGradientsWrtInput = out.gradients(delta: gradient, wrt: inputs)
-      
-      // append gradients?
-      let wrtInputs = addGradientsWrtInput.input[safe: 0, Tensor()]
-      
-      // when added, other is copied because it's already in the graph so when
-      // wrt is called here on other, it's not in the other side addition,
-      // we're backprop all the way to the input basically.
-      // other is not the same input that was done to the arithmetic
-      let addGradientsWrtBranchInput = out.gradients(delta: gradient, wrt: other)
-      // do we want to do this at the tensor math level? like at the add function it self?
-      // ah but we dont know if it'll be a skip connection or not
-      // we need to a way to automate this somehow? Maybe with a graph? using setGraphSafe since it
-      // checks for graph contents already?
-      other.setGradientBranch(addGradientsWrtBranchInput.input[safe: 1, Tensor()])
-      
-      return (wrtInputs, Tensor(), Tensor())
-    }
+//    let tensorContext = TensorContext { inputs, gradient, wrt in
+//      // backpropogate through self
+//      let addGradientsWrtInput = out.gradients(delta: gradient, wrt: inputs)
+//      
+//      // append gradients?
+//      let wrtInputs = addGradientsWrtInput.input[safe: 0, Tensor()]
+//      
+//      return (wrtInputs, Tensor(), Tensor())
+//    }
+//    
+//    // forward calculation
+//    let outTensor = Tensor(out.storage, size: out.size, context: tensorContext)
     
-    // forward calculation
-    let outTensor = Tensor(out.storage, size: out.size, context: tensorContext)
-    
-    return super.forward(tensor: outTensor, context: context)
+    return super.forward(tensor: out, context: context)
   }
   
 }

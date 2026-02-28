@@ -658,6 +658,12 @@ public class Tensor: Equatable, Codable {
         }
       }
       
+      // sum branch gradients if they exist
+      var delta = delta.copy()
+      for branchGradient in branchGradients {
+        delta = delta.copy() + branchGradient.value
+      }
+      
       // we also get gradients wrt to the input, this allows us to do auto grad
       // in the arithmetic
       let newGrads = context.backpropagate(input, delta, wrt ?? input)

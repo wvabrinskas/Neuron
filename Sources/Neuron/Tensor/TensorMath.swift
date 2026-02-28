@@ -314,6 +314,9 @@ public extension Tensor {
     let context = TensorContext { inputs, gradient, wrt in
       let copy = gradient.copy()
       copy.label = "addition_input_grad"
+      
+      value.setGradientBranch(copy)
+      
       return (copy, Tensor(), Tensor())
     }
     
