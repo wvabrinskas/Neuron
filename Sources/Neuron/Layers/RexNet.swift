@@ -67,7 +67,7 @@ public final class RexNet: BaseLayerGroup {
                         initializer: initializer,
                         biasEnabled: false),
         BatchNormalize(),
-        Swish()
+        Swish(linkId: "squeeze")
       ]
       
       layers.append(contentsOf: depthWiseLayers)
@@ -84,6 +84,7 @@ public final class RexNet: BaseLayerGroup {
                 initializer: initializer,
                 biasEnabled: true),
           Sigmoid(),
+          Multiply(linkTo: "squeeze")
         ]
         
         layers.append(contentsOf: squeezeLayers)
@@ -107,7 +108,7 @@ public final class RexNet: BaseLayerGroup {
   }
   
   enum CodingKeys: String, CodingKey {
-    case inputSize, type
+    case inputSize, type, linkId
   }
   
   override public func onInputSizeSet() {
@@ -118,8 +119,9 @@ public final class RexNet: BaseLayerGroup {
   }
   
   convenience public required init(from decoder: Decoder) throws {
-    self.init(outChannels: 1)
     let container = try decoder.container(keyedBy: CodingKeys.self)
+    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
+    self.init(outChannels: 1, linkId: linkId)
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
   }
   
@@ -127,6 +129,7 @@ public final class RexNet: BaseLayerGroup {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(encodingType, forKey: .type)
+    try container.encode(linkId, forKey: .linkId)
   }
   
   public override func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {

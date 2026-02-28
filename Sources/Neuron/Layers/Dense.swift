@@ -47,14 +47,16 @@ public final class Dense: BaseLayer {
          outputSize,
          weights,
          biases,
-         type
+         type,
+         linkId
   }
   
   convenience public required init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let outputSize = try container.decodeIfPresent(TensorSize.self, forKey: .outputSize) ?? TensorSize(array: [])
     let inputs = outputSize.columns
-    self.init(inputs)
+    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
+    self.init(inputs, linkId: linkId)
     
     self.weights = try container.decodeIfPresent(Tensor.self, forKey: .weights) ?? Tensor()
     self.biases = try container.decodeIfPresent(Tensor.self, forKey: .biases) ?? Tensor()
@@ -74,6 +76,7 @@ public final class Dense: BaseLayer {
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(encodingType, forKey: .type)
     try container.encode(biasEnabled, forKey: .biasEnabled)
+    try container.encode(linkId, forKey: .linkId)
   }
   
   override public func onInputSizeSet() {

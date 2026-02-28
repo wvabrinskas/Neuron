@@ -30,7 +30,7 @@ public final class InstanceNormalize: BaseLayer {
 
   /// Coding keys used for encoding and decoding the layer normalization layer.
   public enum CodingKeys: String, CodingKey {
-    case gamma, beta, epsilon, inputSize
+    case gamma, beta, epsilon, inputSize, linkId
   }
   
   /// Default initializer for layer normalization.
@@ -66,9 +66,12 @@ public final class InstanceNormalize: BaseLayer {
     let beta = try container.decodeIfPresent(Tensor.self, forKey: .beta) ?? .init()
     let epsilon = try container.decodeIfPresent(Tensor.Scalar.self, forKey: .epsilon) ?? .stabilityFactor
 
+    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
+    
     self.init(epsilon: epsilon,
               gamma: gamma,
-              beta: beta)
+              beta: beta,
+              linkId: linkId)
     
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
     self.outputSize = inputSize
@@ -85,6 +88,7 @@ public final class InstanceNormalize: BaseLayer {
     try container.encode(beta, forKey: .beta)
     try container.encode(gamma, forKey: .gamma)
     try container.encode(epsilon, forKey: .epsilon)
+    try container.encode(linkId, forKey: .linkId)
   }
   
   /// Applies layer normalization over each depth slice.

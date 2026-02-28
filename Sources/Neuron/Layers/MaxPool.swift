@@ -36,12 +36,14 @@ public final class MaxPool: BaseLayer {
   
   enum CodingKeys: String, CodingKey {
     case inputSize,
-         type
+         type,
+         linkId
   }
   
   convenience public required init(from decoder: Decoder) throws {
-    self.init()
     let container = try decoder.container(keyedBy: CodingKeys.self)
+    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
+    self.init(linkId: linkId)
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
   }
   
@@ -52,6 +54,7 @@ public final class MaxPool: BaseLayer {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(encodingType, forKey: .type)
+    try container.encode(linkId, forKey: .linkId)
   }
   
   /// Performs 2x2 max pooling on each depth slice.

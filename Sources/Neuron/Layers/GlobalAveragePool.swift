@@ -20,7 +20,7 @@ public final class GlobalAvgPool: BaseLayer {
   }
   
   enum CodingKeys: String, CodingKey {
-    case inputSize, type
+    case inputSize, type, linkId
   }
   
   override public func onInputSizeSet() {
@@ -29,8 +29,9 @@ public final class GlobalAvgPool: BaseLayer {
   }
   
   convenience public required init(from decoder: Decoder) throws {
-    self.init()
     let container = try decoder.container(keyedBy: CodingKeys.self)
+    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
+    self.init(linkId: linkId)
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
   }
   
@@ -41,6 +42,7 @@ public final class GlobalAvgPool: BaseLayer {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(encodingType, forKey: .type)
+    try container.encode(linkId, forKey: .linkId)
   }
   
   /// Computes global spatial means per channel.

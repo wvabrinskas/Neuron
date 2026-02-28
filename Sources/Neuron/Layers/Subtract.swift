@@ -1,25 +1,25 @@
-import Foundation
-import NumSwift
+//
+//  Subtract.swift
+//  Neuron
+//
+//  Created by William Vabrinskas on 2/28/26.
+//
 
-//
-//  File.swift
-//
-//
-//  Created by William Vabrinskas on 5/4/22.
-//
 
 import Foundation
 import NumSwift
 
-public final class Add: ArithmeticLayer {
+public final class Subtract: ArithmeticLayer {
   public init(inputSize: TensorSize = TensorSize(array: []),
               initializer: InitializerType = .heNormal,
               linkId: String = UUID().uuidString,
+              inverse: Bool = false,
               linkTo: String) {
     super.init(inputSize: inputSize,
                initializer: initializer,
                biasEnabled: false,
-               encodingType: .add,
+               encodingType: .subtract,
+               inverse: inverse,
                linkId: linkId,
                linkTo: linkTo)
   }
@@ -35,7 +35,10 @@ public final class Add: ArithmeticLayer {
   }
   
   override public func function(input: Tensor, other: Tensor) -> Tensor {
-    input + other
+    if inverse {
+      other - input
+    } else {
+      input - other
+    }
   }
 }
-

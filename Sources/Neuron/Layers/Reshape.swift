@@ -32,17 +32,18 @@ public final class Reshape: BaseLayer {
          weights,
          biases,
          reshapeSize,
-         type
+         type,
+         linkId
   }
   
   convenience public required init(from decoder: Decoder) throws {
-    self.init(to: TensorSize(array: []))
     let container = try decoder.container(keyedBy: CodingKeys.self)
+    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
+    let resize = try container.decodeIfPresent(TensorSize.self, forKey: .reshapeSize) ?? TensorSize(array: [])
+    self.init(to: resize, linkId: linkId)
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
     self.weights = try container.decodeIfPresent(Tensor.self, forKey: .weights) ?? Tensor()
     self.biases = try container.decodeIfPresent(Tensor.self, forKey: .biases) ?? Tensor()
-    let resize = try container.decodeIfPresent(TensorSize.self, forKey: .reshapeSize) ?? TensorSize(array: [])
-    self.init(to: resize)
   }
   
   /// Encodes reshape configuration and base layer metadata.
@@ -55,6 +56,7 @@ public final class Reshape: BaseLayer {
     try container.encode(biases, forKey: .biases)
     try container.encode(reshapeSize, forKey: .reshapeSize)
     try container.encode(encodingType, forKey: .type)
+    try container.encode(linkId, forKey: .linkId)
   }
   
   /// Reinterprets tensor storage as the configured output shape.

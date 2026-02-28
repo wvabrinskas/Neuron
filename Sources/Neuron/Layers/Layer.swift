@@ -38,6 +38,8 @@ public enum EncodingType: String, Codable {
        rexNet,
        add,
        multiply,
+       subtract,
+       divide,
        none
 }
 
@@ -130,10 +132,12 @@ extension Layer {
   }
 }
 
-open class ArithmecticLayer: BaseLayer {
+open class ArithmeticLayer: BaseLayer {
   // looks up through the tensor input graph to find the first input tensor with this label applied.
   // and applies the arithmetic to it that the layer defines along with the input to this layer
   var linkTo: String
+  
+  let inverse: Bool
   
   override public var usesOptimizer: Bool { get { false } set { } }
 
@@ -141,9 +145,11 @@ open class ArithmecticLayer: BaseLayer {
        initializer: InitializerType = Constants.defaultInitializer,
        biasEnabled: Bool = false,
        encodingType: EncodingType,
+       inverse: Bool = false,
        linkId: String = UUID().uuidString,
        linkTo: String) {
     self.linkTo = linkTo
+    self.inverse = inverse
     
     super.init(inputSize: inputSize,
                initializer: initializer,
@@ -153,7 +159,7 @@ open class ArithmecticLayer: BaseLayer {
   }
 
   enum CodingKeys: String, CodingKey {
-    case inputSize, type, linkTo
+    case inputSize, type, linkTo, linkId
   }
   
   open func function(input: Tensor, other: Tensor) -> Tensor {
@@ -176,15 +182,9 @@ open class ArithmecticLayer: BaseLayer {
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(encodingType, forKey: .type)
     try container.encode(linkTo, forKey: .linkTo)
+    try container.encode(linkId, forKey: .linkId)
   }
 
-  func lookupInput(input: Tensor) -> Tensor? {
-    if input.label == linkTo { return input }
-
-    let out = input.graph.first(where: { $0.value.label.contains(linkTo) })
-    return out?.value
-  }
-  
   public override func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
     
     guard let other = lookupInput(input: tensor) else {
@@ -197,6 +197,9 @@ open class ArithmecticLayer: BaseLayer {
     return super.forward(tensor: out, context: context)
   }
   
+  func lookupInput(input: Tensor) -> Tensor? {
+    return input.findInGraph(to: linkTo)
+  }
 }
 
 open class BaseLayer: Layer {
@@ -589,7 +592,7 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
   /// - Returns: A new tensor containing the activated values with a configured backward context.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     
-    let context = TensorContext { inputs, gradient, wrt in
+    let tensorContext = TensorContext { inputs, gradient, wrt in
       let derivResult = self.device.derivate(inputs, self.type)
       let outTensor = derivResult * gradient
       outTensor.label = self.type.asString() + "_input_grad"
@@ -597,11 +600,11 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
     }
     
     let result = device.activate(tensor, type)
-    let out = Tensor(result.storage, size: result.size, context: context)
+    let out = Tensor(result.storage, size: result.size, context: tensorContext)
 
     out.setGraph(tensor)
-    out.label = encodingType.rawValue
-    return out
+    
+    return super.forward(tensor: out, context: context)
   }
   
   override public func importWeights(_ weights: [Tensor]) throws {

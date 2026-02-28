@@ -96,7 +96,8 @@ public class DepthwiseConv2d: BaseConvolutionalLayer {
          padding,
          inputSize,
          biasEnabled,
-         type
+         type,
+         linkId
   }
   
   required convenience public init(from decoder: Decoder) throws {
@@ -106,6 +107,7 @@ public class DepthwiseConv2d: BaseConvolutionalLayer {
     let strides = try container.decodeIfPresent([Int].self, forKey: .strides) ?? [1,1]
     let padding = try container.decodeIfPresent(NumSwift.ConvPadding.self, forKey: .padding) ?? .same
     let biasEnabled = try container.decodeIfPresent(Bool.self, forKey: .biasEnabled) ?? false
+    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
     
     let filterSizeTuple = (filterSize[safe: 1, 3], filterSize[safe: 0, 3])
     let stridesTuple = (strides[safe: 1, 3], strides[safe: 0, 3])
@@ -115,7 +117,8 @@ public class DepthwiseConv2d: BaseConvolutionalLayer {
               padding: padding,
               filterSize: filterSizeTuple,
               initializer: .heUniform,
-              biasEnabled: biasEnabled)
+              biasEnabled: biasEnabled,
+              linkId: linkId)
     
     self.filters = try container.decodeIfPresent([Tensor].self, forKey: .filters) ?? []
   }
@@ -134,6 +137,7 @@ public class DepthwiseConv2d: BaseConvolutionalLayer {
     try container.encode(filterCount, forKey: .filterCount)
     try container.encode(filters, forKey: .filters)
     try container.encode(encodingType, forKey: .type)
+    try container.encode(linkId, forKey: .linkId)
   }
   
   /// Called automatically when `inputSize` is set.

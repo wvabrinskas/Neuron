@@ -20,12 +20,14 @@ public final class GeLu: BaseActivationLayer {
   enum CodingKeys: String, CodingKey {
     case inputSize,
          type,
-         limit
+         limit,
+         linkId
   }
   
   convenience public required init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
-    self.init()
+    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
+    self.init(linkId: linkId)
     
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
     self.outputSize = inputSize
@@ -38,6 +40,7 @@ public final class GeLu: BaseActivationLayer {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(type, forKey: .type)
+    try container.encode(linkId, forKey: .linkId)
   }
   
   override public func onInputSizeSet() {

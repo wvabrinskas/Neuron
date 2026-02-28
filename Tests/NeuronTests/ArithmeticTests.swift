@@ -149,4 +149,98 @@ final class ArithmeticTests: XCTestCase {
     
     XCTAssertEqual(out.asScalar(), 4.0)
   }
+  
+  func test_multLayer() {
+    let dense = Dense(1,
+                      inputs: 1,
+                      linkId: "shortcut")
+    
+    let sequential = Sequential (
+      dense,
+      ReLu(),
+      Multiply(linkTo: "shortcut")
+    )
+    
+    sequential.compile()
+    
+    dense.weights = .init(1.0)
+    
+    let input = Tensor(2)
+    
+    let out = sequential(input, context: .init())
+    
+    let loss = LossFunction.meanSquareError.derivative(out, correct: .init(10.0))
+    
+    let gradients = out.gradients(delta: loss, wrt: input)
+    
+    XCTAssertEqual(gradients.input.first!.asScalar(), -48)
+    XCTAssertEqual(gradients.input[safe: 1, Tensor()].asScalar(), -24)
+
+    XCTAssertEqual(gradients.input.count, sequential.layers.count)
+    
+    XCTAssertEqual(out.asScalar(), 4.0)
+  }
+  
+  func test_subtractLayer() {
+    let dense = Dense(1,
+                      inputs: 1,
+                      linkId: "shortcut")
+    
+    let sequential = Sequential (
+      dense,
+      ReLu(),
+      Subtract(linkTo: "shortcut")
+    )
+    
+    sequential.compile()
+    
+    dense.weights = .init(1.0)
+    
+    let input = Tensor(2)
+    
+    let out = sequential(input, context: .init())
+    
+    let loss = LossFunction.meanSquareError.derivative(out, correct: .init(10.0))
+    
+    let gradients = out.gradients(delta: loss, wrt: input)
+    
+    XCTAssertEqual(gradients.input.first!.asScalar(), 40)
+    XCTAssertEqual(gradients.input[safe: 1, Tensor()].asScalar(), 20)
+
+    XCTAssertEqual(gradients.input.count, sequential.layers.count)
+    
+    XCTAssertEqual(out.asScalar(), 0)
+  }
+  
+//  func test_subtract_inverseLayer() {
+//    let dense = Dense(1,
+//                      inputs: 1,
+//                      linkId: "shortcut")
+//    
+//    let sequential = Sequential (
+//      dense,
+//      ReLu(),
+//      Subtract(inverse: true,
+//               linkTo: "shortcut")
+//    )
+//    
+//    sequential.compile()
+//    
+//    dense.weights = .init(1.0)
+//    
+//    let input = Tensor(2)
+//    
+//    let out = sequential(input, context: .init())
+//    
+//    let loss = LossFunction.meanSquareError.derivative(out, correct: .init(10.0))
+//    
+//    let gradients = out.gradients(delta: loss, wrt: input)
+//    
+//    XCTAssertEqual(gradients.input.first!.asScalar(), 60)
+//    XCTAssertEqual(gradients.input[safe: 1, Tensor()].asScalar(), 20)
+//
+//    XCTAssertEqual(gradients.input.count, sequential.layers.count)
+//    
+//    XCTAssertEqual(out.asScalar(), 0)
+//  }
 }

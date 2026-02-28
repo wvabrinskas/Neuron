@@ -40,12 +40,14 @@ public final class Dropout: BaseLayer {
   enum CodingKeys: String, CodingKey {
     case inputSize,
          chance,
-         type
+         type,
+         linkId
   }
   
   convenience public required init(from decoder: Decoder) throws {
-    self.init(0)
     let container = try decoder.container(keyedBy: CodingKeys.self)
+    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
+    self.init(0, linkId: linkId)
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
     self.chance = try container.decodeIfPresent(Tensor.Scalar.self, forKey: .chance) ?? 0
     self.outputSize = inputSize
@@ -59,6 +61,7 @@ public final class Dropout: BaseLayer {
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(chance, forKey: .chance)
     try container.encode(encodingType, forKey: .type)
+    try container.encode(linkId, forKey: .linkId)
   }
   
   /// Applies dropout masking during training and scaling during inference.

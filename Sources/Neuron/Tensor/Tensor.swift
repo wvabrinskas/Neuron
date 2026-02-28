@@ -409,6 +409,18 @@ public class Tensor: Equatable, Codable {
   
   // MARK: - Graph
   
+  public func findInGraph(to link: String) -> Tensor? {
+    if label.contains(link) { return self }
+        
+    for child in graph {
+      if let result = child.value.findInGraph(to: link) {
+        return result
+      }
+    }
+    
+    return nil
+  }
+  
   /// Prints a human-readable view of this tensor's computation graph.
   ///
   /// - Parameters:

@@ -27,12 +27,14 @@ public final class AvgPool: BaseLayer {
   enum CodingKeys: String, CodingKey {
     case inputSize,
          kernelSize,
-         type
+         type,
+         linkId
   }
   
   convenience public required init(from decoder: Decoder) throws {
-    self.init()
     let container = try decoder.container(keyedBy: CodingKeys.self)
+    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
+    self.init(linkId: linkId)
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
     self.kernelSize = try container.decodeIfPresent(TensorSize.self, forKey: .kernelSize) ?? TensorSize(rows: 2, columns: 2, depth: 1)
   }
@@ -45,6 +47,7 @@ public final class AvgPool: BaseLayer {
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(encodingType, forKey: .type)
     try container.encode(kernelSize, forKey: .kernelSize)
+    try container.encode(linkId, forKey: .linkId)
   }
   
   /// Performs average pooling over each kernel window.

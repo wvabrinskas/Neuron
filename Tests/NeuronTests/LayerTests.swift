@@ -1241,5 +1241,46 @@ final class LayerTests: XCTestCase {
                  learningRate: 0.01)
   }
   
+  func testRexNet_squeeze() {
+    let inputSize: TensorSize = .init(rows: 4, columns: 4, depth: 3)
+
+    let resNet = RexNet(inputSize: inputSize,
+                        initializer: .heNormal,
+                        strides: (1,1),
+                        outChannels: 3,
+                        squeeze: 2,
+                        expandRatio: 2)
+    
+    let outputSize = resNet.outputSize
+
+    let input = Tensor.fillRandom(size: inputSize)
+    input.label = "input"
+    
+    let out = resNet.forward(tensor: input, context: .init())
+        
+    XCTAssertEqual(out.shape, outputSize.asArray)
+    
+    let error = Tensor.fillRandom(size: outputSize)
+    
+    let gradients = out.gradients(delta: error, wrt: input)
+    
+    XCTAssertEqual(resNet.innerBlockSequential.layers.count, 14)
+    
+    let totalWeights = resNet.innerBlockSequential.layers.filter(\.usesOptimizer).reduce(into: 0) { $0 = $0 + $1.weights.size.columns * $1.weights.size.rows * $1.weights.size.depth }
+    
+    let gradientWeightsCount = gradients.weights.reduce(into: 0) { $0 = $0 + $1.size.columns * $1.size.rows * $1.size.depth }
+    
+    XCTAssertNotNil(gradients.input.first)
+
+    XCTAssertEqual(gradients.input.first?.shape, inputSize.asArray)
+    
+    XCTAssertEqual(totalWeights, gradientWeightsCount)
+
+    // validate it doesn't crash basically...
+    resNet.apply(gradients: (gradients.weights.first!, gradients.biases.first!),
+                 learningRate: 0.01)
+  }
+  
+  
 
 }

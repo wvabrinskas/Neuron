@@ -112,7 +112,7 @@ public final class ResNet: BaseLayerGroup {
   }
   
   enum CodingKeys: String, CodingKey {
-    case inputSize, type, filterCount, stride, innerBlockSequential, shortcutSequential
+    case inputSize, type, filterCount, stride, innerBlockSequential, shortcutSequential, linkId
   }
   
   override public func onBatchSizeSet() {
@@ -154,8 +154,9 @@ public final class ResNet: BaseLayerGroup {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let filterCount = try container.decodeIfPresent(Int.self, forKey: .filterCount) ?? 64
     let stride = try container.decodeIfPresent(Int.self, forKey: .stride) ?? 1
+    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
     
-    self.init(filterCount: filterCount, stride: stride)
+    self.init(filterCount: filterCount, stride: stride, linkId: linkId)
     
     let innerBlockSequential = try container.decodeIfPresent(Sequential.self, forKey: .innerBlockSequential) ?? Sequential()
     let shortcutSequential = try container.decodeIfPresent(Sequential.self, forKey: .shortcutSequential) ?? Sequential()
@@ -178,6 +179,7 @@ public final class ResNet: BaseLayerGroup {
     try container.encode(stride, forKey: .stride)
     try container.encode(innerBlockSequential, forKey: .innerBlockSequential)
     try container.encode(shortcutSequential, forKey: .shortcutSequential)
+    try container.encode(linkId, forKey: .linkId)
   }
   
   /// Runs the residual block forward pass for a batch.

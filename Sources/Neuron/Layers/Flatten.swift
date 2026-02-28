@@ -21,7 +21,7 @@ public final class Flatten: BaseLayer {
   }
   
   enum CodingKeys: String, CodingKey {
-    case inputSize, type
+    case inputSize, type, linkId
   }
   
   override public func onInputSizeSet() {
@@ -31,8 +31,9 @@ public final class Flatten: BaseLayer {
   }
   
   convenience public required init(from decoder: Decoder) throws {
-    self.init()
     let container = try decoder.container(keyedBy: CodingKeys.self)
+    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
+    self.init(linkId: linkId)
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
     
     let total = inputSize.columns * inputSize.rows * inputSize.depth
@@ -46,6 +47,7 @@ public final class Flatten: BaseLayer {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(encodingType, forKey: .type)
+    try container.encode(linkId, forKey: .linkId)
   }
   
   /// Flattens the input tensor into shape `[columns*rows*depth, 1, 1]`.

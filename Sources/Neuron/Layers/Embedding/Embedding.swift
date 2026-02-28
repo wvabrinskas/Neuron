@@ -56,7 +56,8 @@ public final class Embedding: BaseLayer {
          type,
          inputUnits,
          vocabSize,
-         batchLength
+         batchLength,
+         linkId
   }
   
   convenience required public init(from decoder: Decoder) throws {
@@ -65,10 +66,12 @@ public final class Embedding: BaseLayer {
     let vocabSize = try container.decodeIfPresent(Int.self, forKey: .vocabSize) ?? 0
     let inputUnits = try container.decodeIfPresent(Int.self, forKey: .inputUnits) ?? 0
     let batchLength = try container.decodeIfPresent(Int.self, forKey: .batchLength) ?? 0
+    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
     
     self.init(inputUnits: inputUnits,
               vocabSize: vocabSize,
-              batchLength: batchLength)
+              batchLength: batchLength,
+              linkId: linkId)
     
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
     self.weights = try container.decodeIfPresent(Tensor.self, forKey: .weights) ?? Tensor()
@@ -91,6 +94,7 @@ public final class Embedding: BaseLayer {
     try container.encode(vocabSize, forKey: .vocabSize)
     try container.encode(batchLength, forKey: .batchLength)
     try container.encode(inputUnits, forKey: .inputUnits)
+    try container.encode(linkId, forKey: .linkId)
   }
   
   /// Forward path for the layer
