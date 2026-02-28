@@ -142,7 +142,10 @@ final class ArithmeticTests: XCTestCase {
     
     let gradients = out.gradients(delta: loss, wrt: input)
     
-    print(gradients.input)
+    XCTAssertEqual(gradients.input.first!.asScalar(), -24)
+    XCTAssertEqual(gradients.input[safe: 1, Tensor()].asScalar(), -12)
+
+    XCTAssertEqual(gradients.input.count, sequential.layers.count)
     
     XCTAssertEqual(out.asScalar(), 4.0)
   }

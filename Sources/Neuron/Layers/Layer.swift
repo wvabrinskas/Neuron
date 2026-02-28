@@ -192,21 +192,7 @@ open class ArithmecticLayer: BaseLayer {
       return Tensor()
     }
     
-    // make a copy of "other" here and "input" and then reference those
     let out = function(input: tensor, other: other)
-    
-//    let tensorContext = TensorContext { inputs, gradient, wrt in
-//      // backpropogate through self
-//      let addGradientsWrtInput = out.gradients(delta: gradient, wrt: inputs)
-//      
-//      // append gradients?
-//      let wrtInputs = addGradientsWrtInput.input[safe: 0, Tensor()]
-//      
-//      return (wrtInputs, Tensor(), Tensor())
-//    }
-//    
-//    // forward calculation
-//    let outTensor = Tensor(out.storage, size: out.size, context: tensorContext)
     
     return super.forward(tensor: out, context: context)
   }
