@@ -13,23 +13,28 @@ public final class AvgPool: BaseLayer {
   private var kernelSize: TensorSize
   /// Default initializer for max pooling.
   /// - Parameter inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
-  public init(inputSize: TensorSize? = nil, kernelSize: (rows: Int, columns: Int) = (rows: 2, columns: 2)) {
+  public init(inputSize: TensorSize? = nil,
+              kernelSize: (rows: Int, columns: Int) = (rows: 2, columns: 2),
+              linkId: String = UUID().uuidString) {
     self.kernelSize = .init(rows: kernelSize.rows, columns: kernelSize.columns, depth: 1)
     
     super.init(inputSize: inputSize,
                biasEnabled: false,
+               linkId: linkId,
                encodingType: .avgPool)
   }
   
   enum CodingKeys: String, CodingKey {
     case inputSize,
          kernelSize,
-         type
+         type,
+         linkId
   }
   
   convenience public required init(from decoder: Decoder) throws {
-    self.init()
     let container = try decoder.container(keyedBy: CodingKeys.self)
+    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
+    self.init(linkId: linkId)
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
     self.kernelSize = try container.decodeIfPresent(TensorSize.self, forKey: .kernelSize) ?? TensorSize(rows: 2, columns: 2, depth: 1)
   }
@@ -42,6 +47,7 @@ public final class AvgPool: BaseLayer {
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(encodingType, forKey: .type)
     try container.encode(kernelSize, forKey: .kernelSize)
+    try container.encode(linkId, forKey: .linkId)
   }
   
   /// Performs average pooling over each kernel window.
@@ -95,12 +101,12 @@ public final class AvgPool: BaseLayer {
     let outCols = inputSize.columns / kernelSize.columns
     let outSize = TensorSize(rows: outRows, columns: outCols, depth: inputSize.depth)
 
-    let context = TensorContext(backpropagate: backwards)
-    let out = Tensor(outStorage, size: outSize, context: context)
+    let tensorContext = TensorContext(backpropagate: backwards)
+    let out = Tensor(outStorage, size: outSize, context: tensorContext)
     
     out.setGraph(tensor)
     
-    return out
+    return super.forward(tensor: out, context: context)
   }
   
   override public func onInputSizeSet() {

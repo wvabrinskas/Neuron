@@ -51,6 +51,8 @@ public class Tensor: Equatable, Codable {
 /// A unique identifier type for `Tensor` instances.
   public typealias ID = UInt64
   
+  public private(set) var branchGradients: [Tensor.ID: Tensor] = [:]
+  
   /// Gradient object returned from `gradient` calculation on the Tensor. Contains gradients w.r.t to the `input`, w.r.t to the `weights`, and w.r.t to the `biases`
   public struct Gradient {
     let input: [Tensor]
@@ -407,6 +409,18 @@ public class Tensor: Equatable, Codable {
   
   // MARK: - Graph
   
+  public func findInGraph(to link: String) -> Tensor? {
+    if label.contains(link) { return self }
+        
+    for child in graph {
+      if let result = child.value.findInGraph(to: link) {
+        return result
+      }
+    }
+    
+    return nil
+  }
+  
   /// Prints a human-readable view of this tensor's computation graph.
   ///
   /// - Parameters:
@@ -507,6 +521,10 @@ public class Tensor: Equatable, Codable {
     return true
   }
   
+  public func setGradientBranch(_ gradient: Tensor) {
+    branchGradients[gradient.id] = gradient
+  }
+  
   // MARK: - Graph Management
   
   /// Sets the input graph to this Tensor
@@ -514,6 +532,9 @@ public class Tensor: Equatable, Codable {
   /// - Parameter breakCycles: If true, will create a copy of the tensor to prevent reference cycles, keeping the context of the original tensor (default: false)
   public func setGraph(_ tensor: Tensor, breakCycles: Bool = false) {
     let tensorToStore = breakCycles ? tensor.copy(keepContext: true) : tensor
+    if breakCycles {
+      tensorToStore.label = "\(label) (copied)"
+    }
     graph[tensorToStore.id] = tensorToStore
     graphChain.insert(tensorToStore.id)
     graphChain.formUnion(tensorToStore.graphChain)
@@ -649,7 +670,16 @@ public class Tensor: Equatable, Codable {
         }
       }
       
-      let newGrads = context.backpropagate(input, delta, wrt)
+      // sum branch gradients if they exist before backprop the previous layer
+      // branch gradients are set on the input of the function
+      var delta = delta.copy()
+      for branchGradient in branchGradients {
+        delta = delta.copy() + branchGradient.value
+      }
+      
+      // we also get gradients wrt to the input, this allows us to do auto grad
+      // in the arithmetic
+      let newGrads = context.backpropagate(input, delta, wrt ?? input)
 
       inputGradients.insert(newGrads.input, at: 0)
       weightGradients.insert(newGrads.weight, at: 0)

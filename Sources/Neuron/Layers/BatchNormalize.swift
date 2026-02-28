@@ -139,7 +139,8 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
               momentum: Tensor.Scalar = 0.99,
               movingMean: Tensor = .init(),
               movingVariance: Tensor = .init(),
-              inputSize: TensorSize? = nil) {
+              inputSize: TensorSize? = nil,
+              linkId: String = UUID().uuidString) {
     self.gamma = gamma
     self.beta = beta
     self.movingMean = movingMean
@@ -147,6 +148,7 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     self.momentum = momentum
     
     super.init(inputSize: inputSize,
+               linkId: linkId,
                encodingType: .batchNormalize)
     
     self.usesOptimizer = false
@@ -160,7 +162,7 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
   
   /// Coding keys used to encode and decode the batch-normalization layer's persistent properties.
   public enum CodingKeys: String, CodingKey {
-    case gamma, beta, momentum, movingMean, movingVariance, inputSize
+    case gamma, beta, momentum, movingMean, movingVariance, inputSize, linkId
   }
   
   convenience public required init(from decoder: Decoder) throws {
@@ -197,11 +199,14 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
       fatalError("Couldn't decode movingMean or movingVariance")
     }
         
+    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
+    
     self.init(gamma: gamma,
               beta: beta,
               momentum: momentum,
               movingMean: movingMean,
-              movingVariance: movingVar)
+              movingVariance: movingVar,
+              linkId: linkId)
     
     self.inputSize = inputSize
     self.outputSize = inputSize
@@ -218,6 +223,7 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     try container.encode(momentum, forKey: .momentum)
     try container.encode(movingMean, forKey: .movingMean)
     try container.encode(movingVariance, forKey: .movingVariance)
+    try container.encode(linkId, forKey: .linkId)
   }
   
   // actual forward pass happens here from the super class
@@ -257,9 +263,8 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     let out = Tensor(forward.output, size: tensor.size, context: tensorContext)
     
     out.setGraph(tensor)
-    out.label = "BatchNorm"
     
-    return out
+    return super.forward(tensor: out, context: context)
   }
   
   /// Applies gradients to `gamma` and `beta`, then resets batch accumulators.

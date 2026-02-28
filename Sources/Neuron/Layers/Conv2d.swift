@@ -27,6 +27,7 @@ public class Conv2d: BaseConvolutionalLayer {
                        filterSize: (rows: Int, columns: Int) = (3,3),
                        initializer: InitializerType = .heNormal,
                        biasEnabled: Bool = false,
+                       linkId: String = UUID().uuidString,
                        encodingType: EncodingType = .conv2d) {
     
     super.init(filterCount: filterCount,
@@ -36,6 +37,7 @@ public class Conv2d: BaseConvolutionalLayer {
                filterSize: filterSize,
                initializer: initializer,
                biasEnabled: biasEnabled,
+               linkId: linkId,
                encodingType: encodingType)
   }
   
@@ -47,7 +49,8 @@ public class Conv2d: BaseConvolutionalLayer {
          padding,
          inputSize,
          biasEnabled,
-         type
+         type,
+         linkId
   }
   
   /// Decodes a convolution layer and restores its learned parameters.
@@ -62,6 +65,7 @@ public class Conv2d: BaseConvolutionalLayer {
     let strides = try container.decodeIfPresent([Int].self, forKey: .strides) ?? [1,1]
     let padding = try container.decodeIfPresent(NumSwift.ConvPadding.self, forKey: .padding) ?? .same
     let biasEnabled = try container.decodeIfPresent(Bool.self, forKey: .biasEnabled) ?? false
+    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
     
     let filterSizeTuple = (filterSize[safe: 1, 3], filterSize[safe: 0, 3])
     let stridesTuple = (strides[safe: 1, 3], strides[safe: 0, 3])
@@ -72,7 +76,8 @@ public class Conv2d: BaseConvolutionalLayer {
               padding: padding,
               filterSize: filterSizeTuple,
               initializer: .heUniform,
-              biasEnabled: biasEnabled)
+              biasEnabled: biasEnabled,
+              linkId: linkId)
     
     self.filters = try container.decodeIfPresent([Tensor].self, forKey: .filters) ?? []
   }
@@ -90,6 +95,7 @@ public class Conv2d: BaseConvolutionalLayer {
     try container.encode(filterCount, forKey: .filterCount)
     try container.encode(filters, forKey: .filters)
     try container.encode(encodingType, forKey: .type)
+    try container.encode(linkId, forKey: .linkId)
   }
   
   /// Recomputes output shape when input shape changes.
@@ -112,18 +118,17 @@ public class Conv2d: BaseConvolutionalLayer {
   /// - Returns: Convolved output tensor.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
 
-    let context = TensorContext { inputs, gradient, wrt in
+    let tensorContext = TensorContext { inputs, gradient, wrt in
       self.backward(inputs, gradient)
     }
     
     let outStorage = conv(tensor)
     let outSize = TensorSize(rows: outputSize.rows, columns: outputSize.columns, depth: filterCount)
-    let out = Tensor(outStorage, size: outSize, context: context)
+    let out = Tensor(outStorage, size: outSize, context: tensorContext)
     
     out.setGraph(tensor)
-    out.label = "conv2d"
 
-    return out
+    return super.forward(tensor: out, context: context)
   }
   
   internal func backward(_ input: Tensor, _ delta: Tensor) -> (input: Tensor, weight: Tensor, bias: Tensor) {

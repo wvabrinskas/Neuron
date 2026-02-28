@@ -19,7 +19,8 @@ public final class Embedding: BaseLayer {
               vocabSize: Int,
               batchLength: Int,
               initializer: InitializerType = .xavierNormal,
-              trainable: Bool = false) {
+              trainable: Bool = false,
+              linkId: String = UUID().uuidString) {
     self.inputUnits = inputUnits
     self.vocabSize = vocabSize
     self.batchLength = batchLength
@@ -28,6 +29,7 @@ public final class Embedding: BaseLayer {
                                      columns: 1,
                                      depth: batchLength),
                initializer: initializer, biasEnabled: false,
+               linkId: linkId,
                encodingType: .embedding)
     
     self.outputSize = TensorSize(rows: 1, columns: inputUnits, depth: batchLength)
@@ -54,7 +56,8 @@ public final class Embedding: BaseLayer {
          type,
          inputUnits,
          vocabSize,
-         batchLength
+         batchLength,
+         linkId
   }
   
   convenience required public init(from decoder: Decoder) throws {
@@ -63,10 +66,12 @@ public final class Embedding: BaseLayer {
     let vocabSize = try container.decodeIfPresent(Int.self, forKey: .vocabSize) ?? 0
     let inputUnits = try container.decodeIfPresent(Int.self, forKey: .inputUnits) ?? 0
     let batchLength = try container.decodeIfPresent(Int.self, forKey: .batchLength) ?? 0
+    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
     
     self.init(inputUnits: inputUnits,
               vocabSize: vocabSize,
-              batchLength: batchLength)
+              batchLength: batchLength,
+              linkId: linkId)
     
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
     self.weights = try container.decodeIfPresent(Tensor.self, forKey: .weights) ?? Tensor()
@@ -89,6 +94,7 @@ public final class Embedding: BaseLayer {
     try container.encode(vocabSize, forKey: .vocabSize)
     try container.encode(batchLength, forKey: .batchLength)
     try container.encode(inputUnits, forKey: .inputUnits)
+    try container.encode(linkId, forKey: .linkId)
   }
   
   /// Forward path for the layer
@@ -97,7 +103,7 @@ public final class Embedding: BaseLayer {
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     var indicies: [Int] = []
     
-    let context = TensorContext { [inputUnits, vocabSize] inputs, gradient, wrt in
+    let tensorContext = TensorContext { [inputUnits, vocabSize] inputs, gradient, wrt in
       let sliceSize = inputUnits
       let embSize = TensorSize(rows: 1, columns: inputUnits, depth: vocabSize)
       var embStorage = Tensor.Value(repeating: 0, count: sliceSize * vocabSize)
@@ -141,12 +147,11 @@ public final class Embedding: BaseLayer {
     outSlices.forEach { outStorage.append(contentsOf: $0) }
     
     let outSize = TensorSize(rows: weights.size.rows, columns: weights.size.columns, depth: outSlices.count)
-    let out = Tensor(outStorage, size: outSize, context: context)
+    let out = Tensor(outStorage, size: outSize, context: tensorContext)
     
-    out.label = String(describing: self)
     out.setGraph(tensor)
 
-    return out
+    return super.forward(tensor: out, context: context)
   }
   
   /// Applies embedding weight updates from optimizer gradients.

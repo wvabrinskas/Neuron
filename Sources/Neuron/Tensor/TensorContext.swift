@@ -20,7 +20,7 @@ public struct TensorContext: Codable {
 /// - Parameter gradient: The incoming gradient tensor from the next layer.
 /// - Parameter wrt: An optional tensor indicating the parameter to differentiate with respect to.
 /// - Returns: A `TensorBackpropResult` containing gradients for input, weight, and bias.
-  public typealias TensorContextFunction = (_ inputs: Tensor, _ gradient: Tensor, _ wrt: Tensor?) -> TensorBackpropResult
+  public typealias TensorContextFunction = (_ inputs: Tensor, _ gradient: Tensor, _ wrt: Tensor) -> TensorBackpropResult
   var backpropagate: TensorContextFunction
   
   /// Creates a tensor context with an optional custom backpropagation closure.

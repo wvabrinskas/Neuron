@@ -16,10 +16,13 @@ public final class Reshape: BaseLayer {
   /// - Parameters:
   ///   - size: The size to reshape to.
   ///   - inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
-  public init(to size: TensorSize, inputSize: TensorSize? = nil) {
+  public init(to size: TensorSize,
+              inputSize: TensorSize? = nil,
+              linkId: String = UUID().uuidString) {
     reshapeSize = size
     super.init(inputSize: inputSize,
                biasEnabled: false,
+               linkId: linkId,
                encodingType: .reshape)
   }
   
@@ -29,17 +32,18 @@ public final class Reshape: BaseLayer {
          weights,
          biases,
          reshapeSize,
-         type
+         type,
+         linkId
   }
   
   convenience public required init(from decoder: Decoder) throws {
-    self.init(to: TensorSize(array: []))
     let container = try decoder.container(keyedBy: CodingKeys.self)
+    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
+    let resize = try container.decodeIfPresent(TensorSize.self, forKey: .reshapeSize) ?? TensorSize(array: [])
+    self.init(to: resize, linkId: linkId)
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
     self.weights = try container.decodeIfPresent(Tensor.self, forKey: .weights) ?? Tensor()
     self.biases = try container.decodeIfPresent(Tensor.self, forKey: .biases) ?? Tensor()
-    let resize = try container.decodeIfPresent(TensorSize.self, forKey: .reshapeSize) ?? TensorSize(array: [])
-    self.init(to: resize)
   }
   
   /// Encodes reshape configuration and base layer metadata.
@@ -52,6 +56,7 @@ public final class Reshape: BaseLayer {
     try container.encode(biases, forKey: .biases)
     try container.encode(reshapeSize, forKey: .reshapeSize)
     try container.encode(encodingType, forKey: .type)
+    try container.encode(linkId, forKey: .linkId)
   }
   
   /// Reinterprets tensor storage as the configured output shape.
@@ -61,18 +66,18 @@ public final class Reshape: BaseLayer {
   ///   - context: Network execution context.
   /// - Returns: Reshaped tensor with inverse-reshape backpropagation context.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
-    let context = TensorContext { inputs, gradient, wrt in
+    let tensorContext = TensorContext { inputs, gradient, wrt in
       // Reshape gradient back to flat (the input was flattened)
       let flatSize = TensorSize(rows: 1, columns: gradient.storage.count, depth: 1)
       return (Tensor(gradient.storage, size: flatSize), Tensor(), Tensor())
     }
     
     // Reshape: reinterpret the flat storage with the new shape
-    let out = Tensor(tensor.storage, size: reshapeSize, context: context)
+    let out = Tensor(tensor.storage, size: reshapeSize, context: tensorContext)
     
     out.setGraph(tensor)
 
-    return out
+    return super.forward(tensor: out, context: context)
   }
   
   override public func onInputSizeSet() {

@@ -13,20 +13,24 @@ public final class Swish: BaseActivationLayer {
 
   /// Default initializer for a Swish activation.
   /// - Parameter inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
-  public init(inputSize: TensorSize? = nil) {
+  public init(inputSize: TensorSize? = nil,
+              linkId: String = UUID().uuidString) {
     super.init(inputSize: inputSize,
                type: .swish,
+               linkId: linkId,
                encodingType: .swish)
   }
   
   enum CodingKeys: String, CodingKey {
     case inputSize,
-         type
+         type,
+         linkId
   }
   
   convenience required public init(from decoder: Decoder) throws {
-    self.init()
     let container = try decoder.container(keyedBy: CodingKeys.self)
+    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
+    self.init(linkId: linkId)
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
     self.outputSize = inputSize
   }
@@ -38,6 +42,7 @@ public final class Swish: BaseActivationLayer {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(encodingType, forKey: .type)
+    try container.encode(linkId, forKey: .linkId)
   }
   
   override public func onInputSizeSet() {

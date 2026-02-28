@@ -223,17 +223,18 @@ public extension Tensor {
       }
     }
     
-    let copied = value.copy()
-    
     let context = TensorContext { inputs, gradient, wrt in
-      if let wrt, (value.graphChain.contains(wrt.id) || value.id == wrt.id) {
-        
-        let result = gradient * (-1 * (inputs / (copied * copied)))
-        
-        return (result, Tensor(), Tensor())
-      }
+      let copied = value.copy()
 
-      return (gradient * (1 / copied), Tensor(), Tensor())
+      let gradientToUse = if (value.graphChain.contains(wrt.id) || value.id == wrt.id) {
+        gradient * (-1 * (self / (copied * copied)))
+      } else {
+        gradient * (1 / copied)
+      }
+      
+      value.setGradientBranch(gradientToUse)
+
+      return (gradientToUse, Tensor(), Tensor())
     }
     
     let out = applyAlong(axis: axis, input: value, block)
@@ -269,10 +270,16 @@ public extension Tensor {
       }
     }
     
-    let copied = value.copy()
-
     let context = TensorContext { inputs, gradient, wrt in
-      return (gradient * copied, Tensor(), Tensor())
+      let gradientToUse = if (value.graphChain.contains(wrt.id) || value.id == wrt.id) {
+        gradient * self.copy()
+      } else {
+        gradient.copy() * value.copy()
+      }
+      
+      value.setGradientBranch(gradientToUse)
+      
+      return (gradientToUse, Tensor(), Tensor())
     }
     
     let out = applyAlong(axis: axis, input: value, block)
@@ -309,7 +316,10 @@ public extension Tensor {
     
     let context = TensorContext { inputs, gradient, wrt in
       let copy = gradient.copy()
-      copy.label = "addition"
+      copy.label = "addition_input_grad"
+      
+      value.setGradientBranch(copy)
+      
       return (copy, Tensor(), Tensor())
     }
     
@@ -346,11 +356,15 @@ public extension Tensor {
     }
     
     let context = TensorContext { inputs, gradient, wrt in
-      if let wrt, (value.graphChain.contains(wrt.id) || value.id == wrt.id) {
-        return (gradient * -1, Tensor(), Tensor())
+      let gradientToUse = if (value.graphChain.contains(wrt.id) || value.id == wrt.id) {
+        gradient * -1
+      } else {
+        gradient
       }
+      
+      value.setGradientBranch(gradientToUse)
 
-      return (gradient, Tensor(), Tensor())
+      return (gradientToUse, Tensor(), Tensor())
     }
     
     let out = applyAlong(axis: axis, input: value, block)
@@ -796,6 +810,9 @@ public extension Tensor {
     let context = TensorContext { inputs, gradient, wrt in
       let copy = gradient.copy()
       copy.label = "addition_input_grad"
+      
+      rhs.setGradientBranch(copy)
+      
       return (copy, Tensor(), Tensor())
     }
     
@@ -819,11 +836,15 @@ public extension Tensor {
     let result = lhs.storage - rhs.storage
     
     let context = TensorContext { inputs, gradient, wrt in
-      if let wrt, (rhs.graphChain.contains(wrt.id) || rhs.id == wrt.id) {
-        return (gradient * -1, Tensor(), Tensor())
+      let gradientToUse = if (rhs.graphChain.contains(wrt.id) || rhs.id == wrt.id) {
+        gradient * -1
+      } else {
+        gradient
       }
+      
+      rhs.setGradientBranch(gradientToUse)
 
-      return (gradient, Tensor(), Tensor())
+      return (gradientToUse, Tensor(), Tensor())
     }
     
     let new = Tensor(result, size: lhs.size, context: context)
@@ -845,9 +866,16 @@ public extension Tensor {
     // Accelerate-backed flat element-wise multiply
     let result = lhs.storage * rhs.storage
     
-    let copied = rhs.copy()
     let context = TensorContext { inputs, gradient, wrt in
-      return (gradient * copied, Tensor(), Tensor())
+      let gradientToUse = if (rhs.graphChain.contains(wrt.id) || rhs.id == wrt.id) {
+        gradient * lhs.copy()
+      } else {
+        gradient.copy() * rhs.copy()
+      }
+      
+      rhs.setGradientBranch(gradientToUse)
+      
+      return (gradientToUse, Tensor(), Tensor())
     }
     
     let new = Tensor(result, size: lhs.size, context: context)
@@ -869,16 +897,18 @@ public extension Tensor {
     // Accelerate-backed flat element-wise divide
     let result = lhs.storage / rhs.storage
     
-    let copied = rhs.copy()
-    let context = TensorContext { inputs, gradient, wrt  in
-      if let wrt, (rhs.graphChain.contains(wrt.id) || rhs.id == wrt.id) {
-        
-        let result = gradient * (-1 * (inputs / (copied * copied)))
-        
-        return (result, Tensor(), Tensor())
-      }
+    let context = TensorContext { inputs, gradient, wrt in
+      let copied = rhs.copy()
 
-      return (gradient * (1 / copied), Tensor(), Tensor())
+      let gradientToUse = if (rhs.graphChain.contains(wrt.id) || rhs.id == wrt.id) {
+        gradient * (-1 * (lhs / (copied * copied)))
+      } else {
+        gradient * (1 / copied)
+      }
+      
+      rhs.setGradientBranch(gradientToUse)
+
+      return (gradientToUse, Tensor(), Tensor())
     }
     
     let new = Tensor(result, size: lhs.size, context: context)

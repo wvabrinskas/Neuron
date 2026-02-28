@@ -11,9 +11,8 @@ import NumSwift
 /// This layer implements the residual learning framework, where the input is added to the output
 /// of the inner block sequence, optionally projecting the input via a shortcut sequential when
 /// the dimensions do not match.
-public final class ResNet: BaseLayer {
+public final class ResNet: BaseLayerGroup {
   
-  private var innerBlockSequential = Sequential()
   private var shortcutSequential = Sequential()
   private let outputRelu = ReLu()
   
@@ -79,49 +78,50 @@ public final class ResNet: BaseLayer {
   public init(inputSize: TensorSize? = nil,
               initializer: InitializerType = Constants.defaultInitializer,
               filterCount: Int,
-              stride: Int = 1) {
+              stride: Int = 1,
+              linkId: String = UUID().uuidString) {
     self.filterCount = filterCount
     self.stride = stride
     
     super.init(inputSize: inputSize,
                initializer: initializer,
                biasEnabled: false,
-               encodingType: .resNet)
+               linkId: linkId,
+               encodingType: .resNet,
+               layers: { inputSize in
+      [
+        Conv2d(filterCount: filterCount,
+              inputSize: inputSize,
+              strides: (stride,stride),
+              padding: .same,
+              filterSize: (3,3),
+              initializer: initializer),
+       BatchNormalize(),
+       ReLu(),
+       Conv2d(filterCount: filterCount,
+              strides: (1,1),
+              padding: .same,
+              filterSize: (3,3),
+              initializer: initializer),
+       BatchNormalize(gamma: Array(repeating: 0.0, count: filterCount))
+      ]
+    })
     
     innerBlockSequential.name = "ResNet-MainPath"
     shortcutSequential.name = "ResNet-ShortcutPath"
   }
   
   enum CodingKeys: String, CodingKey {
-    case inputSize, type, filterCount, stride, innerBlockSequential, shortcutSequential
+    case inputSize, type, filterCount, stride, innerBlockSequential, shortcutSequential, linkId
   }
   
   override public func onBatchSizeSet() {
-    innerBlockSequential.batchSize = batchSize
+    super.onBatchSizeSet()
     shortcutSequential.batchSize = batchSize
   }
   
   override public func onInputSizeSet() {
     let initializer = initializer.type
-    
-    if innerBlockSequential.layers.isEmpty {
-      innerBlockSequential.layers = [
-        Conv2d(filterCount: filterCount,
-               inputSize: inputSize,
-               strides: (stride,stride),
-               padding: .same,
-               filterSize: (3,3),
-               initializer: initializer),
-        BatchNormalize(),
-        ReLu(),
-        Conv2d(filterCount: filterCount,
-               strides: (1,1),
-               padding: .same,
-               filterSize: (3,3),
-               initializer: initializer),
-        BatchNormalize(gamma: Array(repeating: 0.0, count: filterCount))
-      ]
-    }
     
     if shortcutSequential.layers.isEmpty {
       shortcutSequential.layers = [
@@ -134,7 +134,6 @@ public final class ResNet: BaseLayer {
       ]
     }
     
-    innerBlockSequential.compile()
     shortcutSequential.compile()
     
     let reluInputSize = if shouldProjectInput {
@@ -146,6 +145,8 @@ public final class ResNet: BaseLayer {
     outputRelu.inputSize = reluInputSize
     outputSize = reluInputSize
     
+    super.onInputSizeSet()
+    
     onBatchSizeSet()
   }
   
@@ -153,8 +154,9 @@ public final class ResNet: BaseLayer {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let filterCount = try container.decodeIfPresent(Int.self, forKey: .filterCount) ?? 64
     let stride = try container.decodeIfPresent(Int.self, forKey: .stride) ?? 1
+    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
     
-    self.init(filterCount: filterCount, stride: stride)
+    self.init(filterCount: filterCount, stride: stride, linkId: linkId)
     
     let innerBlockSequential = try container.decodeIfPresent(Sequential.self, forKey: .innerBlockSequential) ?? Sequential()
     let shortcutSequential = try container.decodeIfPresent(Sequential.self, forKey: .shortcutSequential) ?? Sequential()
@@ -177,6 +179,7 @@ public final class ResNet: BaseLayer {
     try container.encode(stride, forKey: .stride)
     try container.encode(innerBlockSequential, forKey: .innerBlockSequential)
     try container.encode(shortcutSequential, forKey: .shortcutSequential)
+    try container.encode(linkId, forKey: .linkId)
   }
   
   /// Runs the residual block forward pass for a batch.
@@ -188,7 +191,7 @@ public final class ResNet: BaseLayer {
   public override func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
     // we need to pass the full batch to BatchNormalize to calculate the global mean on each batch. Just like what happens when it's outside of the optimizer
     let detachedInputs = tensorBatch.map { $0.detached() }
-    let blockOuts = innerBlockSequential.predict(batch: detachedInputs, context: context)
+    let blockOuts = super.forward(tensorBatch: detachedInputs, context: context)
     
     // set a copied input so we can separate the input tensors of the two paths.
     // this allows us to pull the gradients wrt to each input
@@ -232,9 +235,7 @@ public final class ResNet: BaseLayer {
     // we detach the input tensor because we want to stop at this tensor in respect to this sequential
     // not all the way up the graph to possibly other input layers
     let detachedInput = tensor.detached()
-    detachedInput.label = "detachedInput"
-    let blockOut = innerBlockSequential.predict(batch: [detachedInput], context: .init())[safe: 0, Tensor()]
-    blockOut.label = "blockOut"
+    let blockOut = super.forward(tensor: detachedInput, context: context)
     
     // set a copied input so we can separate the input tensors of the two paths.
     // this allows us to pull the gradients wrt to each input
@@ -259,6 +260,7 @@ public final class ResNet: BaseLayer {
                            copiedInputTensor: copiedInputTensor)
     
     // forward calculation
+    out.label = encodingType.rawValue + "-" + linkId
     return out
   }
   
@@ -274,52 +276,14 @@ public final class ResNet: BaseLayer {
       return
     }
     
-    applyGradientsToInnerBlock(gradients: gradients,
-                               learningRate: learningRate)
+    applyGradients(gradients: gradients,
+                   learningRate: learningRate)
   }
   
   // MARK: - Private
   
-  private func applyGradientsToInnerBlock(gradients: (weights: Tensor, biases: Tensor), learningRate: Tensor.Scalar) {
-    var weightGradients: [Tensor] = []
-    var biasGradients: [Tensor] = []
-    
-    var currentWeightOffset: Int = 0
-    var currentBiasOffset: Int = 0
-    
-    var d = 0
-    
-    for layer in innerBlockSequential.layers {
-      guard layer.usesOptimizer else {
-        // add placeholder for layers that don't need gradients
-        weightGradients.append(Tensor())
-        biasGradients.append(Tensor())
-        continue
-      }
-      
-      // this should be correct given how we calculate weight size at each layer
-      let size = layer.weights.size
-      let totalWeights = size.rows * size.columns * size.depth
-      let indexOffset = currentWeightOffset
-      
-      let biasSize = layer.biases.size
-      let totalBiases = biasSize.rows * biasSize.columns * biasSize.depth
-      let indexBiasOffset = currentBiasOffset
-      
-      let layerWeights = Tensor(Tensor.Value(gradients.weights.storage[indexOffset..<indexOffset + totalWeights]), size: size)
-      let layerBiases = Tensor(Tensor.Value(gradients.biases.storage[indexBiasOffset..<indexBiasOffset + totalBiases]), size: biasSize)
-
-      weightGradients.append(layerWeights)
-      biasGradients.append(layerBiases)
-      
-      currentWeightOffset += totalWeights
-      currentBiasOffset += totalBiases
-    }
-    
-    innerBlockSequential.apply(gradients: .init(input: [],
-                                                weights: weightGradients,
-                                                biases: biasGradients),
-                               learningRate: learningRate)
+  private func applyGradients(gradients: (weights: Tensor, biases: Tensor), learningRate: Tensor.Scalar) {
+    let (currentWeightOffset, currentBiasOffset) = super.applyGradientsToInnerBlock(gradients: gradients, learningRate: learningRate)
     
     applyGradientsToShortcutBlock(gradients: gradients,
                                   offsets: (currentWeightOffset, currentBiasOffset),
@@ -393,13 +357,14 @@ public final class ResNet: BaseLayer {
         biasGradients.append(contentsOf: shortCutGradientsBiases.flatMap(\.storage))
       }
       
-      let gradientToAdd = if shouldProjectInput {
+      let gradientsToadd = if shouldProjectInput {
         reluGradientsWrtProjectedInput.input[safe: 0, Tensor()]
       } else {
         gradient
       }
       
-      let wrtInputs = reluGradients.input[safe: 0, Tensor()] + gradientToAdd // add gradient FROM skip connection. Direct path for gradients
+      let wrtInputs = reluGradients.input[safe: 0, Tensor()] + gradientsToadd
+      
       return (wrtInputs, Tensor(weightGradients), Tensor(biasGradients))
     }
     
