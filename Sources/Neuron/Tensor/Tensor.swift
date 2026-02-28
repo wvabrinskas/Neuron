@@ -658,7 +658,8 @@ public class Tensor: Equatable, Codable {
         }
       }
       
-      // sum branch gradients if they exist
+      // sum branch gradients if they exist before backprop the previous layer
+      // branch gradients are set on the input of the function
       var delta = delta.copy()
       for branchGradient in branchGradients {
         delta = delta.copy() + branchGradient.value

@@ -1210,12 +1210,13 @@ final class LayerTests: XCTestCase {
     let resNet = RexNet(inputSize: inputSize,
                         initializer: .heNormal,
                         strides: (1,1),
-                        outChannels: 12,
+                        outChannels: 3,
                         expandRatio: 2)
     
     let outputSize = resNet.outputSize
 
     let input = Tensor.fillRandom(size: inputSize)
+    input.label = "input"
     
     let out = resNet.forward(tensor: input, context: .init())
         
@@ -1228,7 +1229,6 @@ final class LayerTests: XCTestCase {
     let totalWeights = resNet.innerBlockSequential.layers.filter(\.usesOptimizer).reduce(into: 0) { $0 = $0 + $1.weights.size.columns * $1.weights.size.rows * $1.weights.size.depth }
     
     let gradientWeightsCount = gradients.weights.reduce(into: 0) { $0 = $0 + $1.size.columns * $1.size.rows * $1.size.depth }
-    
     
     XCTAssertNotNil(gradients.input.first)
 

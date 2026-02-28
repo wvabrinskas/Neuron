@@ -152,12 +152,9 @@ public final class RexNet: BaseLayerGroup {
       
       let mainFlowInputGradients = forwardPass.gradients(delta: gradient, wrt: inputs)
       
-      let wrtInput = if self.shouldSkip {
-        mainFlowInputGradients.input[safe: 0, Tensor()] + gradient
-      } else {
-        mainFlowInputGradients.input[safe: 0, Tensor()]
-      }
+      let wrtInput = mainFlowInputGradients.input[safe: 0, Tensor()]
       
+      // we can't just use the Add autograd because we need to pass all of the gradients in one giant tensor back
       let wrtWeights: Tensor = Tensor(mainFlowInputGradients.weights.flatMap(\.storage))
       let wrtBiases: Tensor = Tensor(mainFlowInputGradients.biases.flatMap(\.storage))
 
