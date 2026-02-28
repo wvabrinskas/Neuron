@@ -258,6 +258,7 @@ public final class ResNet: BaseLayerGroup {
                            copiedInputTensor: copiedInputTensor)
     
     // forward calculation
+    out.label = encodingType.rawValue + "-" + linkId
     return out
   }
   

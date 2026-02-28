@@ -98,12 +98,12 @@ public final class AvgPool: BaseLayer {
     let outCols = inputSize.columns / kernelSize.columns
     let outSize = TensorSize(rows: outRows, columns: outCols, depth: inputSize.depth)
 
-    let context = TensorContext(backpropagate: backwards)
-    let out = Tensor(outStorage, size: outSize, context: context)
+    let tensorContext = TensorContext(backpropagate: backwards)
+    let out = Tensor(outStorage, size: outSize, context: tensorContext)
     
     out.setGraph(tensor)
     
-    return out
+    return super.forward(tensor: out, context: context)
   }
   
   override public func onInputSizeSet() {

@@ -97,14 +97,15 @@ public final class LayerNormalize: BaseLayer {
   ///   - context: Network execution context.
   /// - Returns: Normalized tensor with layer-norm backpropagation context.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
-    let context = TensorContext { inputs, gradient, wrt in
+    let tensorContext = TensorContext { inputs, gradient, wrt in
       self.backwardFlat(inputs: inputs, gradient: gradient)
     }
     
     let forwardStorage = normalizeFlat(inputs: tensor)
-    let out = Tensor(forwardStorage, size: tensor.size, context: context)
+    let out = Tensor(forwardStorage, size: tensor.size, context: tensorContext)
     out.setGraph(tensor)
-    return out
+    
+    return super.forward(tensor: out, context: context)
   }
   
   override public func onInputSizeSet() {

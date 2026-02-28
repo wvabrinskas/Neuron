@@ -70,7 +70,7 @@ public final class Dropout: BaseLayer {
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let newMask = mask ?? generateMask() // testing purposes only
     
-    let context = TensorContext { [newMask] inputs, gradient, wrt in
+    let tensorContext = TensorContext { [newMask] inputs, gradient, wrt in
       let outMask = newMask
       let droppedOutGradients = gradient * outMask
       
@@ -85,13 +85,11 @@ public final class Dropout: BaseLayer {
       droppedOut = tensor * (1 - chance)
     }
 
-    let out = Tensor(droppedOut.storage, size: droppedOut.size, context: context)
+    let out = Tensor(droppedOut.storage, size: droppedOut.size, context: tensorContext)
     
     out.setGraph(tensor)
-    
-    out.label = String(describing: self)
-    
-    return out
+        
+    return super.forward(tensor: out, context: context)
   }
   
   /// Dropout has no trainable parameters, so this is a no-op.

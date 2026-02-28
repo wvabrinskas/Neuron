@@ -90,7 +90,7 @@ public final class GlobalAvgPool: BaseLayer {
     
     out.setGraph(tensor)
     
-    return out
+    return super.forward(tensor: out, context: context)
   }
 }
 

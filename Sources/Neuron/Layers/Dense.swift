@@ -123,10 +123,9 @@ public final class Dense: BaseLayer {
     }
     
     let out = Tensor(dotProducts.storage, size: dotProducts.size, context: tensorContext)
-    
     out.setGraph(tensor)
 
-    return out
+    return super.forward(tensor: out, context: context)
   }
   
   /// Applies dense weight and optional bias updates.

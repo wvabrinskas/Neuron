@@ -55,7 +55,7 @@ public final class Flatten: BaseLayer {
   ///   - context: Network execution context.
   /// - Returns: Flattened tensor with reshape-aware backpropagation context.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
-    let context = TensorContext { inputs, gradient, wrt in
+    let tensorContext = TensorContext { inputs, gradient, wrt in
       // Reshape gradient back to original inputSize by reinterpreting flat storage
       let inputSize = self.inputSize
       return (Tensor(gradient.storage, size: inputSize), Tensor(), Tensor())
@@ -64,10 +64,10 @@ public final class Flatten: BaseLayer {
     // Flatten: just reinterpret the flat storage as (total, 1, 1)
     let total = tensor.storage.count
     let flatSize = TensorSize(rows: 1, columns: total, depth: 1)
-    let flat = Tensor(tensor.storage, size: flatSize, context: context)
+    let flat = Tensor(tensor.storage, size: flatSize, context: tensorContext)
     
     flat.setGraph(tensor)
     
-    return flat
+    return super.forward(tensor: flat, context: context)
   }
 }

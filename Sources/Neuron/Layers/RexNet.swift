@@ -147,7 +147,7 @@ public final class RexNet: BaseLayerGroup {
       super.forward(tensor: tensor, context: context)
     }
     
-    let context = TensorContext { inputs, gradient, wrt in
+    let tensorContext = TensorContext { inputs, gradient, wrt in
       // backpropogation calculation
       
       let mainFlowInputGradients = forwardPass.gradients(delta: gradient, wrt: inputs)
@@ -169,9 +169,8 @@ public final class RexNet: BaseLayerGroup {
     // forward calculation
     let out = Tensor(forwardPass.storage,
                      size: forwardPass.size,
-                     context: context)
+                     context: tensorContext)
     
-    out.label = "RexNet"
     out.setGraph(tensor)
     
     return out

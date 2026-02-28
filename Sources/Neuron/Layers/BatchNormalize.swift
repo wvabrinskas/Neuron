@@ -259,9 +259,8 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     let out = Tensor(forward.output, size: tensor.size, context: tensorContext)
     
     out.setGraph(tensor)
-    out.label = "BatchNorm"
     
-    return out
+    return super.forward(tensor: out, context: context)
   }
   
   /// Applies gradients to `gamma` and `beta`, then resets batch accumulators.

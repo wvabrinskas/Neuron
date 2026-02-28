@@ -72,7 +72,6 @@ public final class MaxPool: BaseLayer {
       
       let inRows = inputSize.rows
       let inCols = inputSize.columns
-      let gradCols = gradient.size.columns
       
       for d in 0..<inputSize.depth {
         let gradSlice = gradient.depthSlice(d)
@@ -115,13 +114,13 @@ public final class MaxPool: BaseLayer {
 
     poolingGradients = PoolingGradient(tensorId: tensor.id, indicies: currentIndicies)
 
-    let context = TensorContext(backpropagate: backwards)
+    let tensorContext = TensorContext(backpropagate: backwards)
     let outSize = TensorSize(rows: outRows, columns: outCols, depth: inputSize.depth)
-    let out = Tensor(outStorage, size: outSize, context: context)
+    let out = Tensor(outStorage, size: outSize, context: tensorContext)
     
     out.setGraph(tensor)
     
-    return out
+    return super.forward(tensor: out, context: context)
   }
   
   override public func onInputSizeSet() {

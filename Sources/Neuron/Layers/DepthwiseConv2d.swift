@@ -189,17 +189,16 @@ public class DepthwiseConv2d: BaseConvolutionalLayer {
   ///   depend on the padding and stride settings.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     
-    let context = TensorContext { inputs, gradient, wrt in
+    let tensorContext = TensorContext { inputs, gradient, wrt in
       self.backward(inputs, gradient)
     }
     
     let outStorage = conv(tensor)
-    let out = Tensor(outStorage, size: outputSize, context: context)
+    let out = Tensor(outStorage, size: outputSize, context: tensorContext)
     
     out.setGraph(tensor)
-    out.label = "depthwiseConv2d"
     
-    return out
+    return super.forward(tensor: out, context: context)
   }
   
   /// Computes input, weight, and bias gradients for the depthwise convolution.

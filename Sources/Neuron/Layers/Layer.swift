@@ -200,7 +200,7 @@ open class ArithmecticLayer: BaseLayer {
     // make a copy of "other" here and "input" and then reference those
     let out = function(input: tensor, other: other)
     
-    let context = TensorContext { inputs, gradient, wrt in
+    let tensorContext = TensorContext { inputs, gradient, wrt in
       // backpropogate through self
       let addGradientsWrtInput = out.gradients(delta: gradient, wrt: inputs)
       
@@ -222,7 +222,9 @@ open class ArithmecticLayer: BaseLayer {
     }
     
     // forward calculation
-    return Tensor(out.storage, size: out.size, context: context)
+    let outTensor = Tensor(out.storage, size: out.size, context: tensorContext)
+    
+    return super.forward(tensor: outTensor, context: context)
   }
   
 }
@@ -350,7 +352,8 @@ open class BaseLayer: Layer {
   /// - Returns: Placeholder tensor.
   public func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
     // override
-    .init()
+    tensor.label = encodingType.rawValue + "-" + linkId
+    return tensor
   }
   
   // guarenteed to be single threaded operation

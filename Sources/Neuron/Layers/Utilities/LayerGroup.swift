@@ -91,7 +91,7 @@ public class BaseLayerGroup: BaseLayer, LayerGrouping {
     let blockOut = innerBlockSequential.predict(batch: [tensor], context: .init())[safe: 0, Tensor()]
     blockOut.label = "blockOut"
     
-    return blockOut
+    return super.forward(tensor: blockOut, context: context)
   }
   
   public override func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Tensor.Scalar) {

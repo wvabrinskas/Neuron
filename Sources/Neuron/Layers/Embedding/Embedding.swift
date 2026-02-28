@@ -99,7 +99,7 @@ public final class Embedding: BaseLayer {
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     var indicies: [Int] = []
     
-    let context = TensorContext { [inputUnits, vocabSize] inputs, gradient, wrt in
+    let tensorContext = TensorContext { [inputUnits, vocabSize] inputs, gradient, wrt in
       let sliceSize = inputUnits
       let embSize = TensorSize(rows: 1, columns: inputUnits, depth: vocabSize)
       var embStorage = Tensor.Value(repeating: 0, count: sliceSize * vocabSize)
@@ -143,12 +143,11 @@ public final class Embedding: BaseLayer {
     outSlices.forEach { outStorage.append(contentsOf: $0) }
     
     let outSize = TensorSize(rows: weights.size.rows, columns: weights.size.columns, depth: outSlices.count)
-    let out = Tensor(outStorage, size: outSize, context: context)
+    let out = Tensor(outStorage, size: outSize, context: tensorContext)
     
-    out.label = String(describing: self)
     out.setGraph(tensor)
 
-    return out
+    return super.forward(tensor: out, context: context)
   }
   
   /// Applies embedding weight updates from optimizer gradients.

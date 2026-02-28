@@ -114,18 +114,17 @@ public class Conv2d: BaseConvolutionalLayer {
   /// - Returns: Convolved output tensor.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
 
-    let context = TensorContext { inputs, gradient, wrt in
+    let tensorContext = TensorContext { inputs, gradient, wrt in
       self.backward(inputs, gradient)
     }
     
     let outStorage = conv(tensor)
     let outSize = TensorSize(rows: outputSize.rows, columns: outputSize.columns, depth: filterCount)
-    let out = Tensor(outStorage, size: outSize, context: context)
+    let out = Tensor(outStorage, size: outSize, context: tensorContext)
     
     out.setGraph(tensor)
-    out.label = "conv2d"
 
-    return out
+    return super.forward(tensor: out, context: context)
   }
   
   internal func backward(_ input: Tensor, _ delta: Tensor) -> (input: Tensor, weight: Tensor, bias: Tensor) {

@@ -342,10 +342,9 @@ public final class LSTM: BaseLayer {
       out = Tensor(lastSlice, size: lastSize, context: tensorContext)
     }
     
-    out.label = String(describing: self)
     out.setGraph(tensor)
     
-    return out
+    return super.forward(tensor: out, context: context)
   }
   
   
