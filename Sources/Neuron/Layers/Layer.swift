@@ -186,7 +186,7 @@ open class ArithmecticLayer: BaseLayer {
   func lookupInput(input: Tensor) -> Tensor? {
     if input.label == linkTo { return input }
 
-    let out = input.graph.first(where: { $0.value.label == linkTo })
+    let out = input.graph.first(where: { $0.value.label.contains(linkTo) })
     return out?.value
   }
   
