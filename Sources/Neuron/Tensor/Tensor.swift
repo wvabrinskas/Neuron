@@ -8,6 +8,7 @@
 import Foundation
 import NumSwift
 import NumSwiftC
+import OrderedCollections
 
 /// A protocol that wraps a `RangeExpression<Int>` for use in tensor subscript operations.
 /// Conforming types provide a `range` property used to slice tensor dimensions.
@@ -102,11 +103,6 @@ public class Tensor: Equatable, Codable {
   /// Shape of the Tensor as a 1D array. `[columns, rows, depth]`
   public var shape: [Int] {
     size.asArray
-  }
-  
-  /// Input from the graph
-  public var input: [ID: Tensor] {
-    graph
   }
   
   /// Hack to avoid having to rewrite every single math function that revolves around 1d and 2d arrays.
@@ -427,7 +423,7 @@ public class Tensor: Equatable, Codable {
   ///   - wrt: Optional node to constrain printed branches to a specific path.
   ///   - deep: When `true`, recursively prints each child node's graph.
   public func printGraph(wrt: Tensor? = nil, deep: Bool = false) {
-    var inputs: [ID: Tensor] = input
+    var inputs: [ID: Tensor] = graph
     
     if let wrt {
       if graphChain.contains(wrt.id) == false {
@@ -450,7 +446,7 @@ public class Tensor: Equatable, Codable {
       var childrenAtLevel: [ID: Tensor] = [:]
 
       for (k, v) in inputs {
-        childrenAtLevel.merge(v.input) { _, new in
+        childrenAtLevel.merge(v.graph) { _, new in
           new
         }
         
@@ -562,7 +558,7 @@ public class Tensor: Equatable, Codable {
     var biasGradients: [Tensor] = selfGradients.bias
     
     var gradientsAtLevelToUse: [Tensor] = inputGradients
-    var childrenAtLevelToUse: [ID: Tensor] = input
+    var childrenAtLevelToUse: [ID: Tensor] = graph
     
     if let wrt {
       childrenAtLevelToUse = childrenAtLevelToUse.filter({ $0.value.graphChain.contains(wrt.id) || $0.value.id == wrt.id })
@@ -580,7 +576,7 @@ public class Tensor: Equatable, Codable {
       biasGradients.insert(contentsOf: newGrads.bias, at: 0)
       
       gradientsAtLevel.append(contentsOf: newGrads.input)
-      input.input.forEach { childrenAtLevel[$0] = $1 }
+      input.graph.forEach { childrenAtLevel[$0] = $1 }
     }
 
     while childrenAtLevelToUse.isEmpty == false {

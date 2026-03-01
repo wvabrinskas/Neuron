@@ -333,6 +333,28 @@ public extension Tensor {
   
   func addContext(value: Tensor) -> TensorContext {
     let branchNode: Tensor? = if sharesGraph(with: value) {
+      /*
+        while this works it doesn't account for long chain branches as well
+        we might need to add branch gradient setting in every backprop context??
+       this logic will actually fail to apply the right branching logic since value isn't
+       a part of self.graphChain so it'll apply gradient branch to self, which will result in
+       incorrect gradients.
+          1
+          |
+          2
+          | \
+          3  1'
+          |  |
+          4  2'
+          \  /
+         (4 + 2)
+           |
+           5
+           |
+          out
+       
+        maybe we add another indicator to determine where branch started?
+       */
       if self.graphChain.contains(value.id) {
         value
       } else {
@@ -345,8 +367,6 @@ public extension Tensor {
     return TensorContext { inputs, gradient, wrt in
       let copy = gradient.copy()
       copy.label = "addition_grad"
-
-      // maybe we add another indicator to determine where branch started?
       branchNode?.setGradientBranch(copy)
       
       return (copy, Tensor(), Tensor())
