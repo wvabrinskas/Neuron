@@ -8,19 +8,29 @@
 import NumSwift
 import Foundation
 
+/// A protocol that combines `Layer` and `BaseLayer` conformance for grouped layer structures
+/// that contain an inner sequential block of sub-layers.
 public protocol LayerGrouping: Layer, BaseLayer {
   var innerBlockSequential: Sequential { get }
 }
 
 
+/// A base class for layer groups that manage an inner sequential block of sub-layers,
+/// supporting forward passes, weight export, and gradient application across grouped layers.
 public class BaseLayerGroup: BaseLayer, LayerGrouping {
   
+/// A type alias representing the offsets into gradient arrays for weights and biases
+/// within a layer group's inner block.
   public typealias GradientOffsets = (weights: Int, biases: Int)
   
+/// The sequential container holding the inner block of sub-layers for this layer group.
   public var innerBlockSequential: Sequential = .init()
   
   private var layers: (_ inputSize: TensorSize) -> [Layer]
   
+/// A Boolean indicating whether the layer group is in training mode.
+///
+/// Setting this value propagates the training state to the inner sequential block.
   public override var isTraining: Bool {
     get {
       super.isTraining
@@ -30,6 +40,10 @@ public class BaseLayerGroup: BaseLayer, LayerGrouping {
     }
   }
 
+/// The concatenated weights of all layers within the inner sequential block.
+///
+/// Getting this value exports and flattens weights from the inner block, concatenating
+/// them along axis 2 into a single `Tensor`. Setting is currently a no-op.
   public override var weights: Tensor {
     get {
       let innerBlockWeights = (try? innerBlockSequential.exportWeights()) ?? []
@@ -47,6 +61,16 @@ public class BaseLayerGroup: BaseLayer, LayerGrouping {
     }
   }
   
+/// Initializes a `BaseLayerGroup` with the given configuration and a closure that builds
+/// the inner sub-layers based on the resolved input size.
+///
+/// - Parameters:
+///   - inputSize: The optional input tensor size for the layer group.
+///   - initializer: The weight initializer type to use for sub-layers.
+///   - biasEnabled: Whether bias terms are enabled. Defaults to `false`.
+///   - linkId: A unique string identifier for this layer. Defaults to a new UUID string.
+///   - encodingType: The encoding strategy used for this layer group.
+///   - layers: A closure that receives the resolved input size and returns the array of sub-layers.
   public init(inputSize: TensorSize?,
               initializer: InitializerType,
               biasEnabled: Bool = false,
@@ -94,6 +118,11 @@ public class BaseLayerGroup: BaseLayer, LayerGrouping {
     return super.forward(tensor: blockOut, context: context)
   }
   
+/// Applies the given weight and bias gradients to the inner sequential block.
+///
+/// - Parameters:
+///   - gradients: A tuple containing weight and bias gradient tensors.
+///   - learningRate: The scalar learning rate to use when applying gradients.
   public override func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Tensor.Scalar) {
     guard gradients.weights.isEmpty == false else {
       return

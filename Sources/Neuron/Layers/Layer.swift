@@ -177,6 +177,10 @@ open class ArithmeticLayer: BaseLayer {
     self.init(encodingType: .add, linkTo: "")
   }
   
+  /// Encodes the layer's properties into the given encoder.
+  ///
+  /// - Parameter encoder: The encoder to write data to.
+  /// - Throws: An error if any values fail to encode.
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
@@ -185,6 +189,12 @@ open class ArithmeticLayer: BaseLayer {
     try container.encode(linkId, forKey: .linkId)
   }
 
+  /// Performs the forward pass by looking up the linked input tensor and applying the binary function.
+  ///
+  /// - Parameters:
+  ///   - tensor: The primary input tensor for the forward pass.
+  ///   - context: The network context in which the forward pass is executed.
+  /// - Returns: The output tensor produced by applying the layer's function to the input and linked tensors.
   public override func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
     
     guard let other = lookupInput(input: tensor) else {

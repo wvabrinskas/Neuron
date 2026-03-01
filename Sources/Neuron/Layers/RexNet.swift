@@ -11,6 +11,8 @@ import NumSwift
 import Foundation
 import NumSwift
 
+/// A residual-style network block that applies an expansion ratio and optional skip connections,
+/// building on `BaseLayerGroup` to support efficient feature extraction.
 public final class RexNet: BaseLayerGroup {
   private let expandRatio: Tensor.Scalar
   private let strides: (rows: Int, columns: Int)
@@ -20,6 +22,14 @@ public final class RexNet: BaseLayerGroup {
     strides.columns == 1 && strides.rows == 1 && outChannels == inputSize.depth
   }
   
+/// Creates a new `RexNet` layer group with the specified configuration.
+/// - Parameter inputSize: The optional input tensor size for the layer. Defaults to `nil`.
+/// - Parameter initializer: The weight initializer type to use. Defaults to the framework's default initializer.
+/// - Parameter strides: The row and column strides for the convolution operation. Defaults to `(1, 1)`.
+/// - Parameter outChannels: The number of output channels produced by this block.
+/// - Parameter squeeze: The squeeze factor used in channel reduction. Defaults to `0`.
+/// - Parameter expandRatio: The ratio by which channels are expanded before the depthwise convolution. Defaults to `0`.
+/// - Parameter linkId: A unique string identifier used to link this layer. Defaults to a new UUID string.
   public init(inputSize: TensorSize? = nil,
               initializer: InitializerType = Constants.defaultInitializer,
               strides: (rows: Int, columns: Int) = (1,1),
@@ -125,6 +135,9 @@ public final class RexNet: BaseLayerGroup {
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
   }
   
+/// Encodes this `RexNet` instance into the given encoder, storing the input size, encoding type, and link ID.
+/// - Parameter encoder: The encoder to write data into.
+/// - Throws: An error if any values fail to encode.
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
@@ -132,6 +145,10 @@ public final class RexNet: BaseLayerGroup {
     try container.encode(linkId, forKey: .linkId)
   }
   
+/// Performs a forward pass over a batch of tensors, processing each tensor individually and collecting the results.
+/// - Parameter tensorBatch: The batch of input tensors to process.
+/// - Parameter context: The network context providing execution state and mode information.
+/// - Returns: A `TensorBatch` containing the forward-pass output for each input tensor.
   public override func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
     var result: TensorBatch = []
     
@@ -142,6 +159,11 @@ public final class RexNet: BaseLayerGroup {
     return result
   }
   
+/// Performs a forward pass on a single tensor, applying a skip connection when the stride and channel conditions allow,
+/// and registers a backpropagation context for gradient computation.
+/// - Parameter tensor: The input tensor to process.
+/// - Parameter context: The network context providing execution state and mode information.
+/// - Returns: The output tensor after applying the block's transformation and optional residual addition.
   public override func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
     
     let forwardPass = if shouldSkip {

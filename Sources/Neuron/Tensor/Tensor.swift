@@ -404,6 +404,10 @@ public class Tensor: Equatable, Codable {
   
   // MARK: - Graph
   
+  /// Searches the computation graph for a tensor whose label contains the given string.
+  ///
+  /// - Parameter link: The string to search for within tensor labels.
+  /// - Returns: The first `Tensor` found whose label contains `link`, or `nil` if none is found.
   public func findInGraph(to link: String) -> Tensor? {
     if label.contains(link) { return self }
         
@@ -516,6 +520,9 @@ public class Tensor: Equatable, Codable {
     return true
   }
   
+  /// Stores a gradient tensor associated with a specific branch of the computation graph.
+  ///
+  /// - Parameter gradient: The gradient tensor to associate with its corresponding branch, keyed by its unique identifier.
   public func setGradientBranch(_ gradient: Tensor) {
     branchGradients[gradient.id] = gradient
   }
@@ -686,6 +693,10 @@ public class Tensor: Equatable, Codable {
     return (inputGradients, weightGradients, biasGradients)
   }
   
+  /// Determines whether this tensor shares any part of its computation graph with another tensor.
+  ///
+  /// - Parameter tensor: The tensor to compare graph chains with.
+  /// - Returns: `true` if the two tensors share at least one common node in their computation graphs; otherwise, `false`.
   public func sharesGraph(with tensor: Tensor) -> Bool {
     graphChain.intersection(tensor.graphChain).isEmpty == false
   }
