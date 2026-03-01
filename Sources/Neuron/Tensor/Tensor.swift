@@ -8,7 +8,6 @@
 import Foundation
 import NumSwift
 import NumSwiftC
-import OrderedCollections
 
 /// A protocol that wraps a `RangeExpression<Int>` for use in tensor subscript operations.
 /// Conforming types provide a `range` property used to slice tensor dimensions.

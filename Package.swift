@@ -19,7 +19,6 @@ let package = Package(
       .package(url: "https://github.com/wvabrinskas/Logger.git", from: "1.0.6"),
       .package(url: "https://github.com/apple/swift-numerics", from: "1.0.0"),
       .package(url: "https://github.com/apple/swift-atomics.git", from: "1.2.0"),
-      .package(url: "https://github.com/apple/swift-collections.git", from: "1.3.0"),
       .package(url: "https://github.com/apple/swift-docc-plugin", branch: "main")
     ],
     targets: [
