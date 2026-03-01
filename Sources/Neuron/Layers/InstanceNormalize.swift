@@ -6,6 +6,10 @@
 import Foundation
 import NumSwift
 
+/// A layer that performs instance normalization on its input.
+/// 
+/// Instance normalization normalizes each sample in a batch independently
+/// across spatial dimensions, using learnable scale (gamma) and shift (beta) parameters.
 public final class InstanceNormalize: BaseLayer {
   /// The combined weights tensor of beta and gamma, used primarily for display and inspection purposes.
   /// - Returns: A `Tensor` containing the concatenated beta and gamma values shaped to the input size.
