@@ -532,8 +532,10 @@ public class Tensor: Equatable, Codable {
   /// - Parameter breakCycles: If true, will create a copy of the tensor to prevent reference cycles, keeping the context of the original tensor (default: false)
   public func setGraph(_ tensor: Tensor, breakCycles: Bool = false) {
     let tensorToStore = breakCycles ? tensor.copy(keepContext: true) : tensor
+    tensorToStore.label = tensor.label
+    
     if breakCycles {
-      tensorToStore.label = "\(label) (copied)"
+      tensorToStore.label = "\(tensorToStore.label) (copied)"
     }
     graph[tensorToStore.id] = tensorToStore
     graphChain.insert(tensorToStore.id)
@@ -687,6 +689,10 @@ public class Tensor: Equatable, Codable {
     }
     
     return (inputGradients, weightGradients, biasGradients)
+  }
+  
+  public func sharesGraph(with tensor: Tensor) -> Bool {
+    graphChain.intersection(tensor.graphChain).isEmpty == false
   }
   
   // MARK: - Normalization / Clipping
