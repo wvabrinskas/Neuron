@@ -28,8 +28,7 @@ let package = Package(
               "NumSwift",
               "Logger",
               .product(name: "Numerics", package: "swift-numerics"),
-              .product(name: "Atomics", package: "swift-atomics"),
-              .product(name: "OrderedCollections", package: "swift-collections")
+              .product(name: "Atomics", package: "swift-atomics")
             ],
             resources: [ .process("Resources") ]),
         .testTarget(
