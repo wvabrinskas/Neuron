@@ -151,7 +151,8 @@ public final class LSTM: BaseLayer {
               biasEnabled: Bool = false,
               initializer: InitializerType = .xavierNormal,
               hiddenUnits: Int,
-              vocabSize: Int) {
+              vocabSize: Int,
+              linkId: String = UUID().uuidString) {
     let inputSize = TensorSize(rows: 1,
                                columns: vocabSize,
                                depth: batchLength)
@@ -164,6 +165,7 @@ public final class LSTM: BaseLayer {
     super.init(inputSize: inputSize,
                initializer: initializer,
                biasEnabled: biasEnabled,
+               linkId: linkId,
                encodingType: .lstm)
     
     initializeWeights()
@@ -190,7 +192,8 @@ public final class LSTM: BaseLayer {
          hiddenOutputWeights,
          hiddenOutputBiases,
          batchLength,
-         inputUnits
+         inputUnits,
+         linkId
   }
   
   convenience required public init(from decoder: Decoder) throws {
@@ -200,10 +203,13 @@ public final class LSTM: BaseLayer {
     let inputUnits = try container.decodeIfPresent(Int.self, forKey: .inputUnits) ?? 0
     let batchLength = try container.decodeIfPresent(Int.self, forKey: .batchLength) ?? 0
     
+    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
+    
     self.init(inputUnits: inputUnits,
               batchLength: batchLength,
               hiddenUnits: hiddenUnits,
-              vocabSize: vocabSize)
+              vocabSize: vocabSize,
+              linkId: linkId)
     
     self.biasEnabled = try container.decodeIfPresent(Bool.self, forKey: .biasEnabled) ?? false
     self.outputSize = try container.decodeIfPresent(TensorSize.self, forKey: .outputSize) ?? TensorSize(array: [])
@@ -258,6 +264,7 @@ public final class LSTM: BaseLayer {
     try container.encode(gateGateBiases, forKey: .gateGateBiases)
     try container.encode(outputGateBiases, forKey: .outputGateBiases)
     try container.encode(hiddenOutputBiases, forKey: .hiddenOutputBiases)
+    try container.encode(linkId, forKey: .linkId)
   }
   
   
@@ -340,10 +347,9 @@ public final class LSTM: BaseLayer {
       out = Tensor(lastSlice, size: lastSize, context: tensorContext)
     }
     
-    out.label = String(describing: self)
     out.setGraph(tensor)
     
-    return out
+    return super.forward(tensor: out, context: context)
   }
   
   

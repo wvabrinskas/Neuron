@@ -203,6 +203,33 @@ public extension Tensor {
     return Tensor(result, size: selfSize)
   }
   
+  func divideContext(value: Tensor) -> TensorContext {
+    let branchNode: Tensor? = if sharesGraph(with: value) {
+      if self.graphChain.contains(value.id) {
+        value
+      } else {
+        self
+      }
+    } else {
+      nil
+    }
+    
+    // in this context `self` is the other half of the equation. it's lhs. value is rhs
+    return TensorContext { inputs, gradient, wrt in
+      if value.graphChain.contains(wrt.id) || value.id == wrt.id {
+        let gradB = gradient * (-1 * (self.copy() / (value * value)))
+        gradB.label = "division_grad_b"
+        branchNode?.setGradientBranch(gradB)
+        return (gradB, Tensor(), Tensor())
+      } else {
+        let gradA = gradient * (1 / value)
+        gradA.label = "division_grad_a"
+        branchNode?.setGradientBranch(gradA)
+        return (gradA, Tensor(), Tensor())
+      }
+    }
+  }
+  
   /// Performs element-wise division along a specific axis with broadcasting support.
   ///
   /// - Parameters:
@@ -223,30 +250,53 @@ public extension Tensor {
       }
     }
     
-    let copied = value.copy()
-    
-    let context = TensorContext { inputs, gradient, wrt in
-      if let wrt, (value.graphChain.contains(wrt.id) || value.id == wrt.id) {
-        
-        let result = gradient * (-1 * (inputs / (copied * copied)))
-        
-        return (result, Tensor(), Tensor())
-      }
-
-      return (gradient * (1 / copied), Tensor(), Tensor())
-    }
-    
     let out = applyAlong(axis: axis, input: value, block)
     
-    let new = Tensor(out.storage, size: out.size, context: context)
+    let new = Tensor(out.storage, size: out.size, context: divideContext(value: value))
     
     new.label = "division"
     
-    // TODO: Somewhere something is calling this on divide or mult or add or sub and causing a memory leak...
-    new.setGraphSafe(self)
-    new.setGraphSafe(value)
+    // we need to detach the branch first and then set graph
+    // these are reverseable actions where order matters
+    // a / b != b / a
+    if graphChain.contains(value.id) {
+      // non branched node
+      new.setGraphSafe(self)
+      new.setGraphSafe(value)
+    } else {
+      // branched node
+      new.setGraphSafe(value)
+      new.setGraphSafe(self)
+    }
     
     return new
+  }
+  
+  func multiplyContext(value: Tensor) -> TensorContext {
+    let branchNode: Tensor? = if sharesGraph(with: value) {
+      if self.graphChain.contains(value.id) {
+        value
+      } else {
+        self
+      }
+    } else {
+      nil
+    }
+  
+    // in this context `self` is the other half of the equation. it's lhs. value is rhs
+    return TensorContext { inputs, gradient, wrt in
+      if value.graphChain.contains(wrt.id) || value.id == wrt.id {
+        let gradB = gradient * self.copy()
+        gradB.label = "multiplication_grad_b"
+        branchNode?.setGradientBranch(gradB)
+        return (gradB, Tensor(), Tensor())
+      } else {
+        let gradA = gradient * value.copy()
+        gradA.label = "multiplication_grad_a"
+        branchNode?.setGradientBranch(gradA)
+        return (gradA, Tensor(), Tensor())
+      }
+    }
   }
   
   /// Performs element-wise multiplication along a specific axis with broadcasting support.
@@ -269,15 +319,9 @@ public extension Tensor {
       }
     }
     
-    let copied = value.copy()
-
-    let context = TensorContext { inputs, gradient, wrt in
-      return (gradient * copied, Tensor(), Tensor())
-    }
-    
     let out = applyAlong(axis: axis, input: value, block)
     
-    let new = Tensor(out.storage, size: out.size, context: context)
+    let new = Tensor(out.storage, size: out.size, context: multiplyContext(value: value))
     
     new.label = "multiplication"
 
@@ -285,6 +329,48 @@ public extension Tensor {
     new.setGraphSafe(value)
     
     return new
+  }
+  
+  func addContext(value: Tensor) -> TensorContext {
+    let branchNode: Tensor? = if sharesGraph(with: value) {
+      /*
+        while this works it doesn't account for long chain branches as well
+        we might need to add branch gradient setting in every backprop context??
+       this logic will actually fail to apply the right branching logic since value isn't
+       a part of self.graphChain so it'll apply gradient branch to self, which will result in
+       incorrect gradients.
+          1
+          |
+          2
+          | \
+          3  1'
+          |  |
+          4  2'
+          \  /
+         (4 + 2)
+           |
+           5
+           |
+          out
+       
+        maybe we add another indicator to determine where branch started?
+       */
+      if self.graphChain.contains(value.id) {
+        value
+      } else {
+        self
+      }
+    } else {
+      nil
+    }
+    
+    return TensorContext { inputs, gradient, wrt in
+      let copy = gradient.copy()
+      copy.label = "addition_grad"
+      branchNode?.setGradientBranch(copy)
+      
+      return (copy, Tensor(), Tensor())
+    }
   }
   
   /// Performs element-wise addition along a specific axis with broadcasting support.
@@ -307,15 +393,9 @@ public extension Tensor {
       }
     }
     
-    let context = TensorContext { inputs, gradient, wrt in
-      let copy = gradient.copy()
-      copy.label = "addition"
-      return (copy, Tensor(), Tensor())
-    }
-    
     let out = applyAlong(axis: axis, input: value, block)
     
-    let new = Tensor(out.storage, size: out.size, context: context)
+    let new = Tensor(out.storage, size: out.size, context: addContext(value: value))
     
     new.label = "addition"
 
@@ -323,6 +403,35 @@ public extension Tensor {
     new.setGraphSafe(value)
     
     return new
+  }
+  
+  func subtractContext(value: Tensor) -> TensorContext {
+    let branchNode: Tensor? = if sharesGraph(with: value) {
+      if self.graphChain.contains(value.id) {
+        value
+      } else {
+        self
+      }
+    } else {
+      nil
+    }
+    
+    return TensorContext { inputs, gradient, wrt in
+      if value.graphChain.contains(wrt.id) || value.id == wrt.id {
+        let gradB = gradient * -1
+        gradB.label = "subtraction_grad_b"
+        
+        branchNode?.setGradientBranch(gradB)
+        
+        return (gradB, Tensor(), Tensor())
+      } else {
+        let gradA = gradient
+        gradA.label = "subtraction_grad_a"
+        
+        branchNode?.setGradientBranch(gradA)
+        return (gradA, Tensor(), Tensor())
+      }
+    }
   }
   
   /// Performs element-wise subtraction along a specific axis with broadcasting support.
@@ -345,23 +454,25 @@ public extension Tensor {
       }
     }
     
-    let context = TensorContext { inputs, gradient, wrt in
-      if let wrt, (value.graphChain.contains(wrt.id) || value.id == wrt.id) {
-        return (gradient * -1, Tensor(), Tensor())
-      }
-
-      return (gradient, Tensor(), Tensor())
-    }
-    
     let out = applyAlong(axis: axis, input: value, block)
     
-    let new = Tensor(out.storage, size: out.size, context: context)
+    let new = Tensor(out.storage, size: out.size, context: subtractContext(value: value))
     
     new.label = "subtraction"
     
-    new.setGraphSafe(self)
-    new.setGraphSafe(value)
-    
+    // we need to detach the branch first and then set graph
+    // these are reverseable actions where order matters
+    // a - b != b - a
+    if graphChain.contains(value.id) {
+      // non branched node
+      new.setGraphSafe(self)
+      new.setGraphSafe(value)
+    } else {
+      // branched node
+      new.setGraphSafe(value)
+      new.setGraphSafe(self)
+    }
+      
     return new
   }
   
@@ -793,13 +904,7 @@ public extension Tensor {
     // Accelerate-backed flat element-wise add
     let result = lhs.storage + rhs.storage
     
-    let context = TensorContext { inputs, gradient, wrt in
-      let copy = gradient.copy()
-      copy.label = "addition_input_grad"
-      return (copy, Tensor(), Tensor())
-    }
-    
-    let new = Tensor(result, size: lhs.size, context: context)
+    let new = Tensor(result, size: lhs.size, context: lhs.addContext(value: rhs))
     new.label = "addition"
     
     new.setGraphSafe(lhs)
@@ -817,16 +922,8 @@ public extension Tensor {
     
     // Accelerate-backed flat element-wise subtract
     let result = lhs.storage - rhs.storage
-    
-    let context = TensorContext { inputs, gradient, wrt in
-      if let wrt, (rhs.graphChain.contains(wrt.id) || rhs.id == wrt.id) {
-        return (gradient * -1, Tensor(), Tensor())
-      }
 
-      return (gradient, Tensor(), Tensor())
-    }
-    
-    let new = Tensor(result, size: lhs.size, context: context)
+    let new = Tensor(result, size: lhs.size, context: lhs.subtractContext(value: rhs))
     new.label = "subtraction"
 
     new.setGraphSafe(lhs)
@@ -844,13 +941,8 @@ public extension Tensor {
     
     // Accelerate-backed flat element-wise multiply
     let result = lhs.storage * rhs.storage
-    
-    let copied = rhs.copy()
-    let context = TensorContext { inputs, gradient, wrt in
-      return (gradient * copied, Tensor(), Tensor())
-    }
-    
-    let new = Tensor(result, size: lhs.size, context: context)
+
+    let new = Tensor(result, size: lhs.size, context: lhs.multiplyContext(value: rhs))
     new.label = "multiplication"
 
     new.setGraphSafe(lhs)
@@ -868,20 +960,8 @@ public extension Tensor {
     
     // Accelerate-backed flat element-wise divide
     let result = lhs.storage / rhs.storage
-    
-    let copied = rhs.copy()
-    let context = TensorContext { inputs, gradient, wrt  in
-      if let wrt, (rhs.graphChain.contains(wrt.id) || rhs.id == wrt.id) {
-        
-        let result = gradient * (-1 * (inputs / (copied * copied)))
-        
-        return (result, Tensor(), Tensor())
-      }
 
-      return (gradient * (1 / copied), Tensor(), Tensor())
-    }
-    
-    let new = Tensor(result, size: lhs.size, context: context)
+    let new = Tensor(result, size: lhs.size, context: lhs.divideContext(value: rhs))
     new.label = "division"
 
     new.setGraphSafe(lhs)

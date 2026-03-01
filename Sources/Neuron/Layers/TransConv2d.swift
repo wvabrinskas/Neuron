@@ -22,6 +22,7 @@ public final class TransConv2d: Conv2d {
                        filterSize: (rows: Int, columns: Int) = (3,3),
                        initializer: InitializerType = .heNormal,
                        biasEnabled: Bool = false,
+                       linkId: String = UUID().uuidString,
                        encodingType: EncodingType = .transConv2d) {
     
     super.init(filterCount: filterCount,
@@ -31,6 +32,7 @@ public final class TransConv2d: Conv2d {
                filterSize: filterSize,
                initializer: initializer,
                biasEnabled: biasEnabled,
+               linkId: linkId,
                encodingType: .transConv2d)
   }
   

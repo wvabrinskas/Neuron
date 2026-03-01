@@ -35,6 +35,11 @@ public enum EncodingType: String, Codable {
        globalAvgPool,
        depthwiseConv2d,
        instanceNorm,
+       rexNet,
+       add,
+       multiply,
+       subtract,
+       divide,
        none
 }
 
@@ -70,6 +75,7 @@ public protocol Layer: AnyObject, Codable {
   var device: Device { get set }
   var usesOptimizer: Bool { get set }
   var batchSize: Int { get set }
+  var linkId: String { get }
   @discardableResult
   /// Runs the layer's forward transformation for a single tensor.
   ///
@@ -126,6 +132,76 @@ extension Layer {
   }
 }
 
+open class ArithmeticLayer: BaseLayer {
+  // looks up through the tensor input graph to find the first input tensor with this label applied.
+  // and applies the arithmetic to it that the layer defines along with the input to this layer
+  var linkTo: String
+  
+  let inverse: Bool
+  
+  override public var usesOptimizer: Bool { get { false } set { } }
+
+  init(inputSize: TensorSize? = nil,
+       initializer: InitializerType = Constants.defaultInitializer,
+       biasEnabled: Bool = false,
+       encodingType: EncodingType,
+       inverse: Bool = false,
+       linkId: String = UUID().uuidString,
+       linkTo: String) {
+    self.linkTo = linkTo
+    self.inverse = inverse
+    
+    super.init(inputSize: inputSize,
+               initializer: initializer,
+               biasEnabled: biasEnabled,
+               linkId: linkId,
+               encodingType: encodingType)
+  }
+
+  enum CodingKeys: String, CodingKey {
+    case inputSize, type, linkTo, linkId
+  }
+  
+  open func function(input: Tensor, other: Tensor) -> Tensor {
+    fatalError("override in subclass")
+  }
+  
+  override public func onInputSizeSet() {
+    super.onInputSizeSet()
+    /// do something when the input size is set when calling `compile` on `Sequential`
+    /// like setting the output size or initializing the weights
+    outputSize = inputSize
+  }
+  
+  required convenience public init(from decoder: Decoder) throws {
+    self.init(encodingType: .add, linkTo: "")
+  }
+  
+  public override func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    try container.encode(inputSize, forKey: .inputSize)
+    try container.encode(encodingType, forKey: .type)
+    try container.encode(linkTo, forKey: .linkTo)
+    try container.encode(linkId, forKey: .linkId)
+  }
+
+  public override func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
+    
+    guard let other = lookupInput(input: tensor) else {
+      assertionFailure("could not find reference input tensor in graph")
+      return Tensor()
+    }
+    
+    let out = function(input: tensor, other: other)
+    
+    return super.forward(tensor: out, context: context)
+  }
+  
+  func lookupInput(input: Tensor) -> Tensor? {
+    return input.findInGraph(to: linkTo)
+  }
+}
+
 open class BaseLayer: Layer {
 /// A base class providing default implementations of common `Layer` properties and behaviors.
   public var details: String {
@@ -165,6 +241,9 @@ open class BaseLayer: Layer {
     }
   }
   
+  /// Set this to reference the output of this layer in an arithmetic layer. eg a Shortcut path
+  public var linkId: String = UUID().uuidString
+  
   // defines whether the gradients are run through the optimizer before being applied.
   // this could be useful if a layer manages its own weight updates
 /// The number of samples processed in a single forward/backward pass. Setting this triggers `onBatchSizeSet()`.
@@ -177,14 +256,17 @@ open class BaseLayer: Layer {
   ///   - initializer: Weight initializer strategy.
   ///   - biasEnabled: Whether the layer should use bias parameters.
   ///   - encodingType: Serialized layer type identifier.
+  ///   - linkId: Set this to reference the output of this layer in an arithmetic layer. eg a Shortcut path
   public init(inputSize: TensorSize? = nil,
               initializer: InitializerType = Constants.defaultInitializer,
               biasEnabled: Bool = false,
+              linkId: String = UUID().uuidString,
               encodingType: EncodingType) {
     self.inputSize = inputSize ?? TensorSize(array: [])
     self.initializer = initializer.build()
     self.biasEnabled = biasEnabled
     self.encodingType = encodingType
+    self.linkId = linkId
     
     if inputSize != nil {
       onInputSizeSet()
@@ -243,7 +325,8 @@ open class BaseLayer: Layer {
   /// - Returns: Placeholder tensor.
   public func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
     // override
-    .init()
+    tensor.label = encodingType.rawValue + "-" + linkId
+    return tensor
   }
   
   // guarenteed to be single threaded operation
@@ -306,6 +389,15 @@ open class BaseLayer: Layer {
     guard incomingShape == currentShape else {
       throw(LayerErrors.generic(error: "\(encodingType.rawValue.capitalized) expects weights of shape: \(currentShape). Got: \(incomingShape)"))
     }
+  }
+  
+  func sumBranchGradients(_ gradient: Tensor, to: Tensor) -> Tensor {
+    var result = gradient.copy()
+    for g in to.branchGradients {
+      result = result.copy() + g.value
+    }
+    
+    return result
   }
   
   private func formatTensorSize(_ size: TensorSize) -> String {
@@ -376,6 +468,7 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
               filterSize: (rows: Int, columns: Int) = (3,3),
               initializer: InitializerType = .heNormal,
               biasEnabled: Bool = false,
+              linkId: String = UUID().uuidString,
               encodingType: EncodingType) {
     
     self.filterCount = filterCount
@@ -386,6 +479,7 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
     super.init(inputSize: inputSize,
                initializer: initializer,
                biasEnabled: biasEnabled,
+               linkId: linkId,
                encodingType: encodingType)
     
     if biasEnabled {
@@ -468,10 +562,12 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
   ///   - encodingType: Serialized layer type identifier.
   public init(inputSize: TensorSize? = nil,
               type: Activation,
+              linkId: String = UUID().uuidString,
               encodingType: EncodingType) {
     self.type = type
     super.init(inputSize: inputSize,
                biasEnabled: false,
+               linkId: linkId,
                encodingType: encodingType)
     
     self.usesOptimizer = false
@@ -496,7 +592,7 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
   /// - Returns: A new tensor containing the activated values with a configured backward context.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     
-    let context = TensorContext { inputs, gradient, wrt in
+    let tensorContext = TensorContext { inputs, gradient, wrt in
       let derivResult = self.device.derivate(inputs, self.type)
       let outTensor = derivResult * gradient
       outTensor.label = self.type.asString() + "_input_grad"
@@ -504,12 +600,11 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
     }
     
     let result = device.activate(tensor, type)
-    let out = Tensor(result.storage, size: result.size, context: context)
-    out.label = type.asString()
+    let out = Tensor(result.storage, size: result.size, context: tensorContext)
 
     out.setGraph(tensor)
     
-    return out
+    return super.forward(tensor: out, context: context)
   }
   
   override public func importWeights(_ weights: [Tensor]) throws {

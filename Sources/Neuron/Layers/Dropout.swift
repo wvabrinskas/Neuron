@@ -26,23 +26,28 @@ public final class Dropout: BaseLayer {
   /// - Parameters:
   ///   - chance: Percent change between 0 and 1 of an input node dropping out
   ///   - inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
-  public init(_ chance: Tensor.Scalar, inputSize: TensorSize? = nil) {
+  public init(_ chance: Tensor.Scalar,
+              inputSize: TensorSize? = nil,
+              linkId: String = UUID().uuidString) {
     self.chance = max(min(chance, 1.0), 0.0)
     
     super.init(inputSize: inputSize,
                biasEnabled: false,
+               linkId: linkId,
                encodingType: .dropout)
   }
   
   enum CodingKeys: String, CodingKey {
     case inputSize,
          chance,
-         type
+         type,
+         linkId
   }
   
   convenience public required init(from decoder: Decoder) throws {
-    self.init(0)
     let container = try decoder.container(keyedBy: CodingKeys.self)
+    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
+    self.init(0, linkId: linkId)
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
     self.chance = try container.decodeIfPresent(Tensor.Scalar.self, forKey: .chance) ?? 0
     self.outputSize = inputSize
@@ -56,6 +61,7 @@ public final class Dropout: BaseLayer {
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(chance, forKey: .chance)
     try container.encode(encodingType, forKey: .type)
+    try container.encode(linkId, forKey: .linkId)
   }
   
   /// Applies dropout masking during training and scaling during inference.
@@ -67,7 +73,7 @@ public final class Dropout: BaseLayer {
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let newMask = mask ?? generateMask() // testing purposes only
     
-    let context = TensorContext { [newMask] inputs, gradient, wrt in
+    let tensorContext = TensorContext { [newMask] inputs, gradient, wrt in
       let outMask = newMask
       let droppedOutGradients = gradient * outMask
       
@@ -82,13 +88,11 @@ public final class Dropout: BaseLayer {
       droppedOut = tensor * (1 - chance)
     }
 
-    let out = Tensor(droppedOut.storage, size: droppedOut.size, context: context)
+    let out = Tensor(droppedOut.storage, size: droppedOut.size, context: tensorContext)
     
     out.setGraph(tensor)
-    
-    out.label = String(describing: self)
-    
-    return out
+        
+    return super.forward(tensor: out, context: context)
   }
   
   /// Dropout has no trainable parameters, so this is a no-op.

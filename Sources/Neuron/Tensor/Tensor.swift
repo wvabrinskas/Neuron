@@ -51,6 +51,8 @@ public class Tensor: Equatable, Codable {
 /// A unique identifier type for `Tensor` instances.
   public typealias ID = UInt64
   
+  public private(set) var branchGradients: [Tensor.ID: Tensor] = [:]
+  
   /// Gradient object returned from `gradient` calculation on the Tensor. Contains gradients w.r.t to the `input`, w.r.t to the `weights`, and w.r.t to the `biases`
   public struct Gradient {
     let input: [Tensor]
@@ -100,11 +102,6 @@ public class Tensor: Equatable, Codable {
   /// Shape of the Tensor as a 1D array. `[columns, rows, depth]`
   public var shape: [Int] {
     size.asArray
-  }
-  
-  /// Input from the graph
-  public var input: [ID: Tensor] {
-    graph
   }
   
   /// Hack to avoid having to rewrite every single math function that revolves around 1d and 2d arrays.
@@ -407,13 +404,25 @@ public class Tensor: Equatable, Codable {
   
   // MARK: - Graph
   
+  public func findInGraph(to link: String) -> Tensor? {
+    if label.contains(link) { return self }
+        
+    for child in graph {
+      if let result = child.value.findInGraph(to: link) {
+        return result
+      }
+    }
+    
+    return nil
+  }
+  
   /// Prints a human-readable view of this tensor's computation graph.
   ///
   /// - Parameters:
   ///   - wrt: Optional node to constrain printed branches to a specific path.
   ///   - deep: When `true`, recursively prints each child node's graph.
   public func printGraph(wrt: Tensor? = nil, deep: Bool = false) {
-    var inputs: [ID: Tensor] = input
+    var inputs: [ID: Tensor] = graph
     
     if let wrt {
       if graphChain.contains(wrt.id) == false {
@@ -436,7 +445,7 @@ public class Tensor: Equatable, Codable {
       var childrenAtLevel: [ID: Tensor] = [:]
 
       for (k, v) in inputs {
-        childrenAtLevel.merge(v.input) { _, new in
+        childrenAtLevel.merge(v.graph) { _, new in
           new
         }
         
@@ -507,6 +516,10 @@ public class Tensor: Equatable, Codable {
     return true
   }
   
+  public func setGradientBranch(_ gradient: Tensor) {
+    branchGradients[gradient.id] = gradient
+  }
+  
   // MARK: - Graph Management
   
   /// Sets the input graph to this Tensor
@@ -514,6 +527,11 @@ public class Tensor: Equatable, Codable {
   /// - Parameter breakCycles: If true, will create a copy of the tensor to prevent reference cycles, keeping the context of the original tensor (default: false)
   public func setGraph(_ tensor: Tensor, breakCycles: Bool = false) {
     let tensorToStore = breakCycles ? tensor.copy(keepContext: true) : tensor
+    tensorToStore.label = tensor.label
+    
+    if breakCycles {
+      tensorToStore.label = "\(tensorToStore.label) (copied)"
+    }
     graph[tensorToStore.id] = tensorToStore
     graphChain.insert(tensorToStore.id)
     graphChain.formUnion(tensorToStore.graphChain)
@@ -539,7 +557,7 @@ public class Tensor: Equatable, Codable {
     var biasGradients: [Tensor] = selfGradients.bias
     
     var gradientsAtLevelToUse: [Tensor] = inputGradients
-    var childrenAtLevelToUse: [ID: Tensor] = input
+    var childrenAtLevelToUse: [ID: Tensor] = graph
     
     if let wrt {
       childrenAtLevelToUse = childrenAtLevelToUse.filter({ $0.value.graphChain.contains(wrt.id) || $0.value.id == wrt.id })
@@ -557,7 +575,7 @@ public class Tensor: Equatable, Codable {
       biasGradients.insert(contentsOf: newGrads.bias, at: 0)
       
       gradientsAtLevel.append(contentsOf: newGrads.input)
-      input.input.forEach { childrenAtLevel[$0] = $1 }
+      input.graph.forEach { childrenAtLevel[$0] = $1 }
     }
 
     while childrenAtLevelToUse.isEmpty == false {
@@ -649,7 +667,16 @@ public class Tensor: Equatable, Codable {
         }
       }
       
-      let newGrads = context.backpropagate(input, delta, wrt)
+      // sum branch gradients if they exist before backprop the previous layer
+      // branch gradients are set on the input of the function
+      var delta = delta.copy()
+      for branchGradient in branchGradients {
+        delta = delta.copy() + branchGradient.value
+      }
+      
+      // we also get gradients wrt to the input, this allows us to do auto grad
+      // in the arithmetic
+      let newGrads = context.backpropagate(input, delta, wrt ?? input)
 
       inputGradients.insert(newGrads.input, at: 0)
       weightGradients.insert(newGrads.weight, at: 0)
@@ -657,6 +684,10 @@ public class Tensor: Equatable, Codable {
     }
     
     return (inputGradients, weightGradients, biasGradients)
+  }
+  
+  public func sharesGraph(with tensor: Tensor) -> Bool {
+    graphChain.intersection(tensor.graphChain).isEmpty == false
   }
   
   // MARK: - Normalization / Clipping

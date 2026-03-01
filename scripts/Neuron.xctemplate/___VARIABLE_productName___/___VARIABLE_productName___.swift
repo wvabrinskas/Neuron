@@ -12,15 +12,18 @@ import Foundation
 import NumSwift
 
 public final class ___VARIABLE_productName___: BaseLayer {
-  public init(inputSize: TensorSize = TensorSize(array: []), initializer: InitializerType = .heNormal) {
+  public init(inputSize: TensorSize = TensorSize(array: []),
+              initializer: InitializerType = .heNormal,
+              linkId: String = UUID().uuidString) {
     super.init(inputSize: inputSize,
                initializer: initializer,
-               biasEnabled: false,
+               biasEnabled: false,  
+               linkId: linkId,
                encodingType: .___VARIABLE_encodingType___)
   }
   
   enum CodingKeys: String, CodingKey {
-    case inputSize, type
+    case inputSize, type, linkId
   }
   
   override public func onInputSizeSet() {
@@ -33,12 +36,14 @@ public final class ___VARIABLE_productName___: BaseLayer {
     self.init()
     let container = try decoder.container(keyedBy: CodingKeys.self)
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
+    self.linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
   }
   
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(encodingType, forKey: .type)
+    try container.encode(linkId, forKey: .linkId)
   }
   
   public override func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
@@ -48,7 +53,8 @@ public final class ___VARIABLE_productName___: BaseLayer {
     }
     
     // forward calculation
-    return Tensor()
+    let out = Tensor()
+    return super.forward(tensor: out, context: context)
   }
 }
 

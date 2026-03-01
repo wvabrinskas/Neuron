@@ -33,7 +33,7 @@ public final class LayerNormalize: BaseLayer {
 
   /// Coding keys used for encoding and decoding the layer normalization layer.
   public enum CodingKeys: String, CodingKey {
-    case gamma, beta, epsilon, inputSize
+    case gamma, beta, epsilon, inputSize, linkId
   }
   
   /// Default initializer for layer normalization.
@@ -45,13 +45,15 @@ public final class LayerNormalize: BaseLayer {
   public init(epsilon: Tensor.Scalar = .stabilityFactor,
               gamma: Tensor = .init(),
               beta: Tensor = .init(),
-              inputSize: TensorSize? = nil) {
+              inputSize: TensorSize? = nil,
+              linkId: String = UUID().uuidString) {
     self.epsilon = epsilon
     self.beta = beta
     self.gamma = gamma
     
     super.init(inputSize: inputSize,
                biasEnabled: false,
+               linkId: linkId,
                encodingType: .layerNormalize)
     
     if let inputSize {
@@ -67,9 +69,12 @@ public final class LayerNormalize: BaseLayer {
     let beta = try container.decodeIfPresent(Tensor.self, forKey: .beta) ?? .init()
     let epsilon = try container.decodeIfPresent(Tensor.Scalar.self, forKey: .epsilon) ?? .stabilityFactor
 
+    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
+    
     self.init(epsilon: epsilon,
               gamma: gamma,
-              beta: beta)
+              beta: beta,
+              linkId: linkId)
     
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
     self.outputSize = inputSize
@@ -86,6 +91,7 @@ public final class LayerNormalize: BaseLayer {
     try container.encode(beta, forKey: .beta)
     try container.encode(gamma, forKey: .gamma)
     try container.encode(epsilon, forKey: .epsilon)
+    try container.encode(linkId, forKey: .linkId)
   }
   
   /// Applies layer normalization over each depth slice.
@@ -95,14 +101,15 @@ public final class LayerNormalize: BaseLayer {
   ///   - context: Network execution context.
   /// - Returns: Normalized tensor with layer-norm backpropagation context.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
-    let context = TensorContext { inputs, gradient, wrt in
+    let tensorContext = TensorContext { inputs, gradient, wrt in
       self.backwardFlat(inputs: inputs, gradient: gradient)
     }
     
     let forwardStorage = normalizeFlat(inputs: tensor)
-    let out = Tensor(forwardStorage, size: tensor.size, context: context)
+    let out = Tensor(forwardStorage, size: tensor.size, context: tensorContext)
     out.setGraph(tensor)
-    return out
+    
+    return super.forward(tensor: out, context: context)
   }
   
   override public func onInputSizeSet() {

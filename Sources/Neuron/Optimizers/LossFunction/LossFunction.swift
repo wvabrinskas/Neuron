@@ -78,7 +78,7 @@ public enum LossFunction {
   public func derivative(_ predicted: Tensor, correct: Tensor) -> Tensor {
     switch self {
     case .meanSquareError:
-      return -1 * ((predicted - correct) * 2)
+      return 2 * (predicted - correct)
     case .crossEntropy:
       return predicted.map { -1 * (1 / $0) }
       
