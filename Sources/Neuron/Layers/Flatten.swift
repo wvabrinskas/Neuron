@@ -12,14 +12,16 @@ import NumSwift
 public final class Flatten: BaseLayer {
   /// Default initializer for Flatten layer.
   /// - Parameter inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
-  public init(inputSize: TensorSize? = nil) {
+  public init(inputSize: TensorSize? = nil,
+              linkId: String = UUID().uuidString) {
     super.init(inputSize: inputSize,
                biasEnabled: false,
+               linkId: linkId,
                encodingType: .flatten)
   }
   
   enum CodingKeys: String, CodingKey {
-    case inputSize, type
+    case inputSize, type, linkId
   }
   
   override public func onInputSizeSet() {
@@ -29,8 +31,9 @@ public final class Flatten: BaseLayer {
   }
   
   convenience public required init(from decoder: Decoder) throws {
-    self.init()
     let container = try decoder.container(keyedBy: CodingKeys.self)
+    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
+    self.init(linkId: linkId)
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
     
     let total = inputSize.columns * inputSize.rows * inputSize.depth
@@ -44,6 +47,7 @@ public final class Flatten: BaseLayer {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(encodingType, forKey: .type)
+    try container.encode(linkId, forKey: .linkId)
   }
   
   /// Flattens the input tensor into shape `[columns*rows*depth, 1, 1]`.
@@ -53,7 +57,7 @@ public final class Flatten: BaseLayer {
   ///   - context: Network execution context.
   /// - Returns: Flattened tensor with reshape-aware backpropagation context.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
-    let context = TensorContext { inputs, gradient, wrt in
+    let tensorContext = TensorContext { inputs, gradient, wrt in
       // Reshape gradient back to original inputSize by reinterpreting flat storage
       let inputSize = self.inputSize
       return (Tensor(gradient.storage, size: inputSize), Tensor(), Tensor())
@@ -62,10 +66,10 @@ public final class Flatten: BaseLayer {
     // Flatten: just reinterpret the flat storage as (total, 1, 1)
     let total = tensor.storage.count
     let flatSize = TensorSize(rows: 1, columns: total, depth: 1)
-    let flat = Tensor(tensor.storage, size: flatSize, context: context)
+    let flat = Tensor(tensor.storage, size: flatSize, context: tensorContext)
     
     flat.setGraph(tensor)
     
-    return flat
+    return super.forward(tensor: flat, context: context)
   }
 }

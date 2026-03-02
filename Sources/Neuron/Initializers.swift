@@ -7,6 +7,7 @@
 
 import Foundation
 import GameplayKit
+import NumSwift
 
 /// Weight initializer methods
 public enum InitializerType: Codable, Equatable {
@@ -17,6 +18,7 @@ public enum InitializerType: Codable, Equatable {
   
   case heNormal
   case heUniform
+  case orthogonal(gain: Tensor.Scalar)
   case normal(std: Tensor.Scalar)
   
   /// Creates an executable initializer from this initializer type.
@@ -33,6 +35,7 @@ public struct Initializer {
 /// The type of initialization strategy used by this initializer.
   public let type: InitializerType
   private var dist: Gaussian = Gaussian(std: 1, mean: 0)
+  private var normal = NormalDistribution(mean: 0, deviation: 1)
   
 /// Coding keys used for encoding and decoding the initializer type,
   /// each mapping to a corresponding `InitializerType` value.
@@ -42,6 +45,7 @@ public struct Initializer {
     case heNormal
     case heUniform
     case normal
+    case orthogonal
     
     var type: InitializerType {
       switch self {
@@ -55,6 +59,8 @@ public struct Initializer {
         return .heUniform
       case .normal:
         return .normal(std: 1)
+      case .orthogonal:
+        return .orthogonal(gain: 1)
       }
     }
   }
@@ -71,6 +77,32 @@ public struct Initializer {
       break
     }
   }
+
+
+  /// Generates a tensor filled with initialized scalar values.
+  ///
+  /// - Parameters:
+  ///   - size: Target tensor shape.
+  ///   - input: Fan-in size.
+  ///   - out: Fan-out size (used by Xavier variants).
+  /// - Returns: Tensor populated with initialized values.
+  public func calculate(size: TensorSize, input: Int, out: Int = 0) -> Tensor {
+    if case .orthogonal(let gain) = type {
+      return orthogonalTensor(size: size, gain: gain)
+    }
+
+    var tensor: Tensor.Value = .init(repeating: 0, count: size.depth * size.rows * size.columns)
+
+    for d in 0..<size.depth {
+      for r in 0..<size.rows {
+        for c in 0..<size.columns {
+          tensor[d * size.rows * size.columns + r * size.columns + c] = calculate(input: input, out: out)
+        }
+      }
+    }
+
+    return Tensor(tensor, size: size)
+  }
   
   /// Generates one initialized scalar value.
   ///
@@ -78,7 +110,7 @@ public struct Initializer {
   ///   - input: Fan-in size.
   ///   - out: Fan-out size (used by Xavier variants).
   /// - Returns: One initialized scalar sampled using the selected strategy.
-  public func calculate(input: Int, out: Int = 0) -> Tensor.Scalar {
+  private func calculate(input: Int, out: Int = 0) -> Tensor.Scalar {
     switch type {
     
     case .xavierUniform:
@@ -103,35 +135,74 @@ public struct Initializer {
       
     case .normal:
       return Tensor.Scalar(dist.gaussRand)
+      
+    case .orthogonal(let gain):
+      // Orthogonal initialization is inherently a matrix-level operation.
+      // Per-scalar calls fall back to scaled normal samples; use calculate(size:input:out:) for correct behavior.
+      return gain * normal.nextScalar()
     }
   }
-  
-  /// Generates a tensor filled with initialized scalar values.
+
+  /// Generates an orthogonal weight tensor using Gram-Schmidt QR decomposition.
+  ///
+  /// Produces a tensor where each depth slice is an orthogonal matrix (or its transpose
+  /// when rows < columns), scaled by `gain`. This follows the same approach as
+  /// PyTorch's `torch.nn.init.orthogonal_`.
   ///
   /// - Parameters:
   ///   - size: Target tensor shape.
-  ///   - input: Fan-in size.
-  ///   - out: Fan-out size (used by Xavier variants).
-  /// - Returns: Tensor populated with initialized values.
-  public func calculate(size: TensorSize, input: Int, out: Int = 0) -> Tensor {
+  ///   - gain: Scaling factor applied to the orthogonal matrix.
+  /// - Returns: Tensor with orthogonal weight values.
+  private func orthogonalTensor(size: TensorSize, gain: Tensor.Scalar) -> Tensor {
     var tensor: [[[Tensor.Scalar]]] = []
-    
+
     for _ in 0..<size.depth {
-      var rows: [[Tensor.Scalar]] = []
-      
-      for _ in 0..<size.rows {
-        var columns: [Tensor.Scalar] = []
-        
-        for _ in 0..<size.columns {
-          columns.append(calculate(input: input, out: out))
-        }
-        rows.append(columns)
+      let rows = size.rows
+      let cols = size.columns
+
+      // Draw a random matrix from the standard normal distribution.
+      let A: [[Tensor.Scalar]] = (0..<rows).map { _ in
+        (0..<cols).map { _ in normal.nextScalar() }
       }
-      
-      tensor.append(rows)
+
+      // Gram-Schmidt orthonormalization on the rows of A.
+      var Q: [[Tensor.Scalar]] = []
+      for i in 0..<rows {
+        var v = A[i]
+        for q in Q {
+          let proj = dot(v, q)
+          v = subtract(v, scale(q, by: proj))
+        }
+        let norm = magnitude(v)
+        if norm > 1e-10 {
+          Q.append(scale(v, by: 1 / norm))
+        } else {
+          Q.append([Tensor.Scalar](repeating: 0, count: cols))
+        }
+      }
+
+      // Scale by gain.
+      let result = Q.map { row in row.map { $0 * gain } }
+      tensor.append(result)
     }
-    
+
     return Tensor(tensor)
+  }
+
+  private func dot(_ a: [Tensor.Scalar], _ b: [Tensor.Scalar]) -> Tensor.Scalar {
+    (a * b).sum
+  }
+
+  private func subtract(_ a: [Tensor.Scalar], _ b: [Tensor.Scalar]) -> [Tensor.Scalar] {
+    a - b
+  }
+
+  private func scale(_ a: [Tensor.Scalar], by s: Tensor.Scalar) -> [Tensor.Scalar] {
+    a * s
+  }
+
+  private func magnitude(_ a: [Tensor.Scalar]) -> Tensor.Scalar {
+    Tensor.Scalar.sqrt(a.sumOfSquares)
   }
 }
 
@@ -153,6 +224,8 @@ extension Initializer: Codable {
       try container.encode(CodingKeys.heNormal.stringValue, forKey: .heNormal)
     case .normal(let std):
       try container.encode(CodingKeys.normal.stringValue + "-\(std)", forKey: .normal)
+    case .orthogonal(let gain):
+      try container.encode(CodingKeys.orthogonal.stringValue + "-\(gain)", forKey: .orthogonal)
     }
   }
   
@@ -175,7 +248,18 @@ extension Initializer: Codable {
         } else {
           self = .init(type: .normal(std: 1))
         }
-      } else {
+      } else if k == .orthogonal {
+        if let val = try values.decodeIfPresent(String.self, forKey: .orthogonal) {
+          let split = val.split(separator: "-")[safe: 1, ""]
+          if let gain = Tensor.Scalar(split) {
+            self = .init(type: .orthogonal(gain: gain))
+          } else {
+            self = .init(type: .orthogonal(gain: 1))
+          }
+        } else {
+          self = .init(type: .orthogonal(gain: 1))
+        }
+    } else {
         self = .init(type: k.type)
       }
     }

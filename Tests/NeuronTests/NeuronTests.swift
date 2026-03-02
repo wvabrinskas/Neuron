@@ -379,9 +379,37 @@ final class NeuronTests: XCTestCase {
     result.biases.forEach { XCTAssert(Tensor(20).isValueEqual(to: $0)) }
   }
   
-  func testLayerNorm_1d() {
-    let input = Tensor([[1,0,1,0,1]])
+  func testLayerNorm_3d() {
+    let input = Tensor([
+      [[1.0, 2.0, 3.0, 4.0],
+        [2.0, 4.0, 6.0, 8.0]]
+  ])
     let norm = LayerNormalize(inputSize: input.shape.tensorSize)
+    
+    let out = norm.forward(tensor: input)
+    out.setGraph(input)
+
+    XCTAssert(out.isValueEqual(to: Tensor([[-1.2701705, -0.8082903, -0.34641013, 0.115470044],
+                                           [-0.8082903, 0.115470044, 1.0392303, 1.9629908]]), accuracy: 0.00001))
+    
+    let delta = out.onesLike()
+    
+    let gradient = out.gradients(delta: delta, wrt: input)
+    
+    XCTAssert(gradient.input.first?.isEmpty == false)
+    XCTAssert(gradient.input.first!.isValueEqual(to: .fillWith(value: 0, size: input.size), accuracy: 0.0001))
+    XCTAssert(gradient.weights.first!.isValueEqual(to: .init([-1.2701705, -0.8082903, -0.34641013, 0.115470044,
+                                                               -0.8082903, 0.115470044, 1.0392303, 1.9629908,
+                                                               1.0, 1.0, 1.0, 1.0,
+                                                               1.0, 1.0, 1.0, 1.0], size: .init(rows: 2, columns: 4, depth: 2)), accuracy: 0.0001))
+    
+    // test for crash
+    norm.apply(gradients: (gradient.weights.first!, .init()), learningRate: 0.001)
+  }
+  
+  func testInstanceNorm_1d() {
+    let input = Tensor([[1,0,1,0,1]])
+    let norm = InstanceNormalize(inputSize: input.shape.tensorSize)
     
     let out = norm.forward(tensor: input)
     out.setGraph(input)
@@ -393,13 +421,13 @@ final class NeuronTests: XCTestCase {
     let gradient = out.gradients(delta: delta, wrt: input)
     
     XCTAssert(gradient.input.first?.isEmpty == false)
-    XCTAssert(gradient.weights.first![0..., 0..., 0..<input.shape.tensorSize.depth].isValueEqual(to: Tensor([0.40824825, 0.0, 0.40824825, 0.0, 0.40824825]), accuracy: 0.00001))
-    XCTAssert(gradient.input.first!.isValueEqual(to: Tensor([-2.3814485, 0.0, -2.3814485, 0.0, -2.3814485]), accuracy: 0.00001))
+    XCTAssert(gradient.weights.first!.isValueEqual(to: Tensor([1.2247448, 1.5], size: .init(array: [1,1,2])), accuracy: 0.00001))
+    XCTAssert(gradient.input.first!.isValueEqual(to: Tensor([7.3000486e-08, 0.0, 7.3000486e-08, 0.0, 7.3000486e-08]), accuracy: 0.00001))
   }
   
-  func testLayerNorm_2d() {
+  func testInstanceNorm_2d() {
     let input = Tensor([[1,0,1,0,1], [1,0,1,0,1]])
-    let norm = LayerNormalize(inputSize: input.shape.tensorSize)
+    let norm = InstanceNormalize(inputSize: input.shape.tensorSize)
     
     let out = norm.forward(tensor: input)
     out.setGraph(input)
@@ -413,38 +441,30 @@ final class NeuronTests: XCTestCase {
     let gradient = out.gradients(delta: delta, wrt: input)
     
     XCTAssert(gradient.input.first?.isEmpty == false)
-    XCTAssert(gradient.weights.first![0..., 0..., 0..<input.shape.tensorSize.depth].isValueEqual(to: Tensor([[0.40824825, 0.0000, 0.40824825, 0.0000, 0.40824825],
-                                                                                                             [0.40824825, 0.0000, 0.40824825, 0.0000, 0.40824825]]), accuracy: 0.00001))
+    XCTAssert(gradient.weights.first!.isValueEqual(to: Tensor([2.4494896, 3.0], size: .init(array: [1,1,2])), accuracy: 0.00001))
+    XCTAssert(gradient.input.first!.isValueEqual(to: Tensor([[7.3000486e-08, 0.0, 7.3000486e-08, 0.0, 7.3000486e-08],
+                                                             [7.3000486e-08, 0.0, 7.3000486e-08, 0.0, 7.3000486e-08]]), accuracy: 0.00001))
   }
   
-  
-  func testLayerNorm_3d() {
-    let input = Tensor([[[1,0],
-                         [1,0]],
-                       [[1,0],
-                        [1,0]]])
-    let norm = LayerNormalize(inputSize: input.shape.tensorSize)
+  func testInstanceNorm_3d() {
+    let input = Tensor([[[1.0, 2.0], [3.0, 4.0]], [[5.0, 6.0], [7.0, 8.0]]])
+    let norm = InstanceNormalize(inputSize: input.shape.tensorSize)
     
     let out = norm.forward(tensor: input)
     out.setGraph(input)
 
-    XCTAssert(out.isValueEqual(to: Tensor([[[ 1.0000, -1.0000],
-                                            [ 1.0000, -1.0000]],
-                                           [[ 1.0000, -1.0000],
-                                            [ 1.0000, -1.0000]]])))
+    XCTAssert(out.isValueEqual(to: Tensor([[[ -1.3416407, -0.4472136],
+                                            [ 0.4472136, 1.3416407]],
+                                           [[ -1.3416407, -0.4472136],
+                                            [ 0.4472136, 1.3416407]]]), accuracy: 0.00001))
     
-    let delta = Tensor([[[0.5,0],
-                         [0.5,0]],
-                        [[0.5,0],
-                         [0.5,0]]])
+    let delta = out.onesLike()
     
     let gradient = out.gradients(delta: delta, wrt: input)
     
     XCTAssert(gradient.input.first?.isEmpty == false)
-    XCTAssert(gradient.weights.first![0..., 0..., 0..<input.shape.tensorSize.depth].isValueEqual(to: Tensor([[[0.5,0],
-                                                                                                              [0.5,0]],
-                                                                                                             [[0.5,0],
-                                                                                                              [0.5,0]]])))
+    XCTAssert(gradient.input.first!.isValueEqual(to: .fillWith(value: 0, size: input.size), accuracy: 0.0001))
+    XCTAssert(gradient.weights.first!.isValueEqual(to: .init([0, 0, 4, 4], size: .init(rows: 1, columns: 2, depth: 2)), accuracy: 0.0001))
   }
   
   

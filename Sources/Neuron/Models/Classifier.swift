@@ -175,7 +175,7 @@ public class Classifier {
                   wrt: nil,
                   lossFunction: lossFunction,
                   validation: validation,
-                  requiresGradients: requiresGradients)
+                  requiresGradients: requiresGradients && validation == false)
   }
 
 }

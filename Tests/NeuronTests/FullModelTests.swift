@@ -58,8 +58,7 @@ class MockRNNDataset: VectorizableDataset<String> {
       labelTensors.append(oneHot)
     }
     
-    vocabSize = vectorizer.inverseVector.count
-    
+    self.vocabSize = vectorizer.inverseVector.count
     // Build training and validation datasets
     var training: [DatasetModel] = []
     var val: [DatasetModel] = []
@@ -273,8 +272,8 @@ final class FullModelTests: XCTestCase {
                                                                metricsReporter: reporter),
                   lstmParameters: RNN.RNNLSTMParameters(hiddenUnits: hiddenUnits,
                                                         inputUnits: inputUnits,
-                                                        embeddingInitializer: .xavierNormal,
-                                                        lstmInitializer: .xavierNormal))
+                                                        embeddingInitializer: .orthogonal(gain: 1.0),
+                                                        lstmInitializer: .orthogonal(gain: 1.0)))
     
     
     reporter.receive = { _ in }

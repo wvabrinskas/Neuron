@@ -26,20 +26,24 @@ public final class MaxPool: BaseLayer {
     
   /// Default initializer for max pooling.
   /// - Parameter inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
-  public init(inputSize: TensorSize? = nil) {
+  public init(inputSize: TensorSize? = nil,
+              linkId: String = UUID().uuidString) {
     super.init(inputSize: inputSize,
                biasEnabled: false,
+               linkId: linkId,
                encodingType: .maxPool)
   }
   
   enum CodingKeys: String, CodingKey {
     case inputSize,
-         type
+         type,
+         linkId
   }
   
   convenience public required init(from decoder: Decoder) throws {
-    self.init()
     let container = try decoder.container(keyedBy: CodingKeys.self)
+    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
+    self.init(linkId: linkId)
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
   }
   
@@ -50,6 +54,7 @@ public final class MaxPool: BaseLayer {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(encodingType, forKey: .type)
+    try container.encode(linkId, forKey: .linkId)
   }
   
   /// Performs 2x2 max pooling on each depth slice.
@@ -70,7 +75,6 @@ public final class MaxPool: BaseLayer {
       
       let inRows = inputSize.rows
       let inCols = inputSize.columns
-      let gradCols = gradient.size.columns
       
       for d in 0..<inputSize.depth {
         let gradSlice = gradient.depthSlice(d)
@@ -113,13 +117,13 @@ public final class MaxPool: BaseLayer {
 
     poolingGradients = PoolingGradient(tensorId: tensor.id, indicies: currentIndicies)
 
-    let context = TensorContext(backpropagate: backwards)
+    let tensorContext = TensorContext(backpropagate: backwards)
     let outSize = TensorSize(rows: outRows, columns: outCols, depth: inputSize.depth)
-    let out = Tensor(outStorage, size: outSize, context: context)
+    let out = Tensor(outStorage, size: outSize, context: tensorContext)
     
     out.setGraph(tensor)
     
-    return out
+    return super.forward(tensor: out, context: context)
   }
   
   override public func onInputSizeSet() {

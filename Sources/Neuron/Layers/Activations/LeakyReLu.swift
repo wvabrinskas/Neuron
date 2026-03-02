@@ -14,23 +14,27 @@ public final class LeakyReLu: BaseActivationLayer {
   
   /// Default initializer for a leaky relu activation function.
   /// - Parameter limit: The alpha limit value for leaky relu.
-  public init(limit: Tensor.Scalar = 0.01) {
+  public init(limit: Tensor.Scalar = 0.01,
+              linkId: String = UUID().uuidString) {
     self.limit = limit
     
     super.init(type: .leakyRelu(limit: limit),
+               linkId: linkId,
                encodingType: .leakyRelu)
   }
   
   enum CodingKeys: String, CodingKey {
     case inputSize,
          type,
-         limit
+         limit,
+         linkId
   }
   
   convenience public required init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let limit = try container.decodeIfPresent(Tensor.Scalar.self, forKey: .limit) ?? 0.01
-    self.init(limit: limit)
+    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
+    self.init(limit: limit, linkId: linkId)
     
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
     self.outputSize = inputSize
@@ -44,6 +48,7 @@ public final class LeakyReLu: BaseActivationLayer {
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(type, forKey: .type)
     try container.encode(limit, forKey: .limit)
+    try container.encode(linkId, forKey: .linkId)
   }
   
   override public func onInputSizeSet() {

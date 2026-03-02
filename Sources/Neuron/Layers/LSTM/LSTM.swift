@@ -151,7 +151,8 @@ public final class LSTM: BaseLayer {
               biasEnabled: Bool = false,
               initializer: InitializerType = .xavierNormal,
               hiddenUnits: Int,
-              vocabSize: Int) {
+              vocabSize: Int,
+              linkId: String = UUID().uuidString) {
     let inputSize = TensorSize(rows: 1,
                                columns: vocabSize,
                                depth: batchLength)
@@ -164,6 +165,7 @@ public final class LSTM: BaseLayer {
     super.init(inputSize: inputSize,
                initializer: initializer,
                biasEnabled: biasEnabled,
+               linkId: linkId,
                encodingType: .lstm)
     
     initializeWeights()
@@ -190,7 +192,8 @@ public final class LSTM: BaseLayer {
          hiddenOutputWeights,
          hiddenOutputBiases,
          batchLength,
-         inputUnits
+         inputUnits,
+         linkId
   }
   
   convenience required public init(from decoder: Decoder) throws {
@@ -200,10 +203,13 @@ public final class LSTM: BaseLayer {
     let inputUnits = try container.decodeIfPresent(Int.self, forKey: .inputUnits) ?? 0
     let batchLength = try container.decodeIfPresent(Int.self, forKey: .batchLength) ?? 0
     
+    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
+    
     self.init(inputUnits: inputUnits,
               batchLength: batchLength,
               hiddenUnits: hiddenUnits,
-              vocabSize: vocabSize)
+              vocabSize: vocabSize,
+              linkId: linkId)
     
     self.biasEnabled = try container.decodeIfPresent(Bool.self, forKey: .biasEnabled) ?? false
     self.outputSize = try container.decodeIfPresent(TensorSize.self, forKey: .outputSize) ?? TensorSize(array: [])
@@ -258,6 +264,7 @@ public final class LSTM: BaseLayer {
     try container.encode(gateGateBiases, forKey: .gateGateBiases)
     try container.encode(outputGateBiases, forKey: .outputGateBiases)
     try container.encode(hiddenOutputBiases, forKey: .hiddenOutputBiases)
+    try container.encode(linkId, forKey: .linkId)
   }
   
   
@@ -340,10 +347,9 @@ public final class LSTM: BaseLayer {
       out = Tensor(lastSlice, size: lastSize, context: tensorContext)
     }
     
-    out.label = String(describing: self)
     out.setGraph(tensor)
     
-    return out
+    return super.forward(tensor: out, context: context)
   }
   
   
@@ -365,15 +371,15 @@ public final class LSTM: BaseLayer {
      */
     
     // Split weight gradients along depth (each gate's weights are one depth slice)
-    let gLayerTensors = gradients.weights.split(into: 1, axis: 2)
+    let gLayerTensors = gradients.weights
     
-    if gLayerTensors.count >= 5,
-       let forgetGateWeightGrads = gLayerTensors[safe: 0],
-       let inputGateWeightGrads = gLayerTensors[safe: 1],
-       let gateGateWeightGrads = gLayerTensors[safe: 2],
-       let outputGateWeightGrads = gLayerTensors[safe: 3] {
+    if gLayerTensors.size.depth >= 5 {
+      let forgetGateWeightGrads = gLayerTensors.depthSliceTensor(0)
+      let inputGateWeightGrads = gLayerTensors.depthSliceTensor(1)
+      let gateGateWeightGrads = gLayerTensors.depthSliceTensor(2)
+      let outputGateWeightGrads = gLayerTensors.depthSliceTensor(3)
       
-      let hiddenOutputWeightGradients = gLayerTensors[4][..<hiddenUnits, 0..<vocabSize, 0...]
+      let hiddenOutputWeightGradients = gLayerTensors[..<hiddenUnits, ..<vocabSize, 4...]
       
       forgetGateWeightGrads.l2Normalize()
       inputGateWeightGrads.l2Normalize()
@@ -399,15 +405,17 @@ public final class LSTM: BaseLayer {
      
      hiddenOutputWeightBiases = 4
      */
-    let gBiasLayerTensors = gradients.biases.split(into: 1, axis: 2)
+    let gBiasLayerTensors = gradients.biases
     
     if biasEnabled,
-       gBiasLayerTensors.count >= 5,
-       let forgetGateBiasGrads = gBiasLayerTensors[safe: 0],
-       let inputGateBiasGrads = gBiasLayerTensors[safe: 1],
-       let gateGateBiasGrads = gBiasLayerTensors[safe: 2],
-       let outputGateBiasGrads = gBiasLayerTensors[safe: 3],
-       let hiddenOutputBiasGradients = gBiasLayerTensors[safe: 4] {
+       gBiasLayerTensors.size.depth >= 5 {
+      
+      let forgetGateBiasGrads = gBiasLayerTensors.depthSliceTensor(0)
+      let inputGateBiasGrads = gBiasLayerTensors.depthSliceTensor(1)
+      let gateGateBiasGrads = gBiasLayerTensors.depthSliceTensor(2)
+      let outputGateBiasGrads = gBiasLayerTensors.depthSliceTensor(3)
+      
+      let hiddenOutputBiasGradients = gBiasLayerTensors[..<vocabSize, 0..., 4...]
       
       forgetGateBiases = forgetGateBiases.copy() - forgetGateBiasGrads
       inputGateBiases = inputGateBiases.copy() - inputGateBiasGrads
