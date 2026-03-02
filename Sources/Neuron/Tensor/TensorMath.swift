@@ -325,8 +325,15 @@ public extension Tensor {
     
     new.label = "multiplication"
 
-    new.setGraphSafe(self)
-    new.setGraphSafe(value)
+    if graphChain.contains(value.id) {
+      // non branched node
+      new.setGraphSafe(self)
+      new.setGraphSafe(value)
+    } else {
+      // branched node
+      new.setGraphSafe(value)
+      new.setGraphSafe(self)
+    }
     
     return new
   }
@@ -399,8 +406,15 @@ public extension Tensor {
     
     new.label = "addition"
 
-    new.setGraphSafe(self)
-    new.setGraphSafe(value)
+    if graphChain.contains(value.id) {
+      // non branched node
+      new.setGraphSafe(self)
+      new.setGraphSafe(value)
+    } else {
+      // branched node
+      new.setGraphSafe(value)
+      new.setGraphSafe(self)
+    }
     
     return new
   }
@@ -907,8 +921,15 @@ public extension Tensor {
     let new = Tensor(result, size: lhs.size, context: lhs.addContext(value: rhs))
     new.label = "addition"
     
-    new.setGraphSafe(lhs)
-    new.setGraphSafe(rhs)
+    if lhs.graphChain.contains(rhs.id) {
+      // non branched node
+      new.setGraphSafe(lhs)
+      new.setGraphSafe(rhs)
+    } else {
+      // branched node
+      new.setGraphSafe(rhs)
+      new.setGraphSafe(lhs)
+    }
     
     return new
   }
@@ -926,8 +947,15 @@ public extension Tensor {
     let new = Tensor(result, size: lhs.size, context: lhs.subtractContext(value: rhs))
     new.label = "subtraction"
 
-    new.setGraphSafe(lhs)
-    new.setGraphSafe(rhs)
+    if lhs.graphChain.contains(rhs.id) {
+      // non branched node
+      new.setGraphSafe(lhs)
+      new.setGraphSafe(rhs)
+    } else {
+      // branched node
+      new.setGraphSafe(rhs)
+      new.setGraphSafe(lhs)
+    }
     
     return new
   }
@@ -945,8 +973,15 @@ public extension Tensor {
     let new = Tensor(result, size: lhs.size, context: lhs.multiplyContext(value: rhs))
     new.label = "multiplication"
 
-    new.setGraphSafe(lhs)
-    new.setGraphSafe(rhs)
+    if lhs.graphChain.contains(rhs.id) {
+      // non branched node
+      new.setGraphSafe(lhs)
+      new.setGraphSafe(rhs)
+    } else {
+      // branched node
+      new.setGraphSafe(rhs)
+      new.setGraphSafe(lhs)
+    }
     
     return new
   }
@@ -964,8 +999,15 @@ public extension Tensor {
     let new = Tensor(result, size: lhs.size, context: lhs.divideContext(value: rhs))
     new.label = "division"
 
-    new.setGraphSafe(lhs)
-    new.setGraphSafe(rhs)
+    if lhs.graphChain.contains(rhs.id) {
+      // non branched node
+      new.setGraphSafe(lhs)
+      new.setGraphSafe(rhs)
+    } else {
+      // branched node
+      new.setGraphSafe(rhs)
+      new.setGraphSafe(lhs)
+    }
     
     return new
   }
