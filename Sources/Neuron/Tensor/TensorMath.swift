@@ -258,7 +258,10 @@ public extension Tensor {
     
     // we need to detach the branch first and then set graph
     // these are reverseable actions where order matters
-    // a / b != b / a
+    // this is important to add the non branching node first
+    // so when the branching node is added it is copied with context rather than just inserted
+    // the non branching node CONTAINS the value so adding the branching node first wont copy it
+    // and we'll get two graphs leading to the same place.
     if graphChain.contains(value.id) {
       // non branched node
       new.setGraphSafe(self)
