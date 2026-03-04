@@ -81,6 +81,8 @@ open class BaseTokenizer: Tokenizing {
     vectorizer.vectorize(specialTokens)
     vectorizer.vectorize(flatCorpus.characters)
     vocab = vectorizer.vector
+    reverseVocab = vectorizer.inverseVector
+    
     nextId = vectorizer.lastKey + 1
     
     var wordFrequency: [String: Int] = [:]
@@ -103,7 +105,11 @@ open class BaseTokenizer: Tokenizing {
       }
       
       guard pairCounts.isEmpty == false,
-         let bestPair = pairCounts.sorted(by: { $0.value > $1.value }).first?.key else {
+         let bestPair = pairCounts.sorted(by: {
+           if $0.value != $1.value { return $0.value > $1.value }
+           if $0.key.tokenA != $1.key.tokenA { return $0.key.tokenA < $1.key.tokenA }
+           return $0.key.tokenB < $1.key.tokenB
+         }).first?.key else {
         break
       }
       
