@@ -10,7 +10,7 @@ import XCTest
 import NumSwift
 @testable import Neuron
 
-class MockRNNDataset: VectorizableDataset<String> {
+class MockRNNDataset: VectorizableDataset {
   private let inputStrings: [String]
   private let labelStrings: [String]
   private let maxLength: Int
@@ -33,7 +33,7 @@ class MockRNNDataset: VectorizableDataset<String> {
     super.init()
   }
   
-  required init(vectorizer: Vectorizer<String> = .init()) {
+  required init(vectorizer: Vectorizer = .init()) {
     fatalError("init(vectorizer:) has not been implemented")
   }
   
