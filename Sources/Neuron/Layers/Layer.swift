@@ -367,11 +367,7 @@ open class BaseLayer: Layer {
   /// - Returns: Single weight tensor for simple layers.
   /// - Throws: `LayerErrors` if weights are not initialized.
   public func exportWeights() throws -> [Tensor] {
-    guard self.weights.isEmpty == false else {
-      throw LayerErrors.generic(error: "\(encodingType.rawValue.capitalized) weights have not been initialized.")
-    }
-    
-    return [weights]
+    [weights]
   }
   
   /// Imports this layer's primary weight tensor.
