@@ -63,19 +63,19 @@ open class BaseTokenizer: Tokenizing {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     self.mergeRules = try container.decode([TokenPair].self, forKey: .mergeRules)
     self.vocab = try container.decode([String: Int].self, forKey: .vocab)
-    self.reverseVocab = try container.decode([Int: String].self, forKey: .inverseVocab)
     self.targetVocabSize = try container.decode(Int.self, forKey: .targetVocabSize)
+    
+    self.reverseVocab = Dictionary(uniqueKeysWithValues: vocab.map( { ($1, $0) }))
   }
   
   public func encode(to encoder: any Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(mergeRules, forKey: .mergeRules)
     try container.encode(vocab, forKey: .vocab)
-    try container.encode(reverseVocab, forKey: .inverseVocab)
     try container.encode(targetVocabSize, forKey: .targetVocabSize)
   }
   
-  public func train(corpus: TokenizerCorpus) {
+  open func train(corpus: TokenizerCorpus) {
     let flatCorpus = corpus.joined(separator: " ")
     
     vectorizer.vectorize(specialTokens)
@@ -125,7 +125,7 @@ open class BaseTokenizer: Tokenizing {
     }
   }
   
-  public func encode(_ text: String) -> [Int] {
+  open func encode(_ text: String) -> [Int] {
     
     var tokenIds: [Int] = []
     let words = text.components(separatedBy: " ")
@@ -168,7 +168,7 @@ open class BaseTokenizer: Tokenizing {
     return tokenIds
   }
   
-  public func decode(_ tokenIds: [Int]) -> String {
+  open func decode(_ tokenIds: [Int]) -> String {
     // Invert the vocab dictionary
     let idToToken = reverseVocab
     
