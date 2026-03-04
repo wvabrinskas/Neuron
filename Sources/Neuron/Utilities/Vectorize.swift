@@ -9,9 +9,6 @@ import Foundation
 import NumSwiftC
 import NumSwift
 
-/// A type alias representing the requirements for an item that can be vectorized.
-/// Conforming types must be `Hashable`, `Equatable`, and `Codable`.
-public typealias VectorizableItem = Hashable & Equatable & Codable
 
 /// Specifies the format applied when encoding a vector sequence.
 ///
@@ -27,10 +24,12 @@ public enum VectorFormat {
 ///
 /// `Vectorizing` extends `Tokenizing` and provides bidirectional mappings between
 /// items and integer indices, supporting optional start and end token formatting.
-public protocol Vectorizing: Tokenizing {
-  associatedtype Item: VectorizableItem
+public protocol Vectorizing: Exportable {
+  typealias Item = String
   typealias Vector = [Item: Int]
   typealias InverseVector = [Int: Item]
+  
+  var lastKey: Int { get }
   /// Value that indicate starting of a vector
   var start: Int { get }
   /// Value that indicate ending of a vector
@@ -64,17 +63,16 @@ public protocol Vectorizing: Tokenizing {
   func oneHot(_ items: [Item]) -> Tensor
 }
 
-
-
 /// Takes an input and turns it in to a vector array of integers indicating its value.
 /// ex. Can take a string and apply a integer value to the word so that if it came up again
 /// it would return the same integer value for that word.
-public class Vectorizer<T: VectorizableItem>: Vectorizing, Codable {
+public class Vectorizer: Vectorizing, Codable {
 /// The maximum index currently assigned, representing the next available index offset
 /// after reserving indices for start and end tokens.
-  public typealias Item = T
   public private(set) var vector: Vector = [:]
   public private(set) var inverseVector: InverseVector = [:]
+  
+  public private(set) var lastKey: Int = 0
   
   /// Value that indicate starting of a vactor
   public let start: Int = 0
@@ -113,7 +111,7 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing, Codable {
   /// - Parameter url: File URL pointing to a previously exported model.
   /// - Returns: Decoded `Sequential` instance.
   public static func `import`(_ url: URL) -> Self {
-    let result: Result<Self, Error> =  ExportHelper.buildTokens(url)
+    let result: Result<Self, Error> =  ExportHelper.buildModel(url)
     switch result {
     case .success(let model):
       return model
@@ -127,7 +125,7 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing, Codable {
   /// - Parameter data: Serialized model bytes.
   /// - Returns: Decoded `Sequential` instance.
   public static func `import`(_ data: Data) -> Self {
-    let result: Result<Self, Error> =  ExportHelper.buildTokens(data)
+    let result: Result<Self, Error> =  ExportHelper.buildModel(data)
     switch result {
     case .success(let model):
       return model
@@ -140,13 +138,13 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing, Codable {
   ///  `NOTE: Please call `vectorize` on your input first before calling `oneHot` otherwise it will not work
   /// - Parameter items: Array or `Item` to oneHot encode
   /// - Returns: The encoded one hot vector as a 3D tensor where the depth is the length of `items`.
-  public func oneHot(_ items: [T]) -> Tensor {
+  public func oneHot(_ items: [String]) -> Tensor {
     var result: Tensor.Data = []
     
     for i in 0..<items.count {
       var vectorized: [Tensor.Scalar] = [Tensor.Scalar](repeating: 0, count: max(0, maxIndex - maxIndexAdjustment))
       
-      let item = formatItem(item: items[i])
+      let item = items[i]
       
       if let inVector = vector[item] {
         let adjustedIndex = max(0, inVector - maxIndexAdjustment) // offset by 2 since we saved the first two indexes for start and end labels
@@ -169,17 +167,17 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing, Codable {
   ///   - items: Items to vectorize.
   ///   - format: Optional start/end token formatting behavior.
   /// - Returns: Vectorized token indices.
-  public func vectorize(_ items: [T], format: VectorFormat = .none) -> [Int] {
+  public func vectorize(_ items: [String], format: VectorFormat = .none) -> [Int] {
     var vectorized: [Int] = []
     
     if format == .start, startAndEndingEncoding {
       vectorized = [start]
     }
     
-    var lastKey = maxIndex
+    lastKey = maxIndex
 
     items.forEach { item in
-      let key = formatItem(item: item)
+      let key = item
       if vector[key] == nil {
         vector[key] = lastKey
         inverseVector[lastKey] = key
@@ -203,8 +201,8 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing, Codable {
   ///
   /// - Parameter vector: One-hot tensor where each depth slice is one token.
   /// - Returns: Decoded item sequence.
-  public func unvectorizeOneHot(_ vector: Tensor) -> [T] {
-    var items: [T] = []
+  public func unvectorizeOneHot(_ vector: Tensor) -> [String] {
+    var items: [String] = []
     
     for d in 0..<vector.size.depth {
       let slice = vector.depthSlice(d)
@@ -224,8 +222,8 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing, Codable {
   ///
   /// - Parameter vector: Integer token IDs.
   /// - Returns: Decoded item sequence.
-  public func unvectorize(_ vector: [Int]) -> [T] {
-    var items: [T] = []
+  public func unvectorize(_ vector: [Int]) -> [String] {
+    var items: [String] = []
     
     vector.forEach { v in
       if let i = inverseVector[v] {
@@ -236,8 +234,21 @@ public class Vectorizer<T: VectorizableItem>: Vectorizing, Codable {
     return items
   }
   
-  // MARK: Private
-  func formatItem(item: T) -> T {
-    return item
+  @discardableResult
+  /// Exports the trainable as a `.stokens` file.
+  ///
+  /// - Parameters:
+  ///   - name: Optional filename prefix.
+  ///   - overrite: When `false`, appends a timestamp to avoid overwrite.
+  ///   - compress: When `true`, emits compact JSON.
+  /// - Returns: URL to the exported model file, or `nil` on write failure.
+  public func export(name: String?, overrite: Bool, compress: Bool) -> URL? {
+    let additional = overrite == false ? "-\(Date().timeIntervalSince1970)" : ""
+    
+    let filename = (name ?? "tokens") + additional
+    
+    let dUrl = ExportHelper.getTokens(filename: filename, compress: compress, model: self)
+    
+    return dUrl
   }
 }

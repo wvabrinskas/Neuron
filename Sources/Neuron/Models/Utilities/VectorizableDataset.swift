@@ -15,9 +15,8 @@ public typealias VectorizingDatasetData = (training: [DatasetModel], val: [Datas
 /// Conforming types provide a vectorizer, vocabulary size, and methods
 /// for encoding items as one-hot tensors or index-based tensors.
 public protocol VectorizingDataset {
-  associatedtype Item: VectorizableItem
-  
-  var vectorizer: Vectorizer<Item> { get }
+  typealias Item = String
+  var vectorizer: Vectorizer { get }
   
   var vocabSize: Int { get }
   /// One-hot encodes dataset items.
@@ -50,17 +49,17 @@ public protocol VectorizingDataset {
   func export(name: String?, overrite: Bool, compress: Bool) -> URL?
 }
 
-open class VectorizableDataset<VectorItem: VectorizableItem>: VectorizingDataset {
+open class VectorizableDataset: VectorizingDataset {
 
 /// The vectorizer used to encode and decode dataset items.
-  public let vectorizer: Vectorizer<VectorItem>
+  public let vectorizer: Vectorizer
 
 /// The number of unique tokens in the vocabulary.
 ///
 /// Reflects the size of the vectorizer's internal vector mapping.
   public var vocabSize: Int = 0
 
-  public required init(vectorizer: Vectorizer<VectorItem> = .init()) {
+  public required init(vectorizer: Vectorizer = .init()) {
     self.vectorizer = vectorizer
     self.vocabSize = vectorizer.vector.count
   }
@@ -70,7 +69,7 @@ open class VectorizableDataset<VectorItem: VectorizableItem>: VectorizingDataset
 /// - Parameter url: The file URL from which to import the vectorizer.
 /// - Returns: A new instance initialized with the imported vectorizer.
   public static func build(url: URL) -> Self {
-    Self.init(vectorizer: Vectorizer<VectorItem>.import(url))
+    Self.init(vectorizer: Vectorizer.import(url))
   }
 
   @_spi(Visualizer)
@@ -79,7 +78,7 @@ open class VectorizableDataset<VectorItem: VectorizableItem>: VectorizingDataset
 /// - Parameter data: The raw data from which to import the vectorizer.
 /// - Returns: A new instance initialized with the imported vectorizer.
   public static func build(data: Data) -> Self {
-    return Self.init(vectorizer: Vectorizer<VectorItem>.import(data))
+    return Self.init(vectorizer: Vectorizer.import(data))
   }
   
 /// Exports the vectorizer to a file and returns the resulting file URL.
@@ -96,7 +95,7 @@ open class VectorizableDataset<VectorItem: VectorizableItem>: VectorizingDataset
   ///
   /// - Parameter items: Items to encode.
   /// - Returns: One-hot tensor representation.
-  public func oneHot(_ items: [VectorItem]) -> Tensor {
+  public func oneHot(_ items: [String]) -> Tensor {
     vectorizer.oneHot(items)
   }
   
@@ -104,7 +103,7 @@ open class VectorizableDataset<VectorItem: VectorizableItem>: VectorizingDataset
   ///
   /// - Parameter items: Items to vectorize.
   /// - Returns: Tensor containing token IDs per depth slice.
-  public func vectorize(_ items: [VectorItem]) -> Tensor {
+  public func vectorize(_ items: [String]) -> Tensor {
     Tensor(items.map { [[Tensor.Scalar(vectorizer.vector[$0, default: 0])]] })
   }
   
@@ -114,7 +113,7 @@ open class VectorizableDataset<VectorItem: VectorizableItem>: VectorizingDataset
   ///   - data: Tensor to decode.
   ///   - oneHot: Whether `data` uses one-hot encoding.
   /// - Returns: Decoded vector items.
-  public func getWord(for data: Tensor, oneHot: Bool) -> [VectorItem] {
+  public func getWord(for data: Tensor, oneHot: Bool) -> [String] {
     if oneHot == false {
       let intArray = data.storage.map { Int($0) }
       return vectorizer.unvectorize(intArray)

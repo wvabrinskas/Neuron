@@ -115,12 +115,11 @@ public struct ExportHelper: ModelBuilder {
     }
   }
   
-  @_spi(Visualizer)
   /// Builds a trainable model instance from a serialized model file URL.
   ///
   /// - Parameter url: URL to a `.smodel` file.
   /// - Returns: Success with decoded model, or failure with decode/load error.
-  public static func buildModel<T: Trainable>(_ url: URL) -> Result<T, Error> {
+  public static func buildModel<T: Exportable>(_ url: URL) -> Result<T, Error> {
     do {
       let data = try Data(contentsOf: url, options: .mappedIfSafe)
       return buildModel(data)
@@ -129,35 +128,7 @@ public struct ExportHelper: ModelBuilder {
     }
   }
   
-  internal static func buildModel<T: Trainable>(_ data: Data) -> Result<T, Error> {
-    do {
-      let modelResult: Result<T?, Error> = self.build(data)
-      if let model = try modelResult.get() {
-        return .success(model)
-      }
-      
-      return .failure(BuildError.emptyJson)
-      
-    } catch {
-      return .failure(error)
-    }
-  }
-  
-  @_spi(Visualizer)
-  /// Builds a trainable model instance from a serialized model file URL.
-  ///
-  /// - Parameter url: URL to a `.smodel` file.
-  /// - Returns: Success with decoded model, or failure with decode/load error.
-  public static func buildTokens<T: Tokenizing>(_ url: URL) -> Result<T, Error> {
-    do {
-      let data = try Data(contentsOf: url, options: .mappedIfSafe)
-      return buildTokens(data)
-    } catch {
-      return .failure(error)
-    }
-  }
-  
-  internal static func buildTokens<T: Tokenizing>(_ data: Data) -> Result<T, Error> {
+  internal static func buildModel<T: Exportable>(_ data: Data) -> Result<T, Error> {
     do {
       let modelResult: Result<T?, Error> = self.build(data)
       if let model = try modelResult.get() {

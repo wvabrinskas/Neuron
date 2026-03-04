@@ -1134,7 +1134,7 @@ final class LayerTests: XCTestCase {
                  "bertha",
                  "sarah"]
     
-    let vectorizer = Vectorizer<String>()
+    let vectorizer = Vectorizer()
 
     let batchLength = 10
     
@@ -1179,7 +1179,7 @@ final class LayerTests: XCTestCase {
                  "bertha",
                  "sarah"]
     
-    let vectorizer = Vectorizer<String>()
+    let vectorizer = Vectorizer()
 
     let batchLength = 10
     

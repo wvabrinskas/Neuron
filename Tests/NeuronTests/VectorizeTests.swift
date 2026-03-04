@@ -24,7 +24,7 @@ final class VectorTests: XCTestCase {
                  "bertha",
                  "sarah"]
     
-    let vectorizer = Vectorizer<String>()
+    let vectorizer = Vectorizer()
 
     names.forEach { name in
       vectorizer.vectorize(name.fill(with: ".", max: 10).characters)
@@ -57,7 +57,7 @@ final class VectorTests: XCTestCase {
                  "bertha",
                  "sarah"]
     
-    let vectorizer = Vectorizer<String>()
+    let vectorizer = Vectorizer()
 
     names.forEach { name in
       vectorizer.vectorize(name.fill(with: ".", max: 10).characters)
@@ -75,7 +75,7 @@ final class VectorTests: XCTestCase {
   }
   
   func test_one_Hot_words_unvectorize() {
-    let vectorizer = Vectorizer<String>(startAndEndingEncoding: true)
+    let vectorizer = Vectorizer(startAndEndingEncoding: true)
     
     let sentence = "the wide road shimmered in the hot sun"
     let words = sentence.components(separatedBy: " ")
@@ -101,7 +101,7 @@ final class VectorTests: XCTestCase {
   }
   
   func test_one_Hot_words() {
-    let vectorizer = Vectorizer<String>(startAndEndingEncoding: true)
+    let vectorizer = Vectorizer(startAndEndingEncoding: true)
     
     let sentence = "The wide road shimmered in the hot sun"
     let words = sentence.components(separatedBy: " ")
@@ -123,7 +123,7 @@ final class VectorTests: XCTestCase {
   }
   
   func test_String_Vectorize_Start() {
-    let vectorizer = Vectorizer<String>(startAndEndingEncoding: true)
+    let vectorizer = Vectorizer(startAndEndingEncoding: true)
     
     let sentence = "the wide road shimmered in the hot sun"
     let words = sentence.components(separatedBy: " ")
@@ -134,7 +134,7 @@ final class VectorTests: XCTestCase {
   }
   
   func test_String_Vectorize_End() {
-    let vectorizer = Vectorizer<String>(startAndEndingEncoding: true)
+    let vectorizer = Vectorizer(startAndEndingEncoding: true)
     
     let sentence = "the wide road shimmered in the hot sun"
     let words = sentence.components(separatedBy: " ")
@@ -145,7 +145,7 @@ final class VectorTests: XCTestCase {
   }
   
   func test_String_Vectorize() {
-    let vectorizer = Vectorizer<String>()
+    let vectorizer = Vectorizer()
     
     let sentence = "the wide road shimmered in the hot sun"
     let words = sentence.components(separatedBy: " ")
@@ -156,7 +156,7 @@ final class VectorTests: XCTestCase {
   }
   
   func test_String_Vectorize_More_words() {
-    let vectorizer = Vectorizer<String>()
+    let vectorizer = Vectorizer()
     
     let sentence = "the wide road shimmered in the hot sun"
     let words = sentence.components(separatedBy: " ")
@@ -174,7 +174,7 @@ final class VectorTests: XCTestCase {
   }
   
   func test_unvectorize() {
-    let vectorizer = Vectorizer<String>()
+    let vectorizer = Vectorizer()
     
     let sentence = "the wide road shimmered in the hot sun"
     let words = sentence.components(separatedBy: " ")
@@ -193,7 +193,7 @@ final class VectorTests: XCTestCase {
   // MARK: - Export / Import
 
   func test_export_import_roundtrip_url() {
-    let vectorizer = Vectorizer<String>()
+    let vectorizer = Vectorizer()
 
     let sentence = "the wide road shimmered in the hot sun"
     let words = sentence.components(separatedBy: " ")
@@ -204,7 +204,7 @@ final class VectorTests: XCTestCase {
       return
     }
 
-    let imported = Vectorizer<String>.import(exportURL)
+    let imported = Vectorizer.import(exportURL)
 
     XCTAssertEqual(imported.vector, vectorizer.vector)
     XCTAssertEqual(imported.inverseVector, vectorizer.inverseVector)
@@ -222,7 +222,7 @@ final class VectorTests: XCTestCase {
   }
 
   func test_export_import_roundtrip_data() {
-    let vectorizer = Vectorizer<String>()
+    let vectorizer = Vectorizer()
 
     let sentence = "the wide road shimmered in the hot sun"
     let words = sentence.components(separatedBy: " ")
@@ -238,7 +238,7 @@ final class VectorTests: XCTestCase {
       return
     }
 
-    let result: Result<Vectorizer<String>, Error> = ExportHelper.buildTokens(data)
+    let result: Result<Vectorizer, Error> = ExportHelper.buildModel(data)
     guard case .success(let imported) = result else {
       XCTFail("Import from Data failed")
       return
@@ -253,7 +253,7 @@ final class VectorTests: XCTestCase {
   }
 
   func test_export_import_startAndEndingEncoding_preserved() {
-    let vectorizer = Vectorizer<String>(startAndEndingEncoding: true)
+    let vectorizer = Vectorizer(startAndEndingEncoding: true)
 
     let sentence = "the wide road shimmered in the hot sun"
     let words = sentence.components(separatedBy: " ")
@@ -264,7 +264,7 @@ final class VectorTests: XCTestCase {
       return
     }
 
-    let imported = Vectorizer<String>.import(exportURL)
+    let imported = Vectorizer.import(exportURL)
 
     XCTAssertEqual(imported.vector, vectorizer.vector)
     XCTAssertEqual(imported.inverseVector, vectorizer.inverseVector)
@@ -280,7 +280,7 @@ final class VectorTests: XCTestCase {
   }
 
   func test_export_import_oneHot_roundtrip() {
-    let vectorizer = Vectorizer<String>()
+    let vectorizer = Vectorizer()
 
     let names = ["anna", "emma", "elizabeth"]
     names.forEach { name in
@@ -292,7 +292,7 @@ final class VectorTests: XCTestCase {
       return
     }
 
-    let imported = Vectorizer<String>.import(exportURL)
+    let imported = Vectorizer.import(exportURL)
 
     let testName = "anna"
     let originalOneHot = vectorizer.oneHot(testName.characters)
@@ -302,29 +302,5 @@ final class VectorTests: XCTestCase {
 
     let unvectorized = imported.unvectorizeOneHot(importedOneHot).joined()
     XCTAssertEqual(unvectorized, testName)
-  }
-
-  func test_export_import_integer_vectorizer() {
-    let vectorizer = Vectorizer<Int>()
-
-    let items = [1, 2, 3, 4, 5, 1, 3]
-    vectorizer.vectorize(items)
-
-    guard let exportURL = vectorizer.export(name: "test-vectorizer-int", overrite: true, compress: true) else {
-      XCTFail("Export returned nil URL")
-      return
-    }
-
-    let imported = Vectorizer<Int>.import(exportURL)
-
-    XCTAssertEqual(imported.vector, vectorizer.vector)
-    XCTAssertEqual(imported.inverseVector, vectorizer.inverseVector)
-
-    let originalVector = vectorizer.vectorize(items)
-    let importedVector = imported.vectorize(items)
-    XCTAssertEqual(originalVector, importedVector)
-
-    let unvectorized = imported.unvectorize(importedVector)
-    XCTAssertEqual(unvectorized, [1, 2, 3, 4, 5, 1, 3])
   }
 }
