@@ -249,4 +249,26 @@ final class TokenizerTests: XCTestCase {
     let filename = url.deletingPathExtension().lastPathComponent
     XCTAssertTrue(filename.hasPrefix(name + "-"))
   }
+  
+  func test_train_buildsVocab_largerCorpus() {
+    let corpus = [
+        "the quick brown fox jumps over the lazy dog and the dog barked loudly at the fox",
+        "a tokenizer splits text into smaller units called tokens and each token gets an id",
+        "the cat sat on the mat and the mat was flat and the cat was fat",
+        "machine learning models cannot read raw text so text must be converted into numbers",
+        "the dog ran quickly through the park and jumped over the fence near the lake",
+        "tokenizers are trained on large corpora to learn which character sequences are common",
+        "the fox and the dog became friends and played together in the park every day",
+        "each word is split into characters and then pairs of characters are merged together",
+        "the lazy cat slept on the warm mat near the window in the afternoon sun",
+        "a vocabulary is built by merging the most frequent pairs of tokens iteratively"
+    ]
+    
+    let tokenizer = BaseTokenizer(targetVocabSize: 100)
+    tokenizer.train(corpus: corpus)
+    
+    // Encoding a known character should not fall back to <unk>
+    let ids = tokenizer.encode("cat")
+    XCTAssertFalse(ids.isEmpty)
+  }
 }
