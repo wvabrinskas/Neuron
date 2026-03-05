@@ -128,7 +128,7 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
   ///   - optimizerParameters: Optimizer hyperparameters.
   ///   - lstmParameters: LSTM architecture hyperparameters.
   ///   - extraLayers: Additional layers appended after embedding/LSTM.
-  public init(device: Device = CPU(),
+  public init(device: Device = DeviceManager.shared.device,
               returnSequence: Bool = true,
               dataset: Dataset,
               classifierParameters: ClassifierParameters,

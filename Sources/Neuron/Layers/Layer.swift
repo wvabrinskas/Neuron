@@ -243,7 +243,7 @@ open class BaseLayer: Layer {
 /// Whether this layer is currently in training mode, affecting behaviors such as dropout.
   public var initializer: Initializer
 /// The weight initializer strategy used to initialize this layer's parameters.
-  public var device: Device = CPU()
+  public var device: Device = DeviceManager.shared.device
 /// The compute device (e.g., CPU or GPU) used to execute this layer's operations.
   public var batchSize: Int = 1 {
     didSet {

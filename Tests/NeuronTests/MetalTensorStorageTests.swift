@@ -13,7 +13,7 @@ final class MetalTensorStorageTests: XCTestCase {
 
   func testCreateAndRoundTrip() throws {
     try XCTSkipIf(device == nil, "Metal not available (e.g. simulator)")
-    let data: [Float] = [1, 2, 3, 4, 5]
+    let data: [Tensor.Scalar] = [1, 2, 3, 4, 5]
     let storage = MetalTensorStorage(device: device, data: data)
     XCTAssertEqual(storage.count, 5)
     XCTAssertEqual(storage.toArray(), data)

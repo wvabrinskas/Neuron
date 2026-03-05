@@ -53,15 +53,10 @@ public final class Sequential: Trainable, Logger {
 /// A human-readable identifier for this model instance.
   public var name: String = "Sequential"
 /// The compute device used for inference and training; propagates to all contained layers when set.
-  public var device: Device = CPU() {
+  public var device: Device = DeviceManager.shared.device {
     didSet {
       layers.forEach { layer in
-        switch device.type {
-        case .cpu:
-          layer.device = CPU()
-        case .gpu:
-          layer.device = GPU()
-        }
+        layer.device = device
       }
     }
   }

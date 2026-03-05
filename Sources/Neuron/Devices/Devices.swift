@@ -90,3 +90,15 @@ public protocol Device {
   /// - Returns: Matrix product tensor.
   func matmul(_ a: Tensor, _ b: Tensor) -> Tensor
 }
+
+public final class DeviceManager {
+  public static let shared = DeviceManager()
+
+  var type: DeviceType = .cpu {
+    didSet {
+      device = type.device()
+    }
+  }
+  
+  public private(set) var device: Device = CPU()
+}

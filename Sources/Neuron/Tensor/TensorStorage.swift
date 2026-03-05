@@ -157,24 +157,26 @@ public class TensorStorage {
   /// Uses MetalTensorStorage when Metal is available and `NEURON_USE_METAL_STORAGE` is defined.
   /// Default: CPU-backed storage for best performance until GPU compute is implemented.
   public static func create(count: Int) -> TensorStorage {
-    #if NEURON_USE_METAL_STORAGE
-    if let device = MetalContext.shared.device {
+  
+    if DeviceManager.shared.type == .gpu,
+        let device = MetalContext.shared.device {
       let pool = MetalContext.shared.bufferPool
       let storage = MetalTensorStorage(device: device, count: count, pool: pool)
       return storage
     }
-    #endif
+    
     return TensorStorage(count: count)
   }
 
   /// Creates storage by copying `array`.
   public static func create(from array: [Tensor.Scalar]) -> TensorStorage {
-    #if NEURON_USE_METAL_STORAGE
-    if let device = MetalContext.shared.device {
+    
+    if DeviceManager.shared.type == .gpu,
+       let device = MetalContext.shared.device {
       let pool = MetalContext.shared.bufferPool
       return MetalTensorStorage(device: device, data: array, pool: pool)
     }
-    #endif
+    
     return TensorStorage(array)
   }
 
@@ -185,8 +187,9 @@ public class TensorStorage {
 
   /// Creates storage filled with `repeating` value.
   public static func create(repeating value: Tensor.Scalar, count: Int) -> TensorStorage {
-    #if NEURON_USE_METAL_STORAGE
-    if let device = MetalContext.shared.device {
+    
+    if DeviceManager.shared.type == .gpu,
+       let device = MetalContext.shared.device {
       let pool = MetalContext.shared.bufferPool
       let storage = MetalTensorStorage(device: device, count: count, pool: pool)
       if count > 0 {
@@ -194,7 +197,7 @@ public class TensorStorage {
       }
       return storage
     }
-    #endif
+    
     return TensorStorage(repeating: value, count: count)
   }
 

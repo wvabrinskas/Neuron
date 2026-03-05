@@ -22,7 +22,7 @@ class OutputCell {
     let hiddenSize: Int
   }
   
-  init(device: Device = CPU(),
+  init(device: Device = DeviceManager.shared.device,
        biasEnabled: Bool,
        parameters: Parameters) {
     self.device = device

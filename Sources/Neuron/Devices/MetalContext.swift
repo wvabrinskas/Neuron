@@ -25,6 +25,7 @@ public final class MetalContext {
     self._commandQueue = _device?.makeCommandQueue()
     self._bufferPool = _device.map { BufferPool(device: $0) }
   }
+  
 
   /// The system default Metal device, or `nil` if Metal is unavailable.
   public var device: MTLDevice? { _device }

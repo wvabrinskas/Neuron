@@ -25,7 +25,7 @@ public final class AdamW: Adam {
   ///   - gradientClip: Optional gradient clipping threshold.
   ///   - augmenter: Optional training-time data augmenter.
   public init(_ trainable: Trainable,
-              device: Device = CPU(),
+              device: Device = DeviceManager.shared.device,
               learningRate: Tensor.Scalar,
               batchSize: Int,
               b1: Tensor.Scalar = 0.9,
@@ -97,7 +97,7 @@ public class Adam: BaseOptimizer {
   ///   - gradientClip: Optional gradient clipping threshold.
   ///   - augmenter: Optional training-time data augmenter.
   public init(_ trainable: Trainable,
-              device: Device = CPU(),
+              device: Device = DeviceManager.shared.device,
               learningRate: Tensor.Scalar,
               batchSize: Int,
               b1: Tensor.Scalar = 0.9,

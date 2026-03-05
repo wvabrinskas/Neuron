@@ -20,6 +20,8 @@ public class GPU: Device {
 
   private let manager = GPUManager.shared
   
+  public init() {}
+  
   /// Performs 2D convolution on the GPU device abstraction.
   ///
   /// Currently routed through the flat NumSwift backend while GPU kernels
