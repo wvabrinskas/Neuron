@@ -16,11 +16,11 @@ final class MetalEngineTests: XCTestCase {
   func testMetalEnginePipelineLoading() throws {
     try XCTSkipIf(MTLCreateSystemDefaultDevice() == nil, "Metal not available")
     let engine = MetalEngine()
-    // GPU.metal has "activation" kernel; NeuronKernels.metal will have "neuron_activation"
+    // NeuronKernels.metal has "neuron_activation" kernel
     // Skip if default library unavailable (e.g. SPM without Metal compilation)
     try XCTSkipIf(engine.device?.makeDefaultLibrary() == nil, "Default Metal library not available")
-    let pipeline = engine.pipeline(named: "activation")
-    XCTAssertNotNil(pipeline, "Should load activation pipeline from default library")
+    let pipeline = engine.pipeline(named: "neuron_activation")
+    XCTAssertNotNil(pipeline, "Should load neuron_activation pipeline from default library")
   }
 
   func testMetalEngineAcquireReleaseBuffer() throws {
