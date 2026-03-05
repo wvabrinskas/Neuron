@@ -72,7 +72,8 @@ public protocol Layer: AnyObject, Codable {
   var trainable: Bool { get set }
   var isTraining: Bool { get set }
   var initializer: Initializer { get }
-  var device: Device { get set }
+  var deviceType: DeviceType { get set }
+  var device: Device { get }
   var usesOptimizer: Bool { get set }
   var batchSize: Int { get set }
   var linkId: String { get }
@@ -242,8 +243,16 @@ open class BaseLayer: Layer {
   public var isTraining: Bool = true
 /// Whether this layer is currently in training mode, affecting behaviors such as dropout.
   public var initializer: Initializer
+  
+  public var deviceType: DeviceType = .cpu {
+    didSet {
+      DeviceManager.shared.type = deviceType
+    }
+  }
 /// The weight initializer strategy used to initialize this layer's parameters.
-  public var device: Device = DeviceManager.shared.device
+  public var device: Device {
+    DeviceManager.shared.device
+  }
 /// The compute device (e.g., CPU or GPU) used to execute this layer's operations.
   public var batchSize: Int = 1 {
     didSet {

@@ -26,7 +26,6 @@ public class SGD: BaseOptimizer {
   ///   - gradientClip: Optional gradient clipping threshold.
   ///   - augmenter: Optional training-time data augmenter.
   public init(_ trainable: Trainable,
-              device: Device = DeviceManager.shared.device,
               learningRate: Tensor.Scalar,
               batchSize: Int,
               momentum: Tensor.Scalar = 0.9,

@@ -20,6 +20,7 @@ public protocol Optimizer: AnyObject {
   var learningRate: Tensor.Scalar { get }
   var isTraining: Bool { get set }
   var device: Device { get }
+  var deviceType: DeviceType { get set }
   var metricsReporter: MetricsReporter? { get set }
   var weightClip: Tensor.Scalar? { get set }
   var gradientClip: Tensor.Scalar? { get set }
@@ -101,10 +102,19 @@ open class BaseOptimizer: Optimizer {
       trainable.isTraining = isTraining
     }
   }
+  
+  public var deviceType: DeviceType = .cpu {
+    didSet {
+      DeviceManager.shared.type = deviceType
+    }
+  }
+  
   /// The compute device used for training, either CPU or GPU.
   ///
   /// Updating this value propagates the device selection to the underlying trainable network.
-  public let device: Device = DeviceManager.shared.device
+  public var device: Device {
+    DeviceManager.shared.device
+  }
 
   /// An optional reporter used to collect and publish training metrics such as loss and timing.
   public var metricsReporter: MetricsReporter?
