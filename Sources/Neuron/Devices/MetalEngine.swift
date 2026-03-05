@@ -335,4 +335,47 @@ public final class MetalEngine {
 
     return cmdBuffer.status == .completed
   }
+
+  /// Dispatches the neuron_conv_transpose2d kernel.
+  /// Input [N,C,H,W], weights [C,K,kH,kW], output [N,K,oH,oW] in NCHW layout.
+  ///
+  /// - Parameters:
+  ///   - input: Input MetalTensorStorage [N,C,H,W].
+  ///   - weights: Weights MetalTensorStorage [C,K,kH,kW] (c-major then k).
+  ///   - output: Output MetalTensorStorage [N,K,oH,oW].
+  ///   - params: Conv2D parameters (hasBias ignored; no bias in transposed conv kernel).
+  /// - Returns: `true` if dispatch succeeded, `false` otherwise.
+  public func dispatchTransConv2d(
+    input: MetalTensorStorage,
+    weights: MetalTensorStorage,
+    output: MetalTensorStorage,
+    params: Conv2DParams
+  ) -> Bool {
+    guard let pipeline = pipeline(named: "neuron_conv_transpose2d"),
+          let cmdBuffer = makeCommandBuffer(),
+          let encoder = cmdBuffer.makeComputeCommandEncoder() else {
+      return false
+    }
+
+    let totalOutput = Int(params.N) * Int(params.K) * Int(params.oH) * Int(params.oW)
+    guard totalOutput > 0 else { return false }
+
+    encoder.setComputePipelineState(pipeline)
+    encoder.setBuffer(input.mtlBuffer, offset: 0, index: 0)
+    encoder.setBuffer(weights.mtlBuffer, offset: 0, index: 1)
+    encoder.setBuffer(output.mtlBuffer, offset: 0, index: 2)
+
+    var p = params
+    encoder.setBytes(&p, length: MemoryLayout<Conv2DParams>.size, index: 3)
+
+    let tgSize = min(256, max(1, totalOutput))
+    let gridSize = MTLSize(width: totalOutput, height: 1, depth: 1)
+    let threadgroupSize = MTLSize(width: tgSize, height: 1, depth: 1)
+    encoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadgroupSize)
+    encoder.endEncoding()
+    cmdBuffer.commit()
+    cmdBuffer.waitUntilCompleted()
+
+    return cmdBuffer.status == .completed
+  }
 }

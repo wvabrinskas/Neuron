@@ -197,6 +197,76 @@ public final class TransConv2d: Conv2d {
     let outSliceSize = outRows * outCols
     let inRows = inputSize.rows
     let inCols = inputSize.columns
+
+    if device is GPU,
+       let metalInput = input.storage as? MetalTensorStorage,
+       MetalContext.shared.isAvailable,
+       let metalDevice = MetalContext.shared.device,
+       let pool = MetalContext.shared.bufferPool {
+      let engine = MetalEngine()
+      let N: UInt32 = 1
+      let C = UInt32(inputSize.depth)
+      let H = UInt32(inRows)
+      let W = UInt32(inCols)
+      let K = UInt32(filterCount)
+      let kH = UInt32(filterSize.rows)
+      let kW = UInt32(filterSize.columns)
+      let oH = UInt32(outRows)
+      let oW = UInt32(outCols)
+      let strideH = UInt32(strides.rows)
+      let strideW = UInt32(strides.columns)
+      let padH: UInt32 = padding == .same ? kH - 1 : 0
+      let padW: UInt32 = padding == .same ? kW - 1 : 0
+
+      let weightsCount = Int(C) * Int(K) * Int(kH) * Int(kW)
+      let weightsStorage = MetalTensorStorage(device: metalDevice, count: weightsCount, pool: pool)
+      for k in 0..<filterCount {
+        for c in 0..<inputSize.depth {
+          for kh in 0..<filterSize.rows {
+            for kw in 0..<filterSize.columns {
+              let dstIdx = c * Int(K) * Int(kH) * Int(kW) + k * Int(kH) * Int(kW) + kh * Int(kW) + kw
+              let srcIdx = c * filterSize.rows * filterSize.columns + kh * filterSize.columns + kw
+              weightsStorage.pointer[dstIdx] = filters[k].storage[srcIdx]
+            }
+          }
+        }
+      }
+
+      let outputStorage = MetalTensorStorage(device: metalDevice, count: outSliceSize * filterCount, pool: pool)
+      var biasStorage: MetalTensorStorage?
+      if biasEnabled {
+        let bias = MetalTensorStorage(device: metalDevice, count: filterCount, pool: pool)
+        for f in 0..<filterCount {
+          bias.pointer.advanced(by: f).initialize(to: biases.storage[f])
+        }
+        biasStorage = bias
+      }
+
+      let params = MetalEngine.Conv2DParams(
+        N: N, C: C, H: H, W: W, K: K,
+        kH: kH, kW: kW, oH: oH, oW: oW,
+        strideH: strideH, strideW: strideW,
+        padH: padH, padW: padW,
+        hasBias: 0
+      )
+
+      if engine.dispatchTransConv2d(
+        input: metalInput,
+        weights: weightsStorage,
+        output: outputStorage,
+        params: params
+      ) {
+        if biasEnabled, let biasStorage = biasStorage {
+          for f in 0..<filterCount {
+            let offset = f * outSliceSize
+            for j in 0..<outSliceSize {
+              outputStorage.pointer[offset + j] += biasStorage.pointer[f]
+            }
+          }
+        }
+        return outputStorage
+      }
+    }
     
     // Initialize result storage for all filter outputs
     var filterOutputs = [Tensor.Value?](repeating: nil, count: filterCount)
