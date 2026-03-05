@@ -124,7 +124,7 @@ public class Conv2d: BaseConvolutionalLayer {
     
     let outStorage = conv(tensor)
     let outSize = TensorSize(rows: outputSize.rows, columns: outputSize.columns, depth: filterCount)
-    let out = Tensor(outStorage, size: outSize, context: tensorContext)
+    let out = Tensor(storage: outStorage, size: outSize, context: tensorContext)
     
     out.setGraph(tensor)
 
@@ -331,50 +331,80 @@ public class Conv2d: BaseConvolutionalLayer {
     }
   }
   
-  internal func conv(_ input: Tensor) -> Tensor.Value {
+  internal func conv(_ input: Tensor) -> TensorStorage {
     let outRows = outputSize.rows
     let outCols = outputSize.columns
     let outSliceSize = outRows * outCols
-    
-    var resultStorage = Tensor.Value(repeating: 0, count: outSliceSize * filterCount)
+    let inputSliceSize = inputSize.rows * inputSize.columns
+    let filterSliceSize = filterSize.rows * filterSize.columns
 
-    Array(0..<filterCount).concurrentForEach(workers: Constants.maxWorkers) { _, f in
-      var convolved = Tensor.Value(repeating: 0, count: outSliceSize)
+    let resultStorage = TensorStorage(count: outSliceSize * filterCount)
 
-      for i in 0..<self.inputSize.depth {
-        let currentFilter = self.filters[f].depthSlice(i)
-        let currentInput = input.depthSlice(i)
-        
-        let conv = self.device.conv2d(signal: currentInput,
-                                      filter: currentFilter,
-                                      strides: self.strides,
-                                      padding: self.padding,
-                                      filterSize: self.filterSize,
-                                      inputSize: (self.inputSize.rows, self.inputSize.columns),
-                                      outputSize: nil)
-        
-        if conv.count == convolved.count {
-          convolved = convolved + conv
-        } else {
-          // In case output size differs, use element-wise add up to the min
-          for j in 0..<min(conv.count, convolved.count) {
-            convolved[j] += conv[j]
+    if device is CPU {
+      let strides = self.strides
+      let padding = self.padding
+      let filterSize = self.filterSize
+      let inputSize = self.inputSize
+      let biasEnabled = self.biasEnabled
+      let filters = self.filters
+      let biases = self.biases
+
+      Array(0..<filterCount).concurrentForEach(workers: Constants.maxWorkers) { _, f in
+        let resultPtr = resultStorage.pointer + f * outSliceSize
+        let tempBuf = TensorStorage(count: outSliceSize)
+
+        for i in 0..<inputSize.depth {
+          let signalPtr = input.storage.pointer + i * inputSliceSize
+          let filterPtr = filters[f].storage.pointer + i * filterSliceSize
+
+          if i == 0 {
+            NumSwiftFlat.conv2d(signal: signalPtr, filter: filterPtr, result: resultPtr,
+                               strides: strides, padding: padding,
+                               filterSize: filterSize, inputSize: (inputSize.rows, inputSize.columns))
+          } else {
+            NumSwiftFlat.conv2d(signal: signalPtr, filter: filterPtr, result: tempBuf.pointer,
+                               strides: strides, padding: padding,
+                               filterSize: filterSize, inputSize: (inputSize.rows, inputSize.columns))
+            NumSwiftFlat.add(resultPtr, tempBuf.pointer, result: resultPtr, count: outSliceSize)
           }
         }
+
+        if biasEnabled {
+          let biasVal = biases.storage[f]
+          NumSwiftFlat.add(resultPtr, scalar: biasVal, result: resultPtr, count: outSliceSize)
+        }
       }
-      
-      if self.biasEnabled {
-        let bias = self.biases.storage[f]
-        convolved = convolved + bias
+    } else {
+      var resultArray = Tensor.Value(repeating: 0, count: outSliceSize * filterCount)
+      Array(0..<filterCount).concurrentForEach(workers: Constants.maxWorkers) { _, f in
+        var convolved = Tensor.Value(repeating: 0, count: outSliceSize)
+        for i in 0..<self.inputSize.depth {
+          let currentFilter = self.filters[f].depthSlice(i)
+          let currentInput = input.depthSlice(i)
+          let conv = self.device.conv2d(signal: currentInput, filter: currentFilter,
+                                       strides: self.strides, padding: self.padding,
+                                       filterSize: self.filterSize,
+                                       inputSize: (self.inputSize.rows, self.inputSize.columns),
+                                       outputSize: nil)
+          if conv.count == convolved.count {
+            convolved = convolved + conv
+          } else {
+            for j in 0..<min(conv.count, convolved.count) {
+              convolved[j] += conv[j]
+            }
+          }
+        }
+        if self.biasEnabled {
+          convolved = convolved + self.biases.storage[f]
+        }
+        let start = f * outSliceSize
+        for j in 0..<outSliceSize {
+          resultArray[start + j] = convolved[j]
+        }
       }
-      
-      // Write this filter's output into the result tensor at depth=f
-      let start = f * outSliceSize
-      for j in 0..<outSliceSize {
-        resultStorage[start + j] = convolved[j]
-      }
+      return TensorStorage(resultArray)
     }
-  
+
     return resultStorage
   }
   

@@ -20,6 +20,19 @@ public struct CPU: Device {
   /// Creates a CPU-backed device implementation.
   public init() {}
 
+  public func conv2dInto(signal: UnsafePointer<Tensor.Scalar>,
+                         filter: UnsafePointer<Tensor.Scalar>,
+                         result: UnsafeMutablePointer<Tensor.Scalar>,
+                         strides: (Int, Int),
+                         padding: NumSwift.ConvPadding,
+                         filterSize: (rows: Int, columns: Int),
+                         inputSize: (rows: Int, columns: Int)) -> Bool {
+    NumSwiftFlat.conv2d(signal: signal, filter: filter, result: result,
+                       strides: strides, padding: padding,
+                       filterSize: filterSize, inputSize: inputSize)
+    return true
+  }
+
   /// Calculates the convolution of the given inputs
   /// - Parameters:
   ///   - signal: The signal as a Tensor.Value array to perform the convolution on
