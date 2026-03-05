@@ -198,7 +198,9 @@ public final class TransConv2d: Conv2d {
     let inRows = inputSize.rows
     let inCols = inputSize.columns
 
+    let outputElementCount = outSliceSize * filterCount
     if device is GPU,
+       outputElementCount >= Constants.metalConvOutputThreshold,
        let metalInput = input.storage as? MetalTensorStorage,
        MetalContext.shared.isAvailable,
        let metalDevice = MetalContext.shared.device,

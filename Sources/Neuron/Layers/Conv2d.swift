@@ -137,8 +137,10 @@ public class Conv2d: BaseConvolutionalLayer {
     let fRows = filterSize.rows
     let fCols = filterSize.columns
 
+    let backwardElementCount = inputDepth * inputSize.rows * inputSize.columns + filterCount * inputDepth * fRows * fCols
     if let enc = encoder,
        device is GPU,
+       backwardElementCount >= Constants.metalConvOutputThreshold,
        let metalInput = input.storage as? MetalTensorStorage,
        let metalDelta = delta.storage as? MetalTensorStorage,
        MetalContext.shared.isAvailable,
@@ -408,7 +410,9 @@ public class Conv2d: BaseConvolutionalLayer {
 
     let resultStorage = TensorStorage.create(count: outSliceSize * filterCount)
 
+    let outputElementCount = outSliceSize * filterCount
     if device is GPU,
+       outputElementCount >= Constants.metalConvOutputThreshold,
        let metalInput = input.storage as? MetalTensorStorage,
        MetalContext.shared.isAvailable,
        let metalDevice = MetalContext.shared.device,

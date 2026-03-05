@@ -83,6 +83,7 @@ public class GPU: Device {
 
   public func activate(_ input: Tensor, _ type: Activation, encoder: MetalCommandEncoder?) -> Tensor {
     if let metalInput = input.storage as? MetalTensorStorage,
+       metalInput.count >= Constants.metalElementwiseThreshold,
        MetalContext.shared.isAvailable,
        let device = MetalContext.shared.device,
        let pool = MetalContext.shared.bufferPool {
@@ -121,6 +122,7 @@ public class GPU: Device {
 
   public func derivate(_ input: Tensor, _ type: Activation, encoder: MetalCommandEncoder?) -> Tensor {
     if let metalInput = input.storage as? MetalTensorStorage,
+       metalInput.count >= Constants.metalElementwiseThreshold,
        MetalContext.shared.isAvailable,
        let device = MetalContext.shared.device,
        let pool = MetalContext.shared.bufferPool {
@@ -172,6 +174,10 @@ public class GPU: Device {
       let K = aSize.columns
       let N = bSize.columns
       let depth = aSize.depth
+      let mkn = M * K * N * depth
+      guard mkn >= Constants.metalMatmulThreshold else {
+        return a.matmul(b)
+      }
       let cCount = M * N * depth
       let engine = MetalEngine()
       let outputStorage = MetalTensorStorage(device: device, count: cCount, pool: pool)

@@ -29,6 +29,17 @@ public struct Constants {
     }
   }()
   
+  // MARK: - GPU routing thresholds (avoid Metal dispatch overhead on small tensors)
+
+  /// Minimum element count for Metal activation/derivate. Below this, use CPU.
+  public static let metalElementwiseThreshold: Int = 10_000
+
+  /// Minimum M×K×N for Metal matmul. Below 128³, use CPU.
+  public static let metalMatmulThreshold: Int = 128 * 128 * 128
+
+  /// Minimum output elements for Metal conv2d/transConv2d. Below this, use CPU.
+  public static let metalConvOutputThreshold: Int = 32 * 32 * 32
+
   static func getSysctlIntValue(_ name: String) -> Int? {
     var size = 0
     sysctlbyname(name, nil, &size, nil, 0)
