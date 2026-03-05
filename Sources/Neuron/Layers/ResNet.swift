@@ -368,7 +368,7 @@ public final class ResNet: BaseLayerGroup {
       return (wrtInputs, Tensor(weightGradients), Tensor(biasGradients))
     }
     
-    let out = Tensor(reLuOut.storage, size: reLuOut.size, context: tensorContext)
+    let out = Tensor(storage: reLuOut.storage, size: reLuOut.size, context: tensorContext)
     
     out.setGraph(input)
     

@@ -436,11 +436,11 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
       
       let out = reduce.reduce(first) { partialResult, new in
         partialResult.concat(new, axis: 2)
-      }.storage
+      }
       
-      return Tensor(out, size: .init(rows: filterSize.rows,
-                                     columns: filterSize.columns,
-                                     depth: filterCount * inputSize.depth))
+      return Tensor(storage: out.storage, size: .init(rows: filterSize.rows,
+                                                      columns: filterSize.columns,
+                                                      depth: filterCount * inputSize.depth))
       
     }
     set {
@@ -606,7 +606,7 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
     }
     
     let result = device.activate(tensor, type)
-    let out = Tensor(result.storage, size: result.size, context: tensorContext)
+    let out = Tensor(storage: result.storage, size: result.size, context: tensorContext)
 
     out.setGraph(tensor)
     

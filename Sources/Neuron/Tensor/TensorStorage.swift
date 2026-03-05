@@ -127,6 +127,29 @@ public final class TensorStorage {
     }
   }
 
+  /// Safe range subscript that returns an array, clamping to valid bounds.
+  /// Out-of-range elements are replaced with `defaultValue`.
+  public subscript(safe range: Range<Int>, defaultValue: Scalar) -> [Scalar] {
+    let clampedLower = Swift.max(range.lowerBound, 0)
+    let clampedUpper = Swift.min(range.upperBound, count)
+    guard clampedLower < clampedUpper else {
+      return [Scalar](repeating: defaultValue, count: range.count)
+    }
+    var result = [Scalar](repeating: defaultValue, count: range.count)
+    let validCount = clampedUpper - clampedLower
+    let offset = clampedLower - range.lowerBound
+    for i in 0..<validCount {
+      result[offset + i] = pointer[clampedLower + i]
+    }
+    return result
+  }
+
+  /// Safe single-element subscript with default.
+  public subscript(safe index: Int, defaultValue: Scalar) -> Scalar {
+    guard index >= 0 && index < count else { return defaultValue }
+    return pointer[index]
+  }
+
   // MARK: - Properties
 
   public var isEmpty: Bool { count == 0 }

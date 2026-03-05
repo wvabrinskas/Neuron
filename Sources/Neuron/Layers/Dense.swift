@@ -125,7 +125,7 @@ public final class Dense: BaseLayer {
       dotProducts = dotProducts.copy() + biases
     }
     
-    let out = Tensor(dotProducts.storage, size: dotProducts.size, context: tensorContext)
+    let out = Tensor(storage: dotProducts.storage, size: dotProducts.size, context: tensorContext)
     out.setGraph(tensor)
 
     return super.forward(tensor: out, context: context)

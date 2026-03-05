@@ -169,9 +169,9 @@ public class Adam: BaseOptimizer {
     
     let result = apply(m: &m[i],
                        v: &v[i],
-                       gradient: gradient.storage,
+                       gradient: gradient.flatArray,
                        decay: true,
-                       weights: weights.storage,
+                       weights: weights.flatArray,
                        size: gradient.size)
 
     let biasCount = biasGradient.storage.count
@@ -183,8 +183,8 @@ public class Adam: BaseOptimizer {
 
     let biases = apply(m: &mb[i],
                        v: &vb[i],
-                       gradient: biasGradient.storage,
-                       weights: bias.storage,
+                       gradient: biasGradient.flatArray,
+                       weights: bias.flatArray,
                        size: biasGradient.size)
     
     return (Tensor(result, size: gradient.size), Tensor(biases, size: biasGradient.size))

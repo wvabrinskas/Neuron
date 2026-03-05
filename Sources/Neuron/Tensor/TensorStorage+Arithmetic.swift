@@ -13,30 +13,30 @@ import NumSwift
 public extension TensorStorage {
 
   static func + (lhs: TensorStorage, rhs: TensorStorage) -> TensorStorage {
-    precondition(lhs.count == rhs.count, "TensorStorage count mismatch: \(lhs.count) vs \(rhs.count)")
+    let count = Swift.min(lhs.count, rhs.count)
     let result = TensorStorage(count: lhs.count)
-    NumSwiftFlat.add(lhs.pointer, rhs.pointer, result: result.pointer, count: lhs.count)
+    NumSwiftFlat.add(lhs.pointer, rhs.pointer, result: result.pointer, count: count)
     return result
   }
 
   static func - (lhs: TensorStorage, rhs: TensorStorage) -> TensorStorage {
-    precondition(lhs.count == rhs.count, "TensorStorage count mismatch: \(lhs.count) vs \(rhs.count)")
+    let count = Swift.min(lhs.count, rhs.count)
     let result = TensorStorage(count: lhs.count)
-    NumSwiftFlat.sub(lhs.pointer, rhs.pointer, result: result.pointer, count: lhs.count)
+    NumSwiftFlat.sub(lhs.pointer, rhs.pointer, result: result.pointer, count: count)
     return result
   }
 
   static func * (lhs: TensorStorage, rhs: TensorStorage) -> TensorStorage {
-    precondition(lhs.count == rhs.count, "TensorStorage count mismatch: \(lhs.count) vs \(rhs.count)")
+    let count = Swift.min(lhs.count, rhs.count)
     let result = TensorStorage(count: lhs.count)
-    NumSwiftFlat.mul(lhs.pointer, rhs.pointer, result: result.pointer, count: lhs.count)
+    NumSwiftFlat.mul(lhs.pointer, rhs.pointer, result: result.pointer, count: count)
     return result
   }
 
   static func / (lhs: TensorStorage, rhs: TensorStorage) -> TensorStorage {
-    precondition(lhs.count == rhs.count, "TensorStorage count mismatch: \(lhs.count) vs \(rhs.count)")
+    let count = Swift.min(lhs.count, rhs.count)
     let result = TensorStorage(count: lhs.count)
-    NumSwiftFlat.div(lhs.pointer, rhs.pointer, result: result.pointer, count: lhs.count)
+    NumSwiftFlat.div(lhs.pointer, rhs.pointer, result: result.pointer, count: count)
     return result
   }
 }

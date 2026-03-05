@@ -18,9 +18,9 @@ public final class InstanceNormalize: BaseLayer {
       // For printing purposes. Not actually used
       let out = beta.concat(gamma, axis: 2)
       
-      let outTensor = Tensor(out.storage, size: .init(rows: 1,
-                                                      columns: beta.size.columns + gamma.size.columns,
-                                                      depth: 1))
+      let outTensor = Tensor(storage: out.storage, size: .init(rows: 1,
+                                                               columns: beta.size.columns + gamma.size.columns,
+                                                               depth: 1))
       return outTensor
     }
     set {}
@@ -182,7 +182,7 @@ public final class InstanceNormalize: BaseLayer {
 
       let dl_dx = invNStd * (line2 - line3 - line4 * line5)
       
-      dInputSlices.append(dl_dx.storage)
+      dInputSlices.append(dl_dx.flatArray)
       dGammaSlices.append([dL_dgamma])
       dBetaSlices.append([dL_dbeta])
     }

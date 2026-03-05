@@ -189,7 +189,7 @@ public final class RexNet: BaseLayerGroup {
     }
     
     // forward calculation
-    let out = Tensor(forwardPass.storage,
+    let out = Tensor(storage: forwardPass.storage,
                      size: forwardPass.size,
                      context: tensorContext)
     

@@ -93,8 +93,8 @@ public class RMSProp: BaseOptimizer {
       vb[i] = Tensor.Value(repeating: 0, count: biasGradient.storage.count)
     }
     
-    let result = apply(to: &v[i], gradient: gradient.storage)
-    let biasResult = apply(to: &vb[i], gradient: biasGradient.storage)
+    let result = apply(to: &v[i], gradient: gradient.flatArray)
+    let biasResult = apply(to: &vb[i], gradient: biasGradient.flatArray)
     
     return (Tensor(result, size: gradient.size), Tensor(biasResult, size: biasGradient.size))
   }

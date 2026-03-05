@@ -233,7 +233,7 @@ public class DepthwiseConv2d: BaseConvolutionalLayer {
     var flippedKernels = [Tensor.Value](repeating: Tensor.Value(), count: inputDepth)
     
     for i in 0..<inputDepth {
-      let kernel = filters[i].storage
+      let kernel = filters[i].flatArray
       flippedKernels[i] = NumSwiftFlat.flip180(kernel, rows: fRows, columns: fCols)
     }
     
@@ -422,7 +422,7 @@ public class DepthwiseConv2d: BaseConvolutionalLayer {
     var resultStorage: Tensor = Tensor(Tensor.Value(repeating: 0, count: outputSize.columns * outputSize.rows * outputSize.depth), size: outputSize)
     
     Array(0..<self.inputSize.depth).concurrentForEach(workers: Constants.maxWorkers) { _, i in
-      let currentFilter = self.filters[i].storage
+      let currentFilter = self.filters[i].flatArray
       let currentInput = input.depthSlice(i)
       
       var conv = self.device.conv2d(signal: currentInput,
@@ -441,7 +441,7 @@ public class DepthwiseConv2d: BaseConvolutionalLayer {
       resultStorage.setDepthSlice(i, conv)
     }
     
-    return resultStorage.storage
+    return resultStorage.flatArray
   }
   
   /// Returns a 180°-rotated copy of every depth slice in the given filter tensor.

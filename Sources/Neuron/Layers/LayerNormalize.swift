@@ -17,9 +17,9 @@ public final class LayerNormalize: BaseLayer {
       // For printing purposes. Not actually used
       let out = beta.concat(gamma, axis: 2)
       
-      let outTensor = Tensor(out.storage, size: .init(rows: beta.size.rows,
-                                                      columns: beta.size.columns,
-                                                      depth: beta.size.depth + gamma.size.depth))
+      let outTensor = Tensor(storage: out.storage, size: .init(rows: beta.size.rows,
+                                                               columns: beta.size.columns,
+                                                               depth: beta.size.depth + gamma.size.depth))
       return outTensor
     }
     set {}
@@ -136,7 +136,7 @@ public final class LayerNormalize: BaseLayer {
     
     let scaled = normalized * gammaSlice + betaSlice
     
-    return scaled.storage
+    return scaled.flatArray
   }
   
   private func backwardFlat(inputs: Tensor, gradient: Tensor) -> (input: Tensor, weight: Tensor, bias: Tensor) {
@@ -172,7 +172,7 @@ public final class LayerNormalize: BaseLayer {
     
     let deltaWeights = dL_dgamma.concat(dL_dbeta, axis: 2)
         
-    return (Tensor(dl_dx.storage, size: inputs.size),
+    return (Tensor(storage: dl_dx.storage, size: inputs.size),
             deltaWeights,
             Tensor())
   }
