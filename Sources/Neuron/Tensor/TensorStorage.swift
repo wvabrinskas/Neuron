@@ -157,34 +157,41 @@ public class TensorStorage {
     self._buffer = buffer
   }
 
-  // MARK: - Factory (Metal-backed when available)
+  // MARK: - Factory (Metal-backed when NEURON_USE_METAL_STORAGE is set)
 
-  /// Creates storage for `count` elements. Uses MetalTensorStorage when Metal is available.
+  /// Creates storage for `count` elements.
+  /// Uses MetalTensorStorage when Metal is available and `NEURON_USE_METAL_STORAGE` is defined.
+  /// Default: CPU-backed storage for best performance until GPU compute is implemented.
   public static func create(count: Int) -> TensorStorage {
+    #if NEURON_USE_METAL_STORAGE
     if let device = MetalContext.shared.device {
       let pool = MetalContext.shared.bufferPool
       let storage = MetalTensorStorage(device: device, count: count, pool: pool)
       return storage
     }
+    #endif
     return TensorStorage(count: count)
   }
 
-  /// Creates storage by copying `array`. Uses MetalTensorStorage when Metal is available.
+  /// Creates storage by copying `array`.
   public static func create(from array: [Scalar]) -> TensorStorage {
+    #if NEURON_USE_METAL_STORAGE
     if let device = MetalContext.shared.device {
       let pool = MetalContext.shared.bufferPool
       return MetalTensorStorage(device: device, data: array, pool: pool)
     }
+    #endif
     return TensorStorage(array)
   }
 
-  /// Creates storage by copying `contiguous`. Uses MetalTensorStorage when Metal is available.
+  /// Creates storage by copying `contiguous`.
   public static func create(from contiguous: ContiguousArray<Scalar>) -> TensorStorage {
     create(from: Array(contiguous))
   }
 
-  /// Creates storage filled with `repeating` value. Uses MetalTensorStorage when Metal is available.
+  /// Creates storage filled with `repeating` value.
   public static func create(repeating value: Scalar, count: Int) -> TensorStorage {
+    #if NEURON_USE_METAL_STORAGE
     if let device = MetalContext.shared.device {
       let pool = MetalContext.shared.bufferPool
       let storage = MetalTensorStorage(device: device, count: count, pool: pool)
@@ -193,6 +200,7 @@ public class TensorStorage {
       }
       return storage
     }
+    #endif
     return TensorStorage(repeating: value, count: count)
   }
 

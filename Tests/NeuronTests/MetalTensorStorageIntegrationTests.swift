@@ -4,16 +4,16 @@ import Metal
 
 final class MetalTensorStorageIntegrationTests: XCTestCase {
 
-  func testTensorsHaveMTLBufferWhenMetalAvailable() throws {
+  /// Verifies MetalTensorStorage works when explicitly created (requires NEURON_USE_METAL_STORAGE for default).
+  func testMetalTensorStorageExplicitCreation() throws {
     try XCTSkipIf(MTLCreateSystemDefaultDevice() == nil, "Metal not available")
-    let t = Tensor([1.0, 2.0, 3.0])
-    let metalStorage = t.storage as? MetalTensorStorage
-    XCTAssertNotNil(metalStorage)
-    XCTAssertNotNil(metalStorage?.mtlBuffer)
+    guard let device = MetalContext.shared.device else { return }
+    let storage = MetalTensorStorage(device: device, data: [1.0, 2.0, 3.0])
+    XCTAssertNotNil(storage.mtlBuffer)
+    XCTAssertEqual(storage.toArray(), [1.0, 2.0, 3.0])
   }
 
-  func testForwardBackwardPassWithMetalBackedTensors() throws {
-    try XCTSkipIf(MTLCreateSystemDefaultDevice() == nil, "Metal not available")
+  func testForwardBackwardPass() throws {
     let network = Sequential {
       [
         Dense(8, inputs: 4),
@@ -38,8 +38,7 @@ final class MetalTensorStorageIntegrationTests: XCTestCase {
     XCTAssertGreaterThan(loss, 0)
   }
 
-  func testSerializationDeserializationMetalAndCPU() throws {
-    try XCTSkipIf(MTLCreateSystemDefaultDevice() == nil, "Metal not available")
+  func testSerializationDeserialization() throws {
     let original = Tensor([[1.0, 2.0], [3.0, 4.0]])
     let encoder = JSONEncoder()
     let data = try encoder.encode(original)

@@ -390,6 +390,81 @@ public extension Tensor {
   /// - Note: Self-assignment is now handled automatically. The operation detects and prevents
   ///   reference cycles in the computation graph, so manual `.copy()` calls are no longer required.
   func addAlong(axis: Int, value: Tensor) -> Tensor {
+    // Pointer-based fast path: avoids per-slice array allocations (critical for LSTM bias adds).
+    let inputSize = value.size
+    let selfSize = size
+    let columns = selfSize.columns
+    let rows = selfSize.rows
+    let depth = selfSize.depth
+    let totalCount = columns * rows * depth
+
+    if totalCount > 0 {
+      let resultStorage = TensorStorage.create(count: totalCount)
+      let selfPtr = storage.pointer
+      let inputPtr = value.storage.pointer
+      let resultPtr = resultStorage.pointer
+
+      if axis == 0,
+         inputSize.columns == columns,
+         inputSize.rows == 1,
+         inputSize.depth == depth {
+        // Broadcast along rows: add input row to each row of self
+        for d in 0..<depth {
+          let inputStart = value.flatIndex(column: 0, row: 0, depth: d)
+          for r in 0..<rows {
+            let selfStart = flatIndex(column: 0, row: r, depth: d)
+            let resultStart = selfStart
+            NumSwiftFlat.add(selfPtr + selfStart, inputPtr + inputStart, result: resultPtr + resultStart, count: columns)
+          }
+        }
+        let new = Tensor(storage: resultStorage, size: selfSize, context: addContext(value: value))
+        new.label = "addition"
+        if graphChain.contains(value.id) { new.setGraphSafe(self); new.setGraphSafe(value) }
+        else { new.setGraphSafe(value); new.setGraphSafe(self) }
+        return new
+      }
+
+      if axis == 1,
+         inputSize.columns == 1,
+         inputSize.rows == rows,
+         inputSize.depth == depth {
+        // Broadcast along columns: add scalar per row to each column
+        for d in 0..<depth {
+          for r in 0..<rows {
+            let selfStart = flatIndex(column: 0, row: r, depth: d)
+            let inputIdx = value.flatIndex(column: 0, row: r, depth: d)
+            let scalar = inputPtr[inputIdx]
+            NumSwiftFlat.add(selfPtr + selfStart, scalar: scalar, result: resultPtr + selfStart, count: columns)
+          }
+        }
+        let new = Tensor(storage: resultStorage, size: selfSize, context: addContext(value: value))
+        new.label = "addition"
+        if graphChain.contains(value.id) { new.setGraphSafe(self); new.setGraphSafe(value) }
+        else { new.setGraphSafe(value); new.setGraphSafe(self) }
+        return new
+      }
+
+      if axis == 2,
+         inputSize.columns == columns,
+         inputSize.rows == rows,
+         inputSize.depth == 1 {
+        // Broadcast along depth: add input plane to each depth slice
+        for d in 0..<depth {
+          for r in 0..<rows {
+            let selfStart = flatIndex(column: 0, row: r, depth: d)
+            let inputStart = value.flatIndex(column: 0, row: r, depth: 0)
+            NumSwiftFlat.add(selfPtr + selfStart, inputPtr + inputStart, result: resultPtr + selfStart, count: columns)
+          }
+        }
+        let new = Tensor(storage: resultStorage, size: selfSize, context: addContext(value: value))
+        new.label = "addition"
+        if graphChain.contains(value.id) { new.setGraphSafe(self); new.setGraphSafe(value) }
+        else { new.setGraphSafe(value); new.setGraphSafe(self) }
+        return new
+      }
+    }
+
+    // Fallback: generic applyAlong path
     let block: MathAlongBlock = { feature, value in
       if let valueArray = value.0 {
         return feature + valueArray
@@ -399,7 +474,6 @@ public extension Tensor {
         return feature
       }
     }
-    
     let out = applyAlong(axis: axis, input: value, block)
     
     let new = Tensor(storage: out.storage, size: out.size, context: addContext(value: value))
@@ -467,7 +541,6 @@ public extension Tensor {
         return feature
       }
     }
-    
     let out = applyAlong(axis: axis, input: value, block)
     
     let new = Tensor(storage: out.storage, size: out.size, context: subtractContext(value: value))
