@@ -169,9 +169,9 @@ public class Adam: BaseOptimizer {
     
     let result = apply(m: &m[i],
                        v: &v[i],
-                       gradient: gradient.flatArray,
+                       gradient: gradient.storage,
                        decay: true,
-                       weights: weights.flatArray,
+                       weights: weights.storage,
                        size: gradient.size)
 
     let biasCount = biasGradient.storage.count
@@ -183,8 +183,8 @@ public class Adam: BaseOptimizer {
 
     let biases = apply(m: &mb[i],
                        v: &vb[i],
-                       gradient: biasGradient.flatArray,
-                       weights: bias.flatArray,
+                       gradient: biasGradient.storage,
+                       weights: bias.storage,
                        size: biasGradient.size)
     
     return (Tensor(result, size: gradient.size), Tensor(biases, size: biasGradient.size))
@@ -192,9 +192,9 @@ public class Adam: BaseOptimizer {
 
   private func apply(m: inout Tensor.Value,
                      v: inout Tensor.Value,
-                     gradient: Tensor.Value,
+                     gradient: TensorStorage,
                      decay: Bool = false,
-                     weights: Tensor.Value,
+                     weights: TensorStorage,
                      size: TensorSize) -> Tensor.Value {
 
     // Hoist loop-invariant computations

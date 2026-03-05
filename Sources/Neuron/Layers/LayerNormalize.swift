@@ -106,7 +106,7 @@ public final class LayerNormalize: BaseLayer {
     }
     
     let forwardStorage = normalizeFlat(inputs: tensor)
-    let out = Tensor(forwardStorage, size: tensor.size, context: tensorContext)
+    let out = Tensor(storage: forwardStorage, size: tensor.size, context: tensorContext)
     out.setGraph(tensor)
     
     return super.forward(tensor: out, context: context)
@@ -118,7 +118,7 @@ public final class LayerNormalize: BaseLayer {
     setupTrainables()
   }
 
-  private func normalizeFlat(inputs: Tensor) -> Tensor.Value {
+  private func normalizeFlat(inputs: Tensor) -> TensorStorage {
     let sliceSize = inputSize.rows * inputSize.columns * inputSize.depth
     let total = Tensor.Scalar(sliceSize)
     
@@ -136,7 +136,7 @@ public final class LayerNormalize: BaseLayer {
     
     let scaled = normalized * gammaSlice + betaSlice
     
-    return scaled.flatArray
+    return scaled.storage
   }
   
   private func backwardFlat(inputs: Tensor, gradient: Tensor) -> (input: Tensor, weight: Tensor, bias: Tensor) {

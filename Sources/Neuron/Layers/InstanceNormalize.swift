@@ -152,9 +152,10 @@ public final class InstanceNormalize: BaseLayer {
     
     // We use Tensor operations per-depth for the complex backward math
     // but construct depth-1 Tensors from flat slices instead of going through .value
-    var dInputSlices = [Tensor.Value]()
-    var dGammaSlices = [Tensor.Value]()
-    var dBetaSlices = [Tensor.Value]()
+    let sliceSize = inputSize.rows * inputSize.columns
+    let dInputResult = TensorStorage(count: sliceSize * depth)
+    let dGammaResult = TensorStorage(count: depth)
+    let dBetaResult = TensorStorage(count: depth)
     
     for i in 0..<depth {
       let gammaTensor = gamma.storage[i]
@@ -176,31 +177,24 @@ public final class InstanceNormalize: BaseLayer {
       
       let invNStd = gammaTensor * (Tensor.Scalar(1) / (N * std))
       let line2 = N * gradTensor
-      let line3 = dL_dbeta                          // sum(dOut)
-      let line4 = x_norm                            // x̂
-      let line5 = dL_dgamma                         // sum(dOut * x̂)
+      let line3 = dL_dbeta
+      let line4 = x_norm
+      let line5 = dL_dgamma
 
       let dl_dx = invNStd * (line2 - line3 - line4 * line5)
       
-      dInputSlices.append(dl_dx.flatArray)
-      dGammaSlices.append([dL_dgamma])
-      dBetaSlices.append([dL_dbeta])
+      let offset = i * sliceSize
+      for j in 0..<dl_dx.storage.count {
+        dInputResult[offset + j] = dl_dx.storage[j]
+      }
+      dGammaResult[i] = dL_dgamma
+      dBetaResult[i] = dL_dbeta
     }
     
-    // Assemble full tensors from per-depth slices
-    var dInputStorage = Tensor.Value()
-    dInputSlices.forEach { dInputStorage.append(contentsOf: $0) }
+    let dGammaTensor = Tensor(storage: dGammaResult, size: TensorSize(rows: 1, columns: depth, depth: 1))
+    let dBetaTensor = Tensor(storage: dBetaResult, size: TensorSize(rows: 1, columns: depth, depth: 1))
     
-    var dGammaStorage = Tensor.Value()
-    dGammaSlices.forEach { dGammaStorage.append(contentsOf: $0) }
-    
-    var dBetaStorage = Tensor.Value()
-    dBetaSlices.forEach { dBetaStorage.append(contentsOf: $0) }
-    
-    let dGammaTensor = Tensor(dGammaStorage, size: TensorSize(rows: 1, columns: depth, depth: 1))
-    let dBetaTensor = Tensor(dBetaStorage, size: TensorSize(rows: 1, columns: depth, depth: 1))
-    
-    return (Tensor(dInputStorage, size: inputs.size),
+    return (Tensor(storage: dInputResult, size: inputs.size),
             dGammaTensor.concat(dBetaTensor, axis: 2),
             Tensor())
   }

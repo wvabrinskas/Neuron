@@ -79,19 +79,19 @@ public class SGD: BaseOptimizer {
       v[i] = Tensor.Value(repeating: 0, count: gradient.storage.count)
     }
     
-    apply(to: &v[i], gradient: gradient.flatArray)
+    apply(to: &v[i], gradient: gradient.storage)
 
     if vb[i].isEmpty {
       vb[i] = Tensor.Value(repeating: 0, count: biasGradient.storage.count)
     }
           
-    apply(to: &vb[i], gradient: biasGradient.flatArray)
+    apply(to: &vb[i], gradient: biasGradient.storage)
 
     return (Tensor(v[i], size: gradient.size),
             Tensor(vb[i], size: biasGradient.size))
   }
 
-  private func apply(to: inout Tensor.Value, gradient: Tensor.Value) {
+  private func apply(to: inout Tensor.Value, gradient: TensorStorage) {
     for i in 0..<gradient.count {
       to[i] = momentum * to[i] + learningRate * gradient[i]
     }

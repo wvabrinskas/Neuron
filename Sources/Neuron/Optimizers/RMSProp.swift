@@ -93,13 +93,13 @@ public class RMSProp: BaseOptimizer {
       vb[i] = Tensor.Value(repeating: 0, count: biasGradient.storage.count)
     }
     
-    let result = apply(to: &v[i], gradient: gradient.flatArray)
-    let biasResult = apply(to: &vb[i], gradient: biasGradient.flatArray)
+    let result = apply(to: &v[i], gradient: gradient.storage)
+    let biasResult = apply(to: &vb[i], gradient: biasGradient.storage)
     
     return (Tensor(result, size: gradient.size), Tensor(biasResult, size: biasGradient.size))
   }
 
-  private func apply(to: inout Tensor.Value, gradient: Tensor.Value) -> Tensor.Value {
+  private func apply(to: inout Tensor.Value, gradient: TensorStorage) -> Tensor.Value {
     let count = gradient.count
     let oneMinusB = 1 - b
     var result = Tensor.Value(repeating: 0, count: count)

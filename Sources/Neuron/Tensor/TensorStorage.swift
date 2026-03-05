@@ -7,16 +7,17 @@
 
 import Foundation
 
-/// A pointer-backed contiguous memory container for tensor data.
+/// A pointer-backed contiguous memory container for tensor data with copy-on-write semantics.
 ///
 /// `TensorStorage` manages a block of `Scalar` values via raw pointers,
 /// providing subscript access, Collection conformance, and Codable support.
-/// It uses reference semantics (class) so that subclasses (e.g. `MetalTensorStorage`)
-/// can back the same pointer interface with `MTLBuffer` memory.
+/// Multiple `TensorStorage` instances can share the same underlying memory;
+/// the actual copy is deferred until the first mutation (copy-on-write).
 ///
 /// Memory lifecycle: the base class allocates via `UnsafeMutablePointer.allocate(capacity:)`
-/// and deallocates in `deinit`. Subclasses that provide externally-managed memory
-/// should use the `init(pointer:count:deallocator:)` initializer with a custom deallocator.
+/// and deallocates when the last reference to the inner buffer is released.
+/// Subclasses that provide externally-managed memory should use the
+/// `init(pointer:count:deallocator:)` initializer with a custom deallocator.
 public final class TensorStorage {
   #if QUANTIZED_F16
   public typealias Scalar = Float16
@@ -24,94 +25,136 @@ public final class TensorStorage {
   public typealias Scalar = Float
   #endif
 
+  // MARK: - Inner Buffer (reference-counted memory owner)
+
+  final class Buffer {
+    var pointer: UnsafeMutablePointer<Scalar>
+    let count: Int
+    private let deallocator: (() -> Void)?
+
+    init(count: Int) {
+      self.count = count
+      self.deallocator = nil
+      if count > 0 {
+        self.pointer = .allocate(capacity: count)
+        self.pointer.initialize(repeating: 0, count: count)
+      } else {
+        self.pointer = .allocate(capacity: 1)
+      }
+    }
+
+    init(repeating value: Scalar, count: Int) {
+      self.count = count
+      self.deallocator = nil
+      if count > 0 {
+        self.pointer = .allocate(capacity: count)
+        self.pointer.initialize(repeating: value, count: count)
+      } else {
+        self.pointer = .allocate(capacity: 1)
+      }
+    }
+
+    init(pointer: UnsafeMutablePointer<Scalar>, count: Int, deallocator: @escaping () -> Void) {
+      self.pointer = pointer
+      self.count = count
+      self.deallocator = deallocator
+    }
+
+    func deepCopy() -> Buffer {
+      let new = Buffer(count: count)
+      if count > 0 {
+        new.pointer.update(from: pointer, count: count)
+      }
+      return new
+    }
+
+    deinit {
+      if let deallocator {
+        deallocator()
+      } else {
+        if count > 0 {
+          pointer.deinitialize(count: count)
+        } else {
+          pointer.deinitialize(count: 1)
+        }
+        pointer.deallocate()
+      }
+    }
+  }
+
+  // MARK: - Storage
+
+  private var _buffer: Buffer
+
   /// Raw pointer to the contiguous storage.
-  public private(set) var pointer: UnsafeMutablePointer<Scalar>
+  /// For read access this returns the current buffer's pointer directly.
+  /// Write access through subscript or `withUnsafeMutableBufferPointer` triggers COW automatically.
+  public var pointer: UnsafeMutablePointer<Scalar> {
+    _buffer.pointer
+  }
 
   /// Number of scalar elements in this storage.
-  public let count: Int
+  public var count: Int { _buffer.count }
 
-  /// Closure called on deallocation. Nil means this instance owns and will deallocate the pointer.
-  private let deallocator: (() -> Void)?
+  // MARK: - COW
+
+  /// Ensures this instance has exclusive ownership of its buffer.
+  /// If the buffer is shared with another TensorStorage, a deep copy is made.
+  @inline(__always)
+  private func copyBufferIfShared() {
+    if !isKnownUniquelyReferenced(&_buffer) {
+      _buffer = _buffer.deepCopy()
+    }
+  }
 
   // MARK: - Initializers
 
-  /// Allocates uninitialized storage for `count` elements (zeroed).
+  /// Allocates zeroed storage for `count` elements.
   public init(count: Int) {
-    self.count = count
-    if count > 0 {
-      self.pointer = .allocate(capacity: count)
-      self.pointer.initialize(repeating: 0, count: count)
-    } else {
-      self.pointer = .allocate(capacity: 1)
-    }
-    self.deallocator = nil
+    self._buffer = Buffer(count: count)
   }
 
   /// Allocates storage filled with `repeating` value.
   public init(repeating value: Scalar, count: Int) {
-    self.count = count
-    if count > 0 {
-      self.pointer = .allocate(capacity: count)
-      self.pointer.initialize(repeating: value, count: count)
-    } else {
-      self.pointer = .allocate(capacity: 1)
-    }
-    self.deallocator = nil
+    self._buffer = Buffer(repeating: value, count: count)
   }
 
   /// Allocates storage and copies data from an `Array`.
   public init(_ array: [Scalar]) {
     let n = array.count
-    self.count = n
-    self.deallocator = nil
     if n == 0 {
-      self.pointer = .allocate(capacity: 1)
+      self._buffer = Buffer(count: 0)
     } else {
-      let ptr = UnsafeMutablePointer<Scalar>.allocate(capacity: n)
+      let buf = Buffer(count: n)
       array.withUnsafeBufferPointer { src in
-        ptr.initialize(from: src.baseAddress!, count: n)
+        buf.pointer.update(from: src.baseAddress!, count: n)
       }
-      self.pointer = ptr
+      self._buffer = buf
     }
   }
 
   /// Allocates storage and copies data from a `ContiguousArray`.
   public init(_ contiguous: ContiguousArray<Scalar>) {
     let n = contiguous.count
-    self.count = n
-    self.deallocator = nil
     if n == 0 {
-      self.pointer = .allocate(capacity: 1)
+      self._buffer = Buffer(count: 0)
     } else {
-      let ptr = UnsafeMutablePointer<Scalar>.allocate(capacity: n)
+      let buf = Buffer(count: n)
       contiguous.withUnsafeBufferPointer { src in
-        ptr.initialize(from: src.baseAddress!, count: n)
+        buf.pointer.update(from: src.baseAddress!, count: n)
       }
-      self.pointer = ptr
+      self._buffer = buf
     }
   }
 
-  /// Subclass / external-memory initializer.
-  /// The caller provides a pointer whose lifetime is managed by `deallocator`.
-  /// Pass an empty deallocator if the pointer's lifetime is managed elsewhere
-  /// (e.g. by an `MTLBuffer` retained by the subclass).
+  /// External-memory initializer for subclasses (e.g. MTLBuffer-backed storage).
   public init(pointer: UnsafeMutablePointer<Scalar>, count: Int, deallocator: @escaping () -> Void) {
-    self.pointer = pointer
-    self.count = count
-    self.deallocator = deallocator
+    self._buffer = Buffer(pointer: pointer, count: count, deallocator: deallocator)
   }
 
-  deinit {
-    if let deallocator {
-      deallocator()
-    } else {
-      if count > 0 {
-        pointer.deinitialize(count: count)
-      } else {
-        pointer.deinitialize(count: 1)
-      }
-      pointer.deallocate()
-    }
+  /// Private initializer that shares an existing buffer (for COW copy).
+  private init(buffer: Buffer) {
+    self._buffer = buffer
   }
 
   // MARK: - Subscript
@@ -119,16 +162,16 @@ public final class TensorStorage {
   public subscript(index: Int) -> Scalar {
     get {
       assert(index >= 0 && index < count, "TensorStorage index \(index) out of range [0..<\(count)]")
-      return pointer[index]
+      return _buffer.pointer[index]
     }
     set {
       assert(index >= 0 && index < count, "TensorStorage index \(index) out of range [0..<\(count)]")
-      pointer[index] = newValue
+      copyBufferIfShared()
+      _buffer.pointer[index] = newValue
     }
   }
 
-  /// Safe range subscript that returns an array, clamping to valid bounds.
-  /// Out-of-range elements are replaced with `defaultValue`.
+  /// Safe range subscript returning an array, clamping to valid bounds.
   public subscript(safe range: Range<Int>, defaultValue: Scalar) -> [Scalar] {
     let clampedLower = Swift.max(range.lowerBound, 0)
     let clampedUpper = Swift.min(range.upperBound, count)
@@ -139,7 +182,7 @@ public final class TensorStorage {
     let validCount = clampedUpper - clampedLower
     let offset = clampedLower - range.lowerBound
     for i in 0..<validCount {
-      result[offset + i] = pointer[clampedLower + i]
+      result[offset + i] = _buffer.pointer[clampedLower + i]
     }
     return result
   }
@@ -147,7 +190,7 @@ public final class TensorStorage {
   /// Safe single-element subscript with default.
   public subscript(safe index: Int, defaultValue: Scalar) -> Scalar {
     guard index >= 0 && index < count else { return defaultValue }
-    return pointer[index]
+    return _buffer.pointer[index]
   }
 
   // MARK: - Properties
@@ -159,38 +202,42 @@ public final class TensorStorage {
   /// Copies data out to a `ContiguousArray<Scalar>`.
   public func toContiguousArray() -> ContiguousArray<Scalar> {
     guard count > 0 else { return ContiguousArray<Scalar>() }
-    return ContiguousArray<Scalar>(UnsafeBufferPointer(start: pointer, count: count))
+    return ContiguousArray<Scalar>(UnsafeBufferPointer(start: _buffer.pointer, count: count))
   }
 
   /// Copies data out to an `[Scalar]`.
   public func toArray() -> [Scalar] {
     guard count > 0 else { return [] }
-    return Array(UnsafeBufferPointer(start: pointer, count: count))
+    return Array(UnsafeBufferPointer(start: _buffer.pointer, count: count))
   }
 
   // MARK: - Unsafe Access
 
-  /// Calls `body` with an `UnsafeBufferPointer` covering the entire storage.
+  /// Calls `body` with a read-only `UnsafeBufferPointer` covering the entire storage.
   @discardableResult
   public func withUnsafeBufferPointer<R>(_ body: (UnsafeBufferPointer<Scalar>) throws -> R) rethrows -> R {
-    try body(UnsafeBufferPointer(start: pointer, count: count))
+    try body(UnsafeBufferPointer(start: _buffer.pointer, count: count))
   }
 
-  /// Calls `body` with an `UnsafeMutableBufferPointer` covering the entire storage.
+  /// Calls `body` with a mutable `UnsafeMutableBufferPointer`.
+  /// Triggers COW if the buffer is shared.
   @discardableResult
   public func withUnsafeMutableBufferPointer<R>(_ body: (UnsafeMutableBufferPointer<Scalar>) throws -> R) rethrows -> R {
-    try body(UnsafeMutableBufferPointer(start: pointer, count: count))
+    copyBufferIfShared()
+    return try body(UnsafeMutableBufferPointer(start: _buffer.pointer, count: count))
   }
 
   // MARK: - Copy
 
-  /// Creates a new `TensorStorage` with independently allocated memory containing the same data.
+  /// Returns a new `TensorStorage` sharing the same underlying memory (O(1)).
+  /// The actual deep copy is deferred until the first mutation on either instance.
   public func copy() -> TensorStorage {
-    let new = TensorStorage(count: count)
-    if count > 0 {
-      new.pointer.update(from: pointer, count: count)
-    }
-    return new
+    TensorStorage(buffer: _buffer)
+  }
+
+  /// Always allocates new memory and copies data, bypassing COW.
+  public func forceCopy() -> TensorStorage {
+    TensorStorage(buffer: _buffer.deepCopy())
   }
 }
 
@@ -199,8 +246,9 @@ public final class TensorStorage {
 extension TensorStorage: Equatable {
   public static func == (lhs: TensorStorage, rhs: TensorStorage) -> Bool {
     guard lhs.count == rhs.count else { return false }
+    if lhs._buffer === rhs._buffer { return true }
     guard lhs.count > 0 else { return true }
-    return memcmp(lhs.pointer, rhs.pointer, lhs.count * MemoryLayout<Scalar>.stride) == 0
+    return memcmp(lhs._buffer.pointer, rhs._buffer.pointer, lhs.count * MemoryLayout<Scalar>.stride) == 0
   }
 }
 
@@ -221,7 +269,7 @@ extension TensorStorage: Sequence {
 
     public mutating func next() -> Scalar? {
       guard index < storage.count else { return nil }
-      let value = storage.pointer[index]
+      let value = storage._buffer.pointer[index]
       index += 1
       return value
     }
@@ -256,7 +304,7 @@ extension TensorStorage: Codable {
 extension TensorStorage: CustomDebugStringConvertible {
   public var debugDescription: String {
     let preview = Swift.min(count, 8)
-    let elements = (0..<preview).map { String(describing: pointer[$0]) }
+    let elements = (0..<preview).map { String(describing: _buffer.pointer[$0]) }
     let suffix = count > preview ? ", ... (\(count) total)" : ""
     return "TensorStorage[\(count)](\(elements.joined(separator: ", "))\(suffix))"
   }
