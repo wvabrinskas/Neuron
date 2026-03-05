@@ -511,6 +511,58 @@ public final class MetalEngine {
     return cmdBuffer.status == .completed
   }
 
+  /// Encodes neuron_conv2d_backward_input into the given encoder. Does not end encoding or commit.
+  public func encodeConv2dBackwardInput(
+    encoder: MetalCommandEncoder,
+    gradOutput: MetalTensorStorage,
+    weights: MetalTensorStorage,
+    gradInput: MetalTensorStorage,
+    params: Conv2DParams
+  ) -> Bool {
+    guard let pipeline = pipeline(named: "neuron_conv2d_backward_input") else { return false }
+    let total = Int(params.N) * Int(params.C) * Int(params.H) * Int(params.W)
+    guard total > 0 else { return false }
+
+    let enc = encoder.encoder
+    enc.setComputePipelineState(pipeline)
+    enc.setBuffer(gradOutput.mtlBuffer, offset: 0, index: 0)
+    enc.setBuffer(weights.mtlBuffer, offset: 0, index: 1)
+    enc.setBuffer(gradInput.mtlBuffer, offset: 0, index: 2)
+    var p = params
+    enc.setBytes(&p, length: MemoryLayout<Conv2DParams>.size, index: 3)
+    let tgSize = min(256, max(1, total))
+    let gridSize = MTLSize(width: total, height: 1, depth: 1)
+    let threadgroupSize = MTLSize(width: tgSize, height: 1, depth: 1)
+    enc.dispatchThreads(gridSize, threadsPerThreadgroup: threadgroupSize)
+    return true
+  }
+
+  /// Encodes neuron_conv2d_backward_weights into the given encoder. Does not end encoding or commit.
+  public func encodeConv2dBackwardWeights(
+    encoder: MetalCommandEncoder,
+    input: MetalTensorStorage,
+    gradOutput: MetalTensorStorage,
+    gradWeights: MetalTensorStorage,
+    params: Conv2DParams
+  ) -> Bool {
+    guard let pipeline = pipeline(named: "neuron_conv2d_backward_weights") else { return false }
+    let totalWeights = Int(params.K) * Int(params.C) * Int(params.kH) * Int(params.kW)
+    guard totalWeights > 0 else { return false }
+
+    let enc = encoder.encoder
+    enc.setComputePipelineState(pipeline)
+    enc.setBuffer(input.mtlBuffer, offset: 0, index: 0)
+    enc.setBuffer(gradOutput.mtlBuffer, offset: 0, index: 1)
+    enc.setBuffer(gradWeights.mtlBuffer, offset: 0, index: 2)
+    var p = params
+    enc.setBytes(&p, length: MemoryLayout<Conv2DParams>.size, index: 3)
+    let tgSize = min(256, max(1, totalWeights))
+    let gridSize = MTLSize(width: totalWeights, height: 1, depth: 1)
+    let threadgroupSize = MTLSize(width: tgSize, height: 1, depth: 1)
+    enc.dispatchThreads(gridSize, threadsPerThreadgroup: threadgroupSize)
+    return true
+  }
+
   /// Encodes neuron_conv_transpose2d into the given encoder. Does not end encoding or commit.
   public func encodeTransConv2d(
     encoder: MetalCommandEncoder,

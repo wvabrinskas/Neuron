@@ -118,8 +118,9 @@ public class Conv2d: BaseConvolutionalLayer {
   /// - Returns: Convolved output tensor.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
 
+    let encoder = context.metalEncoder
     let tensorContext = TensorContext { inputs, gradient, wrt in
-      self.backward(inputs, gradient)
+      self.backward(inputs, gradient, encoder: encoder)
     }
     
     let outStorage = conv(tensor, context: context)
@@ -131,14 +132,81 @@ public class Conv2d: BaseConvolutionalLayer {
     return super.forward(tensor: out, context: context)
   }
   
-  internal func backward(_ input: Tensor, _ delta: Tensor) -> (input: Tensor, weight: Tensor, bias: Tensor) {
-    // Flip and transpose filters: for each input depth channel f, collect the flipped kernel[f] from each filter i
-    // flippedTransposed[f][i] = flip180(filters[i].depthSlice(f))
+  internal func backward(_ input: Tensor, _ delta: Tensor, encoder: MetalCommandEncoder? = nil) -> (input: Tensor, weight: Tensor, bias: Tensor) {
     let inputDepth = inputSize.depth
     let fRows = filterSize.rows
     let fCols = filterSize.columns
-    
-    // Build flipped-transposed kernel table as flat arrays
+
+    if let enc = encoder,
+       device is GPU,
+       let metalInput = input.storage as? MetalTensorStorage,
+       let metalDelta = delta.storage as? MetalTensorStorage,
+       MetalContext.shared.isAvailable,
+       let metalDevice = MetalContext.shared.device,
+       let pool = MetalContext.shared.bufferPool {
+      let engine = MetalEngine()
+      let N: UInt32 = 1
+      let C = UInt32(inputDepth)
+      let H = UInt32(inputSize.rows)
+      let W = UInt32(inputSize.columns)
+      let K = UInt32(filterCount)
+      let kH = UInt32(filterSize.rows)
+      let kW = UInt32(filterSize.columns)
+      let oH = UInt32(outputSize.rows)
+      let oW = UInt32(outputSize.columns)
+      let extraPadding = padding.extra(inputSize: (inputSize.rows, inputSize.columns), filterSize: filterSize, stride: strides)
+      let strideH = UInt32(strides.rows)
+      let strideW = UInt32(strides.columns)
+      let padH = UInt32(extraPadding.top)
+      let padW = UInt32(extraPadding.left)
+
+      let weightsCount = Int(K) * Int(C) * Int(kH) * Int(kW)
+      let weightsStorage = MetalTensorStorage(device: metalDevice, count: weightsCount, pool: pool)
+      let filterSliceCount = Int(C) * Int(kH) * Int(kW)
+      for f in 0..<filterCount {
+        weightsStorage.pointer.advanced(by: f * filterSliceCount)
+          .update(from: filters[f].storage.pointer, count: filterSliceCount)
+      }
+
+      let gradInputCount = Int(N) * Int(C) * Int(H) * Int(W)
+      let gradWeightsCount = weightsCount
+      let gradInputStorage = MetalTensorStorage(device: metalDevice, count: gradInputCount, pool: pool)
+      let gradWeightsStorage = MetalTensorStorage(device: metalDevice, count: gradWeightsCount, pool: pool)
+
+      let params = MetalEngine.Conv2DParams(
+        N: N, C: C, H: H, W: W, K: K,
+        kH: kH, kW: kW, oH: oH, oW: oW,
+        strideH: strideH, strideW: strideW,
+        padH: padH, padW: padW,
+        hasBias: 0
+      )
+
+      if engine.encodeConv2dBackwardInput(
+        encoder: enc,
+        gradOutput: metalDelta,
+        weights: weightsStorage,
+        gradInput: gradInputStorage,
+        params: params
+      ) && engine.encodeConv2dBackwardWeights(
+        encoder: enc,
+        input: metalInput,
+        gradOutput: metalDelta,
+        gradWeights: gradWeightsStorage,
+        params: params
+      ) {
+        let inputTensor = Tensor(storage: gradInputStorage, size: inputSize, context: TensorContext())
+        inputTensor.label = "conv2d-input"
+        let wSize = TensorSize(rows: fRows, columns: fCols, depth: filterCount * inputDepth)
+        let weightsTensor = Tensor(storage: gradWeightsStorage, size: wSize, context: TensorContext())
+        weightsTensor.label = "conv2d-weight"
+        let biasStorage = Tensor.Value((0..<delta.size.depth).map { delta.depthSlice($0).sum })
+        let biasesTensor = Tensor(biasStorage, size: biases.size)
+        biasesTensor.label = "conv2d-bias"
+        return (inputTensor, weightsTensor, biasesTensor)
+      }
+    }
+
+    // CPU path: flip and transpose filters
     // flippedKernels[f * filterCount + i] = flip180 of filters[i] depth slice f
     var flippedKernels = [Tensor.Value](repeating: Tensor.Value(), count: inputDepth * filterCount)
     for i in 0..<filterCount {

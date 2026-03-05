@@ -51,7 +51,7 @@ public final class TransConv2d: Conv2d {
     outputSize = TensorSize(array: [columns, rows, filterCount])
   }
   
-  internal override func backward(_ input: Tensor, _ delta: Tensor) -> (input: Tensor, weight: Tensor, bias: Tensor) {
+  internal override func backward(_ input: Tensor, _ delta: Tensor, encoder: MetalCommandEncoder? = nil) -> (input: Tensor, weight: Tensor, bias: Tensor) {
     let inputDepth = inputSize.depth
     let fRows = filterSize.rows
     let fCols = filterSize.columns

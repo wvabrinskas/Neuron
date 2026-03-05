@@ -108,11 +108,10 @@ public final class Dense: BaseLayer {
   /// - Returns: Dense output tensor with attached gradient context.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     
+    let encoder = context.metalEncoder
     let tensorContext = TensorContext { inputs, gradients, wrt in
-      let deltas = self.device.matmul(gradients, self.weights.detached())
-
-      let weightGradients = self.device.matmul(gradients.transposed(), inputs)
-
+      let deltas = self.device.matmul(gradients, self.weights.detached(), encoder: encoder)
+      let weightGradients = self.device.matmul(gradients.transposed(), inputs, encoder: encoder)
       return (deltas, weightGradients, gradients)
     }
     
