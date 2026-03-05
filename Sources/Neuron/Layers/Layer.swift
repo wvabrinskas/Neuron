@@ -608,13 +608,13 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     
     let tensorContext = TensorContext { inputs, gradient, wrt in
-      let derivResult = self.device.derivate(inputs, self.type)
+      let derivResult = self.device.derivate(inputs, self.type, encoder: nil)
       let outTensor = derivResult * gradient
       outTensor.label = self.type.asString() + "_input_grad"
       return (outTensor, Tensor(), Tensor())
     }
     
-    let result = device.activate(tensor, type)
+    let result = device.activate(tensor, type, encoder: context.metalEncoder)
     let out = Tensor(storage: result.storage, size: result.size, context: tensorContext)
 
     out.setGraph(tensor)

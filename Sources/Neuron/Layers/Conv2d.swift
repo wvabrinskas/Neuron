@@ -122,7 +122,7 @@ public class Conv2d: BaseConvolutionalLayer {
       self.backward(inputs, gradient)
     }
     
-    let outStorage = conv(tensor)
+    let outStorage = conv(tensor, context: context)
     let outSize = TensorSize(rows: outputSize.rows, columns: outputSize.columns, depth: filterCount)
     let out = Tensor(storage: outStorage, size: outSize, context: tensorContext)
     
@@ -331,7 +331,7 @@ public class Conv2d: BaseConvolutionalLayer {
     }
   }
   
-  internal func conv(_ input: Tensor) -> TensorStorage {
+  internal func conv(_ input: Tensor, context: NetworkContext = .init()) -> TensorStorage {
     let outRows = outputSize.rows
     let outCols = outputSize.columns
     let outSliceSize = outRows * outCols
@@ -389,7 +389,18 @@ public class Conv2d: BaseConvolutionalLayer {
         hasBias: biasEnabled ? 1 : 0
       )
 
-      if engine.dispatchConv2d(
+      if let enc = context.metalEncoder {
+        if engine.encodeConv2d(
+          encoder: enc,
+          input: metalInput,
+          weights: weightsStorage,
+          output: outputStorage,
+          bias: biasStorage,
+          params: params
+        ) {
+          return outputStorage
+        }
+      } else if engine.dispatchConv2d(
         input: metalInput,
         weights: weightsStorage,
         output: outputStorage,

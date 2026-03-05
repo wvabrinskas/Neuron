@@ -255,9 +255,13 @@ open class BaseOptimizer: Optimizer {
     var losses: Tensor.Scalar = 0
     var accuracy: Tensor.Scalar = 0
         
-    let concurrencySplit = Tensor.Scalar(data.count) / Tensor.Scalar(workersCount)
+    let useMetalEncoder = deviceType == .gpu && MetalContext.shared.isAvailable
+    let effectiveWorkers = useMetalEncoder ? 1 : workersCount
+    let metalEncoder = useMetalEncoder ? MetalCommandEncoder() : nil
+
+    let concurrencySplit = Tensor.Scalar(data.count) / Tensor.Scalar(effectiveWorkers)
     
-    var outputs: [[Tensor]] = [[Tensor]].init(repeating: [], count: workersCount)
+    var outputs: [[Tensor]] = [[Tensor]].init(repeating: [], count: effectiveWorkers)
 
     metricsReporter?.update(metric: .batchConcurrency, value: concurrencySplit)
     
@@ -270,9 +274,9 @@ open class BaseOptimizer: Optimizer {
       augmentedOut = augOut
     }
     
-    var accumulators = (0..<workersCount).map { _ in GradientAccumulator() }
-    
-    dataToUse.concurrentBatchedForEach(workers: workersCount, priority: device.qosPriority) { elements,
+    var accumulators = (0..<effectiveWorkers).map { _ in GradientAccumulator() }
+
+    dataToUse.concurrentBatchedForEach(workers: effectiveWorkers, priority: device.qosPriority) { elements,
                                                                                          workerIndex,
                                                                                          indexRange,
                                                                                          processingCount,
@@ -281,10 +285,12 @@ open class BaseOptimizer: Optimizer {
       let accumulator = accumulators[workerIndex]
       accumulator.average = false
 
-      let outs = self.trainable.predict(batch: elements, context: .init(batchRange: indexRange,
-                                                                        batchProcessingCount: processingCount,
-                                                                        totalInBatch: data.count,
-                                                                        threadId: workerId))
+      let ctx = NetworkContext(batchRange: indexRange,
+                               batchProcessingCount: processingCount,
+                               totalInBatch: data.count,
+                               threadId: workerId,
+                               metalEncoder: metalEncoder)
+      let outs = self.trainable.predict(batch: elements, context: ctx)
       
       outputs[workerIndex] = outs
       
@@ -324,7 +330,13 @@ open class BaseOptimizer: Optimizer {
         }
       }
     }
-    
+
+    if let enc = metalEncoder {
+      enc.endEncoding()
+      enc.commit()
+      enc.waitUntilCompleted()
+    }
+
     metricsReporter?.endTimer(metric: .batchTime)
 
     let flatOutput = outputs.flatMap { $0 }

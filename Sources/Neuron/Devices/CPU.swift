@@ -78,8 +78,11 @@ public class CPU: Device {
   public func activate(_ input: Tensor, _ type: Activation) -> Tensor {
     type.activate(input: input)
   }
-  
-  
+
+  public func activate(_ input: Tensor, _ type: Activation, encoder: MetalCommandEncoder?) -> Tensor {
+    activate(input, type)
+  }
+
   /// Performs an activation derivative function
   /// - Parameters:
   ///   - input: The input Tensor to perform the activation derivative function on
@@ -88,7 +91,11 @@ public class CPU: Device {
   public func derivate(_ input: Tensor, _ type: Activation) -> Tensor {
     type.derivate(input)
   }
-  
+
+  public func derivate(_ input: Tensor, _ type: Activation, encoder: MetalCommandEncoder?) -> Tensor {
+    derivate(input, type)
+  }
+
   /// Performs matrix multiplication for two tensors.
   ///
   /// - Parameters:
@@ -97,5 +104,9 @@ public class CPU: Device {
   /// - Returns: Matrix product tensor.
   public func matmul(_ a: Tensor, _ b: Tensor) -> Tensor {
     a.matmul(b)
+  }
+
+  public func matmul(_ a: Tensor, _ b: Tensor, encoder: MetalCommandEncoder?) -> Tensor {
+    matmul(a, b)
   }
 }

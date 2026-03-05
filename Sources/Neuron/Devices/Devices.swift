@@ -75,6 +75,14 @@ public protocol Device: AnyObject {
   ///   - type: Activation type to apply.
   /// - Returns: Activated tensor.
   func activate(_ input: Tensor, _ type: Activation) -> Tensor
+  /// Applies an activation function, optionally encoding into a Metal command encoder for batched execution.
+  ///
+  /// - Parameters:
+  ///   - input: Tensor to activate.
+  ///   - type: Activation type to apply.
+  ///   - encoder: Optional Metal encoder for batched encoding; when nil, uses per-op dispatch.
+  /// - Returns: Activated tensor.
+  func activate(_ input: Tensor, _ type: Activation, encoder: MetalCommandEncoder?) -> Tensor
   /// Applies an activation derivative element-wise.
   ///
   /// - Parameters:
@@ -82,6 +90,8 @@ public protocol Device: AnyObject {
   ///   - type: Activation derivative to compute.
   /// - Returns: Tensor containing derivative values.
   func derivate(_ input: Tensor, _ type: Activation) -> Tensor
+  /// Applies an activation derivative, optionally encoding into a Metal command encoder.
+  func derivate(_ input: Tensor, _ type: Activation, encoder: MetalCommandEncoder?) -> Tensor
   /// Computes matrix multiplication between two tensors.
   ///
   /// - Parameters:
@@ -89,6 +99,23 @@ public protocol Device: AnyObject {
   ///   - b: Right tensor.
   /// - Returns: Matrix product tensor.
   func matmul(_ a: Tensor, _ b: Tensor) -> Tensor
+  /// Computes matrix multiplication, optionally encoding into a Metal command encoder.
+  func matmul(_ a: Tensor, _ b: Tensor, encoder: MetalCommandEncoder?) -> Tensor
+}
+
+extension Device {
+  /// Default: ignore encoder and use standard activation.
+  public func activate(_ input: Tensor, _ type: Activation, encoder: MetalCommandEncoder?) -> Tensor {
+    activate(input, type)
+  }
+  /// Default: ignore encoder and use standard derivative.
+  public func derivate(_ input: Tensor, _ type: Activation, encoder: MetalCommandEncoder?) -> Tensor {
+    derivate(input, type)
+  }
+  /// Default: ignore encoder and use standard matmul.
+  public func matmul(_ a: Tensor, _ b: Tensor, encoder: MetalCommandEncoder?) -> Tensor {
+    matmul(a, b)
+  }
 }
 
 final class DeviceManager {

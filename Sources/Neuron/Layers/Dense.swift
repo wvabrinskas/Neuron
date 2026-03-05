@@ -119,7 +119,7 @@ public final class Dense: BaseLayer {
     //THIS WAS A MAJOR BUG POINT. DO NOT SWITCH ROWS AND COLUMNS HERE BY ACCIDENT - Billy 05-20-2022
     let weightsTransposed = weights.transposed()
     
-    var dotProducts = device.matmul(tensor, weightsTransposed)
+    var dotProducts = device.matmul(tensor, weightsTransposed, encoder: context.metalEncoder)
     
     if biasEnabled {
       dotProducts = dotProducts.copy() + biases

@@ -191,7 +191,7 @@ public final class TransConv2d: Conv2d {
     return results
   }
   
-  internal override func conv(_ input: Tensor) -> TensorStorage {
+  internal override func conv(_ input: Tensor, context: NetworkContext = .init()) -> TensorStorage {
     let outRows = outputSize.rows
     let outCols = outputSize.columns
     let outSliceSize = outRows * outCols
@@ -250,12 +250,24 @@ public final class TransConv2d: Conv2d {
         hasBias: 0
       )
 
-      if engine.dispatchTransConv2d(
-        input: metalInput,
-        weights: weightsStorage,
-        output: outputStorage,
-        params: params
-      ) {
+      let dispatched: Bool
+      if let enc = context.metalEncoder {
+        dispatched = engine.encodeTransConv2d(
+          encoder: enc,
+          input: metalInput,
+          weights: weightsStorage,
+          output: outputStorage,
+          params: params
+        )
+      } else {
+        dispatched = engine.dispatchTransConv2d(
+          input: metalInput,
+          weights: weightsStorage,
+          output: outputStorage,
+          params: params
+        )
+      }
+      if dispatched {
         if biasEnabled, let biasStorage = biasStorage {
           for f in 0..<filterCount {
             let offset = f * outSliceSize

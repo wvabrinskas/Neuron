@@ -78,13 +78,27 @@ public class GPU: Device {
   ///   - type: The type of activation to apply
   /// - Returns: The activated result as a Tensor
   public func activate(_ input: Tensor, _ type: Activation) -> Tensor {
+    activate(input, type, encoder: nil)
+  }
+
+  public func activate(_ input: Tensor, _ type: Activation, encoder: MetalCommandEncoder?) -> Tensor {
     if let metalInput = input.storage as? MetalTensorStorage,
        MetalContext.shared.isAvailable,
        let device = MetalContext.shared.device,
        let pool = MetalContext.shared.bufferPool {
       let engine = MetalEngine()
       let outputStorage = MetalTensorStorage(device: device, count: metalInput.count, pool: pool)
-      if engine.dispatchActivation(
+      if let enc = encoder {
+        if engine.encodeActivation(
+          encoder: enc,
+          input: metalInput,
+          output: outputStorage,
+          activationType: UInt32(type.index()),
+          leakyAlpha: type.leakyAlphaForMetal
+        ) {
+          return Tensor(storage: outputStorage, size: input.size, context: TensorContext())
+        }
+      } else if engine.dispatchActivation(
         input: metalInput,
         output: outputStorage,
         activationType: UInt32(type.index()),
@@ -102,13 +116,27 @@ public class GPU: Device {
   ///   - type: The type of activation derivative to apply
   /// - Returns: The activated derivative result as a Tensor
   public func derivate(_ input: Tensor, _ type: Activation) -> Tensor {
+    derivate(input, type, encoder: nil)
+  }
+
+  public func derivate(_ input: Tensor, _ type: Activation, encoder: MetalCommandEncoder?) -> Tensor {
     if let metalInput = input.storage as? MetalTensorStorage,
        MetalContext.shared.isAvailable,
        let device = MetalContext.shared.device,
        let pool = MetalContext.shared.bufferPool {
       let engine = MetalEngine()
       let outputStorage = MetalTensorStorage(device: device, count: metalInput.count, pool: pool)
-      if engine.dispatchDerivate(
+      if let enc = encoder {
+        if engine.encodeDerivate(
+          encoder: enc,
+          input: metalInput,
+          output: outputStorage,
+          activationType: UInt32(type.index()),
+          leakyAlpha: type.leakyAlphaForMetal
+        ) {
+          return Tensor(storage: outputStorage, size: input.size, context: TensorContext())
+        }
+      } else if engine.dispatchDerivate(
         input: metalInput,
         output: outputStorage,
         activationType: UInt32(type.index()),
@@ -119,7 +147,7 @@ public class GPU: Device {
     }
     return type.derivate(input)
   }
-  
+
   /// Performs matrix multiplication for two tensors.
   ///
   /// - Parameters:
@@ -127,6 +155,10 @@ public class GPU: Device {
   ///   - b: Right tensor.
   /// - Returns: Matrix product tensor.
   public func matmul(_ a: Tensor, _ b: Tensor) -> Tensor {
+    matmul(a, b, encoder: nil)
+  }
+
+  public func matmul(_ a: Tensor, _ b: Tensor, encoder: MetalCommandEncoder?) -> Tensor {
     if let metalA = a.storage as? MetalTensorStorage,
        let metalB = b.storage as? MetalTensorStorage,
        MetalContext.shared.isAvailable,
@@ -143,7 +175,11 @@ public class GPU: Device {
       let cCount = M * N * depth
       let engine = MetalEngine()
       let outputStorage = MetalTensorStorage(device: device, count: cCount, pool: pool)
-      if engine.dispatchMatmul(a: metalA, b: metalB, output: outputStorage, M: M, N: N, K: K, depth: depth) {
+      if let enc = encoder {
+        if engine.encodeMatmul(encoder: enc, a: metalA, b: metalB, output: outputStorage, M: M, N: N, K: K, depth: depth) {
+          return Tensor(storage: outputStorage, size: TensorSize(rows: M, columns: N, depth: depth), context: TensorContext())
+        }
+      } else if engine.dispatchMatmul(a: metalA, b: metalB, output: outputStorage, M: M, N: N, K: K, depth: depth) {
         return Tensor(storage: outputStorage, size: TensorSize(rows: M, columns: N, depth: depth), context: TensorContext())
       }
     }
