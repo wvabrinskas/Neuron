@@ -157,6 +157,45 @@ public class TensorStorage {
     self._buffer = buffer
   }
 
+  // MARK: - Factory (Metal-backed when available)
+
+  /// Creates storage for `count` elements. Uses MetalTensorStorage when Metal is available.
+  public static func create(count: Int) -> TensorStorage {
+    if let device = MetalContext.shared.device {
+      let pool = MetalContext.shared.bufferPool
+      let storage = MetalTensorStorage(device: device, count: count, pool: pool)
+      return storage
+    }
+    return TensorStorage(count: count)
+  }
+
+  /// Creates storage by copying `array`. Uses MetalTensorStorage when Metal is available.
+  public static func create(from array: [Scalar]) -> TensorStorage {
+    if let device = MetalContext.shared.device {
+      let pool = MetalContext.shared.bufferPool
+      return MetalTensorStorage(device: device, data: array, pool: pool)
+    }
+    return TensorStorage(array)
+  }
+
+  /// Creates storage by copying `contiguous`. Uses MetalTensorStorage when Metal is available.
+  public static func create(from contiguous: ContiguousArray<Scalar>) -> TensorStorage {
+    create(from: Array(contiguous))
+  }
+
+  /// Creates storage filled with `repeating` value. Uses MetalTensorStorage when Metal is available.
+  public static func create(repeating value: Scalar, count: Int) -> TensorStorage {
+    if let device = MetalContext.shared.device {
+      let pool = MetalContext.shared.bufferPool
+      let storage = MetalTensorStorage(device: device, count: count, pool: pool)
+      if count > 0 {
+        for i in 0..<count { storage[i] = value }
+      }
+      return storage
+    }
+    return TensorStorage(repeating: value, count: count)
+  }
+
   // MARK: - Codable
 
   public required convenience init(from decoder: any Decoder) throws {

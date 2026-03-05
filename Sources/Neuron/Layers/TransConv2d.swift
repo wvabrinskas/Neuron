@@ -248,7 +248,7 @@ public final class TransConv2d: Conv2d {
     }
     
     // Assemble flat result
-    let resultStorage = TensorStorage(count: outSliceSize * filterCount)
+    let resultStorage = TensorStorage.create(count: outSliceSize * filterCount)
     for f in 0..<filterCount {
       if let output = filterOutputs[f] {
         let start = f * outSliceSize

@@ -550,14 +550,14 @@ public extension Tensor {
     if depth == 1,
        storage.count == aSliceSize,
        with.storage.count == bSliceSize {
-      let resultStorage = TensorStorage(count: cSliceSize)
+      let resultStorage = TensorStorage.create(count: cSliceSize)
       NumSwiftFlat.matmul(storage.pointer, with.storage.pointer, result: resultStorage.pointer,
                           aRows: aRows, aCols: aCols, bRows: bRows, bCols: bCols)
       let outSize = TensorSize(rows: aRows, columns: bCols, depth: 1)
       return Tensor(storage: resultStorage, size: outSize)
     }
     
-    let resultStorage = TensorStorage(count: cSliceSize * depth)
+    let resultStorage = TensorStorage.create(count: cSliceSize * depth)
     
     for d in 0..<depth {
       let aOffset = d * aSliceSize
@@ -786,7 +786,7 @@ public extension Tensor {
     
     if axis == -1 {
       let totalCols = storage.count + tensor.storage.count
-      let result = TensorStorage(count: totalCols)
+      let result = TensorStorage.create(count: totalCols)
       if storage.count > 0 {
         result.pointer.update(from: storage.pointer, count: storage.count)
       }
@@ -799,7 +799,7 @@ public extension Tensor {
     if axis == 2 {
       let newDepth = selfDepth + otherDepth
       let newSize = TensorSize(rows: selfRows, columns: selfCols, depth: newDepth)
-      let result = TensorStorage(count: storage.count + tensor.storage.count)
+      let result = TensorStorage.create(count: storage.count + tensor.storage.count)
       if storage.count > 0 {
         result.pointer.update(from: storage.pointer, count: storage.count)
       }
@@ -1027,12 +1027,12 @@ public extension Tensor {
     let sliceSize = rows * columns
     
     if depth == 1 {
-      let resultStorage = TensorStorage(count: storage.count)
+      let resultStorage = TensorStorage.create(count: storage.count)
       NumSwiftFlat.transpose(storage.pointer, result: resultStorage.pointer, rows: rows, columns: columns)
       return Tensor(storage: resultStorage, size: newSize, context: context)
     }
     
-    let resultStorage = TensorStorage(count: storage.count)
+    let resultStorage = TensorStorage.create(count: storage.count)
     
     if sliceSize <= 2048 {
       for d in 0..<depth {

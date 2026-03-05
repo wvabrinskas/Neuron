@@ -18,14 +18,19 @@ public final class MetalContext {
 
   private let _device: MTLDevice?
   private let _commandQueue: MTLCommandQueue?
+  private let _bufferPool: BufferPool?
 
   private init() {
     self._device = MTLCreateSystemDefaultDevice()
     self._commandQueue = _device?.makeCommandQueue()
+    self._bufferPool = _device.map { BufferPool(device: $0) }
   }
 
   /// The system default Metal device, or `nil` if Metal is unavailable.
   public var device: MTLDevice? { _device }
+
+  /// Shared buffer pool for MTLBuffer recycling. `nil` when Metal is unavailable.
+  public var bufferPool: BufferPool? { _bufferPool }
 
   /// A command queue for the default device, or `nil` if Metal is unavailable.
   public var commandQueue: MTLCommandQueue? { _commandQueue }

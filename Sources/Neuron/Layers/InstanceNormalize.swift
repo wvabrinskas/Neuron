@@ -153,9 +153,9 @@ public final class InstanceNormalize: BaseLayer {
     // We use Tensor operations per-depth for the complex backward math
     // but construct depth-1 Tensors from flat slices instead of going through .value
     let sliceSize = inputSize.rows * inputSize.columns
-    let dInputResult = TensorStorage(count: sliceSize * depth)
-    let dGammaResult = TensorStorage(count: depth)
-    let dBetaResult = TensorStorage(count: depth)
+    let dInputResult = TensorStorage.create(count: sliceSize * depth)
+    let dGammaResult = TensorStorage.create(count: depth)
+    let dBetaResult = TensorStorage.create(count: depth)
     
     for i in 0..<depth {
       let gammaTensor = gamma.storage[i]

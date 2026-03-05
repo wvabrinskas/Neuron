@@ -338,7 +338,7 @@ public class Conv2d: BaseConvolutionalLayer {
     let inputSliceSize = inputSize.rows * inputSize.columns
     let filterSliceSize = filterSize.rows * filterSize.columns
 
-    let resultStorage = TensorStorage(count: outSliceSize * filterCount)
+    let resultStorage = TensorStorage.create(count: outSliceSize * filterCount)
 
     if device is CPU {
       let strides = self.strides
@@ -351,7 +351,7 @@ public class Conv2d: BaseConvolutionalLayer {
 
       Array(0..<filterCount).concurrentForEach(workers: Constants.maxWorkers) { _, f in
         let resultPtr = resultStorage.pointer + f * outSliceSize
-        let tempBuf = TensorStorage(count: outSliceSize)
+        let tempBuf = TensorStorage.create(count: outSliceSize)
 
         for i in 0..<inputSize.depth {
           let signalPtr = input.storage.pointer + i * inputSliceSize
@@ -402,7 +402,7 @@ public class Conv2d: BaseConvolutionalLayer {
           resultArray[start + j] = convolved[j]
         }
       }
-      return TensorStorage(resultArray)
+      return TensorStorage.create(from: resultArray)
     }
 
     return resultStorage

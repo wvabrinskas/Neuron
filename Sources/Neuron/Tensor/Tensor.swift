@@ -183,7 +183,7 @@ public class Tensor: Equatable, Codable {
 
   /// Default initializer with no context or value
   public init() {
-    self.storage = TensorStorage(count: 0)
+    self.storage = TensorStorage.create(count: 0)
     self.size = TensorSize(rows: 0, columns: 0, depth: 0)
     self.context = TensorContext()
   }
@@ -207,7 +207,7 @@ public class Tensor: Equatable, Codable {
       self.size = TensorSize(rows: maxRows, columns: maxCols, depth: depth)
       
       let totalCount = maxCols * maxRows * depth
-      let flat = TensorStorage(count: totalCount)
+      let flat = TensorStorage.create(count: totalCount)
       for d in 0..<depth {
         let depthSlice = nestedValue[d]
         for r in 0..<depthSlice.count {
@@ -226,7 +226,7 @@ public class Tensor: Equatable, Codable {
     } else {
       let legacyStorage = try container.decode(Tensor.Value.self, forKey: .storage)
       let size = try container.decode(TensorSize.self, forKey: .size)
-      self.storage = TensorStorage(legacyStorage)
+      self.storage = TensorStorage.create(from: legacyStorage)
       self.size = size
     }
     
@@ -244,10 +244,10 @@ public class Tensor: Equatable, Codable {
   ///   - context: Backpropagation context
   public init(_ data: Scalar? = nil, context: TensorContext = TensorContext()) {
     if let data = data {
-      self.storage = TensorStorage([data])
+      self.storage = TensorStorage.create(from: [data])
       self.size = TensorSize(rows: 1, columns: 1, depth: 1)
     } else {
-      self.storage = TensorStorage(count: 0)
+      self.storage = TensorStorage.create(count: 0)
       self.size = TensorSize(rows: 0, columns: 0, depth: 0)
     }
     
@@ -261,7 +261,7 @@ public class Tensor: Equatable, Codable {
   ///   - data: `[Scalar]` object to set
   ///   - context: Backpropagation context
   public init(_ data: [Scalar], context: TensorContext = TensorContext()) {
-    self.storage = TensorStorage(data)
+    self.storage = TensorStorage.create(from: data)
     self.size = TensorSize(rows: 1, columns: data.count, depth: 1)
     self.context = context
     self.features = data.count
@@ -279,7 +279,7 @@ public class Tensor: Equatable, Codable {
     self.size = TensorSize(rows: rows, columns: cols, depth: 1)
     
     let totalCount = cols * rows
-    let flat = TensorStorage(count: totalCount)
+    let flat = TensorStorage.create(count: totalCount)
     for r in 0..<rows {
       let row = data[r]
       let baseIndex = r * cols
@@ -306,7 +306,7 @@ public class Tensor: Equatable, Codable {
     self.size = TensorSize(rows: rows, columns: columns, depth: depth)
     
     let totalCount = columns * rows * depth
-    let flat = TensorStorage(count: totalCount)
+    let flat = TensorStorage.create(count: totalCount)
     
     for d in 0..<depth {
       let depthSlice = data[d]
@@ -331,7 +331,7 @@ public class Tensor: Equatable, Codable {
   ///   - size: Shape metadata (columns, rows, depth)
   ///   - context: Backpropagation context
   public init(_ storage: Tensor.Value, size: TensorSize, context: TensorContext = TensorContext()) {
-    self.storage = TensorStorage(storage)
+    self.storage = TensorStorage.create(from: storage)
     self.size = size
     self.context = context
     self.features = size.depth
@@ -1001,7 +1001,7 @@ public extension Tensor.Gradient {
 public extension Tensor {
   static func fillRandom(in range: ClosedRange<Tensor.Scalar> = 0...1, size: TensorSize) -> Tensor {
     let count = size.columns * size.rows * size.depth
-    let s = TensorStorage(count: count)
+    let s = TensorStorage.create(count: count)
     
     for i in 0..<count {
       s[i] = Tensor.Scalar.random(in: range)
@@ -1011,7 +1011,7 @@ public extension Tensor {
   }
   
   static func fillWith(value: Tensor.Scalar, size: TensorSize) -> Tensor {
-    let s = TensorStorage(repeating: value, count: size.columns * size.rows * size.depth)
+    let s = TensorStorage.create(repeating: value, count: size.columns * size.rows * size.depth)
     return Tensor(storage: s, size: size)
   }
 }

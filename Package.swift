@@ -6,8 +6,6 @@ import PackageDescription
 let package = Package(
     name: "Neuron",
     platforms: [ .iOS(.v14),
-                 .tvOS(.v14),
-                 .watchOS(.v7),
                  .macOS(.v14)],
     products: [
         .library(

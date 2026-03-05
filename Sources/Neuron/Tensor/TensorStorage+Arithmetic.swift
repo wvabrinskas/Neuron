@@ -14,28 +14,28 @@ public extension TensorStorage {
 
   static func + (lhs: TensorStorage, rhs: TensorStorage) -> TensorStorage {
     let count = Swift.min(lhs.count, rhs.count)
-    let result = TensorStorage(count: lhs.count)
+    let result = TensorStorage.create(count: lhs.count)
     NumSwiftFlat.add(lhs.pointer, rhs.pointer, result: result.pointer, count: count)
     return result
   }
 
   static func - (lhs: TensorStorage, rhs: TensorStorage) -> TensorStorage {
     let count = Swift.min(lhs.count, rhs.count)
-    let result = TensorStorage(count: lhs.count)
+    let result = TensorStorage.create(count: lhs.count)
     NumSwiftFlat.sub(lhs.pointer, rhs.pointer, result: result.pointer, count: count)
     return result
   }
 
   static func * (lhs: TensorStorage, rhs: TensorStorage) -> TensorStorage {
     let count = Swift.min(lhs.count, rhs.count)
-    let result = TensorStorage(count: lhs.count)
+    let result = TensorStorage.create(count: lhs.count)
     NumSwiftFlat.mul(lhs.pointer, rhs.pointer, result: result.pointer, count: count)
     return result
   }
 
   static func / (lhs: TensorStorage, rhs: TensorStorage) -> TensorStorage {
     let count = Swift.min(lhs.count, rhs.count)
-    let result = TensorStorage(count: lhs.count)
+    let result = TensorStorage.create(count: lhs.count)
     NumSwiftFlat.div(lhs.pointer, rhs.pointer, result: result.pointer, count: count)
     return result
   }
@@ -46,25 +46,25 @@ public extension TensorStorage {
 public extension TensorStorage {
 
   static func + (lhs: TensorStorage, rhs: Scalar) -> TensorStorage {
-    let result = TensorStorage(count: lhs.count)
+    let result = TensorStorage.create(count: lhs.count)
     NumSwiftFlat.add(lhs.pointer, scalar: rhs, result: result.pointer, count: lhs.count)
     return result
   }
 
   static func - (lhs: TensorStorage, rhs: Scalar) -> TensorStorage {
-    let result = TensorStorage(count: lhs.count)
+    let result = TensorStorage.create(count: lhs.count)
     NumSwiftFlat.sub(lhs.pointer, scalar: rhs, result: result.pointer, count: lhs.count)
     return result
   }
 
   static func * (lhs: TensorStorage, rhs: Scalar) -> TensorStorage {
-    let result = TensorStorage(count: lhs.count)
+    let result = TensorStorage.create(count: lhs.count)
     NumSwiftFlat.mul(lhs.pointer, scalar: rhs, result: result.pointer, count: lhs.count)
     return result
   }
 
   static func / (lhs: TensorStorage, rhs: Scalar) -> TensorStorage {
-    let result = TensorStorage(count: lhs.count)
+    let result = TensorStorage.create(count: lhs.count)
     NumSwiftFlat.div(lhs.pointer, scalar: rhs, result: result.pointer, count: lhs.count)
     return result
   }
@@ -75,25 +75,25 @@ public extension TensorStorage {
 public extension TensorStorage {
 
   static func * (lhs: Scalar, rhs: TensorStorage) -> TensorStorage {
-    let result = TensorStorage(count: rhs.count)
+    let result = TensorStorage.create(count: rhs.count)
     NumSwiftFlat.mul(rhs.pointer, scalar: lhs, result: result.pointer, count: rhs.count)
     return result
   }
 
   static func - (lhs: Scalar, rhs: TensorStorage) -> TensorStorage {
-    let result = TensorStorage(count: rhs.count)
+    let result = TensorStorage.create(count: rhs.count)
     NumSwiftFlat.sub(scalar: lhs, rhs.pointer, result: result.pointer, count: rhs.count)
     return result
   }
 
   static func / (lhs: Scalar, rhs: TensorStorage) -> TensorStorage {
-    let result = TensorStorage(count: rhs.count)
+    let result = TensorStorage.create(count: rhs.count)
     NumSwiftFlat.div(scalar: lhs, rhs.pointer, result: result.pointer, count: rhs.count)
     return result
   }
 
   static func + (lhs: Scalar, rhs: TensorStorage) -> TensorStorage {
-    let result = TensorStorage(count: rhs.count)
+    let result = TensorStorage.create(count: rhs.count)
     NumSwiftFlat.add(rhs.pointer, scalar: lhs, result: result.pointer, count: rhs.count)
     return result
   }
@@ -128,7 +128,7 @@ public extension TensorStorage {
 
   /// Returns a new TensorStorage with every element negated.
   func negated() -> TensorStorage {
-    let result = TensorStorage(count: count)
+    let result = TensorStorage.create(count: count)
     guard count > 0 else { return result }
     NumSwiftFlat.negate(pointer, result: result.pointer, count: count)
     return result
@@ -136,7 +136,7 @@ public extension TensorStorage {
 
   /// Returns a new TensorStorage with element-wise square root.
   func squareRoot() -> TensorStorage {
-    let result = TensorStorage(count: count)
+    let result = TensorStorage.create(count: count)
     guard count > 0 else { return result }
     NumSwiftFlat.sqrt(pointer, result: result.pointer, count: count)
     return result
@@ -144,7 +144,7 @@ public extension TensorStorage {
 
   /// Returns a new TensorStorage with elements clamped to `[-limit, limit]`.
   func clipped(to limit: Scalar) -> TensorStorage {
-    let result = TensorStorage(count: count)
+    let result = TensorStorage.create(count: count)
     guard count > 0 else { return result }
     NumSwiftFlat.clip(pointer, result: result.pointer, count: count, limit: limit)
     return result
