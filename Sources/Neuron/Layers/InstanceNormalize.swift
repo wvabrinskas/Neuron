@@ -15,13 +15,8 @@ public final class InstanceNormalize: BaseLayer {
   /// - Returns: A `Tensor` containing the concatenated beta and gamma values shaped to the input size.
   public override var weights: Tensor {
     get {
-      // For printing purposes. Not actually used
-      let out = beta.concat(gamma, axis: 2)
-      
-      let outTensor = Tensor(storage: out.storage, size: .init(rows: 1,
-                                                               columns: beta.size.columns + gamma.size.columns,
-                                                               depth: 1))
-      return outTensor
+      // Must match gradient layout (beta | gamma) for correct optimizer weight decay indexing
+      return beta.concat(gamma, axis: 2)
     }
     set {}
   }
@@ -194,8 +189,9 @@ public final class InstanceNormalize: BaseLayer {
     let dGammaTensor = Tensor(storage: dGammaResult, size: TensorSize(rows: 1, columns: depth, depth: 1))
     let dBetaTensor = Tensor(storage: dBetaResult, size: TensorSize(rows: 1, columns: depth, depth: 1))
     
+    // Return dBeta.concat(dGamma) to match weights layout (beta.concat(gamma)) for correct optimizer indexing
     return (Tensor(storage: dInputResult, size: inputs.size),
-            dGammaTensor.concat(dBetaTensor, axis: 2),
+            dBetaTensor.concat(dGammaTensor, axis: 2),
             Tensor())
   }
   
@@ -205,8 +201,9 @@ public final class InstanceNormalize: BaseLayer {
   ///   - gradients: Combined gamma/beta gradients packed in `weights`.
   ///   - learningRate: Learning rate already reflected by optimizer gradients.
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
-    let gammaWeights = gradients.weights.depthSliceTensor(0)
-    let betaWeights = gradients.weights.depthSliceTensor(1)
+    // Gradients match weights layout: beta | gamma (depth 0 = beta, depth 1 = gamma)
+    let betaWeights = gradients.weights.depthSliceTensor(0)
+    let gammaWeights = gradients.weights.depthSliceTensor(1)
 
     gamma = gamma - gammaWeights
     beta = beta - betaWeights
