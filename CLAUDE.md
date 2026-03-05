@@ -2,6 +2,17 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**Maintaining this document:** After making large changes to the codebase, update this file with references to those changes. Keep the architecture, debugging patterns, and common pitfalls sections current so future agents have accurate context.
+
+**Document placement:** When creating agent references, migration summaries, or other markdown documentation, place them in the `docs/` directory rather than the project root.
+
+## Recent Changes (Reference for Updates)
+
+- **InstanceNormalize fix**: Gradient layout was reversed (gamma|beta vs beta|gamma). Backward now returns `dBeta.concat(dGamma)` to match `weights`; `apply()` uses `depthSlice(0)` for beta, `depthSlice(1)` for gamma. See `InstanceNormalize.swift`.
+- **conv2dInto removed**: Unused pointer-based Device API removed from protocol and CPU. Conv2d uses `NumSwiftFlat.conv2d` directly.
+- **Tensor.flatArray → asArray**: Renamed for consistency with `TensorSize.asArray`. Use `tensor.asArray` for flat `Tensor.Value`.
+- **AGENT_REFERENCE.md, DEAD_CODE_REPORT.md**: Added for agent context and dead code tracking.
+
 ## Overview
 
 Neuron is a Swift-based machine learning framework built from scratch for iOS, macOS, tvOS, and watchOS. It implements neural networks with custom backpropagation, supporting various architectures including CNNs, RNNs, LSTMs, GANs, and more. The framework runs on CPU with C-level optimizations via NumSwift.
@@ -15,11 +26,11 @@ swift build
 
 ### Testing
 ```bash
-# Run all tests
-swift test
+# Run all tests (always use CI=true)
+CI=true swift test
 
 # Run specific test
-swift test --filter <TestName>
+CI=true swift test --filter <TestName>
 ```
 
 ### Performance Note
@@ -40,6 +51,7 @@ Before development, install Xcode templates:
 
 #### Tensor (Sources/Neuron/Tensor/)
 - **Tensor**: The fundamental tensor type backed by flat `ContiguousArray<Scalar>` storage with `TensorSize` metadata
+- **Tensor.asArray**: Bridge property returning flat `Tensor.Value` (ContiguousArray); prefer `storage` in hot paths. Formerly `flatArray`.
 - **Tensor.value**: Legacy nested `[[[Scalar]]]` view (reconstructed on access); prefer `storage` + `size` in hot paths
 - **TensorContext**: Holds backpropagation function for gradient computation
 - **TensorSize**: Defines tensor dimensions as `(columns, rows, depth)`
@@ -53,7 +65,7 @@ All layers inherit from `BaseLayer` and conform to the `Layer` protocol:
 - Layer categories:
   - Convolutional: `Conv2d`, `TransConv2d`, `MaxPool`, `AvgPool`
   - Dense: `Dense`, `Flatten`, `Reshape`
-  - Normalization: `BatchNormalize`, `LayerNormalize`
+  - Normalization: `BatchNormalize`, `LayerNormalize`, `InstanceNormalize`
   - Activation: `ReLu`, `LeakyReLu`, `Sigmoid`, `Softmax`, `Tanh`, `Swish`, `SeLu`, `GeLu`
   - Regularization: `Dropout`
   - Recurrent: `LSTM`, `LSTMCell`
@@ -84,6 +96,7 @@ Pre-built training models:
 - `CPU`: Default device (fully functional)
 - `GPU`: Work in progress - Metal support is incomplete
 - All layers and tensors can be assigned to devices
+- **Note:** The `conv2dInto` pointer-based API was removed (unused); Conv2d uses `NumSwiftFlat.conv2d` directly on CPU
 
 ### Gradient System
 
@@ -219,6 +232,10 @@ From NeuronTests.swift:
 5. Backward pass: `output.gradients(delta: errorTensor, wrt: input)`
 6. Assert expected shapes and values
 
+### Reference Documents
+- **AGENT_REFERENCE.md**: Condensed reference for AI agents (architecture, optimizer gradient layout, InstanceNormalize fix, common pitfalls)
+- **DEAD_CODE_REPORT.md**: Catalog of unused code paths identified for removal
+
 ### Key Files for Debugging
 
 - **Tensor.swift**: Core data structure, arithmetic, gradient computation
@@ -256,6 +273,7 @@ print(grads.input.count, grads.weights.count, grads.biases.count)
 5. Not setting `isTraining = true` before training (affects Dropout, BatchNorm)
 6. Accessing `learningRate` when `decayFunction` is set (use property, not field)
 7. Not calling `optimizer.step()` after `apply()` (needed for decay function updates)
+8. **Gradient/weights layout mismatch**: Layers with multiple params (e.g. gamma, beta) must return gradients in the same order as `weights`. InstanceNormalize and LayerNormalize use `beta | gamma`; gradients must match or Adam weight decay corrupts training. See `InstanceNormalize.swift` and `AGENT_REFERENCE.md`.
 
 ## Performance & Memory Profiling
 
