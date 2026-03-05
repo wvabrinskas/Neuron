@@ -165,14 +165,7 @@ open class BaseOptimizer: Optimizer {
     // override
     decayFunction?.reset()
   }
-  
-  func gradientClip(_ gradients: Optimizer.Gradient) {
-    if let clip = gradientClip {
-      gradients.biases.clip(clip)
-      gradients.weights.clip(clip)
-    }
-  }
-  
+
   func weightClip(layer: Layer) {
     if let clip = weightClip {
       if let con = layer as? ConvolutionalLayer {
