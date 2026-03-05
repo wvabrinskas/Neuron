@@ -10,7 +10,10 @@ import Logger
 
 /// Metadata propagated through each layer during a forward pass, providing batch and concurrency context.
 public struct NetworkContext: Sendable {
-/// The global index range of samples assigned to this worker chunk within the full batch.
+  /// Optional Metal encoder for batched GPU encoding. When set, layers may encode into it instead of creating per-op command buffers.
+  public var metalEncoder: MetalCommandEncoder?
+
+  /// The global index range of samples assigned to this worker chunk within the full batch.
   public let batchRange: CountableRange<Int>
 /// The position of the current sample within the active worker batch chunk.
   public let indexInBatch: Int
@@ -36,7 +39,9 @@ public struct NetworkContext: Sendable {
               batchRange: CountableRange<Int> = 0..<1,
               batchProcessingCount: Int = 1,
               totalInBatch: Int = 1,
-              threadId: UUID = UUID()) {
+              threadId: UUID = UUID(),
+              metalEncoder: MetalCommandEncoder? = nil) {
+    self.metalEncoder = metalEncoder
     self.indexInBatch = indexInBatch
     self.batchProcessingCount = batchProcessingCount
     self.threadId = threadId

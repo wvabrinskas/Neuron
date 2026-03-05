@@ -171,6 +171,60 @@ public final class MetalEngine {
     return cmdBuffer.status == .completed
   }
 
+  // MARK: - Encoder passthrough (encode into provided encoder; no commit/wait)
+
+  /// Encodes neuron_activation into the given encoder. Does not end encoding or commit.
+  public func encodeActivation(
+    encoder: MetalCommandEncoder,
+    input: MetalTensorStorage,
+    output: MetalTensorStorage,
+    activationType: UInt32,
+    leakyAlpha: Float
+  ) -> Bool {
+    guard let pipeline = pipeline(named: "neuron_activation") else { return false }
+    let count = input.count
+    guard count > 0, count == output.count else { return false }
+
+    let enc = encoder.encoder
+    enc.setComputePipelineState(pipeline)
+    enc.setBuffer(input.mtlBuffer, offset: 0, index: 0)
+    enc.setBuffer(output.mtlBuffer, offset: 0, index: 1)
+    var actType = activationType
+    var alpha = leakyAlpha
+    enc.setBytes(&actType, length: MemoryLayout<UInt32>.size, index: 2)
+    enc.setBytes(&alpha, length: MemoryLayout<Float>.size, index: 3)
+    let tgSize = MTLSize(width: min(256, max(1, count)), height: 1, depth: 1)
+    let gridSize = MTLSize(width: count, height: 1, depth: 1)
+    enc.dispatchThreads(gridSize, threadsPerThreadgroup: tgSize)
+    return true
+  }
+
+  /// Encodes neuron_derivate into the given encoder. Does not end encoding or commit.
+  public func encodeDerivate(
+    encoder: MetalCommandEncoder,
+    input: MetalTensorStorage,
+    output: MetalTensorStorage,
+    activationType: UInt32,
+    leakyAlpha: Float
+  ) -> Bool {
+    guard let pipeline = pipeline(named: "neuron_derivate") else { return false }
+    let count = input.count
+    guard count > 0, count == output.count else { return false }
+
+    let enc = encoder.encoder
+    enc.setComputePipelineState(pipeline)
+    enc.setBuffer(input.mtlBuffer, offset: 0, index: 0)
+    enc.setBuffer(output.mtlBuffer, offset: 0, index: 1)
+    var actType = activationType
+    var alpha = leakyAlpha
+    enc.setBytes(&actType, length: MemoryLayout<UInt32>.size, index: 2)
+    enc.setBytes(&alpha, length: MemoryLayout<Float>.size, index: 3)
+    let tgSize = MTLSize(width: min(256, max(1, count)), height: 1, depth: 1)
+    let gridSize = MTLSize(width: count, height: 1, depth: 1)
+    enc.dispatchThreads(gridSize, threadsPerThreadgroup: tgSize)
+    return true
+  }
+
   // MARK: - Matrix multiplication dispatch
 
   /// Dispatches the neuron_matmul_tiled kernel.
@@ -241,6 +295,51 @@ public final class MetalEngine {
     cmdBuffer.waitUntilCompleted()
 
     return cmdBuffer.status == .completed
+  }
+
+  /// Encodes neuron_matmul_tiled into the given encoder. Does not end encoding or commit.
+  public func encodeMatmul(
+    encoder: MetalCommandEncoder,
+    a: MetalTensorStorage,
+    b: MetalTensorStorage,
+    output: MetalTensorStorage,
+    M: Int, N: Int, K: Int,
+    depth: Int = 1
+  ) -> Bool {
+    guard let pipeline = pipeline(named: "neuron_matmul_tiled") else { return false }
+    let stride = MemoryLayout<Tensor.Scalar>.stride
+    let aSliceSize = M * K
+    let bSliceSize = K * N
+    let cSliceSize = M * N
+    guard a.count >= aSliceSize * depth,
+          b.count >= bSliceSize * depth,
+          output.count >= cSliceSize * depth else {
+      return false
+    }
+
+    let enc = encoder.encoder
+    enc.setComputePipelineState(pipeline)
+    var mVal = UInt32(M)
+    var nVal = UInt32(N)
+    var kVal = UInt32(K)
+    enc.setBytes(&mVal, length: MemoryLayout<UInt32>.size, index: 3)
+    enc.setBytes(&nVal, length: MemoryLayout<UInt32>.size, index: 4)
+    enc.setBytes(&kVal, length: MemoryLayout<UInt32>.size, index: 5)
+    let gridWidth = (N + 15) / 16
+    let gridHeight = (M + 15) / 16
+    let gridSize = MTLSize(width: max(1, gridWidth), height: max(1, gridHeight), depth: 1)
+    let threadgroupSize = MTLSize(width: 16, height: 16, depth: 1)
+
+    for d in 0..<depth {
+      let aOffset = d * aSliceSize * stride
+      let bOffset = d * bSliceSize * stride
+      let cOffset = d * cSliceSize * stride
+      enc.setBuffer(a.mtlBuffer, offset: aOffset, index: 0)
+      enc.setBuffer(b.mtlBuffer, offset: bOffset, index: 1)
+      enc.setBuffer(output.mtlBuffer, offset: cOffset, index: 2)
+      enc.dispatchThreadgroups(gridSize, threadsPerThreadgroup: threadgroupSize)
+    }
+    return true
   }
 
   // MARK: - Convolution dispatch
@@ -336,6 +435,39 @@ public final class MetalEngine {
     return cmdBuffer.status == .completed
   }
 
+  /// Encodes neuron_conv2d_implicit_gemm into the given encoder. Does not end encoding or commit.
+  public func encodeConv2d(
+    encoder: MetalCommandEncoder,
+    input: MetalTensorStorage,
+    weights: MetalTensorStorage,
+    output: MetalTensorStorage,
+    bias: MetalTensorStorage?,
+    params: Conv2DParams
+  ) -> Bool {
+    guard let pipeline = pipeline(named: "neuron_conv2d_implicit_gemm") else { return false }
+    let totalSpatial = Int(params.N) * Int(params.oH) * Int(params.oW)
+    let gridWidth = Int(params.K)
+    let gridHeight = totalSpatial
+    guard gridWidth > 0, gridHeight > 0 else { return false }
+
+    let enc = encoder.encoder
+    enc.setComputePipelineState(pipeline)
+    enc.setBuffer(input.mtlBuffer, offset: 0, index: 0)
+    enc.setBuffer(weights.mtlBuffer, offset: 0, index: 1)
+    enc.setBuffer(output.mtlBuffer, offset: 0, index: 2)
+    var p = params
+    enc.setBytes(&p, length: MemoryLayout<Conv2DParams>.size, index: 3)
+    if let bias = bias {
+      enc.setBuffer(bias.mtlBuffer, offset: 0, index: 4)
+    }
+    let tgWidth = min(16, gridWidth)
+    let tgHeight = min(16, gridHeight)
+    let threadgroupSize = MTLSize(width: tgWidth, height: tgHeight, depth: 1)
+    let gridSize = MTLSize(width: gridWidth, height: gridHeight, depth: 1)
+    enc.dispatchThreads(gridSize, threadsPerThreadgroup: threadgroupSize)
+    return true
+  }
+
   /// Dispatches the neuron_conv_transpose2d kernel.
   /// Input [N,C,H,W], weights [C,K,kH,kW], output [N,K,oH,oW] in NCHW layout.
   ///
@@ -377,5 +509,31 @@ public final class MetalEngine {
     cmdBuffer.waitUntilCompleted()
 
     return cmdBuffer.status == .completed
+  }
+
+  /// Encodes neuron_conv_transpose2d into the given encoder. Does not end encoding or commit.
+  public func encodeTransConv2d(
+    encoder: MetalCommandEncoder,
+    input: MetalTensorStorage,
+    weights: MetalTensorStorage,
+    output: MetalTensorStorage,
+    params: Conv2DParams
+  ) -> Bool {
+    guard let pipeline = pipeline(named: "neuron_conv_transpose2d") else { return false }
+    let totalOutput = Int(params.N) * Int(params.K) * Int(params.oH) * Int(params.oW)
+    guard totalOutput > 0 else { return false }
+
+    let enc = encoder.encoder
+    enc.setComputePipelineState(pipeline)
+    enc.setBuffer(input.mtlBuffer, offset: 0, index: 0)
+    enc.setBuffer(weights.mtlBuffer, offset: 0, index: 1)
+    enc.setBuffer(output.mtlBuffer, offset: 0, index: 2)
+    var p = params
+    enc.setBytes(&p, length: MemoryLayout<Conv2DParams>.size, index: 3)
+    let tgSize = min(256, max(1, totalOutput))
+    let gridSize = MTLSize(width: totalOutput, height: 1, depth: 1)
+    let threadgroupSize = MTLSize(width: tgSize, height: 1, depth: 1)
+    enc.dispatchThreads(gridSize, threadsPerThreadgroup: threadgroupSize)
+    return true
   }
 }
