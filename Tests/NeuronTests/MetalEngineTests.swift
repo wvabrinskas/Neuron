@@ -142,4 +142,46 @@ final class MetalEngineTests: XCTestCase {
       XCTAssertEqual(metalArray[i], cpuArray[i], accuracy: 1e-5, "Index \(i)")
     }
   }
+
+  func testConv2dWithMetalTensorStorageMatchesCPU() throws {
+    try XCTSkipIf(MTLCreateSystemDefaultDevice() == nil, "Metal not available")
+    try XCTSkipIf(MetalContext.shared.device?.makeDefaultLibrary() == nil, "Default Metal library not available")
+    let device = MetalContext.shared.device!
+    let pool = MetalContext.shared.bufferPool
+
+    // Input: 4×4×1, filter: 3×3×1, output: 2×2×1 (valid padding)
+    let inputSize = TensorSize(rows: 4, columns: 4, depth: 1)
+    let filterData: [Tensor.Scalar] = [1, 0, 0, 0, 1, 0, 0, 0, 1]
+    let inputData: [Tensor.Scalar] = (0..<16).map { Tensor.Scalar($0) }
+
+    let conv = Conv2d(filterCount: 1,
+                     inputSize: inputSize,
+                     strides: (1, 1),
+                     padding: .valid,
+                     filterSize: (3, 3),
+                     biasEnabled: false)
+    conv.filters = [Tensor(storage: TensorStorage.create(from: filterData),
+                         size: TensorSize(rows: 3, columns: 3, depth: 1),
+                         context: TensorContext())]
+
+    let metalInputStorage = MetalTensorStorage(device: device, data: inputData, pool: pool)
+    let metalInput = Tensor(storage: metalInputStorage, size: inputSize, context: TensorContext())
+    let cpuInput = Tensor(storage: TensorStorage.create(from: inputData), size: inputSize, context: TensorContext())
+
+    let savedType = DeviceManager.shared.type
+    DeviceManager.shared.type = .gpu
+    defer { DeviceManager.shared.type = savedType }
+
+    let metalOut = conv.forward(tensor: metalInput)
+    DeviceManager.shared.type = .cpu
+    let cpuOut = conv.forward(tensor: cpuInput)
+    DeviceManager.shared.type = savedType
+
+    let metalArray = metalOut.storage.toArray()
+    let cpuArray = cpuOut.storage.toArray()
+    XCTAssertEqual(metalArray.count, cpuArray.count)
+    for i in 0..<metalArray.count {
+      XCTAssertEqual(metalArray[i], cpuArray[i], accuracy: 1e-4, "Index \(i)")
+    }
+  }
 }

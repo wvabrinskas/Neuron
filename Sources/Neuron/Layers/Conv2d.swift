@@ -340,6 +340,66 @@ public class Conv2d: BaseConvolutionalLayer {
 
     let resultStorage = TensorStorage.create(count: outSliceSize * filterCount)
 
+    if device is GPU,
+       let metalInput = input.storage as? MetalTensorStorage,
+       MetalContext.shared.isAvailable,
+       let metalDevice = MetalContext.shared.device,
+       let pool = MetalContext.shared.bufferPool {
+      let engine = MetalEngine()
+      let extraPadding = padding.extra(inputSize: (inputSize.rows, inputSize.columns),
+                                       filterSize: filterSize,
+                                       stride: strides)
+      let N: UInt32 = 1
+      let C = UInt32(inputSize.depth)
+      let H = UInt32(inputSize.rows)
+      let W = UInt32(inputSize.columns)
+      let K = UInt32(filterCount)
+      let kH = UInt32(filterSize.rows)
+      let kW = UInt32(filterSize.columns)
+      let oH = UInt32(outRows)
+      let oW = UInt32(outCols)
+      let strideH = UInt32(strides.rows)
+      let strideW = UInt32(strides.columns)
+      let padH = UInt32(extraPadding.top)
+      let padW = UInt32(extraPadding.left)
+
+      let weightsCount = Int(K) * Int(C) * Int(kH) * Int(kW)
+      let weightsStorage = MetalTensorStorage(device: metalDevice, count: weightsCount, pool: pool)
+      let filterSliceCount = Int(C) * Int(kH) * Int(kW)
+      for f in 0..<filterCount {
+        weightsStorage.pointer.advanced(by: f * filterSliceCount)
+          .update(from: filters[f].storage.pointer, count: filterSliceCount)
+      }
+
+      let outputStorage = MetalTensorStorage(device: metalDevice, count: outSliceSize * filterCount, pool: pool)
+      var biasStorage: MetalTensorStorage?
+      if biasEnabled {
+        let bias = MetalTensorStorage(device: metalDevice, count: filterCount, pool: pool)
+        for f in 0..<filterCount {
+          bias.pointer.advanced(by: f).initialize(to: biases.storage[f])
+        }
+        biasStorage = bias
+      }
+
+      let params = MetalEngine.Conv2DParams(
+        N: N, C: C, H: H, W: W, K: K,
+        kH: kH, kW: kW, oH: oH, oW: oW,
+        strideH: strideH, strideW: strideW,
+        padH: padH, padW: padW,
+        hasBias: biasEnabled ? 1 : 0
+      )
+
+      if engine.dispatchConv2d(
+        input: metalInput,
+        weights: weightsStorage,
+        output: outputStorage,
+        bias: biasStorage,
+        params: params
+      ) {
+        return outputStorage
+      }
+    }
+
     if device is CPU {
       let strides = self.strides
       let padding = self.padding

@@ -242,4 +242,97 @@ public final class MetalEngine {
 
     return cmdBuffer.status == .completed
   }
+
+  // MARK: - Convolution dispatch
+
+  /// Parameters for neuron_conv2d_implicit_gemm (must match Metal Conv2DParams layout).
+  public struct Conv2DParams {
+    public var N: UInt32
+    public var C: UInt32
+    public var H: UInt32
+    public var W: UInt32
+    public var K: UInt32
+    public var kH: UInt32
+    public var kW: UInt32
+    public var oH: UInt32
+    public var oW: UInt32
+    public var strideH: UInt32
+    public var strideW: UInt32
+    public var padH: UInt32
+    public var padW: UInt32
+    public var hasBias: UInt32
+
+    public init(N: UInt32, C: UInt32, H: UInt32, W: UInt32, K: UInt32,
+                kH: UInt32, kW: UInt32, oH: UInt32, oW: UInt32,
+                strideH: UInt32, strideW: UInt32, padH: UInt32, padW: UInt32,
+                hasBias: UInt32) {
+      self.N = N
+      self.C = C
+      self.H = H
+      self.W = W
+      self.K = K
+      self.kH = kH
+      self.kW = kW
+      self.oH = oH
+      self.oW = oW
+      self.strideH = strideH
+      self.strideW = strideW
+      self.padH = padH
+      self.padW = padW
+      self.hasBias = hasBias
+    }
+  }
+
+  /// Dispatches the neuron_conv2d_implicit_gemm kernel.
+  /// Input [N,C,H,W], weights [K,C,kH,kW], output [N,K,oH,oW] in NCHW layout.
+  ///
+  /// - Parameters:
+  ///   - input: Input MetalTensorStorage [N,C,H,W].
+  ///   - weights: Weights MetalTensorStorage [K,C,kH,kW] concatenated.
+  ///   - output: Output MetalTensorStorage [N,K,oH,oW].
+  ///   - bias: Optional bias [K]; pass nil if no bias.
+  ///   - params: Conv2D parameters.
+  /// - Returns: `true` if dispatch succeeded, `false` otherwise.
+  public func dispatchConv2d(
+    input: MetalTensorStorage,
+    weights: MetalTensorStorage,
+    output: MetalTensorStorage,
+    bias: MetalTensorStorage?,
+    params: Conv2DParams
+  ) -> Bool {
+    guard let pipeline = pipeline(named: "neuron_conv2d_implicit_gemm"),
+          let cmdBuffer = makeCommandBuffer(),
+          let encoder = cmdBuffer.makeComputeCommandEncoder() else {
+      return false
+    }
+
+    let totalSpatial = Int(params.N) * Int(params.oH) * Int(params.oW)
+    let gridWidth = Int(params.K)
+    let gridHeight = totalSpatial
+
+    guard gridWidth > 0, gridHeight > 0 else { return false }
+
+    encoder.setComputePipelineState(pipeline)
+    encoder.setBuffer(input.mtlBuffer, offset: 0, index: 0)
+    encoder.setBuffer(weights.mtlBuffer, offset: 0, index: 1)
+    encoder.setBuffer(output.mtlBuffer, offset: 0, index: 2)
+
+    var p = params
+    encoder.setBytes(&p, length: MemoryLayout<Conv2DParams>.size, index: 3)
+
+    if let bias = bias {
+      encoder.setBuffer(bias.mtlBuffer, offset: 0, index: 4)
+    }
+
+    let tgWidth = min(16, gridWidth)
+    let tgHeight = min(16, gridHeight)
+    let threadgroupSize = MTLSize(width: tgWidth, height: tgHeight, depth: 1)
+    let gridSize = MTLSize(width: gridWidth, height: gridHeight, depth: 1)
+    encoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadgroupSize)
+    encoder.endEncoding()
+    cmdBuffer.commit()
+    cmdBuffer.waitUntilCompleted()
+
+    return cmdBuffer.status == .completed
+  }
 }
