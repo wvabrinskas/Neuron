@@ -88,7 +88,7 @@ public class Tensor: Equatable, Codable {
   
   /// Bridge property: copies storage into a `ContiguousArray<Scalar>` for compatibility
   /// with APIs that require `Tensor.Value`. Prefer `storage` subscript access in hot paths.
-  public var flatArray: Tensor.Value {
+  public var asArray: Tensor.Value {
     storage.toContiguousArray()
   }
   

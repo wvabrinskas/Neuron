@@ -89,36 +89,4 @@ public protocol Device {
   ///   - b: Right tensor.
   /// - Returns: Matrix product tensor.
   func matmul(_ a: Tensor, _ b: Tensor) -> Tensor
-
-  /// Pointer-based 2D convolution writing into a pre-allocated result buffer.
-  /// Returns `true` if the operation was performed (pointer path), `false` to fall back to array-based path.
-  /// - Parameters:
-  ///   - signal: Input signal pointer (flat row-major, inputSize.rows * inputSize.columns elements).
-  ///   - filter: Filter kernel pointer (flat row-major, filterSize.rows * filterSize.columns elements).
-  ///   - result: Output buffer (caller-allocated, must hold output elements).
-  ///   - strides: Convolution strides.
-  ///   - padding: Padding mode.
-  ///   - filterSize: Kernel shape.
-  ///   - inputSize: Input spatial shape.
-  /// - Returns: `true` if pointer path was used, `false` to use array-based fallback.
-  func conv2dInto(signal: UnsafePointer<Tensor.Scalar>,
-                  filter: UnsafePointer<Tensor.Scalar>,
-                  result: UnsafeMutablePointer<Tensor.Scalar>,
-                  strides: (Int, Int),
-                  padding: NumSwift.ConvPadding,
-                  filterSize: (rows: Int, columns: Int),
-                  inputSize: (rows: Int, columns: Int)) -> Bool
-}
-
-extension Device {
-  /// Default: pointer path not supported, fall back to array-based conv2d.
-  public func conv2dInto(signal: UnsafePointer<Tensor.Scalar>,
-                         filter: UnsafePointer<Tensor.Scalar>,
-                         result: UnsafeMutablePointer<Tensor.Scalar>,
-                         strides: (Int, Int),
-                         padding: NumSwift.ConvPadding,
-                         filterSize: (rows: Int, columns: Int),
-                         inputSize: (rows: Int, columns: Int)) -> Bool {
-    false
-  }
 }

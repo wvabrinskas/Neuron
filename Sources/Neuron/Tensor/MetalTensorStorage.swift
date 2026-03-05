@@ -25,7 +25,7 @@ public final class MetalTensorStorage: TensorStorage {
   ///   - count: Number of scalar elements.
   ///   - pool: Optional buffer pool for acquiring buffers. When nil, allocates directly.
   public init(device: MTLDevice, count: Int, pool: BufferPool? = nil) {
-    let byteCount = Swift.max(count * MemoryLayout<Scalar>.stride, 1)
+    let byteCount = Swift.max(count * MemoryLayout<Tensor.Scalar>.stride, 1)
     let buffer: MTLBuffer
     if let pool, let acquired = pool.acquire(byteCount: byteCount) {
       buffer = acquired
@@ -33,7 +33,7 @@ public final class MetalTensorStorage: TensorStorage {
       buffer = device.makeBuffer(length: byteCount, options: .storageModeShared)!
     }
     self.mtlBuffer = buffer
-    let ptr = buffer.contents().assumingMemoryBound(to: Scalar.self)
+    let ptr = buffer.contents().assumingMemoryBound(to: Tensor.Scalar.self)
     super.init(pointer: ptr, count: count) { [buffer, pool] in
       pool?.release(buffer)
       _ = buffer
@@ -44,9 +44,9 @@ public final class MetalTensorStorage: TensorStorage {
   }
 
   /// Allocates MTLBuffer-backed storage and copies data from an array.
-  public init(device: MTLDevice, data: [Scalar], pool: BufferPool? = nil) {
+  public init(device: MTLDevice, data: [Tensor.Scalar], pool: BufferPool? = nil) {
     let count = data.count
-    let byteCount = Swift.max(count * MemoryLayout<Scalar>.stride, 1)
+    let byteCount = Swift.max(count * MemoryLayout<Tensor.Scalar>.stride, 1)
     let buffer: MTLBuffer
     if let pool, let acquired = pool.acquire(byteCount: byteCount) {
       buffer = acquired
@@ -54,7 +54,7 @@ public final class MetalTensorStorage: TensorStorage {
       buffer = device.makeBuffer(length: byteCount, options: .storageModeShared)!
     }
     self.mtlBuffer = buffer
-    let ptr = buffer.contents().assumingMemoryBound(to: Scalar.self)
+    let ptr = buffer.contents().assumingMemoryBound(to: Tensor.Scalar.self)
     super.init(pointer: ptr, count: count) { [buffer, pool] in
       pool?.release(buffer)
       _ = buffer
@@ -69,7 +69,7 @@ public final class MetalTensorStorage: TensorStorage {
   /// Allocates MTLBuffer-backed storage and copies data from existing TensorStorage.
   public init(device: MTLDevice, storage: TensorStorage, pool: BufferPool? = nil) {
     let count = storage.count
-    let byteCount = Swift.max(count * MemoryLayout<Scalar>.stride, 1)
+    let byteCount = Swift.max(count * MemoryLayout<Tensor.Scalar>.stride, 1)
     let buffer: MTLBuffer
     if let pool, let acquired = pool.acquire(byteCount: byteCount) {
       buffer = acquired
@@ -77,7 +77,7 @@ public final class MetalTensorStorage: TensorStorage {
       buffer = device.makeBuffer(length: byteCount, options: .storageModeShared)!
     }
     self.mtlBuffer = buffer
-    let ptr = buffer.contents().assumingMemoryBound(to: Scalar.self)
+    let ptr = buffer.contents().assumingMemoryBound(to: Tensor.Scalar.self)
     super.init(pointer: ptr, count: count) { [buffer, pool] in
       pool?.release(buffer)
       _ = buffer
@@ -89,7 +89,7 @@ public final class MetalTensorStorage: TensorStorage {
 
   required convenience init(from decoder: Decoder) throws {
     let container = try decoder.singleValueContainer()
-    let array = try container.decode([Scalar].self)
+    let array = try container.decode([Tensor.Scalar].self)
     guard let device = MTLCreateSystemDefaultDevice() else {
       throw DecodingError.dataCorrupted(
         DecodingError.Context(codingPath: decoder.codingPath,

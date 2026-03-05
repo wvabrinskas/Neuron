@@ -202,7 +202,7 @@ final class FullModelTests: XCTestCase {
       
       for i in 0..<out.count {
         let o = out[i]
-        XCTAssert(o.flatArray.indexOfMax.0 == i)
+        XCTAssert(o.asArray.indexOfMax.0 == i)
       }
     }
     
@@ -231,7 +231,7 @@ final class FullModelTests: XCTestCase {
       
       for i in 0..<out.count {
         let o = out[i]
-        XCTAssert(o.flatArray.indexOfMax.0 == i)
+        XCTAssert(o.asArray.indexOfMax.0 == i)
       }
       
     } catch {

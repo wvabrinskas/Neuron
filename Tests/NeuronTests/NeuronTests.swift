@@ -641,7 +641,7 @@ final class NeuronTests: XCTestCase {
     XCTAssertEqual(tensor.storage.count, 12)
     
     // Verify round-trip through value property
-    let roundTripped = tensor.flatArray.reshape(columns: 3).batched(into: 2)
+    let roundTripped = tensor.asArray.reshape(columns: 3).batched(into: 2)
     XCTAssertEqual(roundTripped, data)
   }
   
@@ -654,7 +654,7 @@ final class NeuronTests: XCTestCase {
     XCTAssertEqual(tensor.storage.count, 6)
     
     // value property returns 3D
-    let roundTripped = tensor.flatArray.reshape(columns: 3)
+    let roundTripped = tensor.asArray.reshape(columns: 3)
     XCTAssertEqual([roundTripped], [data])
   }
   
@@ -667,7 +667,7 @@ final class NeuronTests: XCTestCase {
     XCTAssertEqual(tensor.storage.count, 5)
     
     // value property returns 3D: [[[1, 2, 3, 4, 5]]]
-    let roundTripped = tensor.flatArray.reshape(columns: 5).batched(into: 1)
+    let roundTripped = tensor.asArray.reshape(columns: 5).batched(into: 1)
     XCTAssertEqual(roundTripped, [[data]])
   }
   

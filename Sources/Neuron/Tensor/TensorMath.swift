@@ -137,6 +137,141 @@ public extension Tensor {
       return nil
     }
   }
+
+  private enum _BroadcastOp { case add, sub, mul, div }
+
+  /// Pointer-based fast path for *Along broadcasting. Returns result storage when applicable, nil to fall back.
+  private func _broadcastAlongFastPath(axis: Int, value: Tensor, op: _BroadcastOp) -> Tensor? {
+    let inputSize = value.size
+    let selfSize = size
+    let columns = selfSize.columns
+    let rows = selfSize.rows
+    let depth = selfSize.depth
+    let totalCount = columns * rows * depth
+    guard totalCount > 0 else { return nil }
+
+    let resultStorage = TensorStorage.create(count: totalCount)
+    let selfPtr = storage.pointer
+    let inputPtr = value.storage.pointer
+    let resultPtr = resultStorage.pointer
+
+    switch op {
+    case .add:
+      if axis == 0, inputSize.columns == columns, inputSize.rows == 1, inputSize.depth == depth {
+        for d in 0..<depth {
+          let inputStart = value.flatIndex(column: 0, row: 0, depth: d)
+          for r in 0..<rows {
+            let selfStart = flatIndex(column: 0, row: r, depth: d)
+            NumSwiftFlat.add(selfPtr + selfStart, inputPtr + inputStart, result: resultPtr + selfStart, count: columns)
+          }
+        }
+      } else if axis == 1, inputSize.columns == 1, inputSize.rows == rows, inputSize.depth == depth {
+        for d in 0..<depth {
+          for r in 0..<rows {
+            let selfStart = flatIndex(column: 0, row: r, depth: d)
+            let inputIdx = value.flatIndex(column: 0, row: r, depth: d)
+            NumSwiftFlat.add(selfPtr + selfStart, scalar: inputPtr[inputIdx], result: resultPtr + selfStart, count: columns)
+          }
+        }
+      } else if axis == 2, inputSize.columns == columns, inputSize.rows == rows, inputSize.depth == 1 {
+        for d in 0..<depth {
+          for r in 0..<rows {
+            let selfStart = flatIndex(column: 0, row: r, depth: d)
+            let inputStart = value.flatIndex(column: 0, row: r, depth: 0)
+            NumSwiftFlat.add(selfPtr + selfStart, inputPtr + inputStart, result: resultPtr + selfStart, count: columns)
+          }
+        }
+      } else { return nil }
+    case .sub:
+      if axis == 0, inputSize.columns == columns, inputSize.rows == 1, inputSize.depth == depth {
+        for d in 0..<depth {
+          let inputStart = value.flatIndex(column: 0, row: 0, depth: d)
+          for r in 0..<rows {
+            let selfStart = flatIndex(column: 0, row: r, depth: d)
+            NumSwiftFlat.sub(selfPtr + selfStart, inputPtr + inputStart, result: resultPtr + selfStart, count: columns)
+          }
+        }
+      } else if axis == 1, inputSize.columns == 1, inputSize.rows == rows, inputSize.depth == depth {
+        for d in 0..<depth {
+          for r in 0..<rows {
+            let selfStart = flatIndex(column: 0, row: r, depth: d)
+            let inputIdx = value.flatIndex(column: 0, row: r, depth: d)
+            NumSwiftFlat.sub(selfPtr + selfStart, scalar: inputPtr[inputIdx], result: resultPtr + selfStart, count: columns)
+          }
+        }
+      } else if axis == 2, inputSize.columns == columns, inputSize.rows == rows, inputSize.depth == 1 {
+        for d in 0..<depth {
+          for r in 0..<rows {
+            let selfStart = flatIndex(column: 0, row: r, depth: d)
+            let inputStart = value.flatIndex(column: 0, row: r, depth: 0)
+            NumSwiftFlat.sub(selfPtr + selfStart, inputPtr + inputStart, result: resultPtr + selfStart, count: columns)
+          }
+        }
+      } else { return nil }
+    case .mul:
+      if axis == 0, inputSize.columns == columns, inputSize.rows == 1, inputSize.depth == depth {
+        for d in 0..<depth {
+          let inputStart = value.flatIndex(column: 0, row: 0, depth: d)
+          for r in 0..<rows {
+            let selfStart = flatIndex(column: 0, row: r, depth: d)
+            NumSwiftFlat.mul(selfPtr + selfStart, inputPtr + inputStart, result: resultPtr + selfStart, count: columns)
+          }
+        }
+      } else if axis == 1, inputSize.columns == 1, inputSize.rows == rows, inputSize.depth == depth {
+        for d in 0..<depth {
+          for r in 0..<rows {
+            let selfStart = flatIndex(column: 0, row: r, depth: d)
+            let inputIdx = value.flatIndex(column: 0, row: r, depth: d)
+            NumSwiftFlat.mul(selfPtr + selfStart, scalar: inputPtr[inputIdx], result: resultPtr + selfStart, count: columns)
+          }
+        }
+      } else if axis == 2, inputSize.columns == columns, inputSize.rows == rows, inputSize.depth == 1 {
+        for d in 0..<depth {
+          for r in 0..<rows {
+            let selfStart = flatIndex(column: 0, row: r, depth: d)
+            let inputStart = value.flatIndex(column: 0, row: r, depth: 0)
+            NumSwiftFlat.mul(selfPtr + selfStart, inputPtr + inputStart, result: resultPtr + selfStart, count: columns)
+          }
+        }
+      } else { return nil }
+    case .div:
+      // NumSwiftFlat.div(a, b, result) gives result = a/b (see NumSwift implementation)
+      if axis == 0, inputSize.columns == columns, inputSize.rows == 1, inputSize.depth == depth {
+        for d in 0..<depth {
+          let inputStart = value.flatIndex(column: 0, row: 0, depth: d)
+          for r in 0..<rows {
+            let selfStart = flatIndex(column: 0, row: r, depth: d)
+            NumSwiftFlat.div(selfPtr + selfStart, inputPtr + inputStart, result: resultPtr + selfStart, count: columns)
+          }
+        }
+      } else if axis == 1, inputSize.columns == 1, inputSize.rows == rows, inputSize.depth == depth {
+        for d in 0..<depth {
+          for r in 0..<rows {
+            let selfStart = flatIndex(column: 0, row: r, depth: d)
+            let inputIdx = value.flatIndex(column: 0, row: r, depth: d)
+            NumSwiftFlat.div(selfPtr + selfStart, scalar: inputPtr[inputIdx], result: resultPtr + selfStart, count: columns)
+          }
+        }
+      } else if axis == 2, inputSize.columns == columns, inputSize.rows == rows, inputSize.depth == 1 {
+        for d in 0..<depth {
+          for r in 0..<rows {
+            let selfStart = flatIndex(column: 0, row: r, depth: d)
+            let inputStart = value.flatIndex(column: 0, row: r, depth: 0)
+            NumSwiftFlat.div(selfPtr + selfStart, inputPtr + inputStart, result: resultPtr + selfStart, count: columns)
+          }
+        }
+      } else { return nil }
+    }
+
+    let context: TensorContext
+    switch op {
+    case .add: context = addContext(value: value)
+    case .sub: context = subtractContext(value: value)
+    case .mul: context = multiplyContext(value: value)
+    case .div: context = divideContext(value: value)
+    }
+    return Tensor(storage: resultStorage, size: selfSize, context: context)
+  }
   
   /// Applies a mathematical operation along a specific axis with broadcasting support.
   /// This is the core function used by other *Along methods.
@@ -237,6 +372,12 @@ public extension Tensor {
   /// - Note: Self-assignment is now handled automatically. The operation detects and prevents
   ///   reference cycles in the computation graph, so manual `.copy()` calls are no longer required.
   func divideAlong(axis: Int, value: Tensor) -> Tensor {
+    if let new = _broadcastAlongFastPath(axis: axis, value: value, op: .div) {
+      new.label = "division"
+      if graphChain.contains(value.id) { new.setGraphSafe(self); new.setGraphSafe(value) }
+      else { new.setGraphSafe(value); new.setGraphSafe(self) }
+      return new
+    }
     let block: MathAlongBlock = { feature, value in
       if let valueArray = value.0 {
         return feature / valueArray
@@ -246,29 +387,11 @@ public extension Tensor {
         return feature
       }
     }
-    
     let out = applyAlong(axis: axis, input: value, block)
-    
     let new = Tensor(storage: out.storage, size: out.size, context: divideContext(value: value))
-    
     new.label = "division"
-    
-    // we need to detach the branch first and then set graph
-    // these are reverseable actions where order matters
-    // this is important to add the non branching node first
-    // so when the branching node is added it is copied with context rather than just inserted
-    // the non branching node CONTAINS the value so adding the branching node first wont copy it
-    // and we'll get two graphs leading to the same place.
-    if graphChain.contains(value.id) {
-      // non branched node
-      new.setGraphSafe(self)
-      new.setGraphSafe(value)
-    } else {
-      // branched node
-      new.setGraphSafe(value)
-      new.setGraphSafe(self)
-    }
-    
+    if graphChain.contains(value.id) { new.setGraphSafe(self); new.setGraphSafe(value) }
+    else { new.setGraphSafe(value); new.setGraphSafe(self) }
     return new
   }
   
@@ -309,6 +432,12 @@ public extension Tensor {
   /// - Note: Self-assignment is now handled automatically. The operation detects and prevents
   ///   reference cycles in the computation graph, so manual `.copy()` calls are no longer required.
   func multiplyAlong(axis: Int, value: Tensor) -> Tensor {
+    if let new = _broadcastAlongFastPath(axis: axis, value: value, op: .mul) {
+      new.label = "multiplication"
+      if graphChain.contains(value.id) { new.setGraphSafe(self); new.setGraphSafe(value) }
+      else { new.setGraphSafe(value); new.setGraphSafe(self) }
+      return new
+    }
     let block: MathAlongBlock = { feature, value in
       if let valueArray = value.0 {
         return feature * valueArray
@@ -318,23 +447,11 @@ public extension Tensor {
         return feature
       }
     }
-    
     let out = applyAlong(axis: axis, input: value, block)
-    
     let new = Tensor(storage: out.storage, size: out.size, context: multiplyContext(value: value))
-    
     new.label = "multiplication"
-
-    if graphChain.contains(value.id) {
-      // non branched node
-      new.setGraphSafe(self)
-      new.setGraphSafe(value)
-    } else {
-      // branched node
-      new.setGraphSafe(value)
-      new.setGraphSafe(self)
-    }
-    
+    if graphChain.contains(value.id) { new.setGraphSafe(self); new.setGraphSafe(value) }
+    else { new.setGraphSafe(value); new.setGraphSafe(self) }
     return new
   }
   
@@ -390,80 +507,12 @@ public extension Tensor {
   /// - Note: Self-assignment is now handled automatically. The operation detects and prevents
   ///   reference cycles in the computation graph, so manual `.copy()` calls are no longer required.
   func addAlong(axis: Int, value: Tensor) -> Tensor {
-    // Pointer-based fast path: avoids per-slice array allocations (critical for LSTM bias adds).
-    let inputSize = value.size
-    let selfSize = size
-    let columns = selfSize.columns
-    let rows = selfSize.rows
-    let depth = selfSize.depth
-    let totalCount = columns * rows * depth
-
-    if totalCount > 0 {
-      let resultStorage = TensorStorage.create(count: totalCount)
-      let selfPtr = storage.pointer
-      let inputPtr = value.storage.pointer
-      let resultPtr = resultStorage.pointer
-
-      if axis == 0,
-         inputSize.columns == columns,
-         inputSize.rows == 1,
-         inputSize.depth == depth {
-        // Broadcast along rows: add input row to each row of self
-        for d in 0..<depth {
-          let inputStart = value.flatIndex(column: 0, row: 0, depth: d)
-          for r in 0..<rows {
-            let selfStart = flatIndex(column: 0, row: r, depth: d)
-            let resultStart = selfStart
-            NumSwiftFlat.add(selfPtr + selfStart, inputPtr + inputStart, result: resultPtr + resultStart, count: columns)
-          }
-        }
-        let new = Tensor(storage: resultStorage, size: selfSize, context: addContext(value: value))
-        new.label = "addition"
-        if graphChain.contains(value.id) { new.setGraphSafe(self); new.setGraphSafe(value) }
-        else { new.setGraphSafe(value); new.setGraphSafe(self) }
-        return new
-      }
-
-      if axis == 1,
-         inputSize.columns == 1,
-         inputSize.rows == rows,
-         inputSize.depth == depth {
-        // Broadcast along columns: add scalar per row to each column
-        for d in 0..<depth {
-          for r in 0..<rows {
-            let selfStart = flatIndex(column: 0, row: r, depth: d)
-            let inputIdx = value.flatIndex(column: 0, row: r, depth: d)
-            let scalar = inputPtr[inputIdx]
-            NumSwiftFlat.add(selfPtr + selfStart, scalar: scalar, result: resultPtr + selfStart, count: columns)
-          }
-        }
-        let new = Tensor(storage: resultStorage, size: selfSize, context: addContext(value: value))
-        new.label = "addition"
-        if graphChain.contains(value.id) { new.setGraphSafe(self); new.setGraphSafe(value) }
-        else { new.setGraphSafe(value); new.setGraphSafe(self) }
-        return new
-      }
-
-      if axis == 2,
-         inputSize.columns == columns,
-         inputSize.rows == rows,
-         inputSize.depth == 1 {
-        // Broadcast along depth: add input plane to each depth slice
-        for d in 0..<depth {
-          for r in 0..<rows {
-            let selfStart = flatIndex(column: 0, row: r, depth: d)
-            let inputStart = value.flatIndex(column: 0, row: r, depth: 0)
-            NumSwiftFlat.add(selfPtr + selfStart, inputPtr + inputStart, result: resultPtr + selfStart, count: columns)
-          }
-        }
-        let new = Tensor(storage: resultStorage, size: selfSize, context: addContext(value: value))
-        new.label = "addition"
-        if graphChain.contains(value.id) { new.setGraphSafe(self); new.setGraphSafe(value) }
-        else { new.setGraphSafe(value); new.setGraphSafe(self) }
-        return new
-      }
+    if let new = _broadcastAlongFastPath(axis: axis, value: value, op: .add) {
+      new.label = "addition"
+      if graphChain.contains(value.id) { new.setGraphSafe(self); new.setGraphSafe(value) }
+      else { new.setGraphSafe(value); new.setGraphSafe(self) }
+      return new
     }
-
     // Fallback: generic applyAlong path
     let block: MathAlongBlock = { feature, value in
       if let valueArray = value.0 {
@@ -532,6 +581,12 @@ public extension Tensor {
   /// - Note: Self-assignment is now handled automatically. The operation detects and prevents
   ///   reference cycles in the computation graph, so manual `.copy()` calls are no longer required.
   func subtractAlong(axis: Int, value: Tensor) -> Tensor {
+    if let new = _broadcastAlongFastPath(axis: axis, value: value, op: .sub) {
+      new.label = "subtraction"
+      if graphChain.contains(value.id) { new.setGraphSafe(self); new.setGraphSafe(value) }
+      else { new.setGraphSafe(value); new.setGraphSafe(self) }
+      return new
+    }
     let block: MathAlongBlock = { feature, value in
       if let valueArray = value.0 {
         return feature - valueArray
@@ -542,24 +597,10 @@ public extension Tensor {
       }
     }
     let out = applyAlong(axis: axis, input: value, block)
-    
     let new = Tensor(storage: out.storage, size: out.size, context: subtractContext(value: value))
-    
     new.label = "subtraction"
-    
-    // we need to detach the branch first and then set graph
-    // these are reverseable actions where order matters
-    // a - b != b - a
-    if graphChain.contains(value.id) {
-      // non branched node
-      new.setGraphSafe(self)
-      new.setGraphSafe(value)
-    } else {
-      // branched node
-      new.setGraphSafe(value)
-      new.setGraphSafe(self)
-    }
-      
+    if graphChain.contains(value.id) { new.setGraphSafe(self); new.setGraphSafe(value) }
+    else { new.setGraphSafe(value); new.setGraphSafe(self) }
     return new
   }
   
