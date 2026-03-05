@@ -14,28 +14,28 @@ public extension TensorStorage {
 
   static func + (lhs: TensorStorage, rhs: TensorStorage) -> TensorStorage {
     let count = Swift.min(lhs.count, rhs.count)
-    let result = TensorStorage.create(count: lhs.count)
+    let result = TensorStorage.create(count: count)
     NumSwiftFlat.add(lhs.pointer, rhs.pointer, result: result.pointer, count: count)
     return result
   }
 
   static func - (lhs: TensorStorage, rhs: TensorStorage) -> TensorStorage {
     let count = Swift.min(lhs.count, rhs.count)
-    let result = TensorStorage.create(count: lhs.count)
+    let result = TensorStorage.create(count: count)
     NumSwiftFlat.sub(lhs.pointer, rhs.pointer, result: result.pointer, count: count)
     return result
   }
 
   static func * (lhs: TensorStorage, rhs: TensorStorage) -> TensorStorage {
     let count = Swift.min(lhs.count, rhs.count)
-    let result = TensorStorage.create(count: lhs.count)
+    let result = TensorStorage.create(count: count)
     NumSwiftFlat.mul(lhs.pointer, rhs.pointer, result: result.pointer, count: count)
     return result
   }
 
   static func / (lhs: TensorStorage, rhs: TensorStorage) -> TensorStorage {
     let count = Swift.min(lhs.count, rhs.count)
-    let result = TensorStorage.create(count: lhs.count)
+    let result = TensorStorage.create(count: count)
     NumSwiftFlat.div(lhs.pointer, rhs.pointer, result: result.pointer, count: count)
     return result
   }

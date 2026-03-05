@@ -180,9 +180,16 @@ public class TensorStorage {
     return TensorStorage(array)
   }
 
-  /// Creates storage by copying `contiguous`.
+  /// Creates storage by copying `array`.
   public static func create(from contiguous: ContiguousArray<Tensor.Scalar>) -> TensorStorage {
-    create(from: Array(contiguous))
+    
+    if DeviceManager.shared.type == .gpu,
+       let device = MetalContext.shared.device {
+      let pool = MetalContext.shared.bufferPool
+      return MetalTensorStorage(device: device, data: contiguous, pool: pool)
+    }
+    
+    return TensorStorage(contiguous)
   }
 
   /// Creates storage filled with `repeating` value.

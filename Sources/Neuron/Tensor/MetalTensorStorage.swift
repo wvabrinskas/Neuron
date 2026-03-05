@@ -65,6 +65,29 @@ public final class MetalTensorStorage: TensorStorage {
       }
     }
   }
+  
+  /// Allocates MTLBuffer-backed storage and copies data from an array.
+  public init(device: MTLDevice, data: ContiguousArray<Tensor.Scalar>, pool: BufferPool? = nil) {
+    let count = data.count
+    let byteCount = Swift.max(count * MemoryLayout<Tensor.Scalar>.stride, 1)
+    let buffer: MTLBuffer
+    if let pool, let acquired = pool.acquire(byteCount: byteCount) {
+      buffer = acquired
+    } else {
+      buffer = device.makeBuffer(length: byteCount, options: .storageModeShared)!
+    }
+    self.mtlBuffer = buffer
+    let ptr = buffer.contents().assumingMemoryBound(to: Tensor.Scalar.self)
+    super.init(pointer: ptr, count: count) { [buffer, pool] in
+      pool?.release(buffer)
+      _ = buffer
+    }
+    if count > 0 {
+      data.withUnsafeBufferPointer { src in
+        ptr.initialize(from: src.baseAddress!, count: count)
+      }
+    }
+  }
 
   /// Allocates MTLBuffer-backed storage and copies data from existing TensorStorage.
   public init(device: MTLDevice, storage: TensorStorage, pool: BufferPool? = nil) {
