@@ -170,4 +170,76 @@ public final class MetalEngine {
 
     return cmdBuffer.status == .completed
   }
+
+  // MARK: - Matrix multiplication dispatch
+
+  /// Dispatches the neuron_matmul_tiled kernel.
+  /// C[M×N] = A[M×K] × B[K×N], row-major layout.
+  /// For depth > 1, dispatches once per depth slice with buffer offsets.
+  ///
+  /// - Parameters:
+  ///   - a: Left matrix storage (M×K per slice).
+  ///   - b: Right matrix storage (K×N per slice).
+  ///   - output: Output storage (M×N per slice).
+  ///   - M: Rows of A / rows of C.
+  ///   - N: Columns of B / columns of C.
+  ///   - K: Columns of A / rows of B.
+  ///   - depth: Number of depth slices; each slice uses contiguous buffer regions.
+  /// - Returns: `true` if all dispatches succeeded, `false` otherwise.
+  public func dispatchMatmul(
+    a: MetalTensorStorage,
+    b: MetalTensorStorage,
+    output: MetalTensorStorage,
+    M: Int, N: Int, K: Int,
+    depth: Int = 1
+  ) -> Bool {
+    guard let pipeline = pipeline(named: "neuron_matmul_tiled"),
+          let cmdBuffer = makeCommandBuffer(),
+          let encoder = cmdBuffer.makeComputeCommandEncoder() else {
+      return false
+    }
+
+    let stride = MemoryLayout<Tensor.Scalar>.stride
+    let aSliceSize = M * K
+    let bSliceSize = K * N
+    let cSliceSize = M * N
+
+    guard a.count >= aSliceSize * depth,
+          b.count >= bSliceSize * depth,
+          output.count >= cSliceSize * depth else {
+      return false
+    }
+
+    encoder.setComputePipelineState(pipeline)
+
+    var mVal = UInt32(M)
+    var nVal = UInt32(N)
+    var kVal = UInt32(K)
+    encoder.setBytes(&mVal, length: MemoryLayout<UInt32>.size, index: 3)
+    encoder.setBytes(&nVal, length: MemoryLayout<UInt32>.size, index: 4)
+    encoder.setBytes(&kVal, length: MemoryLayout<UInt32>.size, index: 5)
+
+    let gridWidth = (N + 15) / 16
+    let gridHeight = (M + 15) / 16
+    let gridSize = MTLSize(width: max(1, gridWidth), height: max(1, gridHeight), depth: 1)
+    let threadgroupSize = MTLSize(width: 16, height: 16, depth: 1)
+
+    for d in 0..<depth {
+      let aOffset = d * aSliceSize * stride
+      let bOffset = d * bSliceSize * stride
+      let cOffset = d * cSliceSize * stride
+
+      encoder.setBuffer(a.mtlBuffer, offset: aOffset, index: 0)
+      encoder.setBuffer(b.mtlBuffer, offset: bOffset, index: 1)
+      encoder.setBuffer(output.mtlBuffer, offset: cOffset, index: 2)
+
+      encoder.dispatchThreadgroups(gridSize, threadsPerThreadgroup: threadgroupSize)
+    }
+
+    encoder.endEncoding()
+    cmdBuffer.commit()
+    cmdBuffer.waitUntilCompleted()
+
+    return cmdBuffer.status == .completed
+  }
 }

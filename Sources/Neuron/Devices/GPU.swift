@@ -127,6 +127,26 @@ public class GPU: Device {
   ///   - b: Right tensor.
   /// - Returns: Matrix product tensor.
   public func matmul(_ a: Tensor, _ b: Tensor) -> Tensor {
-    a.matmul(b)
+    if let metalA = a.storage as? MetalTensorStorage,
+       let metalB = b.storage as? MetalTensorStorage,
+       MetalContext.shared.isAvailable,
+       let device = MetalContext.shared.device,
+       let pool = MetalContext.shared.bufferPool {
+      let aSize = a.size
+      let bSize = b.size
+      precondition(aSize.columns == bSize.rows, "A columns (\(aSize.columns)) must equal B rows (\(bSize.rows))")
+      precondition(aSize.depth == bSize.depth, "A depth (\(aSize.depth)) must equal B depth (\(bSize.depth))")
+      let M = aSize.rows
+      let K = aSize.columns
+      let N = bSize.columns
+      let depth = aSize.depth
+      let cCount = M * N * depth
+      let engine = MetalEngine()
+      let outputStorage = MetalTensorStorage(device: device, count: cCount, pool: pool)
+      if engine.dispatchMatmul(a: metalA, b: metalB, output: outputStorage, M: M, N: N, K: K, depth: depth) {
+        return Tensor(storage: outputStorage, size: TensorSize(rows: M, columns: N, depth: depth), context: TensorContext())
+      }
+    }
+    return a.matmul(b)
   }
 }
