@@ -20,6 +20,8 @@ public class GPU: Device {
 
   private let manager = GPUManager.shared
   
+  public init() {}
+  
   /// Performs 2D convolution on the GPU device abstraction.
   ///
   /// Currently routed through the flat NumSwift backend while GPU kernels
@@ -66,7 +68,7 @@ public class GPU: Device {
   ///   - type: Activation to apply.
   /// - Returns: Activated tensor with original shape.
   public func activate(_ input: Tensor, _ type: Activation) -> Tensor {
-    let flat = Array(input.storage)
+    let flat = input.storage.toArray()
     let activated = self.manager.activate(flat, type)
 
     let reshaped = activated.reshape(columns: input.size.columns).batched(into: input.size.depth)
@@ -81,7 +83,7 @@ public class GPU: Device {
   ///   - type: Activation derivative to evaluate.
   /// - Returns: Tensor containing derivative values.
   public func derivate(_ input: Tensor, _ type: Activation) -> Tensor {
-    let flat = Array(input.storage)
+    let flat = input.storage.toArray()
     let activated = self.manager.activate(flat, type, derivate: true)
 
     let reshaped = activated.reshape(columns: input.size.columns).batched(into: input.size.depth)

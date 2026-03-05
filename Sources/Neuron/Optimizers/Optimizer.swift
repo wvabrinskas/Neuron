@@ -19,7 +19,8 @@ public protocol Optimizer: AnyObject {
   var trainable: Trainable { get set }
   var learningRate: Tensor.Scalar { get }
   var isTraining: Bool { get set }
-  var device: Device { get set }
+  var device: Device { get }
+  var deviceType: DeviceType { get set }
   var metricsReporter: MetricsReporter? { get set }
   var weightClip: Tensor.Scalar? { get set }
   var gradientClip: Tensor.Scalar? { get set }
@@ -101,18 +102,18 @@ open class BaseOptimizer: Optimizer {
       trainable.isTraining = isTraining
     }
   }
+  
+  public var deviceType: DeviceType = .cpu {
+    didSet {
+      DeviceManager.shared.type = deviceType
+    }
+  }
+  
   /// The compute device used for training, either CPU or GPU.
   ///
   /// Updating this value propagates the device selection to the underlying trainable network.
-  public var device: Device = CPU() {
-    didSet {
-      switch device.type {
-      case .cpu:
-        trainable.device = CPU()
-      case .gpu:
-        trainable.device = GPU()
-      }
-    }
+  public var device: Device {
+    DeviceManager.shared.device
   }
 
   /// An optional reporter used to collect and publish training metrics such as loss and timing.
@@ -174,14 +175,7 @@ open class BaseOptimizer: Optimizer {
     // override
     decayFunction?.reset()
   }
-  
-  func gradientClip(_ gradients: Optimizer.Gradient) {
-    if let clip = gradientClip {
-      gradients.biases.clip(clip)
-      gradients.weights.clip(clip)
-    }
-  }
-  
+
   func weightClip(layer: Layer) {
     if let clip = weightClip {
       if let con = layer as? ConvolutionalLayer {

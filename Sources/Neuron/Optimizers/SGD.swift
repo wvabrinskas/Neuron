@@ -26,7 +26,6 @@ public class SGD: BaseOptimizer {
   ///   - gradientClip: Optional gradient clipping threshold.
   ///   - augmenter: Optional training-time data augmenter.
   public init(_ trainable: Trainable,
-              device: Device = CPU(),
               learningRate: Tensor.Scalar,
               batchSize: Int,
               momentum: Tensor.Scalar = 0.9,
@@ -91,7 +90,7 @@ public class SGD: BaseOptimizer {
             Tensor(vb[i], size: biasGradient.size))
   }
 
-  private func apply(to: inout Tensor.Value, gradient: Tensor.Value) {
+  private func apply(to: inout Tensor.Value, gradient: TensorStorage) {
     for i in 0..<gradient.count {
       to[i] = momentum * to[i] + learningRate * gradient[i]
     }

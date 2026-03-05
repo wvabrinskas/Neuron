@@ -17,9 +17,9 @@ public final class LayerNormalize: BaseLayer {
       // For printing purposes. Not actually used
       let out = beta.concat(gamma, axis: 2)
       
-      let outTensor = Tensor(out.storage, size: .init(rows: beta.size.rows,
-                                                      columns: beta.size.columns,
-                                                      depth: beta.size.depth + gamma.size.depth))
+      let outTensor = Tensor(storage: out.storage, size: .init(rows: beta.size.rows,
+                                                               columns: beta.size.columns,
+                                                               depth: beta.size.depth + gamma.size.depth))
       return outTensor
     }
     set {}
@@ -106,7 +106,7 @@ public final class LayerNormalize: BaseLayer {
     }
     
     let forwardStorage = normalizeFlat(inputs: tensor)
-    let out = Tensor(forwardStorage, size: tensor.size, context: tensorContext)
+    let out = Tensor(storage: forwardStorage, size: tensor.size, context: tensorContext)
     out.setGraph(tensor)
     
     return super.forward(tensor: out, context: context)
@@ -118,7 +118,7 @@ public final class LayerNormalize: BaseLayer {
     setupTrainables()
   }
 
-  private func normalizeFlat(inputs: Tensor) -> Tensor.Value {
+  private func normalizeFlat(inputs: Tensor) -> TensorStorage {
     let sliceSize = inputSize.rows * inputSize.columns * inputSize.depth
     let total = Tensor.Scalar(sliceSize)
     
@@ -172,7 +172,7 @@ public final class LayerNormalize: BaseLayer {
     
     let deltaWeights = dL_dgamma.concat(dL_dbeta, axis: 2)
         
-    return (Tensor(dl_dx.storage, size: inputs.size),
+    return (Tensor(storage: dl_dx.storage, size: inputs.size),
             deltaWeights,
             Tensor())
   }

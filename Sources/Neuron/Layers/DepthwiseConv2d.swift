@@ -197,8 +197,7 @@ public class DepthwiseConv2d: BaseConvolutionalLayer {
       self.backward(inputs, gradient)
     }
     
-    let outStorage = conv(tensor)
-    let out = Tensor(outStorage, size: outputSize, context: tensorContext)
+    let out = Tensor(storage: conv(tensor).storage, size: outputSize, context: tensorContext)
     
     out.setGraph(tensor)
     
@@ -233,7 +232,7 @@ public class DepthwiseConv2d: BaseConvolutionalLayer {
     var flippedKernels = [Tensor.Value](repeating: Tensor.Value(), count: inputDepth)
     
     for i in 0..<inputDepth {
-      let kernel = filters[i].storage
+      let kernel = filters[i].depthSlice(0)
       flippedKernels[i] = NumSwiftFlat.flip180(kernel, rows: fRows, columns: fCols)
     }
     
@@ -418,13 +417,15 @@ public class DepthwiseConv2d: BaseConvolutionalLayer {
   ///
   /// - Parameter input: Input tensor of shape `(W, H, D)`.
   /// - Returns: Flat output storage of length `outputSize.rows × outputSize.columns × inputSize.depth`.
-  internal func conv(_ input: Tensor) -> Tensor.Value {
-    var resultStorage: Tensor = Tensor(Tensor.Value(repeating: 0, count: outputSize.columns * outputSize.rows * outputSize.depth), size: outputSize)
-    
+  internal func conv(_ input: Tensor) -> Tensor {
+    let outSliceSize = outputSize.rows * outputSize.columns
+    let resultStorage = TensorStorage.create(count: outSliceSize * outputSize.depth)
+    let resultPtr = resultStorage.pointer
+
     Array(0..<self.inputSize.depth).concurrentForEach(workers: Constants.maxWorkers) { _, i in
-      let currentFilter = self.filters[i].storage
+      let currentFilter = self.filters[i].depthSlice(0)
       let currentInput = input.depthSlice(i)
-      
+
       var conv = self.device.conv2d(signal: currentInput,
                                     filter: currentFilter,
                                     strides: self.strides,
@@ -432,16 +433,19 @@ public class DepthwiseConv2d: BaseConvolutionalLayer {
                                     filterSize: self.filterSize,
                                     inputSize: (self.inputSize.rows, self.inputSize.columns),
                                     outputSize: nil)
-      
+
       if self.biasEnabled {
         let bias = self.biases.storage[i]
         conv = conv + bias
       }
-      
-      resultStorage.setDepthSlice(i, conv)
+
+      let dest = resultPtr + i * outSliceSize
+      conv.withUnsafeBufferPointer { src in
+        dest.update(from: src.baseAddress!, count: outSliceSize)
+      }
     }
-    
-    return resultStorage.storage
+
+    return Tensor(storage: resultStorage, size: outputSize)
   }
   
   /// Returns a 180°-rotated copy of every depth slice in the given filter tensor.

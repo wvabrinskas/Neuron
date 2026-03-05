@@ -191,7 +191,7 @@ public final class TransConv2d: Conv2d {
     return results
   }
   
-  internal override func conv(_ input: Tensor) -> Tensor.Value {
+  internal override func conv(_ input: Tensor) -> TensorStorage {
     let outRows = outputSize.rows
     let outCols = outputSize.columns
     let outSliceSize = outRows * outCols
@@ -248,7 +248,7 @@ public final class TransConv2d: Conv2d {
     }
     
     // Assemble flat result
-    var resultStorage = Tensor.Value(repeating: 0, count: outSliceSize * filterCount)
+    let resultStorage = TensorStorage.create(count: outSliceSize * filterCount)
     for f in 0..<filterCount {
       if let output = filterOutputs[f] {
         let start = f * outSliceSize

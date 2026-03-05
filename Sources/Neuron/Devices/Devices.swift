@@ -26,7 +26,7 @@ public enum DeviceType: String, Codable {
 ///
 /// Conforming types provide hardware-specific implementations of neural network
 /// primitives such as convolution, activation, and pooling.
-public protocol Device {
+public protocol Device: AnyObject {
   var type: DeviceType { get }
   var qosPriority: DispatchQoS.QoSClass { get set }
 
@@ -89,4 +89,16 @@ public protocol Device {
   ///   - b: Right tensor.
   /// - Returns: Matrix product tensor.
   func matmul(_ a: Tensor, _ b: Tensor) -> Tensor
+}
+
+final class DeviceManager {
+  static let shared = DeviceManager()
+
+  var type: DeviceType = .cpu {
+    didSet {
+      device = type.device()
+    }
+  }
+  
+  private(set) var device: Device = CPU()
 }

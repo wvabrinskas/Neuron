@@ -421,7 +421,8 @@ final class NeuronTests: XCTestCase {
     let gradient = out.gradients(delta: delta, wrt: input)
     
     XCTAssert(gradient.input.first?.isEmpty == false)
-    XCTAssert(gradient.weights.first!.isValueEqual(to: Tensor([1.2247448, 1.5], size: .init(array: [1,1,2])), accuracy: 0.00001))
+    // Gradient layout: beta | gamma (matches weights for optimizer)
+    XCTAssert(gradient.weights.first!.isValueEqual(to: Tensor([1.5, 1.2247448], size: .init(array: [1,1,2])), accuracy: 0.00001))
     XCTAssert(gradient.input.first!.isValueEqual(to: Tensor([7.3000486e-08, 0.0, 7.3000486e-08, 0.0, 7.3000486e-08]), accuracy: 0.00001))
   }
   
@@ -441,7 +442,8 @@ final class NeuronTests: XCTestCase {
     let gradient = out.gradients(delta: delta, wrt: input)
     
     XCTAssert(gradient.input.first?.isEmpty == false)
-    XCTAssert(gradient.weights.first!.isValueEqual(to: Tensor([2.4494896, 3.0], size: .init(array: [1,1,2])), accuracy: 0.00001))
+    // Gradient layout: beta | gamma (matches weights for optimizer)
+    XCTAssert(gradient.weights.first!.isValueEqual(to: Tensor([3.0, 2.4494896], size: .init(array: [1,1,2])), accuracy: 0.00001))
     XCTAssert(gradient.input.first!.isValueEqual(to: Tensor([[7.3000486e-08, 0.0, 7.3000486e-08, 0.0, 7.3000486e-08],
                                                              [7.3000486e-08, 0.0, 7.3000486e-08, 0.0, 7.3000486e-08]]), accuracy: 0.00001))
   }
@@ -464,7 +466,8 @@ final class NeuronTests: XCTestCase {
     
     XCTAssert(gradient.input.first?.isEmpty == false)
     XCTAssert(gradient.input.first!.isValueEqual(to: .fillWith(value: 0, size: input.size), accuracy: 0.0001))
-    XCTAssert(gradient.weights.first!.isValueEqual(to: .init([0, 0, 4, 4], size: .init(rows: 1, columns: 2, depth: 2)), accuracy: 0.0001))
+    // Gradient layout: beta | gamma per channel; for 3d test delta=ones, dbeta=sum(delta)=4 per channel, dgamma=sum(x_norm*delta)=0
+    XCTAssert(gradient.weights.first!.isValueEqual(to: .init([4, 4, 0, 0], size: .init(rows: 1, columns: 2, depth: 2)), accuracy: 0.0001))
   }
   
   
@@ -557,7 +560,7 @@ final class NeuronTests: XCTestCase {
 
     XCTAssertNotNil(out.first)
     
-    XCTAssertEqual(out.first!.storage, [0,0,0])
+    XCTAssertEqual(out.first!.storage.toArray(), [0,0,0] as [Tensor.Scalar])
   }
   
   func testBatchNorm3d() {
@@ -638,7 +641,7 @@ final class NeuronTests: XCTestCase {
     XCTAssertEqual(tensor.storage.count, 12)
     
     // Verify round-trip through value property
-    let roundTripped = tensor.storage.reshape(columns: 3).batched(into: 2)
+    let roundTripped = tensor.asArray.reshape(columns: 3).batched(into: 2)
     XCTAssertEqual(roundTripped, data)
   }
   
@@ -651,7 +654,7 @@ final class NeuronTests: XCTestCase {
     XCTAssertEqual(tensor.storage.count, 6)
     
     // value property returns 3D
-    let roundTripped = tensor.storage.reshape(columns: 3)
+    let roundTripped = tensor.asArray.reshape(columns: 3)
     XCTAssertEqual([roundTripped], [data])
   }
   
@@ -664,7 +667,7 @@ final class NeuronTests: XCTestCase {
     XCTAssertEqual(tensor.storage.count, 5)
     
     // value property returns 3D: [[[1, 2, 3, 4, 5]]]
-    let roundTripped = tensor.storage.reshape(columns: 5).batched(into: 1)
+    let roundTripped = tensor.asArray.reshape(columns: 5).batched(into: 1)
     XCTAssertEqual(roundTripped, [[data]])
   }
   
@@ -674,7 +677,7 @@ final class NeuronTests: XCTestCase {
     XCTAssertEqual(tensor.shape, [1, 1, 1])
     XCTAssertEqual(tensor.storage.count, 1)
     XCTAssertEqual(tensor.asScalar(), 42)
-    XCTAssertEqual(tensor.storage, [42])
+    XCTAssertEqual(tensor.storage, TensorStorage([42] as [Tensor.Scalar]))
   }
   
   func testFlatStorageInit_empty() {
@@ -683,7 +686,7 @@ final class NeuronTests: XCTestCase {
     XCTAssertEqual(tensor.shape, [0, 0, 0])
     XCTAssertTrue(tensor.isEmpty)
     XCTAssertEqual(tensor.storage.count, 0)
-    XCTAssertEqual(tensor.storage, [])
+    XCTAssertEqual(tensor.storage, TensorStorage(count: 0))
   }
   
   func testFlatSubscript_getSet() {

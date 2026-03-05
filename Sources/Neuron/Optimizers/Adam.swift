@@ -25,7 +25,6 @@ public final class AdamW: Adam {
   ///   - gradientClip: Optional gradient clipping threshold.
   ///   - augmenter: Optional training-time data augmenter.
   public init(_ trainable: Trainable,
-              device: Device = CPU(),
               learningRate: Tensor.Scalar,
               batchSize: Int,
               b1: Tensor.Scalar = 0.9,
@@ -36,7 +35,6 @@ public final class AdamW: Adam {
               gradientClip: Tensor.Scalar? = nil,
               augmenter: Augmenter? = nil) {
     super.init(trainable,
-               device: device,
                learningRate: learningRate,
                batchSize: batchSize,
                b1: b1,
@@ -97,7 +95,6 @@ public class Adam: BaseOptimizer {
   ///   - gradientClip: Optional gradient clipping threshold.
   ///   - augmenter: Optional training-time data augmenter.
   public init(_ trainable: Trainable,
-              device: Device = CPU(),
               learningRate: Tensor.Scalar,
               batchSize: Int,
               b1: Tensor.Scalar = 0.9,
@@ -192,9 +189,9 @@ public class Adam: BaseOptimizer {
 
   private func apply(m: inout Tensor.Value,
                      v: inout Tensor.Value,
-                     gradient: Tensor.Value,
+                     gradient: TensorStorage,
                      decay: Bool = false,
-                     weights: Tensor.Value,
+                     weights: TensorStorage,
                      size: TensorSize) -> Tensor.Value {
 
     // Hoist loop-invariant computations

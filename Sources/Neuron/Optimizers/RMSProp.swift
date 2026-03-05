@@ -28,7 +28,6 @@ public class RMSProp: BaseOptimizer {
   ///   - gradientClip: Optional gradient clipping threshold.
   ///   - augmenter: Optional training-time data augmenter.
   public init(_ trainable: Trainable,
-              device: Device = CPU(),
               learningRate: Tensor.Scalar,
               batchSize: Int,
               b: Tensor.Scalar = 0.9,
@@ -99,7 +98,7 @@ public class RMSProp: BaseOptimizer {
     return (Tensor(result, size: gradient.size), Tensor(biasResult, size: biasGradient.size))
   }
 
-  private func apply(to: inout Tensor.Value, gradient: Tensor.Value) -> Tensor.Value {
+  private func apply(to: inout Tensor.Value, gradient: TensorStorage) -> Tensor.Value {
     let count = gradient.count
     let oneMinusB = 1 - b
     var result = Tensor.Value(repeating: 0, count: count)
