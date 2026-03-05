@@ -38,4 +38,46 @@ final class MetalEngineTests: XCTestCase {
     let cmdBuffer = engine.makeCommandBuffer()
     XCTAssertNotNil(cmdBuffer)
   }
+
+  func testGPUActivateWithMetalTensorStorageMatchesCPU() throws {
+    try XCTSkipIf(MTLCreateSystemDefaultDevice() == nil, "Metal not available")
+    try XCTSkipIf(MetalContext.shared.device?.makeDefaultLibrary() == nil, "Default Metal library not available")
+    let device = MetalContext.shared.device!
+    let pool = MetalContext.shared.bufferPool
+    let data: [Tensor.Scalar] = [-2, -1, 0, 1, 2, 3]
+    let metalStorage = MetalTensorStorage(device: device, data: data, pool: pool)
+    let metalInput = Tensor(storage: metalStorage, size: TensorSize(rows: 1, columns: data.count, depth: 1), context: TensorContext())
+    let cpuInput = Tensor(data, context: TensorContext())
+    let gpu = GPU()
+    let cpu = CPU()
+    let metalResult = gpu.activate(metalInput, .reLu)
+    let cpuResult = cpu.activate(cpuInput, .reLu)
+    let metalArray = metalResult.storage.toArray()
+    let cpuArray = cpuResult.storage.toArray()
+    XCTAssertEqual(metalArray.count, cpuArray.count)
+    for i in 0..<metalArray.count {
+      XCTAssertEqual(metalArray[i], cpuArray[i], accuracy: 1e-5, "Index \(i)")
+    }
+  }
+
+  func testGPUDerivateWithMetalTensorStorageMatchesCPU() throws {
+    try XCTSkipIf(MTLCreateSystemDefaultDevice() == nil, "Metal not available")
+    try XCTSkipIf(MetalContext.shared.device?.makeDefaultLibrary() == nil, "Default Metal library not available")
+    let device = MetalContext.shared.device!
+    let pool = MetalContext.shared.bufferPool
+    let data: [Tensor.Scalar] = [-2, -1, 0, 1, 2, 3]
+    let metalStorage = MetalTensorStorage(device: device, data: data, pool: pool)
+    let metalInput = Tensor(storage: metalStorage, size: TensorSize(rows: 1, columns: data.count, depth: 1), context: TensorContext())
+    let cpuInput = Tensor(data, context: TensorContext())
+    let gpu = GPU()
+    let cpu = CPU()
+    let metalResult = gpu.derivate(metalInput, .reLu)
+    let cpuResult = cpu.derivate(cpuInput, .reLu)
+    let metalArray = metalResult.storage.toArray()
+    let cpuArray = cpuResult.storage.toArray()
+    XCTAssertEqual(metalArray.count, cpuArray.count)
+    for i in 0..<metalArray.count {
+      XCTAssertEqual(metalArray[i], cpuArray[i], accuracy: 1e-5, "Index \(i)")
+    }
+  }
 }

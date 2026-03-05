@@ -23,6 +23,14 @@ public enum Activation: Codable, Equatable {
   case geLu
   case none
   
+  /// Returns the leaky alpha for Metal kernels (used when activation type is leakyRelu).
+  public var leakyAlphaForMetal: Float {
+    switch self {
+    case .leakyRelu(let limit): return Float(limit)
+    default: return 0.01
+    }
+  }
+
   /// Returns the numeric activation identifier used by Metal kernels.
   ///
   /// - Returns: Stable integer index for the activation case.

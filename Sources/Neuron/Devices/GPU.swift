@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Metal
 import NumSwift
 
 /// A device abstraction representing GPU-accelerated computation.
@@ -77,17 +78,46 @@ public class GPU: Device {
   ///   - type: The type of activation to apply
   /// - Returns: The activated result as a Tensor
   public func activate(_ input: Tensor, _ type: Activation) -> Tensor {
-    type.activate(input: input)
+    if let metalInput = input.storage as? MetalTensorStorage,
+       MetalContext.shared.isAvailable,
+       let device = MetalContext.shared.device,
+       let pool = MetalContext.shared.bufferPool {
+      let engine = MetalEngine()
+      let outputStorage = MetalTensorStorage(device: device, count: metalInput.count, pool: pool)
+      if engine.dispatchActivation(
+        input: metalInput,
+        output: outputStorage,
+        activationType: UInt32(type.index()),
+        leakyAlpha: type.leakyAlphaForMetal
+      ) {
+        return Tensor(storage: outputStorage, size: input.size, context: TensorContext())
+      }
+    }
+    return type.activate(input: input)
   }
-  
-  
+
   /// Performs an activation derivative function
   /// - Parameters:
   ///   - input: The input Tensor to perform the activation derivative function on
   ///   - type: The type of activation derivative to apply
   /// - Returns: The activated derivative result as a Tensor
   public func derivate(_ input: Tensor, _ type: Activation) -> Tensor {
-    type.derivate(input)
+    if let metalInput = input.storage as? MetalTensorStorage,
+       MetalContext.shared.isAvailable,
+       let device = MetalContext.shared.device,
+       let pool = MetalContext.shared.bufferPool {
+      let engine = MetalEngine()
+      let outputStorage = MetalTensorStorage(device: device, count: metalInput.count, pool: pool)
+      if engine.dispatchDerivate(
+        input: metalInput,
+        output: outputStorage,
+        activationType: UInt32(type.index()),
+        leakyAlpha: type.leakyAlphaForMetal
+      ) {
+        return Tensor(storage: outputStorage, size: input.size, context: TensorContext())
+      }
+    }
+    return type.derivate(input)
   }
   
   /// Performs matrix multiplication for two tensors.
