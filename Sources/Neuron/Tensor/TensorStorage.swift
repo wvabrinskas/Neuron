@@ -18,7 +18,7 @@ import Foundation
 /// and deallocates when the last reference to the inner buffer is released.
 /// Subclasses that provide externally-managed memory should use the
 /// `init(pointer:count:deallocator:)` initializer with a custom deallocator.
-public final class TensorStorage {
+public class TensorStorage {
   #if QUANTIZED_F16
   public typealias Scalar = Float16
   #else
@@ -157,6 +157,14 @@ public final class TensorStorage {
     self._buffer = buffer
   }
 
+  // MARK: - Codable
+
+  public required convenience init(from decoder: any Decoder) throws {
+    let container = try decoder.singleValueContainer()
+    let array = try container.decode([Scalar].self)
+    self.init(array)
+  }
+
   // MARK: - Subscript
 
   public subscript(index: Int) -> Scalar {
@@ -287,12 +295,6 @@ extension TensorStorage: RandomAccessCollection, MutableCollection {
 // MARK: - Codable
 
 extension TensorStorage: Codable {
-  public convenience init(from decoder: any Decoder) throws {
-    let container = try decoder.singleValueContainer()
-    let array = try container.decode([Scalar].self)
-    self.init(array)
-  }
-
   public func encode(to encoder: any Encoder) throws {
     var container = encoder.singleValueContainer()
     try container.encode(toArray())
