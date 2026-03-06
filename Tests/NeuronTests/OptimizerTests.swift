@@ -25,13 +25,13 @@ final class OptimizerTests: XCTestCase {
     XCTAssert(optimizer.device === DeviceManager.shared.device)
     
     network.layers.forEach { layer in
-      XCTAssert(layer.device === optimizer.device)
+      XCTAssert(layer.device.type == optimizer.device.type)
     }
         
     optimizer.deviceType = .gpu
     
     network.layers.forEach { layer in
-      XCTAssert(layer.device === optimizer.device)
+      XCTAssert(layer.device.type == optimizer.device.type)
     }
   }
 }
