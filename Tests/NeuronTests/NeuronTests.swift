@@ -133,6 +133,67 @@ final class NeuronTests: XCTestCase {
     XCTAssert(TensorSize(array: backward.input.first!.shape) == inputShape)
   }
   
+  func testTransConv2d_multiFilter_bias_noNaN() {
+    let inputDepth = 8
+    let filterCount = 4
+    let inputShape = TensorSize(rows: 7, columns: 7, depth: inputDepth)
+
+    let n = Sequential {
+      [
+        Dense(7 * 7 * inputDepth,
+              inputs: 100,
+              initializer: .heNormal,
+              biasEnabled: true),
+        Reshape(to: inputShape),
+        TransConv2d(filterCount: filterCount,
+                    strides: (2, 2),
+                    padding: .same,
+                    filterSize: (4, 4),
+                    initializer: .heNormal,
+                    biasEnabled: true),
+        LeakyReLu(limit: 0.2),
+        Conv2d(filterCount: 1,
+               strides: (1, 1),
+               padding: .same,
+               filterSize: (3, 3),
+               initializer: .heNormal,
+               biasEnabled: true),
+        Tanh()
+      ]
+    }
+
+    n.compile()
+
+    let optim = Adam(n, learningRate: 0.0002, batchSize: 1)
+    let noise = Tensor((0..<100).map { _ in Tensor.Scalar.random(in: -1...1) })
+
+    for step in 0..<5 {
+      optim.zeroGradients()
+      let target = Tensor.fillRandom(in: -1...1, size: .init(rows: 14, columns: 14, depth: 1))
+      let out = optim.fit([noise],
+                          labels: [target],
+                          lossFunction: .meanSquareError,
+                          requiresGradients: true)
+
+      let loss = out.loss
+      XCTAssertFalse(loss.isNaN, "Loss became NaN at step \(step)")
+      XCTAssertFalse(loss.isInfinite, "Loss became Inf at step \(step)")
+
+      optim.apply(out.gradients)
+      optim.step()
+
+      for layer in n.layers {
+        if let conv = layer as? Conv2d {
+          for (fi, f) in conv.filters.enumerated() {
+            for val in f.storage {
+              XCTAssertFalse(val.isNaN, "Filter \(fi) has NaN at step \(step)")
+            }
+          }
+        }
+      }
+    }
+  }
+
   func testFlatten() {
     let r: [[[Tensor.Scalar]]] = [[[1.1,1.2,1.3],
                            [1.4,1.5,1.6]],
