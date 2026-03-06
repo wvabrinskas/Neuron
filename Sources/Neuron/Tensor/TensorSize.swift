@@ -21,7 +21,7 @@ public struct TensorSize: Codable, Equatable {
     return rows == 0 && columns == 0 && depth == 0
   }
   /// Returns the tensor dimensions as an array in `[columns, rows, depth]` order.
-  /// - Returns: An array of three integers representing `[columns, rows, depth]`.
+  /// - Returns: An array of three integers representing `[columns, rows, depth]`.505af
   public var asArray: [Int] {
     [columns, rows, depth]
   }
