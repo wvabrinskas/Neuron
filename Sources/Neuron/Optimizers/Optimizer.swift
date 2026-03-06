@@ -281,52 +281,53 @@ open class BaseOptimizer: Optimizer {
                                                                                          indexRange,
                                                                                          processingCount,
                                                                                          workerId in
-      
-      let accumulator = accumulators[workerIndex]
-      accumulator.average = false
+      autoreleasepool {
+        let accumulator = accumulators[workerIndex]
+        accumulator.average = false
 
-      let ctx = NetworkContext(batchRange: indexRange,
-                               batchProcessingCount: processingCount,
-                               totalInBatch: data.count,
-                               threadId: workerId,
-                               metalEncoder: metalEncoder)
-      let outs = self.trainable.predict(batch: elements, context: ctx)
-      
-      outputs[workerIndex] = outs
-      
-      let wrtBatch: TensorBatch? = if let wrt {
-        Array(wrt[indexRange])
-      } else {
-        nil
-      }
-      
-      var batchLabels: [Tensor] = Array(labels[indexRange])
-      
-      if let mixedLabels = augmentedOut?.mixedLabels {
-        batchLabels = Array(mixedLabels[indexRange])
-      }
+        let ctx = NetworkContext(batchRange: indexRange,
+                                 batchProcessingCount: processingCount,
+                                 totalInBatch: data.count,
+                                 threadId: workerId,
+                                 metalEncoder: metalEncoder)
+        let outs = self.trainable.predict(batch: elements, context: ctx)
 
-      for (index, out) in outs.enumerated() {
-        let label = batchLabels[index]
-        let input = wrtBatch?[index] ?? elements[index]
-        
-        let loss = lossFunction.calculate(out, correct: label).sum(axis: -1)
-        
-        losses += loss.asScalar() / Tensor.Scalar(data.count)
-        
-        if let reporter = self.metricsReporter {
-          if validation {
-            accuracy += reporter.calculateValAccuracy(out, label: label, binary: label.isScalar(), running: false) / Tensor.Scalar(data.count)
-          } else {
-            let localAccuracy = reporter.calculateAccuracy(out, label: label, binary: label.isScalar(), running: false)
-            accuracy += localAccuracy / Tensor.Scalar(data.count)
-          }
+        outputs[workerIndex] = outs
+
+        let wrtBatch: TensorBatch? = if let wrt {
+          Array(wrt[indexRange])
+        } else {
+          nil
         }
-        
-        if requiresGradients {
-          let lossGradient = lossFunction.derivative(out, correct: label)
-          let gradient = out.gradients(delta: lossGradient, wrt: input)
-          accumulator.insert(gradient)
+
+        var batchLabels: [Tensor] = Array(labels[indexRange])
+
+        if let mixedLabels = augmentedOut?.mixedLabels {
+          batchLabels = Array(mixedLabels[indexRange])
+        }
+
+        for (index, out) in outs.enumerated() {
+          let label = batchLabels[index]
+          let input = wrtBatch?[index] ?? elements[index]
+
+          let loss = lossFunction.calculate(out, correct: label).sum(axis: -1)
+
+          losses += loss.asScalar() / Tensor.Scalar(data.count)
+
+          if let reporter = self.metricsReporter {
+            if validation {
+              accuracy += reporter.calculateValAccuracy(out, label: label, binary: label.isScalar(), running: false) / Tensor.Scalar(data.count)
+            } else {
+              let localAccuracy = reporter.calculateAccuracy(out, label: label, binary: label.isScalar(), running: false)
+              accuracy += localAccuracy / Tensor.Scalar(data.count)
+            }
+          }
+
+          if requiresGradients {
+            let lossGradient = lossFunction.derivative(out, correct: label)
+            let gradient = out.gradients(delta: lossGradient, wrt: input)
+            accumulator.insert(gradient)
+          }
         }
       }
     }
