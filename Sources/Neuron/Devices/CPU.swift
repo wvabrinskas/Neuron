@@ -9,7 +9,7 @@ import Foundation
 import NumSwift
 
 /// Runs math functions on the CPU
-public class CPU: Device {
+public struct CPU: Device {
 
   
   /// Priority to run the multithreaded operations on
