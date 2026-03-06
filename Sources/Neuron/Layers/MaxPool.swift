@@ -57,6 +57,115 @@ public final class MaxPool: BaseLayer {
     try container.encode(linkId, forKey: .linkId)
   }
   
+  /// Batched Metal path: pack, single MaxPool dispatch, unpack. Falls back to CPU with sync when needed.
+  public override func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
+    let batchCount = tensorBatch.count
+    guard batchCount > 1,
+          device is GPU,
+          context.metalEncoder != nil,
+          MetalContext.shared.isAvailable,
+          let metalDevice = MetalContext.shared.device,
+          let pool = MetalContext.shared.bufferPool,
+          !tensorBatch.isEmpty else {
+      return forwardCPUSyncIfNeeded(tensorBatch: tensorBatch, context: context)
+    }
+
+    guard let packedInput = BatchLayout.packToNCHW(tensorBatch, device: metalDevice, pool: pool) else {
+      return forwardCPUSyncIfNeeded(tensorBatch: tensorBatch, context: context)
+    }
+
+    let rows = inputSize.rows
+    let columns = inputSize.columns
+    let outRows = (rows + 1) / 2
+    let outCols = (columns + 1) / 2
+    let depth = inputSize.depth
+
+    let N = UInt32(batchCount)
+    let C = UInt32(depth)
+    let H = UInt32(rows)
+    let W = UInt32(columns)
+    let outH = UInt32(outRows)
+    let outW = UInt32(outCols)
+
+    let outputCount = batchCount * outRows * outCols * depth
+    let outputStorage = MetalTensorStorage(device: metalDevice, count: outputCount, pool: pool)
+    let indicesStorage = MetalTensorStorage(device: metalDevice, count: outputCount, pool: pool)
+
+    let engine = MetalEngine()
+    guard engine.encodeMaxPool2x2(
+      encoder: context.metalEncoder!,
+      input: packedInput,
+      output: outputStorage,
+      indices: indicesStorage,
+      N: N, C: C, H: H, W: W,
+      outH: outH, outW: outW
+    ) else {
+      return forwardCPUSyncIfNeeded(tensorBatch: tensorBatch, context: context)
+    }
+
+    context.metalEncoderHolder?.syncAndReplace()
+
+    let singleOutSize = TensorSize(rows: outRows, columns: outCols, depth: depth)
+    let elementsPerSample = outRows * outCols * depth
+
+    var outputs: [Tensor] = []
+    outputs.reserveCapacity(batchCount)
+
+    for sampleIdx in 0..<batchCount {
+      let idxOffset = sampleIdx * elementsPerSample
+      let tensorContext = TensorContext { [weak self, indicesStorage, idxOffset] inputs, gradient, wrt in
+        guard let self else { return (Tensor(), Tensor(), Tensor()) }
+        var outStorage = Tensor.Value(repeating: 0, count: self.inputSize.rows * self.inputSize.columns * self.inputSize.depth)
+        let inRows = self.inputSize.rows
+        let inCols = self.inputSize.columns
+
+        indicesStorage.pointer.withMemoryRebound(to: UInt32.self, capacity: indicesStorage.count) { idxPtr in
+          let basePtr = idxPtr.advanced(by: idxOffset)
+          for d in 0..<self.inputSize.depth {
+            let gradSlice = gradient.depthSlice(d)
+            var deltaIdx = 0
+            let depthOffset = d * inRows * inCols
+
+            for oh in 0..<outRows {
+              for ow in 0..<outCols {
+                guard deltaIdx < gradSlice.count else { break }
+                let gid = d * outRows * outCols + oh * outCols + ow
+                let offset = basePtr[gid]
+                let ih = oh * 2 + Int(offset == 1 || offset == 3 ? 1 : 0)
+                let iw = ow * 2 + Int(offset == 2 || offset == 3 ? 1 : 0)
+                outStorage[depthOffset + ih * inCols + iw] = gradSlice[deltaIdx]
+                deltaIdx += 1
+              }
+            }
+          }
+        }
+
+        return (Tensor(outStorage, size: self.inputSize), Tensor(), Tensor())
+      }
+
+      let slice = Tensor.Value(unsafeUninitializedCapacity: elementsPerSample) { buf, count in
+        buf.baseAddress!.initialize(from: outputStorage.pointer.advanced(by: sampleIdx * elementsPerSample), count: elementsPerSample)
+        count = elementsPerSample
+      }
+      let sliceStorage = MetalTensorStorage(device: metalDevice, data: slice, pool: pool)
+      let tensor = Tensor(storage: sliceStorage, size: singleOutSize, context: tensorContext)
+      tensor.setGraph(tensorBatch[sampleIdx])
+      outputs.append(tensor)
+    }
+
+    return outputs
+  }
+
+  /// Syncs GPU then runs CPU forward. Used when Metal batched path is not taken.
+  private func forwardCPUSyncIfNeeded(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
+    if let first = tensorBatch.first,
+       first.storage is MetalTensorStorage,
+       let holder = context.metalEncoderHolder {
+      holder.syncAndReplace()
+    }
+    return super.forward(tensorBatch: tensorBatch, context: context)
+  }
+
   /// Performs 2x2 max pooling on each depth slice.
   ///
   /// - Parameters:

@@ -511,6 +511,81 @@ public final class MetalEngine {
     return cmdBuffer.status == .completed
   }
 
+  /// Encodes neuron_max_pool_2x2 into the given encoder. Does not end encoding or commit.
+  /// Input [N,C,H,W], output [N,C,outH,outW], indices [N,C,outH,outW] (uint32, 0-3).
+  public func encodeMaxPool2x2(
+    encoder: MetalCommandEncoder,
+    input: MetalTensorStorage,
+    output: MetalTensorStorage,
+    indices: MetalTensorStorage,
+    N: UInt32,
+    C: UInt32,
+    H: UInt32,
+    W: UInt32,
+    outH: UInt32,
+    outW: UInt32
+  ) -> Bool {
+    guard let pipeline = pipeline(named: "neuron_max_pool_2x2") else { return false }
+    let total = Int(N) * Int(C) * Int(outH) * Int(outW)
+    guard total > 0 else { return false }
+
+    let enc = encoder.encoder
+    enc.setComputePipelineState(pipeline)
+    enc.setBuffer(input.mtlBuffer, offset: 0, index: 0)
+    enc.setBuffer(output.mtlBuffer, offset: 0, index: 1)
+    enc.setBuffer(indices.mtlBuffer, offset: 0, index: 2)
+    var n = N, c = C, h = H, w = W, oh = outH, ow = outW
+    enc.setBytes(&n, length: MemoryLayout<UInt32>.size, index: 3)
+    enc.setBytes(&c, length: MemoryLayout<UInt32>.size, index: 4)
+    enc.setBytes(&h, length: MemoryLayout<UInt32>.size, index: 5)
+    enc.setBytes(&w, length: MemoryLayout<UInt32>.size, index: 6)
+    enc.setBytes(&oh, length: MemoryLayout<UInt32>.size, index: 7)
+    enc.setBytes(&ow, length: MemoryLayout<UInt32>.size, index: 8)
+    let tgSize = min(256, max(1, total))
+    let mtlGrid = MTLSize(width: total, height: 1, depth: 1)
+    let mtlTg = MTLSize(width: tgSize, height: 1, depth: 1)
+    enc.dispatchThreads(mtlGrid, threadsPerThreadgroup: mtlTg)
+    return true
+  }
+
+  /// Encodes neuron_instance_norm into the given encoder. Does not end encoding or commit.
+  /// Input/output [N,C,H,W] NCHW. Gamma, beta [C].
+  public func encodeInstanceNorm(
+    encoder: MetalCommandEncoder,
+    input: MetalTensorStorage,
+    output: MetalTensorStorage,
+    gamma: MetalTensorStorage,
+    beta: MetalTensorStorage,
+    N: UInt32,
+    C: UInt32,
+    H: UInt32,
+    W: UInt32,
+    epsilon: Float
+  ) -> Bool {
+    guard let pipeline = pipeline(named: "neuron_instance_norm") else { return false }
+    let gridSize = Int(N) * Int(C)
+    guard gridSize > 0 else { return false }
+
+    let enc = encoder.encoder
+    enc.setComputePipelineState(pipeline)
+    enc.setBuffer(input.mtlBuffer, offset: 0, index: 0)
+    enc.setBuffer(output.mtlBuffer, offset: 0, index: 1)
+    enc.setBuffer(gamma.mtlBuffer, offset: 0, index: 2)
+    enc.setBuffer(beta.mtlBuffer, offset: 0, index: 3)
+    var n = N, c = C, h = H, w = W
+    var eps = epsilon
+    enc.setBytes(&n, length: MemoryLayout<UInt32>.size, index: 4)
+    enc.setBytes(&c, length: MemoryLayout<UInt32>.size, index: 5)
+    enc.setBytes(&h, length: MemoryLayout<UInt32>.size, index: 6)
+    enc.setBytes(&w, length: MemoryLayout<UInt32>.size, index: 7)
+    enc.setBytes(&eps, length: MemoryLayout<Float>.size, index: 8)
+    let tgSize = min(256, max(1, gridSize))
+    let mtlGrid = MTLSize(width: gridSize, height: 1, depth: 1)
+    let mtlTg = MTLSize(width: tgSize, height: 1, depth: 1)
+    enc.dispatchThreads(mtlGrid, threadsPerThreadgroup: mtlTg)
+    return true
+  }
+
   /// Encodes neuron_conv2d_backward_input into the given encoder. Does not end encoding or commit.
   public func encodeConv2dBackwardInput(
     encoder: MetalCommandEncoder,

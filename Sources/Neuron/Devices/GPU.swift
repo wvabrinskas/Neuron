@@ -13,7 +13,7 @@ import NumSwift
 ///
 /// Wraps the shared `GPUManager` and conforms to the `Device` protocol,
 /// providing GPU-backed implementations of neural network operations.
-public class GPU: Device {
+public struct GPU: Device {
   /// Priority to run the multithreaded operations on
   public var qosPriority: DispatchQoS.QoSClass = .default
   /// The device type identifier for this implementation, set to `.cpu`.

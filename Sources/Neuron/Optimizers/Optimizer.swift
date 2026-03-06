@@ -257,7 +257,7 @@ open class BaseOptimizer: Optimizer {
         
     let useMetalEncoder = deviceType == .gpu && MetalContext.shared.isAvailable
     let effectiveWorkers = useMetalEncoder ? 1 : workersCount
-    let metalEncoder = useMetalEncoder ? MetalCommandEncoder() : nil
+    let metalEncoderHolder = useMetalEncoder ? MetalEncoderHolder(encoder: MetalCommandEncoder()) : nil
 
     let concurrencySplit = Tensor.Scalar(data.count) / Tensor.Scalar(effectiveWorkers)
     
@@ -289,8 +289,10 @@ open class BaseOptimizer: Optimizer {
                                  batchProcessingCount: processingCount,
                                  totalInBatch: data.count,
                                  threadId: workerId,
-                                 metalEncoder: metalEncoder)
+                                 metalEncoderHolder: metalEncoderHolder)
         let outs = self.trainable.predict(batch: elements, context: ctx)
+
+        metalEncoderHolder?.syncAndFinish()
 
         outputs[workerIndex] = outs
 
@@ -332,7 +334,7 @@ open class BaseOptimizer: Optimizer {
       }
     }
 
-    if let enc = metalEncoder {
+    if let enc = metalEncoderHolder?.encoder {
       enc.endEncoding()
       enc.commit()
       enc.waitUntilCompleted()

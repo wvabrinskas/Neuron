@@ -22,7 +22,7 @@ final class OptimizerTests: XCTestCase {
     
     let optimizer = Adam(network, learningRate: 0.001, batchSize: 32)
     
-    XCTAssert(optimizer.device === DeviceManager.shared.device)
+    XCTAssertEqual(optimizer.device.type, DeviceManager.shared.device.type)
     
     network.layers.forEach { layer in
       XCTAssert(layer.device.type == optimizer.device.type)

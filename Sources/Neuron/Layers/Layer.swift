@@ -594,6 +594,66 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
               encodingType: .none)
   }
   
+  /// Batched activation: pack batch, single Metal dispatch, unpack. Skips for Softmax (per-sample normalization).
+  public override func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
+    let batchCount = tensorBatch.count
+    guard batchCount > 1,
+          type != .softmax,
+          device is GPU,
+          context.metalEncoder != nil,
+          MetalContext.shared.isAvailable,
+          let metalDevice = MetalContext.shared.device,
+          let pool = MetalContext.shared.bufferPool,
+          let packedInput = BatchLayout.packToNCHW(tensorBatch, device: metalDevice, pool: pool) else {
+      return super.forward(tensorBatch: tensorBatch, context: context)
+    }
+
+    let singleSize = tensorBatch[0].size
+    let totalCount = batchCount * singleSize.rows * singleSize.columns * singleSize.depth
+    let packedSize = TensorSize(rows: totalCount, columns: 1, depth: 1)
+    let packedTensor = Tensor(storage: packedInput, size: packedSize, context: TensorContext())
+
+    let result = device.activate(packedTensor, type, encoder: context.metalEncoder)
+    guard let resultMetal = result.storage as? MetalTensorStorage else {
+      return super.forward(tensorBatch: tensorBatch, context: context)
+    }
+
+    let tensorContext = TensorContext { [weak self] inputs, gradient, wrt in
+      guard let self else { return (Tensor(), Tensor(), Tensor()) }
+      let derivResult: Tensor
+      if let enc = context.metalEncoder,
+         self.device is GPU,
+         MetalContext.shared.isAvailable,
+         let device = MetalContext.shared.device,
+         let pool = MetalContext.shared.bufferPool {
+        let metalInputs = (inputs.storage as? MetalTensorStorage)
+          ?? MetalTensorStorage(device: device, storage: inputs.storage, pool: pool)
+        let inputsTensor = Tensor(storage: metalInputs, size: inputs.size, context: TensorContext())
+        derivResult = self.device.derivate(inputsTensor, self.type, encoder: enc)
+      } else {
+        derivResult = self.device.derivate(inputs, self.type, encoder: context.metalEncoder)
+      }
+      let outTensor = derivResult * gradient
+      outTensor.label = self.type.asString() + "_input_grad"
+      return (outTensor, Tensor(), Tensor())
+    }
+
+    let outputs = BatchLayout.unpackFromNCHW(
+      resultMetal,
+      batchCount: batchCount,
+      singleSize: singleSize,
+      device: metalDevice,
+      pool: pool,
+      context: tensorContext
+    )
+
+    for (i, out) in outputs.enumerated() {
+      out.setGraph(tensorBatch[i])
+    }
+
+    return outputs
+  }
+
   /// Applies the activation function and builds backpropagation context.
   ///
   /// - Parameters:

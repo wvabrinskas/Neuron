@@ -100,6 +100,139 @@ public final class Dense: BaseLayer {
                                     input: inputs, out: outputSizeCount)
   }
   
+  /// Batched dense forward: stack inputs as [batchCount, features], single matmul, split output.
+  public override func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
+    let batchCount = tensorBatch.count
+    guard batchCount > 1,
+          device is GPU,
+          MetalContext.shared.isAvailable,
+          MetalContext.shared.device != nil,
+          MetalContext.shared.bufferPool != nil else {
+      return super.forward(tensorBatch: tensorBatch, context: context)
+    }
+
+    let features = inputSize.columns
+    let nodes = outputSize.columns
+    let M = batchCount
+    let K = features
+    let N = nodes
+    let mkn = M * K * N
+    guard mkn >= Constants.metalMatmulThreshold else {
+      return super.forward(tensorBatch: tensorBatch, context: context)
+    }
+
+    guard let batched = denseBatched(tensorBatch, context: context) else {
+      return super.forward(tensorBatch: tensorBatch, context: context)
+    }
+
+    return batched
+  }
+
+  /// Batched matmul: [batchCount, features] @ [features, nodes] = [batchCount, nodes].
+  private func denseBatched(_ tensorBatch: [Tensor], context: NetworkContext) -> [Tensor]? {
+    guard let metalDevice = MetalContext.shared.device,
+          let pool = MetalContext.shared.bufferPool else { return nil }
+
+    let features = inputSize.columns
+    let nodes = outputSize.columns
+    let batchCount = tensorBatch.count
+
+    let aStorage = MetalTensorStorage(device: metalDevice, count: batchCount * features, pool: pool)
+    for (i, t) in tensorBatch.enumerated() {
+      precondition(t.size.columns == features && t.size.rows == 1 && t.size.depth == 1,
+                   "Dense batched: expected input [\(features), 1, 1], got \(t.size)")
+      aStorage.pointer.advanced(by: i * features).update(from: t.storage.pointer, count: features)
+    }
+
+    let weightsTransposed = weights.transposed()
+    let metalB: MetalTensorStorage
+    if let existing = weightsTransposed.storage as? MetalTensorStorage {
+      metalB = existing
+    } else {
+      metalB = MetalTensorStorage(device: metalDevice, storage: weightsTransposed.storage, pool: pool)
+    }
+
+    return denseBatchedMatmul(a: aStorage, b: metalB, batchCount: batchCount, features: features, nodes: nodes, context: context, tensorBatch: tensorBatch)
+  }
+
+  private func denseBatchedMatmul(
+    a: MetalTensorStorage,
+    b: MetalTensorStorage,
+    batchCount: Int,
+    features: Int,
+    nodes: Int,
+    context: NetworkContext,
+    tensorBatch: [Tensor]
+  ) -> [Tensor]? {
+    guard let metalDevice = MetalContext.shared.device,
+          let pool = MetalContext.shared.bufferPool else { return nil }
+
+    let M = batchCount
+    let K = features
+    let N = nodes
+    let encoder = context.metalEncoder
+
+    let outputStorage = MetalTensorStorage(device: metalDevice, count: M * N, pool: pool)
+    let engine = MetalEngine()
+
+    let success: Bool
+    if let enc = encoder {
+      success = engine.encodeMatmul(encoder: enc, a: a, b: b, output: outputStorage, M: M, N: N, K: K, depth: 1)
+    } else {
+      success = engine.dispatchMatmul(a: a, b: b, output: outputStorage, M: M, N: N, K: K, depth: 1)
+    }
+
+    guard success else { return nil }
+
+    let tensorContext = TensorContext { [weak self] inputs, gradients, wrt in
+      guard let self else { return (Tensor(), Tensor(), Tensor()) }
+      var deltas: Tensor
+      var weightGradients: Tensor
+      if let enc = encoder,
+         self.device is GPU,
+         MetalContext.shared.isAvailable,
+         let metalDevice = MetalContext.shared.device,
+         let pool = MetalContext.shared.bufferPool {
+        let metalGradients = (gradients.storage as? MetalTensorStorage)
+          ?? MetalTensorStorage(device: metalDevice, storage: gradients.storage, pool: pool)
+        let metalWeights = (self.weights.detached().storage as? MetalTensorStorage)
+          ?? MetalTensorStorage(device: metalDevice, storage: self.weights.detached().storage, pool: pool)
+        let metalInputs = (inputs.storage as? MetalTensorStorage)
+          ?? MetalTensorStorage(device: metalDevice, storage: inputs.storage, pool: pool)
+        let gTensor = Tensor(storage: metalGradients, size: gradients.size, context: TensorContext())
+        let wTensor = Tensor(storage: metalWeights, size: self.weights.size, context: TensorContext())
+        let iTensor = Tensor(storage: metalInputs, size: inputs.size, context: TensorContext())
+        deltas = self.device.matmul(gTensor, wTensor, encoder: enc)
+        weightGradients = self.device.matmul(gTensor.transposed(), iTensor, encoder: enc)
+      } else {
+        deltas = self.device.matmul(gradients, self.weights.detached(), encoder: encoder)
+        weightGradients = self.device.matmul(gradients.transposed(), inputs, encoder: encoder)
+      }
+      return (deltas, weightGradients, gradients)
+    }
+
+    var outputs: [Tensor] = []
+    outputs.reserveCapacity(batchCount)
+    let singleOutSize = TensorSize(rows: 1, columns: nodes, depth: 1)
+
+    for i in 0..<batchCount {
+      let offset = i * nodes
+      let slice = Tensor.Value(unsafeUninitializedCapacity: nodes) { buf, count in
+        buf.baseAddress!.update(from: outputStorage.pointer.advanced(by: offset), count: nodes)
+        count = nodes
+      }
+      let sliceStorage = MetalTensorStorage(device: metalDevice, data: slice, pool: pool)
+      var out = Tensor(storage: sliceStorage, size: singleOutSize, context: tensorContext)
+      if biasEnabled {
+        out = out.copy() + biases
+      }
+      out.setGraph(tensorBatch[i])
+      outputs.append(out)
+    }
+
+    return outputs
+  }
+
   /// Computes dense affine transformation `xW^T + b`.
   ///
   /// - Parameters:

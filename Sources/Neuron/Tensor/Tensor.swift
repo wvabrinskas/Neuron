@@ -386,6 +386,17 @@ public class Tensor: Equatable, Codable {
   private func setId() {
     self.id = IDGenerator.shared.explicitUInt64()
   }
+
+  public func metal() -> MetalTensorStorage {
+    guard let device = MetalContext.shared.device,
+          let pool = MetalContext.shared.bufferPool else {
+      fatalError("Metal not available")
+    }
+
+    return MetalTensorStorage(device: device,
+                              storage: self.storage,
+                              pool: pool)
+  }
   
   // MARK: - Nested Array Reconstruction
   

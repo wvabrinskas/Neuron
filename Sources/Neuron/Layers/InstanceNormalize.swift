@@ -90,6 +90,85 @@ public final class InstanceNormalize: BaseLayer {
     try container.encode(linkId, forKey: .linkId)
   }
   
+  /// Batched Metal path: pack, single InstanceNorm dispatch, unpack. Falls back to CPU with sync when needed.
+  public override func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
+    let batchCount = tensorBatch.count
+    guard batchCount > 1,
+          device is GPU,
+          context.metalEncoder != nil,
+          MetalContext.shared.isAvailable,
+          let metalDevice = MetalContext.shared.device,
+          let pool = MetalContext.shared.bufferPool,
+          let first = tensorBatch.first else {
+      return forwardCPUSyncIfNeeded(tensorBatch: tensorBatch, context: context)
+    }
+
+    guard let packedInput = BatchLayout.packToNCHW(tensorBatch, device: metalDevice, pool: pool) else {
+      return forwardCPUSyncIfNeeded(tensorBatch: tensorBatch, context: context)
+    }
+
+    let singleSize = first.size
+    let N = UInt32(batchCount)
+    let C = UInt32(singleSize.depth)
+    let H = UInt32(singleSize.rows)
+    let W = UInt32(singleSize.columns)
+    let totalCount = batchCount * singleSize.rows * singleSize.columns * singleSize.depth
+
+    let gammaMetal: MetalTensorStorage = {
+      if let m = gamma.storage as? MetalTensorStorage { return m }
+      return MetalTensorStorage(device: metalDevice, storage: gamma.storage, pool: pool)
+    }()
+    let betaMetal: MetalTensorStorage = {
+      if let m = beta.storage as? MetalTensorStorage { return m }
+      return MetalTensorStorage(device: metalDevice, storage: beta.storage, pool: pool)
+    }()
+
+    let outputStorage = MetalTensorStorage(device: metalDevice, count: totalCount, pool: pool)
+
+    let engine = MetalEngine()
+    guard engine.encodeInstanceNorm(
+      encoder: context.metalEncoder!,
+      input: packedInput,
+      output: outputStorage,
+      gamma: gammaMetal,
+      beta: betaMetal,
+      N: N, C: C, H: H, W: W,
+      epsilon: epsilon
+    ) else {
+      return forwardCPUSyncIfNeeded(tensorBatch: tensorBatch, context: context)
+    }
+
+    let tensorContext = TensorContext { [weak self] inputs, gradient, wrt in
+      guard let self else { return (Tensor(), Tensor(), Tensor()) }
+      return self.backwardFlat(inputs: inputs, gradient: gradient)
+    }
+
+    let outputs = BatchLayout.unpackFromNCHW(
+      outputStorage,
+      batchCount: batchCount,
+      singleSize: singleSize,
+      device: metalDevice,
+      pool: pool,
+      context: tensorContext
+    )
+
+    for (i, out) in outputs.enumerated() {
+      out.setGraph(tensorBatch[i])
+    }
+
+    return outputs
+  }
+
+  /// Syncs GPU then runs CPU forward. Used when Metal batched path is not taken.
+  private func forwardCPUSyncIfNeeded(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
+    if let first = tensorBatch.first,
+       first.storage is MetalTensorStorage,
+       let holder = context.metalEncoderHolder {
+      holder.syncAndReplace()
+    }
+    return super.forward(tensorBatch: tensorBatch, context: context)
+  }
+
   /// Applies layer normalization over each depth slice.
   ///
   /// - Parameters:

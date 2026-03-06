@@ -12,6 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **conv2dInto removed**: Unused pointer-based Device API removed from protocol and CPU. Conv2d uses `NumSwiftFlat.conv2d` directly.
 - **Tensor.flatArray → asArray**: Renamed for consistency with `TensorSize.asArray`. Use `tensor.asArray` for flat `Tensor.Value`.
 - **AGENT_REFERENCE.md, DEAD_CODE_REPORT.md**: Added for agent context and dead code tracking.
+- **docs/GPU_ARCHITECTURE_LEARNINGS.md**: GPU/Metal performance learnings, sync points, what we tried, and recommendations.
 
 ## Overview
 

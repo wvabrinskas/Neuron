@@ -814,5 +814,71 @@ final class NeuronTests: XCTestCase {
     XCTAssertEqual(tensor[2, 0, 1], 9)
     XCTAssertEqual(tensor[0, 1, 1], 0) // zero-padded
   }
-  
+
+  func testBatchedConv2dOutputMatchesPerSample() throws {
+    try XCTSkipIf(MetalContext.shared.device == nil, "Metal not available")
+    try XCTSkipIf(MetalContext.shared.device?.makeDefaultLibrary() == nil, "Default Metal library not available")
+
+    let savedType = DeviceManager.shared.type
+    DeviceManager.shared.type = .gpu
+    defer { DeviceManager.shared.type = savedType }
+
+    let inputSize = TensorSize(array: [14, 14, 32])
+    let conv = Conv2d(filterCount: 64,
+                     inputSize: inputSize,
+                     strides: (1, 1),
+                     padding: .same,
+                     filterSize: (3, 3),
+                     initializer: .heNormal,
+                     biasEnabled: false)
+
+    var batch: [Tensor] = []
+    for _ in 0..<4 {
+      let t = Tensor.fillRandom(size: inputSize)
+      batch.append(t)
+    }
+
+    let batchedOut = conv.forward(tensorBatch: batch, context: .init())
+    var perSampleOut: [Tensor] = []
+    for t in batch {
+      let out = conv.forward(tensor: t, context: .init())
+      perSampleOut.append(out)
+    }
+
+    XCTAssertEqual(batchedOut.count, 4)
+    for i in 0..<4 {
+      XCTAssertTrue(batchedOut[i].isValueEqual(to: perSampleOut[i], accuracy: 0.0001),
+                    "Batched Conv2d output at index \(i) should match per-sample output")
+    }
+  }
+
+  func testBatchedDenseOutputMatchesPerSample() throws {
+    try XCTSkipIf(MetalContext.shared.device == nil, "Metal not available")
+    try XCTSkipIf(MetalContext.shared.device?.makeDefaultLibrary() == nil, "Default Metal library not available")
+
+    let savedType = DeviceManager.shared.type
+    DeviceManager.shared.type = .gpu
+    defer { DeviceManager.shared.type = savedType }
+
+    let dense = Dense(10, inputs: 64, biasEnabled: false)
+
+    var batch: [Tensor] = []
+    for _ in 0..<4 {
+      let t = Tensor.fillRandom(size: TensorSize(array: [64, 1, 1]))
+      batch.append(t)
+    }
+
+    let batchedOut = dense.forward(tensorBatch: batch, context: .init())
+    var perSampleOut: [Tensor] = []
+    for t in batch {
+      let out = dense.forward(tensor: t, context: .init())
+      perSampleOut.append(out)
+    }
+
+    XCTAssertEqual(batchedOut.count, 4)
+    for i in 0..<4 {
+      XCTAssertTrue(batchedOut[i].isValueEqual(to: perSampleOut[i], accuracy: 0.0001),
+                    "Batched Dense output at index \(i) should match per-sample output")
+    }
+  }
 }

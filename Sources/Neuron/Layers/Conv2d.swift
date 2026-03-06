@@ -131,7 +131,141 @@ public class Conv2d: BaseConvolutionalLayer {
 
     return super.forward(tensor: out, context: context)
   }
+
+  /// Batched forward pass for GPU: pack batch into NCHW, single Metal dispatch, unpack.
+  public override func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
+    let batchCount = tensorBatch.count
+    guard batchCount > 1,
+          device is GPU,
+          MetalContext.shared.isAvailable,
+          MetalContext.shared.device != nil else {
+      return super.forward(tensorBatch: tensorBatch, context: context)
+    }
+
+    let outRows = outputSize.rows
+    let outCols = outputSize.columns
+    let outputElementCount = outRows * outCols * filterCount
+    guard outputElementCount >= Constants.metalConvOutputThreshold else {
+      return super.forward(tensorBatch: tensorBatch, context: context)
+    }
+
+    guard let batched = convBatched(tensorBatch, context: context) else {
+      return super.forward(tensorBatch: tensorBatch, context: context)
+    }
+
+    return batched
+  }
+
+  /// Batched convolution: pack inputs to NCHW, single Metal dispatch with N=batchCount, unpack.
+  internal func convBatched(_ tensorBatch: [Tensor], context: NetworkContext) -> [Tensor]? {
+    guard let metalDevice = MetalContext.shared.device,
+          let pool = MetalContext.shared.bufferPool,
+          let packedInput = BatchLayout.packToNCHW(tensorBatch, device: metalDevice, pool: pool) else {
+      return nil
+    }
+
+    let outRows = outputSize.rows
+    let outCols = outputSize.columns
+    let outSliceSize = outRows * outCols
+    let extraPadding = padding.extra(inputSize: (inputSize.rows, inputSize.columns),
+                                    filterSize: filterSize,
+                                    stride: strides)
+
+    let N = UInt32(tensorBatch.count)
+    let C = UInt32(inputSize.depth)
+    let H = UInt32(inputSize.rows)
+    let W = UInt32(inputSize.columns)
+    let K = UInt32(filterCount)
+    let kH = UInt32(filterSize.rows)
+    let kW = UInt32(filterSize.columns)
+    let oH = UInt32(outRows)
+    let oW = UInt32(outCols)
+    let strideH = UInt32(strides.rows)
+    let strideW = UInt32(strides.columns)
+    let padH = UInt32(extraPadding.top)
+    let padW = UInt32(extraPadding.left)
+
+    let weightsCount = Int(K) * Int(C) * Int(kH) * Int(kW)
+    let weightsStorage = MetalTensorStorage(device: metalDevice, count: weightsCount, pool: pool)
+    let filterSliceCount = Int(C) * Int(kH) * Int(kW)
+    for f in 0..<filterCount {
+      weightsStorage.pointer.advanced(by: f * filterSliceCount)
+        .update(from: filters[f].storage.pointer, count: filterSliceCount)
+    }
+
+    let outputStorage = MetalTensorStorage(device: metalDevice, count: outSliceSize * filterCount * tensorBatch.count, pool: pool)
+    var biasStorage: MetalTensorStorage?
+    if biasEnabled {
+      let bias = MetalTensorStorage(device: metalDevice, count: filterCount, pool: pool)
+      for f in 0..<filterCount {
+        bias.pointer.advanced(by: f).initialize(to: biases.storage[f])
+      }
+      biasStorage = bias
+    }
+
+    let params = MetalEngine.Conv2DParams(
+      N: N, C: C, H: H, W: W, K: K,
+      kH: kH, kW: kW, oH: oH, oW: oW,
+      strideH: strideH, strideW: strideW,
+      padH: padH, padW: padW,
+      hasBias: biasEnabled ? 1 : 0
+    )
+
+    let engine = MetalEngine()
+    let encoder = context.metalEncoder
+    let success: Bool
+    if let enc = encoder {
+      success = engine.encodeConv2d(
+        encoder: enc,
+        input: packedInput,
+        weights: weightsStorage,
+        output: outputStorage,
+        bias: biasStorage,
+        params: params
+      )
+    } else {
+      success = engine.dispatchConv2d(
+        input: packedInput,
+        weights: weightsStorage,
+        output: outputStorage,
+        bias: biasStorage,
+        params: params
+      )
+    }
+
+    guard success else { return nil }
+
+    let singleOutSize = TensorSize(rows: outRows, columns: outCols, depth: filterCount)
+    let tensorContext = TensorContext { [weak self] inputs, gradient, wrt in
+      guard let self else { return (Tensor(), Tensor(), Tensor()) }
+      return self.backward(inputs, gradient, encoder: encoder)
+    }
+
+    let outputs = BatchLayout.unpackFromNCHW(
+      outputStorage,
+      batchCount: tensorBatch.count,
+      singleSize: singleOutSize,
+      device: metalDevice,
+      pool: pool,
+      context: tensorContext
+    )
+
+    for (i, out) in outputs.enumerated() {
+      out.setGraph(tensorBatch[i])
+    }
+
+    return outputs
+  }
   
+  /// Plan: 
+  /// 1. Set Tensor to be a 4D array of [rows, columns, depth, batchCount]
+  /// 2. That way we can parse an entire batch at once
+  
+  internal func backwardBatched(_ input: Tensor, _ delta: Tensor, encoder: MetalCommandEncoder? = nil) -> (input: Tensor, weight: Tensor, bias: Tensor) {
+
+  }
+
+
   internal func backward(_ input: Tensor, _ delta: Tensor, encoder: MetalCommandEncoder? = nil) -> (input: Tensor, weight: Tensor, bias: Tensor) {
     let inputDepth = inputSize.depth
     let fRows = filterSize.rows
