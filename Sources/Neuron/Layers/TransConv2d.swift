@@ -92,8 +92,7 @@ public final class TransConv2d: Conv2d {
         let filterGrads = calculateFilterGradientsFlat(input, deltaSlice,
                                                         deltaSize: (rows: deltaRows, columns: deltaCols),
                                                         index: i)
-        // Insert at beginning (matching original behavior)
-        weightGradientSlices.insert(contentsOf: filterGrads, at: 0)
+        weightGradientSlices.append(contentsOf: filterGrads)
       }
     }
     
@@ -198,7 +197,6 @@ public final class TransConv2d: Conv2d {
     let inRows = inputSize.rows
     let inCols = inputSize.columns
     
-    // Initialize result storage for all filter outputs
     var filterOutputs = [Tensor.Value?](repeating: nil, count: filterCount)
     
     for i in 0..<input.size.depth {
@@ -239,10 +237,6 @@ public final class TransConv2d: Conv2d {
           grad = grad + existing
         }
         
-        if biasEnabled {
-          grad = grad + biases.storage[f]
-        }
-        
         filterOutputs[f] = grad
       }
     }
@@ -251,9 +245,13 @@ public final class TransConv2d: Conv2d {
     let resultStorage = TensorStorage.create(count: outSliceSize * filterCount)
     for f in 0..<filterCount {
       if let output = filterOutputs[f] {
+        var finalOutput = output
+        if biasEnabled {
+          finalOutput = finalOutput + biases.storage[f]
+        }
         let start = f * outSliceSize
-        for j in 0..<min(output.count, outSliceSize) {
-          resultStorage[start + j] = output[j]
+        for j in 0..<min(finalOutput.count, outSliceSize) {
+          resultStorage[start + j] = finalOutput[j]
         }
       }
     }
