@@ -141,11 +141,21 @@ public class Conv2d: BaseConvolutionalLayer {
     if let enc = encoder,
        device is GPU,
        backwardElementCount >= Constants.metalConvOutputThreshold,
-       let metalInput = input.storage as? MetalTensorStorage,
-       let metalDelta = delta.storage as? MetalTensorStorage,
        MetalContext.shared.isAvailable,
        let metalDevice = MetalContext.shared.device,
        let pool = MetalContext.shared.bufferPool {
+      let metalInput: MetalTensorStorage
+      if let existing = input.storage as? MetalTensorStorage {
+        metalInput = existing
+      } else {
+        metalInput = MetalTensorStorage(device: metalDevice, storage: input.storage, pool: pool)
+      }
+      let metalDelta: MetalTensorStorage
+      if let existing = delta.storage as? MetalTensorStorage {
+        metalDelta = existing
+      } else {
+        metalDelta = MetalTensorStorage(device: metalDevice, storage: delta.storage, pool: pool)
+      }
       let engine = MetalEngine()
       let N: UInt32 = 1
       let C = UInt32(inputDepth)

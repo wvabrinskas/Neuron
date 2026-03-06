@@ -14,13 +14,8 @@ public final class LayerNormalize: BaseLayer {
   /// - Returns: A `Tensor` containing the concatenated beta and gamma values shaped to the input size.
   public override var weights: Tensor {
     get {
-      // For printing purposes. Not actually used
-      let out = beta.concat(gamma, axis: 2)
-      
-      let outTensor = Tensor(storage: out.storage, size: .init(rows: beta.size.rows,
-                                                               columns: beta.size.columns,
-                                                               depth: beta.size.depth + gamma.size.depth))
-      return outTensor
+      // Must match gradient layout (beta | gamma) for correct optimizer weight decay indexing
+      return beta.concat(gamma, axis: 2)
     }
     set {}
   }
@@ -170,7 +165,8 @@ public final class LayerNormalize: BaseLayer {
 
     let dl_dx = invNStd * (line2 - line3 - line4 * line5)
     
-    let deltaWeights = dL_dgamma.concat(dL_dbeta, axis: 2)
+    // Return dBeta.concat(dGamma) to match weights layout (beta.concat(gamma)) for correct optimizer indexing
+    let deltaWeights = dL_dbeta.concat(dL_dgamma, axis: 2)
         
     return (Tensor(storage: dl_dx.storage, size: inputs.size),
             deltaWeights,
@@ -183,8 +179,9 @@ public final class LayerNormalize: BaseLayer {
   ///   - gradients: Combined gamma/beta gradients packed in `weights`.
   ///   - learningRate: Learning rate already reflected by optimizer gradients.
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
-    let gammaWeights = gradients.weights.depthSliceTensor(0)
-    let betaWeights = gradients.weights.depthSliceTensor(1)
+    // Gradients match weights layout: beta | gamma (depth 0 = beta, depth 1 = gamma)
+    let betaWeights = gradients.weights.depthSliceTensor(0)
+    let gammaWeights = gradients.weights.depthSliceTensor(1)
 
     gamma = gamma - gammaWeights
     beta = beta - betaWeights

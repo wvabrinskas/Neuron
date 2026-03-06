@@ -118,10 +118,10 @@ extension Device {
   }
 }
 
-final class DeviceManager {
-  static let shared = DeviceManager()
+public final class DeviceManager {
+  public static let shared = DeviceManager()
 
-  var type: DeviceType = .cpu {
+  public var type: DeviceType = .cpu {
     didSet {
       device = type.device()
     }

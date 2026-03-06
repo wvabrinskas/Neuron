@@ -398,10 +398,11 @@ final class NeuronTests: XCTestCase {
     
     XCTAssert(gradient.input.first?.isEmpty == false)
     XCTAssert(gradient.input.first!.isValueEqual(to: .fillWith(value: 0, size: input.size), accuracy: 0.0001))
-    XCTAssert(gradient.weights.first!.isValueEqual(to: .init([-1.2701705, -0.8082903, -0.34641013, 0.115470044,
-                                                               -0.8082903, 0.115470044, 1.0392303, 1.9629908,
+    // Gradient layout: beta | gamma (matches weights for optimizer)
+    XCTAssert(gradient.weights.first!.isValueEqual(to: .init([1.0, 1.0, 1.0, 1.0,
                                                                1.0, 1.0, 1.0, 1.0,
-                                                               1.0, 1.0, 1.0, 1.0], size: .init(rows: 2, columns: 4, depth: 2)), accuracy: 0.0001))
+                                                               -1.2701705, -0.8082903, -0.34641013, 0.115470044,
+                                                               -0.8082903, 0.115470044, 1.0392303, 1.9629908], size: .init(rows: 2, columns: 4, depth: 2)), accuracy: 0.0001))
     
     // test for crash
     norm.apply(gradients: (gradient.weights.first!, .init()), learningRate: 0.001)

@@ -110,8 +110,28 @@ public final class Dense: BaseLayer {
     
     let encoder = context.metalEncoder
     let tensorContext = TensorContext { inputs, gradients, wrt in
-      let deltas = self.device.matmul(gradients, self.weights.detached(), encoder: encoder)
-      let weightGradients = self.device.matmul(gradients.transposed(), inputs, encoder: encoder)
+      var deltas: Tensor
+      var weightGradients: Tensor
+      if let enc = encoder,
+         self.device is GPU,
+         MetalContext.shared.isAvailable,
+         let metalDevice = MetalContext.shared.device,
+         let pool = MetalContext.shared.bufferPool {
+        let metalGradients = (gradients.storage as? MetalTensorStorage)
+          ?? MetalTensorStorage(device: metalDevice, storage: gradients.storage, pool: pool)
+        let metalWeights = (self.weights.detached().storage as? MetalTensorStorage)
+          ?? MetalTensorStorage(device: metalDevice, storage: self.weights.detached().storage, pool: pool)
+        let metalInputs = (inputs.storage as? MetalTensorStorage)
+          ?? MetalTensorStorage(device: metalDevice, storage: inputs.storage, pool: pool)
+        let gTensor = Tensor(storage: metalGradients, size: gradients.size, context: TensorContext())
+        let wTensor = Tensor(storage: metalWeights, size: self.weights.size, context: TensorContext())
+        let iTensor = Tensor(storage: metalInputs, size: inputs.size, context: TensorContext())
+        deltas = self.device.matmul(gTensor, wTensor, encoder: enc)
+        weightGradients = self.device.matmul(gTensor.transposed(), iTensor, encoder: enc)
+      } else {
+        deltas = self.device.matmul(gradients, self.weights.detached(), encoder: encoder)
+        weightGradients = self.device.matmul(gradients.transposed(), inputs, encoder: encoder)
+      }
       return (deltas, weightGradients, gradients)
     }
     
