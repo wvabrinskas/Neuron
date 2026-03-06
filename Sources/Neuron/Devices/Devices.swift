@@ -26,7 +26,7 @@ public enum DeviceType: String, Codable {
 ///
 /// Conforming types provide hardware-specific implementations of neural network
 /// primitives such as convolution, activation, and pooling.
-public protocol Device: AnyObject {
+public protocol Device {
   var type: DeviceType { get }
   var qosPriority: DispatchQoS.QoSClass { get set }
 
