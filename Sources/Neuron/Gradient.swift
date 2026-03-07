@@ -27,10 +27,12 @@ public class GradientAccumulator {
   
   /// Removes all elements from the gradient arrays
   public func clear() {
-    biasGradients.removeAll(keepingCapacity: true)
-    weightGradients.removeAll(keepingCapacity: true)
-    inputGradients.removeAll(keepingCapacity: true)
-    iterations = 0
+    lock.with {
+      biasGradients.removeAll(keepingCapacity: true)
+      weightGradients.removeAll(keepingCapacity: true)
+      inputGradients.removeAll(keepingCapacity: true)
+      iterations = 0
+    }
   }
   
   /// Inserts the gradients into the accumulator
@@ -49,21 +51,22 @@ public class GradientAccumulator {
   ///   - biases: Gradients WRT to each layer's biases
   public func insert(input: Tensor, weights: [Tensor], biases: [Tensor]) {
     
-    iterations += 1
+    lock.with {
+      iterations += 1
       
-    if weightGradients.isEmpty {
-      weightGradients = weights
-    } else {
-      weightGradients = weightGradients + weights
+      if weightGradients.isEmpty {
+        weightGradients = weights
+      } else {
+        weightGradients = weightGradients + weights
+      }
+      
+      if biasGradients.isEmpty {
+        biasGradients = biases
+      } else {
+        biasGradients = biasGradients + biases
+      }
+      inputGradients.append(input)
     }
-    
-    if biasGradients.isEmpty {
-      biasGradients = biases
-    } else {
-      biasGradients = biasGradients + biases
-    }
-    inputGradients.append(input)
-  
   }
   
   /// Performs the averaging calculation on the weight gradients.
