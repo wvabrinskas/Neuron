@@ -211,8 +211,6 @@ open class BaseOptimizer: Optimizer {
   /// - Parameter data: Batch of input tensors.
   /// - Returns: Forward outputs from the underlying trainable.
   open func predict(_ data: [Tensor]) -> [Tensor] {
-    isTraining = false
-    
     var results: [Tensor] = [Tensor].init(repeating: Tensor(), count: data.count)
 
     data.concurrentForEach(workers: Constants.maxWorkers,
