@@ -8,6 +8,7 @@
 import NumSwift
 import Foundation
 
+/// A type alias representing a corpus of text strings used for tokenizer training.
 public typealias TokenizerCorpus = [String]
 
 /// A protocol that defines tokenization capabilities with support for encoding, decoding, and exporting trained models.
@@ -48,6 +49,9 @@ open class BaseTokenizer: Tokenizing {
       wordEnding
   ]
   
+/// Initializes a new tokenizer with the specified target vocabulary size.
+  ///
+  /// - Parameter targetVocabSize: The desired number of tokens in the trained vocabulary.
   public enum CodingKeys: String, CodingKey {
     case mergeRules
     case vocab
@@ -55,6 +59,10 @@ open class BaseTokenizer: Tokenizing {
     case targetVocabSize
   }
   
+/// Initializes a tokenizer by decoding it from the given decoder.
+  ///
+  /// - Parameter decoder: The decoder to read data from.
+  /// - Throws: An error if any required values are missing or cannot be decoded.
   public init(targetVocabSize: Int) {
     self.targetVocabSize = targetVocabSize
   }
@@ -68,6 +76,10 @@ open class BaseTokenizer: Tokenizing {
     self.reverseVocab = Dictionary(uniqueKeysWithValues: vocab.map( { ($1, $0) }))
   }
   
+/// Encodes the tokenizer's state into the given encoder.
+  ///
+  /// - Parameter encoder: The encoder to write data to.
+  /// - Throws: An error if any values fail to encode.
   public func encode(to encoder: any Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(mergeRules, forKey: .mergeRules)
