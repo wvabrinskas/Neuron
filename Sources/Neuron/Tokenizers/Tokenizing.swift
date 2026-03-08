@@ -49,24 +49,24 @@ open class BaseTokenizer: Tokenizing {
       wordEnding
   ]
   
-/// Initializes a new tokenizer with the specified target vocabulary size.
-  ///
-  /// - Parameter targetVocabSize: The desired number of tokens in the trained vocabulary.
   public enum CodingKeys: String, CodingKey {
     case mergeRules
     case vocab
     case inverseVocab
     case targetVocabSize
   }
-  
-/// Initializes a tokenizer by decoding it from the given decoder.
+
+  /// Initializes a new tokenizer with the specified target vocabulary size.
   ///
-  /// - Parameter decoder: The decoder to read data from.
-  /// - Throws: An error if any required values are missing or cannot be decoded.
+  /// - Parameter targetVocabSize: The desired number of tokens in the trained vocabulary.
   public init(targetVocabSize: Int) {
     self.targetVocabSize = targetVocabSize
   }
-  
+
+  /// Initializes a tokenizer by decoding it from the given decoder.
+  ///
+  /// - Parameter decoder: The decoder to read data from.
+  /// - Throws: An error if any required values are missing or cannot be decoded.
   required public init(from decoder: any Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     self.mergeRules = try container.decode([TokenPair].self, forKey: .mergeRules)
@@ -76,7 +76,7 @@ open class BaseTokenizer: Tokenizing {
     self.reverseVocab = Dictionary(uniqueKeysWithValues: vocab.map( { ($1, $0) }))
   }
   
-/// Encodes the tokenizer's state into the given encoder.
+  /// Encodes the tokenizer's state into the given encoder.
   ///
   /// - Parameter encoder: The encoder to write data to.
   /// - Throws: An error if any values fail to encode.
