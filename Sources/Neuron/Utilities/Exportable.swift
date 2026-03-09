@@ -8,6 +8,7 @@
 
 import Foundation
 
+/// A type that can be exported to a `.stkns` file on disk.
 public protocol Exportable: Codable {
   @discardableResult
   /// Exports the trainable as a `.stkns` file.

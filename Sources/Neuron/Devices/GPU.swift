@@ -20,6 +20,7 @@ public class GPU: Device {
 
   private let manager = GPUManager.shared
   
+  /// Initializes a new GPU device abstraction instance.
   public init() {}
   
   /// Performs 2D convolution on the GPU device abstraction.

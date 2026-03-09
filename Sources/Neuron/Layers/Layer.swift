@@ -244,6 +244,7 @@ open class BaseLayer: Layer {
 /// Whether this layer is currently in training mode, affecting behaviors such as dropout.
   public var initializer: Initializer
   
+  /// The type of device (e.g., CPU or GPU) used for computation, updating the shared DeviceManager when set.
   public var deviceType: DeviceType = .cpu {
     didSet {
       DeviceManager.shared.type = deviceType

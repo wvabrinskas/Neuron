@@ -53,6 +53,7 @@ public final class Sequential: Trainable, Logger {
 /// A human-readable identifier for this model instance.
   public var name: String = "Sequential"
   
+  /// The compute device type used for inference and training; propagates to the shared DeviceManager when set.
   public var deviceType: DeviceType = .cpu {
     didSet {
       DeviceManager.shared.type = deviceType
