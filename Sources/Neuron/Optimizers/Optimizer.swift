@@ -103,6 +103,9 @@ open class BaseOptimizer: Optimizer {
     }
   }
   
+  /// The type of compute device to use for training, either CPU or GPU.
+  ///
+  /// Updating this value propagates the device type selection to the shared `DeviceManager`.
   public var deviceType: DeviceType = .cpu {
     didSet {
       DeviceManager.shared.type = deviceType

@@ -14,6 +14,7 @@ import Metal
 /// Use `isAvailable` to check before creating Metal-backed storage (e.g. in simulators).
 public final class MetalContext {
 
+  /// The shared singleton instance of `MetalContext`.
   public static let shared = MetalContext()
 
   private let _device: MTLDevice?

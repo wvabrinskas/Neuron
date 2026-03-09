@@ -218,6 +218,9 @@ public class TensorStorage {
 
   // MARK: - Subscript
 
+  /// Accesses the scalar element at the given linear index.
+  /// Performs a copy-on-write if the buffer is shared before a write.
+  /// - Parameter index: The zero-based position of the element to access.
   public subscript(index: Int) -> Tensor.Scalar {
     get {
       assert(index >= 0 && index < count, "TensorStorage index \(index) out of range [0..<\(count)]")
@@ -254,6 +257,7 @@ public class TensorStorage {
 
   // MARK: - Properties
 
+  /// A Boolean value indicating whether the storage contains no elements.
   public var isEmpty: Bool { count == 0 }
 
   /// Returns the index and value of the maximum element. Returns `(0, 0)` when empty.
@@ -287,14 +291,20 @@ public class TensorStorage {
 
   // MARK: - Unsafe Access
 
-  /// Calls `body` with a read-only `UnsafeBufferPointer` covering the entire storage.
+  /// Calls `body` with an immutable `UnsafeBufferPointer` over the stored scalars.
+  /// - Parameter body: A closure that receives the buffer pointer and returns a value.
+  /// - Returns: The value returned by `body`.
+  /// - Throws: Rethrows any error thrown by `body`.
   @discardableResult
   public func withUnsafeBufferPointer<R>(_ body: (UnsafeBufferPointer<Tensor.Scalar>) throws -> R) rethrows -> R {
     try body(UnsafeBufferPointer(start: _buffer.pointer, count: count))
   }
 
-  /// Calls `body` with a mutable `UnsafeMutableBufferPointer`.
-  /// Triggers COW if the buffer is shared.
+  /// Calls `body` with a mutable `UnsafeMutableBufferPointer` over the stored scalars.
+  /// Triggers a copy-on-write if the buffer is currently shared.
+  /// - Parameter body: A closure that receives the mutable buffer pointer and returns a value.
+  /// - Returns: The value returned by `body`.
+  /// - Throws: Rethrows any error thrown by `body`.
   @discardableResult
   public func withUnsafeMutableBufferPointer<R>(_ body: (UnsafeMutableBufferPointer<Tensor.Scalar>) throws -> R) rethrows -> R {
     copyBufferIfShared()
@@ -318,6 +328,11 @@ public class TensorStorage {
 // MARK: - Equatable
 
 extension TensorStorage: Equatable {
+  /// Returns `true` if both storages contain the same number of elements with identical values.
+  /// Performs a fast pointer-equality check before falling back to `memcmp`.
+  /// - Parameter lhs: The left-hand side `TensorStorage` to compare.
+  /// - Parameter rhs: The right-hand side `TensorStorage` to compare.
+  /// - Returns: `true` if the two storages are element-wise equal, otherwise `false`.
   public static func == (lhs: TensorStorage, rhs: TensorStorage) -> Bool {
     guard lhs.count == rhs.count else { return false }
     if lhs._buffer === rhs._buffer { return true }
@@ -329,10 +344,13 @@ extension TensorStorage: Equatable {
 // MARK: - Sequence & Collection
 
 extension TensorStorage: Sequence {
+  /// Returns an iterator over the scalar elements of the storage.
+  /// - Returns: A `TensorStorageIterator` positioned before the first element.
   public func makeIterator() -> TensorStorageIterator {
     TensorStorageIterator(storage: self)
   }
 
+  /// An iterator that traverses the scalar elements of a `TensorStorage` sequentially.
   public struct TensorStorageIterator: IteratorProtocol {
     private let storage: TensorStorage
     private var index: Int = 0
@@ -351,16 +369,27 @@ extension TensorStorage: Sequence {
 }
 
 extension TensorStorage: RandomAccessCollection, MutableCollection {
+  /// The index of the first element in the collection.
   public var startIndex: Int { 0 }
+  /// The index one past the last element in the collection.
   public var endIndex: Int { count }
 
+  /// Returns the index immediately after the given index.
+  /// - Parameter i: A valid index of the collection.
+  /// - Returns: The index immediately after `i`.
   public func index(after i: Int) -> Int { i + 1 }
+  /// Returns the index immediately before the given index.
+  /// - Parameter i: A valid index of the collection.
+  /// - Returns: The index immediately before `i`.
   public func index(before i: Int) -> Int { i - 1 }
 }
 
 // MARK: - Codable
 
 extension TensorStorage: Codable {
+  /// Encodes the storage's scalar elements as a single-value array into the given encoder.
+  /// - Parameter encoder: The encoder to write data to.
+  /// - Throws: An error if encoding fails.
   public func encode(to encoder: any Encoder) throws {
     var container = encoder.singleValueContainer()
     try container.encode(toArray())
@@ -370,6 +399,8 @@ extension TensorStorage: Codable {
 // MARK: - CustomDebugStringConvertible
 
 extension TensorStorage: CustomDebugStringConvertible {
+  /// A textual representation of the storage showing up to the first eight elements
+  /// and the total count when the storage contains more than eight elements.
   public var debugDescription: String {
     let preview = Swift.min(count, 8)
     let elements = (0..<preview).map { String(describing: _buffer.pointer[$0]) }
