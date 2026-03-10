@@ -1,6 +1,6 @@
 //
 //  File.swift
-//  
+//
 //
 //  Created by William Vabrinskas on 6/1/23.
 //
@@ -89,6 +89,30 @@ public class Vectorizer: Vectorizing, Codable {
     2
   } else {
     0
+  }
+  
+  public enum CodingKeys: String, CodingKey {
+    case vector
+    case lastKey
+    case startAndEndingEncoding
+    case maxIndex
+  }
+  
+  public required init(from decoder: any Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    self.vector = try container.decode(Vector.self, forKey: .vector)
+    self.lastKey = try container.decode(Int.self, forKey: .lastKey)
+    self.startAndEndingEncoding = try container.decode(Bool.self, forKey: .startAndEndingEncoding)
+    self.inverseVector = Dictionary(uniqueKeysWithValues: vector.map( { ($1, $0) }))
+    self.maxIndex = try container.decode(Int.self, forKey: .maxIndex)
+  }
+  
+  public func encode(to encoder: any Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    try container.encode(vector, forKey: .vector)
+    try container.encode(lastKey, forKey: .lastKey)
+    try container.encode(startAndEndingEncoding, forKey: .startAndEndingEncoding)
+    try container.encode(maxIndex, forKey: .maxIndex)
   }
   
   /// if set to true this will vectorize the input with an offset of `maxIndex` to reserve the first two vectors for start and end vectors
