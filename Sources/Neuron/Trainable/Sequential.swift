@@ -223,16 +223,23 @@ public final class Sequential: Trainable, Logger {
   public func predict(_ data: Tensor, context: NetworkContext) -> Tensor {
     precondition(isCompiled, "Please call compile() on the \(self) before attempting to fit")
     
-    var outputTensor = data
+    var outputTensors = batch
     
     layers.forEach { layer in
-      let newTensor = layer.forward(tensor: outputTensor, context: context)
-      newTensor.label = layer.encodingType.rawValue + "-" + layer.linkId
-      newTensor.setGraph(outputTensor)
-      outputTensor = newTensor
+      let newTensors = layer.forward(tensorBatch: outputTensors, context: context)
+
+      for (i, tensor) in newTensors.enumerated() {
+        tensor.label = layer.encodingType.rawValue + "-" + layer.linkId
+
+        if tensor.graph[outputTensors[i].id] == nil {
+          tensor.setGraph(outputTensors[i])
+        }
+      }
+
+      outputTensors = newTensors
     }
     
-    return outputTensor
+    return outputTensors
   }
   
   /// Validates layer connectivity and propagates inferred input sizes.

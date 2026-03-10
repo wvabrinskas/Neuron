@@ -182,49 +182,6 @@ public final class ResNet: BaseLayerGroup {
     try container.encode(linkId, forKey: .linkId)
   }
   
-  /// Runs the residual block forward pass for a batch.
-  ///
-  /// - Parameters:
-  ///   - tensorBatch: Input batch.
-  ///   - context: Batch/thread metadata.
-  /// - Returns: Batch outputs after main path, shortcut add, and output ReLU.
-  public override func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
-    // we need to pass the full batch to BatchNormalize to calculate the global mean on each batch. Just like what happens when it's outside of the optimizer
-    let detachedInputs = tensorBatch.map { $0.detached() }
-    let blockOuts = super.forward(tensorBatch: detachedInputs, context: context)
-    
-    // set a copied input so we can separate the input tensors of the two paths.
-    // this allows us to pull the gradients wrt to each input
-    let copiedInputTensors = tensorBatch.map { $0.copy() }
-    
-    let tensorToAdd = if shouldProjectInput {
-      // we project the input here to match the filter depth
-      shortcutSequential.predict(batch: copiedInputTensors, context: context)
-    } else {
-      copiedInputTensors
-    }
-    
-    let skipOut = blockOuts + tensorToAdd
-    
-    let reLuOuts = outputRelu.forward(tensorBatch: skipOut, context: context)
-    
-    var outs: TensorBatch = []
-    
-    for (i, reLuOut) in reLuOuts.enumerated() {
-      let tensor = tensorBatch[i]
-      let detachedInput = detachedInputs[i]
-      let copiedInputTensor = copiedInputTensors[i]
-      
-      let out = buildForward(input: tensor,
-                             reLuOut: reLuOut,
-                             detachedInput: detachedInput,
-                             copiedInputTensor: copiedInputTensor)
-      outs.append(out)
-    }
-    
-    return outs
-  }
-  
   /// Runs the residual block forward pass for a single tensor.
   ///
   /// - Parameters:
@@ -244,7 +201,7 @@ public final class ResNet: BaseLayerGroup {
     
     let tensorToAdd = if shouldProjectInput {
       // we project the input here to match the filter depth
-      shortcutSequential.predict(batch: [copiedInputTensor], context: .init())[safe: 0, Tensor()]
+      shortcutSequential.predict(copiedInputTensor, context: .init())
     } else {
       copiedInputTensor
     }

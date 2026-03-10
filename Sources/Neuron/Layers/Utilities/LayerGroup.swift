@@ -112,7 +112,7 @@ public class BaseLayerGroup: BaseLayer, LayerGrouping {
   public override func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
     // we detach the input tensor because we want to stop at this tensor in respect to this sequential
     // not all the way up the graph to possibly other input layers
-    let blockOut = innerBlockSequential.predict(batch: [tensor], context: .init())[safe: 0, Tensor()]
+    let blockOut = innerBlockSequential.predict(tensor, context: .init())
     blockOut.label = "blockOut"
     
     return super.forward(tensor: blockOut, context: context)
@@ -129,18 +129,6 @@ public class BaseLayerGroup: BaseLayer, LayerGrouping {
     }
     
     applyGradientsToInnerBlock(gradients: gradients, learningRate: learningRate)
-  }
-  
-  /// Runs the residual block forward pass for a batch.
-  ///
-  /// - Parameters:
-  ///   - tensorBatch: Input batch.
-  ///   - context: Batch/thread metadata.
-  /// - Returns: Batch outputs after main path, shortcut add, and output ReLU.
-  public override func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
-    let blockOuts = innerBlockSequential.predict(batch: tensorBatch, context: context)
-    
-    return blockOuts
   }
   
   @discardableResult

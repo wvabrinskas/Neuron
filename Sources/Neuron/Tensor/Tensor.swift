@@ -350,6 +350,13 @@ public class Tensor: Equatable, Codable {
     self.features = size.depth
     setId()
   }
+  
+  public func batchSlice(_ b: Int) -> Tensor {
+    let sliceSize = size.rows * size.columns * size.depth
+    let start = b * sliceSize
+    let value = Tensor.Value(UnsafeBufferPointer(start: storage.pointer + start, count: sliceSize))
+    return Tensor(value, size: size)
+  }
 
       
   /// Extracts one depth slice as a flat row-major `Tensor.Value` directly from storage.

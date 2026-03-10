@@ -85,13 +85,13 @@ public protocol Layer: AnyObject, Codable {
   ///   - context: Network execution context for batch/thread metadata.
   /// - Returns: Output tensor for this layer.
   func forward(tensor: Tensor, context: NetworkContext) -> Tensor
-  /// Runs the layer's forward transformation for a tensor batch.
-  ///
-  /// - Parameters:
-  ///   - tensorBatch: Input batch.
-  ///   - context: Network execution context for batch/thread metadata.
-  /// - Returns: Output batch in input order.
-  func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch
+//  /// Runs the layer's forward transformation for a tensor batch.
+//  ///
+//  /// - Parameters:
+//  ///   - tensorBatch: Input batch.
+//  ///   - context: Network execution context for batch/thread metadata.
+//  /// - Returns: Output batch in input order.
+//  func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch
   /// Applies parameter updates to the layer.
   ///
   /// - Parameters:
@@ -317,22 +317,28 @@ open class BaseLayer: Layer {
   public func encode(to encoder: Encoder) throws {
     // override
   }
+
   
-  /// Default batch forward implementation that iterates over each tensor.
-  ///
-  /// - Parameters:
-  ///   - tensorBatch: Input batch.
-  ///   - context: Network execution context.
-  /// - Returns: Layer outputs for each input tensor.
-  public func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
-    var result: TensorBatch = []
-    
-    for tensor in tensorBatch {
-      result.append(forward(tensor: tensor, context: context))
-    }
-    
-    return result
-  }
+// Do we want to have the layer handle each N batch count individually?
+  // or are we passing it a single tensor and it deals with it?
+  // in GPU we want the whole batch to be processed at once as a single vector
+  // but CPU we want to process it sequentially
+  
+//  /// Default batch forward implementation that iterates over each tensor.
+//  ///
+//  /// - Parameters:
+//  ///   - tensorBatch: Input batch.
+//  ///   - context: Network execution context.
+//  /// - Returns: Layer outputs for each input tensor.
+//  public func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
+//    var result: TensorBatch = []
+//    
+//    for tensor in tensorBatch {
+//      result.append(forward(tensor: tensor, context: context))
+//    }
+//    
+//    return result
+//  }
   
   @discardableResult
   /// Default single-tensor forward placeholder.
@@ -667,14 +673,15 @@ open class BaseThreadBatchingLayer: BaseLayer {
   ///   - tensorBatch: Input batch chunk for this worker.
   ///   - context: Batch/thread metadata used for synchronization.
   /// - Returns: Forward outputs from `BaseLayer` after synchronization.
-  public override func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
+  public override func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
     if shouldPerformBatching {
 
       condition.lock()
 
-      for tensor in tensorBatch {
+      for b in 0..<tensor.size.batchCount {
+        let batchTensor = tensor.batchSlice(b)
         iterations.wrappingIncrement(ordering: .relaxed)
-        performThreadBatchingForwardPass(tensor: tensor, context: context)
+        performThreadBatchingForwardPass(tensor: batchTensor, context: context)
       }
 
       let sizeToCheck = if context.totalInBatch != batchSize {
@@ -696,7 +703,7 @@ open class BaseThreadBatchingLayer: BaseLayer {
       condition.unlock()
     }
 
-    return super.forward(tensorBatch: tensorBatch, context: context)
+    return super.forward(tensor: tensor, context: context)
   }
 
   /// Resets thread-batching iteration state after parameter updates.
