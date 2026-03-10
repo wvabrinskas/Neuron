@@ -154,15 +154,15 @@ public final class Sequential: Trainable, Logger {
     predict(data, context: context)
   }
   
-  /// Runs inference on a batch of tensors using call syntax.
-  ///
-  /// - Parameters:
-  ///   - data: Input tensor batch.
-  ///   - context: Batch/thread metadata propagated through the network.
-  /// - Returns: Output tensor batch in input order.
-  public func callAsFunction(_ data: TensorBatch, context: NetworkContext) -> TensorBatch {
-    predict(batch: data, context: context)
-  }
+//  /// Runs inference on a batch of tensors using call syntax.
+//  ///
+//  /// - Parameters:
+//  ///   - data: Input tensor batch.
+//  ///   - context: Batch/thread metadata propagated through the network.
+//  /// - Returns: Output tensor batch in input order.
+//  public func callAsFunction(_ data: TensorBatch, context: NetworkContext) -> TensorBatch {
+//    predict(batch: data, context: context)
+//  }
   
   /// Encodes this network and its layers for persistence.
   ///
@@ -186,33 +186,33 @@ public final class Sequential: Trainable, Logger {
     }
   }
   
-  /// Performs a full forward pass for a batch.
-  ///
-  /// - Parameters:
-  ///   - batch: Input tensors to process in order.
-  ///   - context: Batch/thread metadata for downstream layers.
-  /// - Returns: Output tensors produced by the last layer.
-  public func predict(batch: TensorBatch, context: NetworkContext) -> TensorBatch {
-    precondition(isCompiled, "Please call compile() on the \(self) before attempting to fit")
-    
-    var outputTensors = batch
-    
-    layers.forEach { layer in
-      let newTensors = layer.forward(tensorBatch: outputTensors, context: context)
-
-      for (i, tensor) in newTensors.enumerated() {
-        tensor.label = layer.encodingType.rawValue + "-" + layer.linkId
-
-        if tensor.graph[outputTensors[i].id] == nil {
-          tensor.setGraph(outputTensors[i])
-        }
-      }
-
-      outputTensors = newTensors
-    }
-    
-    return outputTensors
-  }
+//  /// Performs a full forward pass for a batch.
+//  ///
+//  /// - Parameters:
+//  ///   - batch: Input tensors to process in order.
+//  ///   - context: Batch/thread metadata for downstream layers.
+//  /// - Returns: Output tensors produced by the last layer.
+//  public func predict(batch: TensorBatch, context: NetworkContext) -> TensorBatch {
+//    precondition(isCompiled, "Please call compile() on the \(self) before attempting to fit")
+//    
+//    var outputTensors = batch
+//    
+//    layers.forEach { layer in
+//      let newTensors = layer.forward(tensorBatch: outputTensors, context: context)
+//
+//      for (i, tensor) in newTensors.enumerated() {
+//        tensor.label = layer.encodingType.rawValue + "-" + layer.linkId
+//
+//        if tensor.graph[outputTensors[i].id] == nil {
+//          tensor.setGraph(outputTensors[i])
+//        }
+//      }
+//
+//      outputTensors = newTensors
+//    }
+//    
+//    return outputTensors
+//  }
   
   /// Performs a full forward pass for one tensor.
   ///
@@ -223,14 +223,30 @@ public final class Sequential: Trainable, Logger {
   public func predict(_ data: Tensor, context: NetworkContext) -> Tensor {
     precondition(isCompiled, "Please call compile() on the \(self) before attempting to fit")
     
-    var outputTensors = batch
+    var outputTensors = data.asTensorArray()
+    
+    // each layer handles the batch or mini batch
+    // but do we want that?
+    
+    // Do we want to have the layer handle each N batch count individually?
+      // or are we passing it a single tensor and it deals with it?
+      // in GPU we want the whole batch to be processed at once as a single vector
+      // but CPU we want to process it sequentially
+    // do we add a new function that specifies to process as a batch vs not? maybe in network context?
     
     layers.forEach { layer in
-      let newTensors = layer.forward(tensorBatch: outputTensors, context: context)
+      
+      var newTensors: [Tensor] = []
+      
+      for i in 0..<data.size.batchCount {
+        let batchTensor = data.batchSlice(i)
+        let outTensor = layer.forward(tensor: batchTensor, context: context)
+        newTensors.append(outTensor)
+      }
 
       for (i, tensor) in newTensors.enumerated() {
         tensor.label = layer.encodingType.rawValue + "-" + layer.linkId
-
+        
         if tensor.graph[outputTensors[i].id] == nil {
           tensor.setGraph(outputTensors[i])
         }
@@ -239,7 +255,7 @@ public final class Sequential: Trainable, Logger {
       outputTensors = newTensors
     }
     
-    return outputTensors
+    return outputTensors.asTensor
   }
   
   /// Validates layer connectivity and propagates inferred input sizes.

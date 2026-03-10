@@ -282,12 +282,13 @@ open class BaseOptimizer: Optimizer {
       let accumulator = accumulators[workerIndex]
       accumulator.average = false
 
-      let outs = self.trainable.predict(batch: elements, context: .init(batchRange: indexRange,
-                                                                        batchProcessingCount: processingCount,
-                                                                        totalInBatch: data.count,
-                                                                        threadId: workerId))
+      let outs = self.trainable.predict(elements.asTensor, context: .init(batchRange: indexRange,
+                                                                          batchProcessingCount: processingCount,
+                                                                          totalInBatch: data.count,
+                                                                          threadId: workerId))
       
-      outputs[workerIndex] = outs
+      let outsAsTensors: [Tensor] = outs.asTensorArray()
+      outputs[workerIndex] = outsAsTensors
       
       let wrtBatch: TensorBatch? = if let wrt {
         Array(wrt[indexRange])
@@ -301,7 +302,7 @@ open class BaseOptimizer: Optimizer {
         batchLabels = Array(mixedLabels[indexRange])
       }
 
-      for (index, out) in outs.enumerated() {
+      for (index, out) in outsAsTensors.enumerated() {
         let label = batchLabels[index]
         let input = wrtBatch?[index] ?? elements[index]
         

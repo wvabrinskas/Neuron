@@ -145,27 +145,12 @@ public final class RexNet: BaseLayerGroup {
     try container.encode(linkId, forKey: .linkId)
   }
   
-/// Performs a forward pass over a batch of tensors, processing each tensor individually and collecting the results.
-/// - Parameter tensorBatch: The batch of input tensors to process.
-/// - Parameter context: The network context providing execution state and mode information.
-/// - Returns: A `TensorBatch` containing the forward-pass output for each input tensor.
-  public override func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
-    var result: TensorBatch = []
-    
-    for tensor in tensorBatch {
-      result.append(forward(tensor: tensor, context: context))
-    }
-    
-    return result
-  }
-  
 /// Performs a forward pass on a single tensor, applying a skip connection when the stride and channel conditions allow,
 /// and registers a backpropagation context for gradient computation.
 /// - Parameter tensor: The input tensor to process.
 /// - Parameter context: The network context providing execution state and mode information.
 /// - Returns: The output tensor after applying the block's transformation and optional residual addition.
   public override func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
-    
     let forwardPass = if shouldSkip {
       super.forward(tensor: tensor, context: context) + tensor
     } else {

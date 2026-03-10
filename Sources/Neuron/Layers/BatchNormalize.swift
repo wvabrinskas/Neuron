@@ -242,7 +242,7 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
   ///   - tensor: Input tensor.
   ///   - context: Batch/thread metadata used for synchronized statistics.
   /// - Returns: Normalized tensor with attached backpropagation context.
-  public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
+  public override func performForwardPass(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let forward = normalize(inputs: tensor, context: context)
     let normalizations = forward.normalized
     
@@ -264,7 +264,7 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     
     out.setGraph(tensor)
     
-    return super.forward(tensor: out, context: context)
+    return out
   }
   
   /// Applies gradients to `gamma` and `beta`, then resets batch accumulators.

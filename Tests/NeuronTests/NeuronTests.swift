@@ -551,10 +551,10 @@ final class NeuronTests: XCTestCase {
     norm.isTraining = true
     
     batch.concurrentBatchedForEach(workers: Constants.maxWorkers) { elements, workerIndex, indexRange, processingCount, workerId in
-        let _ = norm.forward(tensorBatch: elements, context: .init(batchRange: indexRange,
-                                                           batchProcessingCount: processingCount,
-                                                           totalInBatch: batch.count,
-                                                           threadId: workerId))
+      let _ = norm.forward(tensor: elements.asTensor, context: .init(batchRange: indexRange,
+                                                                     batchProcessingCount: processingCount,
+                                                                     totalInBatch: batch.count,
+                                                                     threadId: workerId))
       
     }
     

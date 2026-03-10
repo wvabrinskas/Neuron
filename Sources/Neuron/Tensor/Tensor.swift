@@ -357,6 +357,14 @@ public class Tensor: Equatable, Codable {
     let value = Tensor.Value(UnsafeBufferPointer(start: storage.pointer + start, count: sliceSize))
     return Tensor(value, size: size)
   }
+  
+  public func setBatchSlice(_ tensor: Tensor, at: Int) {
+    let sliceSize = size.rows * size.columns * size.depth
+    let start = at * sliceSize
+    for i in 0..<sliceSize {
+      storage[start + i] = tensor.storage[i]
+    }
+  }
 
       
   /// Extracts one depth slice as a flat row-major `Tensor.Value` directly from storage.
@@ -388,6 +396,15 @@ public class Tensor: Equatable, Codable {
   public func depthSliceTensor(_ d: Int) -> Tensor {
     let sliceStorage = depthSlice(d)
     return Tensor(sliceStorage, size: TensorSize(rows: size.rows, columns: size.columns, depth: 1))
+  }
+  
+  public func asTensorArray() -> [Tensor] {
+    var result: [Tensor] = []
+    result.reserveCapacity(size.batchCount)
+    for i in 0..<size.batchCount {
+      result.append(batchSlice(i))
+    }
+    return result
   }
   
   private func setId() {
@@ -800,6 +817,16 @@ extension Tensor: CustomDebugStringConvertible {
 // MARK: - Array<Tensor> Extensions
 
 extension Array where Element == Tensor {
+  
+  var asTensor: Tensor {
+    let tensor: Tensor = .init()
+    
+    for (i, tensorFromBatch) in enumerated() {
+      tensor.setBatchSlice(tensorFromBatch, at: i)
+    }
+    
+    return tensor
+  }
   
   var mean: Tensor {
     var mutableSelf = self

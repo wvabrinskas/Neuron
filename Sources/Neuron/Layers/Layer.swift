@@ -318,28 +318,11 @@ open class BaseLayer: Layer {
     // override
   }
 
-  
-// Do we want to have the layer handle each N batch count individually?
-  // or are we passing it a single tensor and it deals with it?
-  // in GPU we want the whole batch to be processed at once as a single vector
-  // but CPU we want to process it sequentially
-  
-//  /// Default batch forward implementation that iterates over each tensor.
-//  ///
-//  /// - Parameters:
-//  ///   - tensorBatch: Input batch.
-//  ///   - context: Network execution context.
-//  /// - Returns: Layer outputs for each input tensor.
-//  public func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
-//    var result: TensorBatch = []
-//    
-//    for tensor in tensorBatch {
-//      result.append(forward(tensor: tensor, context: context))
-//    }
-//    
-//    return result
-//  }
-  
+  // Do we want to have the layer handle each N batch count individually?
+    // or are we passing it a single tensor and it deals with it?
+    // in GPU we want the whole batch to be processed at once as a single vector
+    // but CPU we want to process it sequentially
+    
   @discardableResult
   /// Default single-tensor forward placeholder.
   ///
@@ -647,8 +630,6 @@ extension NumSwift.ConvPadding {
   }
 }
 
-
-
 open class BaseThreadBatchingLayer: BaseLayer {
   let updateLock = NSLock()
   let iterations = ManagedAtomic<Int>(0)
@@ -678,6 +659,8 @@ open class BaseThreadBatchingLayer: BaseLayer {
 
       condition.lock()
 
+      // this will likely always be 1? unless we're in tests?
+      // this is why I was saying maybe every layer should process the loop?
       for b in 0..<tensor.size.batchCount {
         let batchTensor = tensor.batchSlice(b)
         iterations.wrappingIncrement(ordering: .relaxed)
@@ -703,7 +686,14 @@ open class BaseThreadBatchingLayer: BaseLayer {
       condition.unlock()
     }
 
-    return super.forward(tensor: tensor, context: context)
+    let outTensor: Tensor = super.forward(tensor: tensor, context: context)
+    
+    /// this doesnt actually call the implementers function
+    return performForwardPass(tensor: outTensor, context: context)
+  }
+  
+  open func performForwardPass(tensor: Tensor, context: NetworkContext) -> Tensor {
+    fatalError("must override")
   }
 
   /// Resets thread-batching iteration state after parameter updates.

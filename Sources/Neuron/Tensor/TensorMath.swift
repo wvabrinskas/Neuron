@@ -910,7 +910,27 @@ public extension Tensor {
       return Tensor(storage: result, size: TensorSize(rows: 1, columns: totalCols, depth: 1), context: context)
     }
     
-    if axis == 2 {
+    if axis == 3 {
+      // add to batch dimension
+      let newBatchCount = tensor.size.batchCount + 1
+      let newSize = TensorSize(rows: selfRows,
+                               columns: selfCols,
+                               depth: selfDepth,
+                               batchCount: tensor.size.batchCount + 1)
+      
+      let result = TensorStorage.create(count: storage.count + tensor.storage.count)
+      
+      if storage.count > 0 {
+        result.pointer.update(from: storage.pointer, count: storage.count)
+      }
+      
+      if tensor.storage.count > 0 {
+        (result.pointer + storage.count).update(from: tensor.storage.pointer, count: tensor.storage.count)
+      }
+      
+      return Tensor(storage: result, size: newSize, context: context)
+      
+    } else if axis == 2 {
       let newDepth = selfDepth + otherDepth
       let newSize = TensorSize(rows: selfRows, columns: selfCols, depth: newDepth)
       let result = TensorStorage.create(count: storage.count + tensor.storage.count)
