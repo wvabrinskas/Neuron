@@ -276,8 +276,9 @@ final class TensorStorageTests: XCTestCase {
     for _ in 0..<tensorsToAdd {
       let newTensor = Tensor.fillRandom(size: .init(array: [3,3,1]))
       batchTensors.append(newTensor)
-      tensor = tensor.concat(newTensor, axis: 3)
     }
+    
+    tensor = batchTensors.asTensor
     
     XCTAssertEqual(tensor.size.batchCount, batchSize)
     
