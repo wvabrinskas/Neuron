@@ -921,7 +921,7 @@ public extension Tensor {
       let newSize = TensorSize(rows: selfRows,
                                columns: selfCols,
                                depth: selfDepth,
-                               batchCount: size.batchCount + 1)
+                               batchCount: size.batchCount + tensor.size.batchCount)
       
       let result = TensorStorage.create(count: storage.count + tensor.storage.count)
       if storage.count > 0 {
