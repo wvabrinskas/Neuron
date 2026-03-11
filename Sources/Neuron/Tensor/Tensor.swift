@@ -378,6 +378,7 @@ public class Tensor: Equatable, Codable {
   
   // reserved for fetching a single Tensor with multiple batches.
   // Good for GPU parallization
+  // Drops the context to fetch the tensor as the Context is tied to the batch as a whole
   public func batchSlice(_ b: Int) -> Tensor {
     guard b < size.batchCount else {
       assertionFailure("batch index \(b) out of range")
@@ -826,9 +827,22 @@ extension Array where Element == Tensor {
   }
   
   var asTensor: Tensor {
-    var mutable = self
-    let first = mutable.removeFirst()
-    return mutable.reduce(first, { $0.concat($1, axis: 3)})
+    let firstSize = self[safe: 0, Tensor()].size
+    let size = TensorSize(rows: firstSize.rows,
+                          columns: firstSize.columns,
+                          depth: firstSize.depth,
+                          batchCount: count)
+    
+    let unitSize = size.rows * size.columns * size.depth
+    
+    let result: TensorStorage = .init(count: size.rows * size.columns * size.depth * size.batchCount)
+    
+    for b in 0..<count {
+      let storage = self[b].storage
+      (result.pointer + (b * unitSize)).update(from: storage.pointer, count: unitSize)
+    }
+    
+    return Tensor(storage: result, size: size)
   }
   
   func gradients(_ deltas: [Tensor], wrt: [Tensor]) -> [Tensor.Gradient] {

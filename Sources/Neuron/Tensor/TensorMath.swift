@@ -915,7 +915,7 @@ public extension Tensor {
     if axis == 3 {
       guard size.unitSize == tensor.size.unitSize else {
         assertionFailure("When adding along batch axis, all tensors must have the same unit size")
-        return self
+        return Tensor()
       }
       
       let newSize = TensorSize(rows: selfRows,
