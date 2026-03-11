@@ -20,9 +20,10 @@ import Foundation
 /// `init(pointer:count:deallocator:)` initializer with a custom deallocator.
 public class TensorStorage {
   // MARK: - Inner Buffer (reference-counted memory owner)
+  public typealias Pointer = UnsafeMutablePointer<Tensor.Scalar>
 
   final class Buffer {
-    var pointer: UnsafeMutablePointer<Tensor.Scalar>
+    var pointer: Pointer
     let count: Int
     private let deallocator: (() -> Void)?
 
@@ -48,7 +49,7 @@ public class TensorStorage {
       }
     }
 
-    init(pointer: UnsafeMutablePointer<Tensor.Scalar>, count: Int, deallocator: @escaping () -> Void) {
+    init(pointer: Pointer, count: Int, deallocator: @escaping () -> Void) {
       self.pointer = pointer
       self.count = count
       self.deallocator = deallocator
@@ -83,7 +84,7 @@ public class TensorStorage {
   /// Raw pointer to the contiguous storage.
   /// For read access this returns the current buffer's pointer directly.
   /// Write access through subscript or `withUnsafeMutableBufferPointer` triggers COW automatically.
-  public var pointer: UnsafeMutablePointer<Tensor.Scalar> {
+  public var pointer: Pointer {
     _buffer.pointer
   }
 

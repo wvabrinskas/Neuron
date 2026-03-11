@@ -20,6 +20,42 @@ public struct CPU: Device {
   /// Creates a CPU-backed device implementation.
   public init() {}
 
+  public func transConv2d(signal: TensorStorage.Pointer,
+                          filter: TensorStorage.Pointer,
+                          result: TensorStorage.Pointer,
+                          strides: (Int, Int),
+                          padding: NumSwift.ConvPadding,
+                          filterSize: (rows: Int, columns: Int),
+                          inputSize: (rows: Int, columns: Int),
+                          batchCount: Int) {
+    NumSwiftFlat.transConv2dBatch(signal: signal,
+                                  filter: filter,
+                                  result: result,
+                                  strides: strides,
+                                  padding: padding,
+                                  filterSize: filterSize,
+                                  inputSize: inputSize,
+                                  batchCount: batchCount)
+  }
+  
+  public func conv2d(signal: TensorStorage.Pointer,
+                     filter: TensorStorage.Pointer,
+                     result: TensorStorage.Pointer,
+                     strides: (Int, Int),
+                     padding: NumSwift.ConvPadding,
+                     filterSize: (rows: Int, columns: Int),
+                     inputSize: (rows: Int, columns: Int),
+                     batchCount: Int) {
+    NumSwiftFlat.conv2dBatch(signal: signal,
+                             filter: filter,
+                             result: result,
+                             strides: strides,
+                             padding: padding,
+                             filterSize: filterSize,
+                             inputSize: inputSize,
+                             batchCount: batchCount)
+  }
+  
   /// Calculates the convolution of the given inputs
   /// - Parameters:
   ///   - signal: The signal as a Tensor.Value array to perform the convolution on
