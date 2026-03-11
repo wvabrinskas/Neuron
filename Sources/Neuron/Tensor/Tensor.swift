@@ -376,6 +376,20 @@ public class Tensor: Equatable, Codable {
     }
   }
   
+  // reserved for fetching a single Tensor with multiple batches.
+  // Good for GPU parallization
+  public func batchSlice(_ b: Int) -> Tensor {
+    guard b < size.batchCount else {
+      assertionFailure("batch index \(b) out of range")
+      return self
+    }
+    
+    let sliceSize = size.rows * size.columns * size.depth
+    let start = b * sliceSize
+    let value = Tensor.Value(UnsafeBufferPointer(start: storage.pointer + start, count: sliceSize))
+    return Tensor(value, size: TensorSize(rows: size.rows, columns: size.columns, depth: size.depth))
+  }
+  
   /// Creates a new Tensor from a single depth slice of this tensor.
   /// The result has depth=1 and the same rows/columns.
   public func depthSliceTensor(_ d: Int) -> Tensor {
@@ -766,8 +780,8 @@ extension Tensor: CustomDebugStringConvertible {
   /// Useful for debugging; prints each depth slice with row and column layout.
   public var debugDescription: String {
     var string = """
-                 <Tensor \n
-                 """
+               <Tensor \n
+               """
     
     string += "shape: (col: \(size.columns), rows: \(size.rows), depth: \(size.depth))\n"
     string += "-----\n"
@@ -786,7 +800,17 @@ extension Tensor: CustomDebugStringConvertible {
     
     string += "graph: \(graph.isEmpty == false)\n"
     string += ">"
-    return string
+    
+    var returnString = string
+    // skip self, start at 1
+    for b in 1..<size.batchCount {
+      if size.batchCount > 1 {
+        returnString += "\n--- batch index \(b) ---\n"
+      }
+      returnString += batchSlice(b).debugDescription
+    }
+    
+    return returnString
   }
 }
 

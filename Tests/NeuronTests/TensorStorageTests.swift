@@ -265,4 +265,27 @@ final class TensorStorageTests: XCTestCase {
     let desc = storage.debugDescription
     XCTAssertTrue(desc.contains("20 total"))
   }
+  
+  func testBatch() {
+    let tensorsToAdd = 2
+    let batchSize = tensorsToAdd + 1 // we start with 1
+
+    var tensor = Tensor.fillRandom(size: .init(array: [3,3,1]))
+    var batchTensors: TensorBatch = [tensor]
+    
+    for _ in 0..<tensorsToAdd {
+      let newTensor = Tensor.fillRandom(size: .init(array: [3,3,1]))
+      batchTensors.append(newTensor)
+      tensor = tensor.concat(newTensor, axis: 3)
+    }
+    
+    XCTAssertEqual(tensor.size.batchCount, batchSize)
+    
+    for i in 0..<batchSize {
+      let batchedTensor = tensor.batchSlice(i)
+      let expectedTensor = batchTensors[i]
+      XCTAssertTrue(expectedTensor.isValueEqual(to: batchedTensor, accuracy: 0.00001))
+    }
+    
+  }
 }
