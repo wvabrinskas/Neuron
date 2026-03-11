@@ -110,14 +110,6 @@ public class Conv2d: BaseConvolutionalLayer {
     outputSize = TensorSize(array: [columns, rows, filterCount])
   }
   
-//  public override func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
-//    let tensor = tensorBatch.asTensor
-//
-//
-//
-//    return []
-//  }
-  
   /// Performs a convolution forward pass and constructs backprop context.
   ///
   /// - Parameters:
@@ -211,13 +203,14 @@ public class Conv2d: BaseConvolutionalLayer {
         let kernelPtr = flippedKernelStorage.pointer + (f * filterCount + i) * fSliceSize
         let inputGradPtr = inputGradStorage.pointer + f * inputSliceSize
 
-        NumSwiftFlat.conv2d(signal: paddedDeltaBuf.pointer,
-                             filter: kernelPtr,
-                             result: convResultBuf.pointer,
-                             strides: (1, 1),
-                             padding: .same,
-                             filterSize: filterSize,
-                             inputSize: (rows: newRows, columns: newColumns))
+        self.device.conv2d(signal: paddedDeltaBuf.pointer,
+                           filter: kernelPtr,
+                           result: convResultBuf.pointer,
+                           strides: (1, 1),
+                           padding: .same,
+                           filterSize: filterSize,
+                           inputSize: (rows: newRows, columns: newColumns),
+                           batchCount: 1)
 
         NumSwiftFlat.add(inputGradPtr, convResultBuf.pointer,
                           result: inputGradPtr, count: inputSliceSize)
@@ -303,13 +296,14 @@ public class Conv2d: BaseConvolutionalLayer {
                                 signalSize: deltaSize)
 
       // Convolve: signal=paddedInput, filter=stridePaddedDelta → weight gradient slice
-      NumSwiftFlat.conv2d(signal: paddedSignalBuf.pointer,
-                           filter: stridePaddedDeltaBuf.pointer,
-                           result: resultPtr + i * fSliceSize,
-                           strides: convStrides,
-                           padding: .valid,
-                           filterSize: filterInputSize,
-                           inputSize: (rows: paddedRows, columns: paddedColumns))
+      self.device.conv2d(signal: paddedSignalBuf.pointer,
+                         filter: stridePaddedDeltaBuf.pointer,
+                         result: resultPtr + i * fSliceSize,
+                         strides: convStrides,
+                         padding: .valid,
+                         filterSize: filterInputSize,
+                         inputSize: (rows: paddedRows, columns: paddedColumns),
+                         batchCount: 1)
     }
   }
   
@@ -341,6 +335,7 @@ public class Conv2d: BaseConvolutionalLayer {
     }
   }
   
+  // supports processing multiple in a batch at once
   internal func conv(_ input: Tensor) -> TensorStorage {
     let batchCount = inputSize.batchCount
     let outRows = outputSize.rows

@@ -120,9 +120,9 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
   private var dBeta: [Tensor.Scalar] = []
   internal let welfordVariance = WelfordVariance()
   
-  private struct NormalizationFlat {
-    let normalized: Tensor.Value
-    let std: Tensor.Value
+  private struct Normalization {
+    let normalized: TensorStorage
+    let std: TensorStorage
   }
   
   /// Creates a batch-normalization layer.
@@ -260,7 +260,7 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
       return (backward, Tensor(), Tensor())
     }
     
-    let out = Tensor(forward.output, size: tensor.size, context: tensorContext)
+    let out = Tensor(storage: forward.output, size: tensor.size, context: tensorContext)
     
     out.setGraph(tensor)
     
@@ -332,114 +332,176 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     }
   }
   
-  private func normalize(inputs: Tensor, context: NetworkContext) -> (output: Tensor.Value, normalized: [NormalizationFlat]) {
+  private func normalize(inputs: Tensor, context: NetworkContext) -> (output: TensorStorage, normalized: [Normalization]) {
     let depth = inputs.size.depth
     let sliceSize = inputSize.rows * inputSize.columns
-    var outStorage = Tensor.Value(repeating: 0, count: inputs.storage.count)
-    var normalizedInputs: [NormalizationFlat] = []
-    
+    let outStorage = TensorStorage.create(count: inputs.storage.count)
+    var normalizedInputs: [Normalization] = []
+
+    // Reusable temp buffers (single-depth-slice sized)
+    let tmpA = TensorStorage.create(count: sliceSize)
+    let tmpB = TensorStorage.create(count: sliceSize)
+
     for i in 0..<depth {
-      let inputSlice = inputs.depthSlice(i)
-      let outOffset = i * sliceSize
-      
+      let inputPtr  = inputs.storage.pointer + i * sliceSize
+      let outPtr    = outStorage.pointer + i * sliceSize
+
       if isTraining {
         updateLock.with {
-          let (mean, variance, std, normalized) = calculateWelfordVariables(inputs: inputSlice, index: i,
-                                                                            batchSize: context.totalInBatch)
-          normalizedInputs.append(NormalizationFlat(normalized: normalized, std: std))
-          
-          // gamma[i] * normalized + beta[i]
-          let scaled = (normalized * gamma[i]) + beta[i]
-          
-          // Update moving stats
-          movingMean.setDepthSlice(i, (movingMean.depthSlice(i) * momentum) + (mean * (1 - momentum)))
-          movingVariance.setDepthSlice(i, (movingVariance.depthSlice(i) * momentum) + (variance * (1 - momentum)))
-          
-          for j in 0..<sliceSize { outStorage[outOffset + j] = scaled[j] }
+          let (meanStorage, varStorage, stdStorage, normStorage) =
+            calculateWelfordVariables(inputPtr: inputPtr, sliceSize: sliceSize,
+                                      index: i, batchSize: context.totalInBatch,
+                                      tmpA: tmpA, tmpB: tmpB)
+          normalizedInputs.append(Normalization(normalized: normStorage, std: stdStorage))
+
+          // scaled = normalized * gamma[i] + beta[i]
+          NumSwiftFlat.mul(normStorage.pointer, scalar: gamma[i], result: outPtr, count: sliceSize)
+          NumSwiftFlat.add(outPtr, scalar: beta[i], result: outPtr, count: sliceSize)
+
+          // Update moving stats: movingX = movingX * momentum + x * (1 - momentum)
+          let meanPtr = meanStorage.pointer
+          let varPtr  = varStorage.pointer
+          let mmPtr   = movingMean.storage.pointer + i * sliceSize
+          let mvPtr   = movingVariance.storage.pointer + i * sliceSize
+
+          // tmpA = movingMean[i] * momentum
+          NumSwiftFlat.mul(mmPtr, scalar: momentum, result: tmpA.pointer, count: sliceSize)
+          // tmpB = mean * (1 - momentum)
+          NumSwiftFlat.mul(meanPtr, scalar: 1 - momentum, result: tmpB.pointer, count: sliceSize)
+          // movingMean[i] = tmpA + tmpB
+          NumSwiftFlat.add(tmpA.pointer, tmpB.pointer, result: mmPtr, count: sliceSize)
+
+          // tmpA = movingVariance[i] * momentum
+          NumSwiftFlat.mul(mvPtr, scalar: momentum, result: tmpA.pointer, count: sliceSize)
+          // tmpB = variance * (1 - momentum)
+          NumSwiftFlat.mul(varPtr, scalar: 1 - momentum, result: tmpB.pointer, count: sliceSize)
+          // movingVariance[i] = tmpA + tmpB
+          NumSwiftFlat.add(tmpA.pointer, tmpB.pointer, result: mvPtr, count: sliceSize)
         }
       } else {
-        let mm = movingMean.depthSlice(i)
-        let mv = movingVariance.depthSlice(i)
+        let mmPtr = movingMean.storage.pointer + i * sliceSize
+        let mvPtr = movingVariance.storage.pointer + i * sliceSize
+
         // std = sqrt(mv + e)
-        let std = NumSwiftFlat.sqrt(mv + e)
+        NumSwiftFlat.add(mvPtr, scalar: e, result: tmpA.pointer, count: sliceSize)
+        NumSwiftFlat.sqrt(tmpA.pointer, result: tmpA.pointer, count: sliceSize)
+
         // normalized = (input - mm) / std
-        let normalized = (inputSlice - mm) / std
-        // output = gamma[i] * normalized + beta[i]
-        let scaled = (normalized * gamma[i]) + beta[i]
-        
-        for j in 0..<sliceSize { outStorage[outOffset + j] = scaled[j] }
+        NumSwiftFlat.sub(inputPtr, mmPtr, result: tmpB.pointer, count: sliceSize)
+        NumSwiftFlat.div(tmpB.pointer, tmpA.pointer, result: tmpB.pointer, count: sliceSize)
+
+        // scaled = normalized * gamma[i] + beta[i]
+        NumSwiftFlat.mul(tmpB.pointer, scalar: gamma[i], result: outPtr, count: sliceSize)
+        NumSwiftFlat.add(outPtr, scalar: beta[i], result: outPtr, count: sliceSize)
       }
     }
-    
+
     return (outStorage, normalizedInputs)
   }
-  
-  private func calculateWelfordVariables(inputs: Tensor.Value,
+
+  /// Returns (mean, variance, std, normalized) as `TensorStorage` instances for depth slice `index`.
+  /// `tmpA` and `tmpB` are caller-provided scratch buffers of size `sliceSize`.
+  private func calculateWelfordVariables(inputPtr: TensorStorage.Pointer,
+                                         sliceSize: Int,
                                          index: Int,
-                                         batchSize: Int) -> (mean: Tensor.Value,
-                                                             variance: Tensor.Value,
-                                                             std: Tensor.Value,
-                                                             out: Tensor.Value) {
-    let mean = welfordVariance.means[index]
-    let variance = welfordVariance.m2s[index] / Tensor.Scalar(batchSize)
-    
-    let std = NumSwiftFlat.sqrt(variance + e)
-    let normalized = (inputs - mean) / std
-    
-    return (mean, variance, std, normalized)
+                                         batchSize: Int,
+                                         tmpA: TensorStorage,
+                                         tmpB: TensorStorage) -> (mean: TensorStorage,
+                                                                   variance: TensorStorage,
+                                                                   std: TensorStorage,
+                                                                   normalized: TensorStorage) {
+    // Copy Welford mean/m2 slices (ContiguousArray) into TensorStorage for pointer access
+    let meanStorage = TensorStorage(welfordVariance.means[index])
+    let m2Storage   = TensorStorage(welfordVariance.m2s[index])
+
+    // variance = m2 / batchSize
+    let varStorage = TensorStorage.create(count: sliceSize)
+    NumSwiftFlat.div(m2Storage.pointer, scalar: Tensor.Scalar(batchSize),
+                      result: varStorage.pointer, count: sliceSize)
+
+    // std = sqrt(variance + e)
+    let stdStorage = TensorStorage.create(count: sliceSize)
+    NumSwiftFlat.add(varStorage.pointer, scalar: e, result: stdStorage.pointer, count: sliceSize)
+    NumSwiftFlat.sqrt(stdStorage.pointer, result: stdStorage.pointer, count: sliceSize)
+
+    // normalized = (input - mean) / std
+    let normStorage = TensorStorage.create(count: sliceSize)
+    NumSwiftFlat.sub(inputPtr, meanStorage.pointer, result: normStorage.pointer, count: sliceSize)
+    NumSwiftFlat.div(normStorage.pointer, stdStorage.pointer, result: normStorage.pointer, count: sliceSize)
+
+    return (meanStorage, varStorage, stdStorage, normStorage)
   }
-  
+
   private func backward(inputs: Tensor,
                         gradient: Tensor,
                         context: NetworkContext,
-                        normalizations: [NormalizationFlat]) -> Tensor {
+                        normalizations: [Normalization]) -> Tensor {
     let depth = inputs.size.depth
     let sliceSize = inputSize.rows * inputSize.columns
-    var outStorage = Tensor.Value(repeating: 0, count: inputs.storage.count)
-    
+    let outStorage = TensorStorage.create(count: inputs.storage.count)
+
+    let N = Tensor.Scalar(context.totalInBatch)
+
+    // Reusable scratch buffers
+    let tmpA = TensorStorage.create(count: sliceSize)
+    let tmpB = TensorStorage.create(count: sliceSize)
+    let dxNorm     = TensorStorage.create(count: sliceSize)
+    let dxNormXNorm = TensorStorage.create(count: sliceSize)
+    let term       = TensorStorage.create(count: sliceSize)
+    let invNStd    = TensorStorage.create(count: sliceSize)
+
     for i in 0..<depth {
-      let N = Tensor.Scalar(context.totalInBatch)
-      let gradSlice = gradient.depthSlice(i)
-      
-      var normalized: Tensor.Value
-      var std: Tensor.Value
-      
+      let gradPtr  = gradient.storage.pointer + i * sliceSize
+      let outPtr   = outStorage.pointer + i * sliceSize
+
+      let normStorage: TensorStorage
+      let stdStorage: TensorStorage
+
       if let norm = normalizations[safe: i] {
-        normalized = norm.normalized
-        std = norm.std
+        normStorage = norm.normalized
+        stdStorage  = norm.std
       } else {
-        let inputSlice = inputs.depthSlice(i)
-        let (_, _, nStd, nNormalized) = calculateWelfordVariables(inputs: inputSlice, index: i, batchSize: context.totalInBatch)
-        normalized = nNormalized
-        std = nStd
+        let inputPtr = inputs.storage.pointer + i * sliceSize
+        let result = calculateWelfordVariables(inputPtr: inputPtr, sliceSize: sliceSize,
+                                               index: i, batchSize: context.totalInBatch,
+                                               tmpA: tmpA, tmpB: tmpB)
+        normStorage = result.normalized
+        stdStorage  = result.std
       }
-      
+
       updateLock.with {
-        dGamma[i] +=  (gradSlice * normalized).sum
-        dBeta[i] += gradSlice.sum
+        // dGamma[i] += sum(grad * normalized)
+        NumSwiftFlat.mul(gradPtr, normStorage.pointer, result: tmpA.pointer, count: sliceSize)
+        dGamma[i] += NumSwiftFlat.sum(tmpA.pointer, count: sliceSize)
+        // dBeta[i] += sum(grad)
+        dBeta[i] += NumSwiftFlat.sum(gradPtr, count: sliceSize)
       }
-      
-      // dxNorm = gradient[i] * gamma[i]
-      let dxNorm = gradSlice * gamma[i]
-      
-      // dx = 1 / N / std * (N * dxNorm - dxNorm.sum - normalized * (dxNorm * normalized).sum)
-      let dxNormSum = dxNorm.sum
-      let dxNormTimesNorm = dxNorm * normalized
-      let dxNormTimesNormSum = dxNormTimesNorm.sum
-      
-      let term1 = dxNorm * N
-      let term2 = term1 - dxNormSum
-      let term3 = term2 - (normalized * dxNormTimesNormSum)
-      
-      let invNStd = (Tensor.Value(repeating: 1, count: sliceSize) / N) / std
-      
-      let dx = invNStd * term3
-      
-      let outOffset = i * sliceSize
-      for j in 0..<sliceSize { outStorage[outOffset + j] = dx[j] }
+
+      // dxNorm = grad * gamma[i]
+      NumSwiftFlat.mul(gradPtr, scalar: gamma[i], result: dxNorm.pointer, count: sliceSize)
+
+      // dxNormSum = sum(dxNorm)
+      let dxNormSum = NumSwiftFlat.sum(dxNorm.pointer, count: sliceSize)
+
+      // dxNormTimesNormSum = sum(dxNorm * normalized)
+      NumSwiftFlat.mul(dxNorm.pointer, normStorage.pointer, result: dxNormXNorm.pointer, count: sliceSize)
+      let dxNormTimesNormSum = NumSwiftFlat.sum(dxNormXNorm.pointer, count: sliceSize)
+
+      // term = N * dxNorm - dxNormSum - normalized * dxNormTimesNormSum
+      NumSwiftFlat.mul(dxNorm.pointer, scalar: N, result: term.pointer, count: sliceSize)
+      NumSwiftFlat.sub(term.pointer, scalar: dxNormSum, result: term.pointer, count: sliceSize)
+      // tmpA = normalized * dxNormTimesNormSum
+      NumSwiftFlat.mul(normStorage.pointer, scalar: dxNormTimesNormSum, result: tmpA.pointer, count: sliceSize)
+      NumSwiftFlat.sub(term.pointer, tmpA.pointer, result: term.pointer, count: sliceSize)
+
+      // invNStd = (1 / N) / std
+      NumSwiftFlat.div(scalar: 1 / N, stdStorage.pointer, result: invNStd.pointer, count: sliceSize)
+
+      // dx = invNStd * term
+      NumSwiftFlat.mul(invNStd.pointer, term.pointer, result: outPtr, count: sliceSize)
     }
-    
-    return Tensor(outStorage, size: inputs.size)
+
+    return Tensor(storage: outStorage, size: inputs.size)
   }
   
 }
