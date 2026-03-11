@@ -825,6 +825,12 @@ extension Array where Element == Tensor {
     return mean
   }
   
+  var asTensor: Tensor {
+    var mutable = self
+    let first = mutable.removeFirst()
+    return mutable.reduce(first, { $0.concat($1, axis: 3)})
+  }
+  
   func gradients(_ deltas: [Tensor], wrt: [Tensor]) -> [Tensor.Gradient] {
     var result = [Tensor.Gradient](repeating: .init(),
                                    count: deltas.count)

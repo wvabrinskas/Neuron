@@ -33,6 +33,26 @@ public struct TensorSize: Codable, Equatable {
     [columns, rows, depth]
   }
   
+  public enum CodingKeys: String, CodingKey {
+    case rows, columns, depth, batchCount
+  }
+  
+  public init(from decoder: any Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    self.rows = try container.decode(Int.self, forKey: .rows)
+    self.columns = try container.decode(Int.self, forKey: .columns)
+    self.depth = try container.decode(Int.self, forKey: .depth)
+    self.batchCount = try container.decodeIfPresent(Int.self, forKey: .batchCount) ?? 1
+  }
+  
+  public func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    try container.encode(rows, forKey: .rows)
+    try container.encode(columns, forKey: .columns)
+    try container.encode(depth, forKey: .depth)
+    try container.encodeIfPresent(batchCount, forKey: .batchCount)
+  }
+  
   /// Initializer that takes in array of any size. Will take the first three elements and construct row, columns, depth. `Rows` is from index 1, `columns` is index 0, and `depth` is index 2.
   /// - Parameter array: Array to build the tensor size
   public init(array: [Int]) {
