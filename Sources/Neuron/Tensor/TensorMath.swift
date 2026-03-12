@@ -910,7 +910,29 @@ public extension Tensor {
       return Tensor(storage: result, size: TensorSize(rows: 1, columns: totalCols, depth: 1), context: context)
     }
     
-    if axis == 2 {
+    // reserved for creating a single Tensor with multiple batches.
+    // Good for GPU parallization
+    if axis == 3 {
+      guard size.unitSize == tensor.size.unitSize else {
+        assertionFailure("When adding along batch axis, all tensors must have the same unit size")
+        return Tensor()
+      }
+      
+      let newSize = TensorSize(rows: selfRows,
+                               columns: selfCols,
+                               depth: selfDepth,
+                               batchCount: size.batchCount + tensor.size.batchCount)
+      
+      let result = TensorStorage.create(count: storage.count + tensor.storage.count)
+      if storage.count > 0 {
+        result.pointer.update(from: storage.pointer, count: storage.count)
+      }
+      if tensor.storage.count > 0 {
+        (result.pointer + storage.count).update(from: tensor.storage.pointer, count: tensor.storage.count)
+      }
+      return Tensor(storage: result, size: newSize, context: context)
+      
+    } else if axis == 2 {
       let newDepth = selfDepth + otherDepth
       let newSize = TensorSize(rows: selfRows, columns: selfCols, depth: newDepth)
       let result = TensorStorage.create(count: storage.count + tensor.storage.count)
