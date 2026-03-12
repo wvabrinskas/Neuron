@@ -11,8 +11,8 @@ import NumSwift
 /// Stochastic Gradient Descent optimizer with optional momentum and gradient/weight clipping support.
 public class SGD: BaseOptimizer {
   private let momentum: Tensor.Scalar
-  private var v: [Tensor.Value] = []
-  private var vb: [Tensor.Value] = []
+  private var v: [TensorStorage] = []
+  private var vb: [TensorStorage] = []
 
   /// Creates an SGD optimizer with optional momentum and clipping.
   ///
@@ -35,8 +35,8 @@ public class SGD: BaseOptimizer {
     self.momentum = momentum
     
     trainable.compile()
-    v = [Tensor.Value].init(repeating: Tensor.Value(), count: trainable.layers.count)
-    vb = [Tensor.Value].init(repeating: Tensor.Value(), count: trainable.layers.count)
+    v = [TensorStorage].init(repeating: TensorStorage.create(count: 0), count: trainable.layers.count)
+    vb = [TensorStorage].init(repeating: TensorStorage.create(count: 0), count: trainable.layers.count)
     
     super.init(trainable: trainable,
                learningRate: learningRate,
@@ -75,22 +75,22 @@ public class SGD: BaseOptimizer {
     let i = index
 
     if v[i].isEmpty {
-      v[i] = Tensor.Value(repeating: 0, count: gradient.storage.count)
+      v[i] = TensorStorage.create(count: gradient.storage.count)
     }
     
     apply(to: &v[i], gradient: gradient.storage)
 
     if vb[i].isEmpty {
-      vb[i] = Tensor.Value(repeating: 0, count: biasGradient.storage.count)
+      vb[i] = TensorStorage.create(count: biasGradient.storage.count)
     }
           
     apply(to: &vb[i], gradient: biasGradient.storage)
 
-    return (Tensor(v[i], size: gradient.size),
-            Tensor(vb[i], size: biasGradient.size))
+    return (Tensor(storage: v[i], size: gradient.size),
+            Tensor(storage: vb[i], size: biasGradient.size))
   }
 
-  private func apply(to: inout Tensor.Value, gradient: TensorStorage) {
+  private func apply(to: inout TensorStorage, gradient: TensorStorage) {
     for i in 0..<gradient.count {
       to[i] = momentum * to[i] + learningRate * gradient[i]
     }

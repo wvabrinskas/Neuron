@@ -73,10 +73,10 @@ public class Adam: BaseOptimizer {
   private var b2: Tensor.Scalar = 0.999
   private var eps: Tensor.Scalar = .stabilityFactor
   
-  private var m: [Tensor.Value] = []
-  private var v: [Tensor.Value] = []
-  private var vb: [Tensor.Value] = []
-  private var mb: [Tensor.Value] = []
+  private var m: [TensorStorage] = []
+  private var v: [TensorStorage] = []
+  private var vb: [TensorStorage] = []
+  private var mb: [TensorStorage] = []
   private var t: Tensor.Scalar = 1
   private let weightDecay: WeightDecay
   
@@ -148,10 +148,10 @@ public class Adam: BaseOptimizer {
   }
   
   private func build() {
-    m = [Tensor.Value].init(repeating: Tensor.Value(), count: trainable.layers.count)
-    v = [Tensor.Value].init(repeating: Tensor.Value(), count: trainable.layers.count)
-    vb = [Tensor.Value].init(repeating: Tensor.Value(), count: trainable.layers.count)
-    mb = [Tensor.Value].init(repeating: Tensor.Value(), count: trainable.layers.count)
+    m = [TensorStorage].init(repeating: TensorStorage.create(count: 0), count: trainable.layers.count)
+    v = [TensorStorage].init(repeating: TensorStorage.create(count: 0), count: trainable.layers.count)
+    vb = [TensorStorage].init(repeating: TensorStorage.create(count: 0), count: trainable.layers.count)
+    mb = [TensorStorage].init(repeating: TensorStorage.create(count: 0), count: trainable.layers.count)
     trainable.compile()
   }
   
@@ -160,8 +160,8 @@ public class Adam: BaseOptimizer {
     let gradCount = gradient.storage.count
 
     if m[i].isEmpty || v[i].isEmpty {
-      m[i] = Tensor.Value(repeating: 0, count: gradCount)
-      v[i] = Tensor.Value(repeating: 0, count: gradCount)
+      m[i] = TensorStorage.create(count: gradCount)
+      v[i] = TensorStorage.create(count: gradCount)
     }
     
     let result = apply(m: &m[i],
@@ -174,8 +174,8 @@ public class Adam: BaseOptimizer {
     let biasCount = biasGradient.storage.count
 
     if mb[i].isEmpty || vb[i].isEmpty {
-      mb[i] = Tensor.Value(repeating: 0, count: biasCount)
-      vb[i] = Tensor.Value(repeating: 0, count: biasCount)
+      mb[i] = TensorStorage.create(count: biasCount)
+      vb[i] = TensorStorage.create(count: biasCount)
     }
 
     let biases = apply(m: &mb[i],
@@ -184,15 +184,15 @@ public class Adam: BaseOptimizer {
                        weights: bias.storage,
                        size: biasGradient.size)
     
-    return (Tensor(result, size: gradient.size), Tensor(biases, size: biasGradient.size))
+    return (Tensor(storage: result, size: gradient.size), Tensor(storage: biases, size: biasGradient.size))
   }
 
-  private func apply(m: inout Tensor.Value,
-                     v: inout Tensor.Value,
+  private func apply(m: inout TensorStorage,
+                     v: inout TensorStorage,
                      gradient: TensorStorage,
                      decay: Bool = false,
                      weights: TensorStorage,
-                     size: TensorSize) -> Tensor.Value {
+                     size: TensorSize) -> TensorStorage {
 
     // Hoist loop-invariant computations
     let oneMinusB1 = 1 - b1
@@ -205,7 +205,7 @@ public class Adam: BaseOptimizer {
     }() : nil
 
     let count = gradient.count
-    var result = Tensor.Value(repeating: 0, count: count)
+    var result = TensorStorage.create(count: count)
 
     for i in 0..<count {
       let g = gradient[i]

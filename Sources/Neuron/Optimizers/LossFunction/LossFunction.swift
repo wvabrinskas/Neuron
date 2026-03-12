@@ -40,7 +40,7 @@ public enum LossFunction {
     let cols = size.columns
         
     // Build result using flat storage
-    var resultStorage = Tensor.Value(repeating: 0, count: depth * 1 * rows)
+    var resultStorage = TensorStorage.create(count: depth * 1 * rows)
     let depthScalar = Tensor.Scalar(depth)
     
     for d in 0..<depth {
@@ -64,7 +64,7 @@ public enum LossFunction {
     
     // Output shape: each depth has 1 row with `rows` columns (matching how rows map to loss values)
     let resultSize = TensorSize(rows: 1, columns: rows, depth: depth)
-    return Tensor(resultStorage, size: resultSize)
+    return Tensor(storage: resultStorage, size: resultSize)
   }
   
   /// Calculate the derivative of the loss given a prediction tensor and a label tensor.
