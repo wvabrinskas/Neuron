@@ -168,8 +168,13 @@ public class BaseLayerGroup: BaseLayer, LayerGrouping {
       let totalBiases = biasSize.rows * biasSize.columns * biasSize.depth
       let indexBiasOffset = currentBiasOffset
       
-      let layerWeights = Tensor(Tensor.Value(gradients.weights.storage[indexOffset..<indexOffset + totalWeights]), size: size)
-      let layerBiases = Tensor(Tensor.Value(gradients.biases.storage[indexBiasOffset..<indexBiasOffset + totalBiases]), size: biasSize)
+      let wStorage = TensorStorage.create(count: totalWeights)
+      wStorage.pointer.update(from: gradients.weights.storage.pointer + indexOffset, count: totalWeights)
+      let layerWeights = Tensor(storage: wStorage, size: size)
+
+      let bStorage = TensorStorage.create(count: totalBiases)
+      bStorage.pointer.update(from: gradients.biases.storage.pointer + indexBiasOffset, count: totalBiases)
+      let layerBiases = Tensor(storage: bStorage, size: biasSize)
       
       weightGradients.append(layerWeights)
       biasGradients.append(layerBiases)

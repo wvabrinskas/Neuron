@@ -321,8 +321,13 @@ public final class ResNet: BaseLayerGroup {
       let totalBiases = biasSize.rows * biasSize.columns * biasSize.depth
       let indexBiasOffset = lastTotalBiases + shortcutBiasOffset
       
-      let layerWeights = Tensor(Tensor.Value(gradients.weights.storage[indexOffset..<indexOffset + totalWeights]), size: size)
-      let layerBiases = Tensor(Tensor.Value(gradients.biases.storage[indexBiasOffset..<indexBiasOffset + totalBiases]), size: biasSize)
+      let wStorage = TensorStorage.create(count: totalWeights)
+      wStorage.pointer.update(from: gradients.weights.storage.pointer + indexOffset, count: totalWeights)
+      let layerWeights = Tensor(storage: wStorage, size: size)
+
+      let bStorage = TensorStorage.create(count: totalBiases)
+      bStorage.pointer.update(from: gradients.biases.storage.pointer + indexBiasOffset, count: totalBiases)
+      let layerBiases = Tensor(storage: bStorage, size: biasSize)
       
       weightGradients.append(layerWeights)
       biasGradients.append(layerBiases)
@@ -345,27 +350,60 @@ public final class ResNet: BaseLayerGroup {
 
       let reluGradientsWrtProjectedInput = reLuOut.gradients(delta: gradient, wrt: copiedInputTensor)
             
-      var weightGradients = Array(reluGradients.weights[0..<innerBlockSequential.layers.count]).flatMap { $0.storage }
-      
-      var biasGradients = Array(reluGradients.biases[0..<innerBlockSequential.layers.count]).flatMap { $0.storage }
-      
+      let innerWeightSlices = Array(reluGradients.weights[0..<innerBlockSequential.layers.count])
+      let innerBiasSlices   = Array(reluGradients.biases[0..<innerBlockSequential.layers.count])
+
+      var shortCutWeightSlices: [Tensor] = []
+      var shortCutBiasSlices: [Tensor] = []
+
       if shouldProjectInput {
-        let shortCutGradientsWeights = Array(reluGradientsWrtProjectedInput.weights[0..<shortcutSequential.layers.count])
-        let shortCutGradientsBiases = Array(reluGradientsWrtProjectedInput.biases[0..<shortcutSequential.layers.count])
-        
-        weightGradients.append(contentsOf: shortCutGradientsWeights.flatMap(\.storage))
-        biasGradients.append(contentsOf: shortCutGradientsBiases.flatMap(\.storage))
+        shortCutWeightSlices = Array(reluGradientsWrtProjectedInput.weights[0..<shortcutSequential.layers.count])
+        shortCutBiasSlices   = Array(reluGradientsWrtProjectedInput.biases[0..<shortcutSequential.layers.count])
       }
-      
+
+      // Build weight gradient storage without intermediate ContiguousArray allocations
+      let totalWeightCount = innerWeightSlices.reduce(0) { $0 + $1.storage.count }
+                           + shortCutWeightSlices.reduce(0) { $0 + $1.storage.count }
+      let wGradStorage = TensorStorage.create(count: totalWeightCount)
+      var wOffset = 0
+      for t in innerWeightSlices {
+        let c = t.storage.count
+        wGradStorage.pointer.advanced(by: wOffset).update(from: t.storage.pointer, count: c)
+        wOffset += c
+      }
+      for t in shortCutWeightSlices {
+        let c = t.storage.count
+        wGradStorage.pointer.advanced(by: wOffset).update(from: t.storage.pointer, count: c)
+        wOffset += c
+      }
+
+      // Build bias gradient storage without intermediate ContiguousArray allocations
+      let totalBiasCount = innerBiasSlices.reduce(0) { $0 + $1.storage.count }
+                         + shortCutBiasSlices.reduce(0) { $0 + $1.storage.count }
+      let bGradStorage = TensorStorage.create(count: totalBiasCount)
+      var bOffset = 0
+      for t in innerBiasSlices {
+        let c = t.storage.count
+        bGradStorage.pointer.advanced(by: bOffset).update(from: t.storage.pointer, count: c)
+        bOffset += c
+      }
+      for t in shortCutBiasSlices {
+        let c = t.storage.count
+        bGradStorage.pointer.advanced(by: bOffset).update(from: t.storage.pointer, count: c)
+        bOffset += c
+      }
+
       let gradientsToadd = if shouldProjectInput {
         reluGradientsWrtProjectedInput.input[safe: 0, Tensor()]
       } else {
         gradient
       }
-      
+
       let wrtInputs = reluGradients.input[safe: 0, Tensor()] + gradientsToadd
-      
-      return (wrtInputs, Tensor(weightGradients), Tensor(biasGradients))
+
+      let wSize = TensorSize(rows: 1, columns: totalWeightCount, depth: 1)
+      let bSize = TensorSize(rows: 1, columns: totalBiasCount, depth: 1)
+      return (wrtInputs, Tensor(storage: wGradStorage, size: wSize), Tensor(storage: bGradStorage, size: bSize))
     }
     
     let out = Tensor(storage: reLuOut.storage, size: reLuOut.size, context: tensorContext)

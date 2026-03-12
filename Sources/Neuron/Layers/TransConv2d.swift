@@ -165,12 +165,12 @@ public final class TransConv2d: Conv2d {
 
     // Buffer for stride-padded input must be sized to the stride-padded shape, not the original input shape
     let stridePaddedFilterSize = spShape.rows * spShape.columns
-    let paddedFilterSize       = filterInputSize.rows * filterInputSize.columns
-    let paddedDeltaSize        = signalSize.rows * signalSize.columns
+    let paddedFilterSize = filterInputSize.rows * filterInputSize.columns
+    let paddedDeltaSize = signalSize.rows * signalSize.columns
 
     let stridePaddedFilterBuf = TensorStorage.create(count: stridePaddedFilterSize)
-    let paddedFilterBuf       = TensorStorage.create(count: paddedFilterSize)
-    let paddedDeltaBuf        = TensorStorage.create(count: paddedDeltaSize)
+    let paddedFilterBuf = TensorStorage.create(count: paddedFilterSize)
+    let paddedDeltaBuf = TensorStorage.create(count: paddedDeltaSize)
 
     // Pad signal (delta slice) once for all input depth iterations
     if deltaNeedsPad {

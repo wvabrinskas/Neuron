@@ -322,11 +322,12 @@ public class Conv2d: BaseConvolutionalLayer {
     for i in 0..<filterCount {
       // Extract this filter's gradient slices and build a tensor
       let startDepth = i * slicesPerFilter
-      let gradStorage = Tensor.Value(
-        weightGradTensor.storage[(startDepth * sliceSize)..<((startDepth + slicesPerFilter) * sliceSize)]
-      )
-      let gradTensor = Tensor(gradStorage,
-                               size: TensorSize(rows: filterSize.rows, columns: filterSize.columns, depth: slicesPerFilter))
+      let offset = startDepth * sliceSize
+      let count = slicesPerFilter * sliceSize
+      let gradStorage = TensorStorage.create(count: count)
+      gradStorage.pointer.update(from: weightGradTensor.storage.pointer + offset, count: count)
+      let gradTensor = Tensor(storage: gradStorage,
+                              size: TensorSize(rows: filterSize.rows, columns: filterSize.columns, depth: slicesPerFilter))
       filters[i] = filters[i].copy() - gradTensor
     }
 
