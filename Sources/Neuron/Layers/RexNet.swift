@@ -180,8 +180,28 @@ public final class RexNet: BaseLayerGroup {
       let wrtInput = mainFlowInputGradients.input[safe: 0, Tensor()]
       
       // we can't just use the Add autograd because we need to pass all of the gradients in one giant tensor back
-      let wrtWeights: Tensor = Tensor(mainFlowInputGradients.weights.flatMap(\.storage))
-      let wrtBiases: Tensor = Tensor(mainFlowInputGradients.biases.flatMap(\.storage))
+      let weightSlices = mainFlowInputGradients.weights
+      let totalWeightCount = weightSlices.reduce(0) { $0 + $1.storage.count }
+      let wGradStorage = TensorStorage.create(count: totalWeightCount)
+      var wOffset = 0
+      for t in weightSlices {
+        let c = t.storage.count
+        wGradStorage.pointer.advanced(by: wOffset).update(from: t.storage.pointer, count: c)
+        wOffset += c
+      }
+
+      let biasSlices = mainFlowInputGradients.biases
+      let totalBiasCount = biasSlices.reduce(0) { $0 + $1.storage.count }
+      let bGradStorage = TensorStorage.create(count: totalBiasCount)
+      var bOffset = 0
+      for t in biasSlices {
+        let c = t.storage.count
+        bGradStorage.pointer.advanced(by: bOffset).update(from: t.storage.pointer, count: c)
+        bOffset += c
+      }
+
+      let wrtWeights = Tensor(storage: wGradStorage, size: TensorSize(rows: 1, columns: totalWeightCount, depth: 1))
+      let wrtBiases  = Tensor(storage: bGradStorage, size: TensorSize(rows: 1, columns: totalBiasCount, depth: 1))
 
       return (wrtInput,
               wrtWeights,
