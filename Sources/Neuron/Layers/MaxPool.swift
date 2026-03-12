@@ -75,7 +75,7 @@ public final class MaxPool: BaseLayer {
       let forwardPooledMaxIndicies = poolingGradients.indicies
 
       for d in 0..<inputSize.depth {
-        let gradPtr = gradient.storage.pointer + d * ((inRows + 1) / 2) * ((inCols + 1) / 2)
+        let gradPtr = gradient.depthPointer(d)
         let depthBase = outStorage.pointer + d * inSliceSize
         let indicies = forwardPooledMaxIndicies[d]
 

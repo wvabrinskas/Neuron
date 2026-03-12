@@ -348,10 +348,10 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
 
       if isTraining {
         updateLock.with {
-          let (meanStorage, varStorage, stdStorage, normStorage) =
+          let (meanStorage, stdStorage, normStorage) =
             calculateWelfordVariables(inputPtr: inputPtr, sliceSize: sliceSize,
                                       index: i, batchSize: context.totalInBatch,
-                                      tmpA: tmpA, tmpB: tmpB)
+                                      varScratch: tmpA)
           normalizedInputs.append(Normalization(normalized: normStorage, std: stdStorage))
 
           // scaled = normalized * gamma[i] + beta[i]
@@ -359,24 +359,27 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
           NumSwiftFlat.add(outPtr, scalar: beta[i], result: outPtr, count: sliceSize)
 
           // Update moving stats: movingX = movingX * momentum + x * (1 - momentum)
+          // tmpA still holds variance = m2 / batchSize from calculateWelfordVariables.
+          // Update movingVariance first, before tmpA is reused for the mean blending.
           let meanPtr = meanStorage.pointer
-          let varPtr  = varStorage.pointer
           let mmPtr   = movingMean.storage.pointer + i * sliceSize
           let mvPtr   = movingVariance.storage.pointer + i * sliceSize
 
+          // movingVariance update (tmpA = variance, tmpB = scratch)
+          // tmpB = variance * (1 - momentum)
+          NumSwiftFlat.mul(tmpA.pointer, scalar: 1 - momentum, result: tmpB.pointer, count: sliceSize)
+          // tmpA = movingVariance[i] * momentum  (overwrites variance — no longer needed)
+          NumSwiftFlat.mul(mvPtr, scalar: momentum, result: tmpA.pointer, count: sliceSize)
+          // movingVariance[i] = tmpA + tmpB
+          NumSwiftFlat.add(tmpA.pointer, tmpB.pointer, result: mvPtr, count: sliceSize)
+
+          // movingMean update
           // tmpA = movingMean[i] * momentum
           NumSwiftFlat.mul(mmPtr, scalar: momentum, result: tmpA.pointer, count: sliceSize)
           // tmpB = mean * (1 - momentum)
           NumSwiftFlat.mul(meanPtr, scalar: 1 - momentum, result: tmpB.pointer, count: sliceSize)
           // movingMean[i] = tmpA + tmpB
           NumSwiftFlat.add(tmpA.pointer, tmpB.pointer, result: mmPtr, count: sliceSize)
-
-          // tmpA = movingVariance[i] * momentum
-          NumSwiftFlat.mul(mvPtr, scalar: momentum, result: tmpA.pointer, count: sliceSize)
-          // tmpB = variance * (1 - momentum)
-          NumSwiftFlat.mul(varPtr, scalar: 1 - momentum, result: tmpB.pointer, count: sliceSize)
-          // movingVariance[i] = tmpA + tmpB
-          NumSwiftFlat.add(tmpA.pointer, tmpB.pointer, result: mvPtr, count: sliceSize)
         }
       } else {
         let mmPtr = movingMean.storage.pointer + i * sliceSize
@@ -399,29 +402,27 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     return (outStorage, normalizedInputs)
   }
 
-  /// Returns (mean, variance, std, normalized) as `TensorStorage` instances for depth slice `index`.
-  /// `tmpA` and `tmpB` are caller-provided scratch buffers of size `sliceSize`.
+  /// Returns (mean, std, normalized) as `TensorStorage` instances for depth slice `index`.
+  /// `varScratch` is a caller-provided scratch buffer of size `sliceSize` used for the intermediate
+  /// variance computation; its contents after this call are undefined.
   private func calculateWelfordVariables(inputPtr: TensorStorage.Pointer,
                                          sliceSize: Int,
                                          index: Int,
                                          batchSize: Int,
-                                         tmpA: TensorStorage,
-                                         tmpB: TensorStorage) -> (mean: TensorStorage,
-                                                                   variance: TensorStorage,
-                                                                   std: TensorStorage,
-                                                                   normalized: TensorStorage) {
+                                         varScratch: TensorStorage) -> (mean: TensorStorage,
+                                                                         std: TensorStorage,
+                                                                         normalized: TensorStorage) {
     // Copy Welford mean/m2 slices (ContiguousArray) into TensorStorage for pointer access
     let meanStorage = TensorStorage(welfordVariance.means[index])
     let m2Storage   = TensorStorage(welfordVariance.m2s[index])
 
-    // variance = m2 / batchSize
-    let varStorage = TensorStorage.create(count: sliceSize)
+    // variance = m2 / batchSize  (written into caller-supplied scratch)
     NumSwiftFlat.div(m2Storage.pointer, scalar: Tensor.Scalar(batchSize),
-                      result: varStorage.pointer, count: sliceSize)
+                      result: varScratch.pointer, count: sliceSize)
 
     // std = sqrt(variance + e)
     let stdStorage = TensorStorage.create(count: sliceSize)
-    NumSwiftFlat.add(varStorage.pointer, scalar: e, result: stdStorage.pointer, count: sliceSize)
+    NumSwiftFlat.add(varScratch.pointer, scalar: e, result: stdStorage.pointer, count: sliceSize)
     NumSwiftFlat.sqrt(stdStorage.pointer, result: stdStorage.pointer, count: sliceSize)
 
     // normalized = (input - mean) / std
@@ -429,7 +430,7 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     NumSwiftFlat.sub(inputPtr, meanStorage.pointer, result: normStorage.pointer, count: sliceSize)
     NumSwiftFlat.div(normStorage.pointer, stdStorage.pointer, result: normStorage.pointer, count: sliceSize)
 
-    return (meanStorage, varStorage, stdStorage, normStorage)
+    return (meanStorage, stdStorage, normStorage)
   }
 
   private func backward(inputs: Tensor,
@@ -444,7 +445,6 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
 
     // Reusable scratch buffers
     let tmpA = TensorStorage.create(count: sliceSize)
-    let tmpB = TensorStorage.create(count: sliceSize)
     let dxNorm     = TensorStorage.create(count: sliceSize)
     let dxNormXNorm = TensorStorage.create(count: sliceSize)
     let term       = TensorStorage.create(count: sliceSize)
@@ -464,7 +464,7 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
         let inputPtr = inputs.storage.pointer + i * sliceSize
         let result = calculateWelfordVariables(inputPtr: inputPtr, sliceSize: sliceSize,
                                                index: i, batchSize: context.totalInBatch,
-                                               tmpA: tmpA, tmpB: tmpB)
+                                               varScratch: tmpA)
         normStorage = result.normalized
         stdStorage  = result.std
       }
