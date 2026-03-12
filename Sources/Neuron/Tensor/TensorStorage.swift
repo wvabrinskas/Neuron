@@ -151,7 +151,7 @@ public class TensorStorage {
   private init(buffer: Buffer) {
     self._buffer = buffer
   }
-
+  
   // MARK: - Factory (Metal-backed when NEURON_USE_METAL_STORAGE is set)
 
   /// Creates storage for `count` elements.
