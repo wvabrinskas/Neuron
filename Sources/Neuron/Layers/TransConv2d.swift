@@ -136,13 +136,15 @@ public final class TransConv2d: Conv2d {
     let filterInputSize: (rows: Int, columns: Int)
     let extraPadRight: Int
     let extraPadBottom: Int
+    let spShape: (rows: Int, columns: Int)
     if strides.0 > 1 {
-      let spShape = NumSwiftFlat.stridePadShape(inputSize: baseFilterInputSize, strides: strides)
+      spShape = NumSwiftFlat.stridePadShape(inputSize: baseFilterInputSize, strides: strides)
       extraPadRight  = strides.0 - 1
       extraPadBottom = strides.1 - 1
       filterInputSize = (rows: spShape.rows + extraPadBottom,
                          columns: spShape.columns + extraPadRight)
     } else {
+      spShape = baseFilterInputSize
       filterInputSize = baseFilterInputSize
       extraPadRight  = 0
       extraPadBottom = 0
@@ -161,7 +163,8 @@ public final class TransConv2d: Conv2d {
       signalSize = deltaSize
     }
 
-    let stridePaddedFilterSize = baseFilterInputSize.rows * baseFilterInputSize.columns
+    // Buffer for stride-padded input must be sized to the stride-padded shape, not the original input shape
+    let stridePaddedFilterSize = spShape.rows * spShape.columns
     let paddedFilterSize       = filterInputSize.rows * filterInputSize.columns
     let paddedDeltaSize        = signalSize.rows * signalSize.columns
 
@@ -193,7 +196,6 @@ public final class TransConv2d: Conv2d {
                                   strides: strides,
                                   signalSize: baseFilterInputSize)
         // Zero-pad right and bottom
-        let spShape = NumSwiftFlat.stridePadShape(inputSize: baseFilterInputSize, strides: strides)
         NumSwiftFlat.zeroPad1D(signal: stridePaddedFilterBuf.pointer,
                                 result: paddedFilterBuf.pointer,
                                 padding: NumSwiftPadding(top: 0, left: 0,
