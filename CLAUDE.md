@@ -8,10 +8,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Recent Changes (Reference for Updates)
 
+- **Pointer-based arithmetic migration**: All layers and optimizers now use `TensorStorage` / `TensorStorage.Pointer` (`UnsafeMutablePointer<Tensor.Scalar>`) and `NumSwiftFlat` pointer APIs instead of `Tensor.Value` (ContiguousArray) arithmetic. See "Pointer-Based Arithmetic" section below.
+- **Tensor batching**: `TensorSize` now has a `batchCount` field. `[Tensor].asTensor` packs an array into a single batched tensor. `tensor.batchSlice(b)` extracts a single batch. Axis 3 in `tensor.adding(tensor:axis:)` concatenates along the batch dimension.
+- **Optimizer state uses TensorStorage**: Adam, SGD, and RMSProp store momentum/velocity as `[TensorStorage]` instead of `[Tensor.Value]`. SGD returns `forceCopy()` to avoid shared-memory bugs.
+- **Device protocol expanded**: `Device` now has pointer-based `conv2d` and `transConv2d` methods accepting `TensorStorage.Pointer` directly.
 - **InstanceNormalize fix**: Gradient layout was reversed (gamma|beta vs beta|gamma). Backward now returns `dBeta.concat(dGamma)` to match `weights`; `apply()` uses `depthSlice(0)` for beta, `depthSlice(1)` for gamma. See `InstanceNormalize.swift`.
-- **conv2dInto removed**: Unused pointer-based Device API removed from protocol and CPU. Conv2d uses `NumSwiftFlat.conv2d` directly.
 - **Tensor.flatArray → asArray**: Renamed for consistency with `TensorSize.asArray`. Use `tensor.asArray` for flat `Tensor.Value`.
-- **AGENT_REFERENCE.md, DEAD_CODE_REPORT.md**: Added for agent context and dead code tracking.
 
 ## Overview
 
@@ -51,12 +53,16 @@ Before development, install Xcode templates:
 
 #### Tensor (Sources/Neuron/Tensor/)
 - **Tensor**: The fundamental tensor type backed by flat `ContiguousArray<Scalar>` storage with `TensorSize` metadata
+- **TensorStorage**: Reference-counted wrapper around `UnsafeMutablePointer<Tensor.Scalar>`. Use `TensorStorage.create(count:)` to allocate and `storage.pointer` for raw access. Prefer constructing tensors with `Tensor(storage:size:)` over `Tensor(Tensor.Value, size:)`.
+- **TensorStorage.Pointer**: Typealias for `UnsafeMutablePointer<Tensor.Scalar>`. Use pointer arithmetic (`ptr + offset`) to navigate depth slices and batch slices.
+- **Tensor.depthPointer(_:)**: Returns a `TensorStorage.Pointer` to the start of a depth slice without copying. Prefer over `depthSlice(_:)` (which copies into a `Tensor.Value`) in hot paths.
 - **Tensor.asArray**: Bridge property returning flat `Tensor.Value` (ContiguousArray); prefer `storage` in hot paths. Formerly `flatArray`.
 - **Tensor.value**: Legacy nested `[[[Scalar]]]` view (reconstructed on access); prefer `storage` + `size` in hot paths
 - **TensorContext**: Holds backpropagation function for gradient computation
-- **TensorSize**: Defines tensor dimensions as `(columns, rows, depth)`
+- **TensorSize**: Defines tensor dimensions as `(columns, rows, depth, batchCount)`. `batchCount` defaults to 1. `unitSize` returns `[columns, rows, depth]` without batch.
 - Supports automatic gradient calculation via `.gradients(delta:wrt:)` method
 - Arithmetic operators overloaded for element-wise and tensor operations
+- **Batching**: `[Tensor].asTensor` packs tensors into a single batched tensor. `tensor.batchSlice(b)` extracts one batch. Axis 3 concatenates along batch dimension.
 
 #### Layers (Sources/Neuron/Layers/)
 All layers inherit from `BaseLayer` and conform to the `Layer` protocol:
@@ -96,7 +102,7 @@ Pre-built training models:
 - `CPU`: Default device (fully functional)
 - `GPU`: Work in progress - Metal support is incomplete
 - All layers and tensors can be assigned to devices
-- **Note:** The `conv2dInto` pointer-based API was removed (unused); Conv2d uses `NumSwiftFlat.conv2d` directly on CPU
+- `Device` protocol provides pointer-based `conv2d` and `transConv2d` methods that accept `TensorStorage.Pointer` directly
 
 ### Gradient System
 
@@ -146,6 +152,75 @@ Follow the template in `.cursor/rules/trainable.mdc`:
 - Create unit tests verifying gradient computations and serialization
 - **Use `Tensor.Scalar` typealias**: All new functions that need access to a scalar type like `Float` should use `Tensor.Scalar` instead of hardcoding `Float`. This ensures compatibility with Float16 quantization (when `QUANTIZED_F16` flag is set). See `TensorSIMD.swift` for examples of this pattern.
 - **Support both Float and Float16**: Any new math functions on a Tensor should be implemented for both `Float` and `Float16` types. This ensures the framework works correctly regardless of whether quantization is enabled.
+- **Prefer pointer-based arithmetic**: Use `TensorStorage.Pointer` and `NumSwiftFlat` APIs instead of `Tensor.Value` array arithmetic. See "Pointer-Based Arithmetic" section below.
+
+## Pointer-Based Arithmetic
+
+The codebase has been migrated to use `TensorStorage` and raw pointers (`TensorStorage.Pointer`) for all hot-path arithmetic, eliminating intermediate `Tensor.Value` (ContiguousArray) allocations.
+
+### Key Patterns
+
+#### Allocating output buffers
+```swift
+// OLD: var result = Tensor.Value(repeating: 0, count: n)
+// NEW:
+let result = TensorStorage.create(count: n)
+```
+
+#### Accessing depth slices without copying
+```swift
+// OLD: let slice = tensor.depthSlice(d)  // copies into Tensor.Value
+// NEW:
+let ptr = tensor.storage.pointer + d * sliceSize  // zero-copy pointer offset
+// or:
+let ptr = tensor.depthPointer(d)
+```
+
+#### Element-wise arithmetic via NumSwiftFlat
+```swift
+// OLD: let scaled = (normalized * gamma[i]) + beta[i]
+// NEW:
+NumSwiftFlat.mul(normPtr, scalar: gamma[i], result: outPtr, count: sliceSize)
+NumSwiftFlat.add(outPtr, scalar: beta[i], result: outPtr, count: sliceSize)
+```
+
+Available `NumSwiftFlat` pointer operations: `add`, `sub`, `mul`, `div`, `sqrt`, `sum` (scalar and pointer-pointer variants).
+
+#### Constructing Tensors from TensorStorage
+```swift
+// OLD: Tensor(arrayValue, size: size)
+// NEW:
+Tensor(storage: tensorStorage, size: size)
+Tensor(storage: tensorStorage, size: size, context: tensorContext)
+```
+
+#### Reusable scratch buffers
+When looping over depth slices, allocate temp buffers once outside the loop:
+```swift
+let tmpA = TensorStorage.create(count: sliceSize)
+let tmpB = TensorStorage.create(count: sliceSize)
+for d in 0..<depth {
+  // reuse tmpA, tmpB for intermediate calculations each iteration
+}
+```
+
+#### Pointer copy
+```swift
+dstPtr.update(from: srcPtr, count: sliceSize)
+```
+
+#### SGD shared-memory pitfall
+When optimizer state (velocity) is returned as a Tensor, use `forceCopy()` to avoid the tensor sharing mutable memory with the optimizer:
+```swift
+return (Tensor(storage: v[i].forceCopy(), size: gradient.size), ...)
+```
+
+### Migration Checklist for New Layers
+1. Replace `Tensor.Value(repeating: 0, count:)` with `TensorStorage.create(count:)`
+2. Replace `tensor.depthSlice(d)` with `tensor.storage.pointer + d * sliceSize` or `tensor.depthPointer(d)`
+3. Replace `Tensor.Value` arithmetic operators (`+`, `-`, `*`, `/`) with `NumSwiftFlat` pointer functions
+4. Replace `Tensor(array, size:)` with `Tensor(storage:, size:)`
+5. Store optimizer state as `[TensorStorage]` instead of `[Tensor.Value]`
 
 ## Dependencies
 
@@ -182,7 +257,8 @@ Follow the template in `.cursor/rules/trainable.mdc`:
 4. **Multi-branch Graphs**: When tensors have multiple inputs, set graph for each: `output.setGraph(input1); output.setGraph(input2)`
 
 #### Shape Mismatches
-- Tensors are always 3D: `[[[Scalar]]]` with shape `[columns, rows, depth]`
+- Tensors are logically 3D with an optional batch dimension: `[columns, rows, depth]` + `batchCount`
+- `TensorSize` has `batchCount` (defaults to 1). Use `size.unitSize` for `[columns, rows, depth]` without batch.
 - First layer needs explicit `inputSize`; others auto-calculate from previous layer
 - Use `tensor.shape` to inspect dimensions (returns `[Int]`)
 - `Tensor.features` property is a hack for handling different array structures (see comment in Tensor.swift:82-87)
@@ -269,11 +345,13 @@ print(grads.input.count, grads.weights.count, grads.biases.count)
 1. Forgetting to call `output.setGraph(input)` after forward pass
 2. Using wrong loss function for activation layer (e.g., crossEntropy instead of crossEntropySoftmax)
 3. Not calling `zeroGradients()` before training step
-4. Shape mismatches: Remember all tensors are 3D internally
+4. Shape mismatches: Remember all tensors are 3D internally (+ optional batch dimension)
 5. Not setting `isTraining = true` before training (affects Dropout, BatchNorm)
 6. Accessing `learningRate` when `decayFunction` is set (use property, not field)
 7. Not calling `optimizer.step()` after `apply()` (needed for decay function updates)
 8. **Gradient/weights layout mismatch**: Layers with multiple params (e.g. gamma, beta) must return gradients in the same order as `weights`. InstanceNormalize and LayerNormalize use `beta | gamma`; gradients must match or Adam weight decay corrupts training. See `InstanceNormalize.swift` and `AGENT_REFERENCE.md`.
+9. **Using `Tensor.Value` arithmetic in hot paths**: Prefer `NumSwiftFlat` pointer APIs to avoid intermediate array allocations. See "Pointer-Based Arithmetic" section.
+10. **Shared-memory bugs with optimizer state**: When returning optimizer state (e.g., SGD velocity) as a Tensor, use `TensorStorage.forceCopy()` to avoid the tensor mutating optimizer internals.
 
 ## Performance & Memory Profiling
 
@@ -316,8 +394,10 @@ optimizer.metricsReporter?.receive = { metrics in
 ### Memory Management Best Practices
 
 #### Allocation Minimization
-- Prefer operations that avoid intermediate allocations (use flat storage when possible).
-- Reuse buffers in hot paths; avoid per-iteration `Array`/`Tensor.Value` slicing.
+- Use `TensorStorage.create(count:)` instead of `Tensor.Value(repeating:count:)` for output buffers.
+- Use `NumSwiftFlat` pointer APIs instead of `Tensor.Value` operator overloads to avoid intermediate array allocations.
+- Access depth slices via pointer offset (`storage.pointer + d * sliceSize`) instead of `depthSlice(d)` which copies.
+- Allocate reusable scratch `TensorStorage` buffers outside loops and reuse them each iteration.
 - Pre-allocate when output size is known (especially in recurrent loops).
 
 #### Array Capacity Management

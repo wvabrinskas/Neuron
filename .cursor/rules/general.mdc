@@ -26,6 +26,10 @@ alwaysApply: true
 - Test serialization/deserialization
 
 ### Performance:
-- Use NumSwift operations for mathematical computations
+- Use `NumSwiftFlat` pointer APIs (e.g., `NumSwiftFlat.mul`, `add`, `sub`, `div`, `sqrt`, `sum`) for all element-wise arithmetic in hot paths instead of `Tensor.Value` operator overloads
+- Allocate output buffers with `TensorStorage.create(count:)` instead of `Tensor.Value(repeating:count:)`
+- Access depth slices via pointer offset (`storage.pointer + d * sliceSize`) instead of `depthSlice(d)` which copies
+- Allocate reusable scratch `TensorStorage` buffers outside loops; reuse each iteration
+- Construct tensors from pointer results with `Tensor(storage:size:)` instead of `Tensor(Tensor.Value, size:)`
 - Minimize memory allocations in forward passes and hot loops
 - Consider GPU compatibility when implementing operations
