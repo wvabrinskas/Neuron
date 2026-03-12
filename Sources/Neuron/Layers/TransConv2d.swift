@@ -123,11 +123,11 @@ public final class TransConv2d: Conv2d {
     return (inputTensor, weightsTensor, biasesTensor)
   }
 
-  internal override func calculateFilterGradientsInto(_ input: Tensor,
-                                                       deltaSlicePtr: TensorStorage.Pointer,
-                                                       deltaSize: (rows: Int, columns: Int),
-                                                       filterIndex: Int,
-                                                       resultPtr: TensorStorage.Pointer) {
+  internal func calculateFilterGradientsInto(_ input: Tensor,
+                                              deltaSlicePtr: TensorStorage.Pointer,
+                                              deltaSize: (rows: Int, columns: Int),
+                                              filterIndex: Int,
+                                              resultPtr: TensorStorage.Pointer) {
     let fSliceSize = filterSize.rows * filterSize.columns
     let inputSliceSize = inputSize.rows * inputSize.columns
 

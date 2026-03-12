@@ -183,6 +183,24 @@ public class Conv2d: BaseConvolutionalLayer {
     let paddedDeltaBuf  = TensorStorage.create(count: paddedDeltaSize)
     let convResultBuf   = TensorStorage.create(count: inputSliceSize)
 
+    // Pre-allocate scratch buffers for calculateFilterGradientsInto (reused across filterCount loop)
+    let extraPadding = padding.extra(inputSize: (inputSize.rows, inputSize.columns),
+                                     filterSize: filterSize,
+                                     stride: strides)
+    let filterNumPadding = NumSwiftPadding(top: extraPadding.top,
+                                           left: extraPadding.left,
+                                           right: extraPadding.right,
+                                           bottom: extraPadding.bottom)
+    let filterPaddedRows    = inputSize.rows + filterNumPadding.top + filterNumPadding.bottom
+    let filterPaddedColumns = inputSize.columns + filterNumPadding.left + filterNumPadding.right
+    let filterPaddedSize    = filterPaddedRows * filterPaddedColumns
+    let filterInputSize: (rows: Int, columns: Int) = (strides.rows > 1 || strides.columns > 1)
+      ? NumSwiftFlat.stridePadShape(inputSize: (rows: deltaRows, columns: deltaCols), strides: strides)
+      : (rows: deltaRows, columns: deltaCols)
+    let stridePaddedDeltaCount = filterInputSize.rows * filterInputSize.columns
+    let paddedSignalBuf      = TensorStorage.create(count: filterPaddedSize)
+    let stridePaddedDeltaBuf = TensorStorage.create(count: stridePaddedDeltaCount)
+
     for i in 0..<filterCount {
       let deltaSlicePtr = delta.storage.pointer + i * deltaSliceSize
 
@@ -221,7 +239,13 @@ public class Conv2d: BaseConvolutionalLayer {
                                     deltaSlicePtr: deltaSlicePtr,
                                     deltaSize: (rows: deltaRows, columns: deltaCols),
                                     filterIndex: i,
-                                    resultPtr: wGradStorage.pointer + i * inputDepth * fSliceSize)
+                                    resultPtr: wGradStorage.pointer + i * inputDepth * fSliceSize,
+                                    paddedSignalBuf: paddedSignalBuf,
+                                    stridePaddedDeltaBuf: stridePaddedDeltaBuf,
+                                    filterNumPadding: filterNumPadding,
+                                    filterPaddedRows: filterPaddedRows,
+                                    filterPaddedColumns: filterPaddedColumns,
+                                    filterInputSize: filterInputSize)
     }
 
     let inputTensor = Tensor(storage: inputGradStorage, size: inputSize)
@@ -247,38 +271,22 @@ public class Conv2d: BaseConvolutionalLayer {
   
   /// Computes weight gradients for a single filter and writes them directly into `resultPtr`.
   /// `resultPtr` must point to a buffer of size `inputSize.depth * filterSize.rows * filterSize.columns`.
+  /// The caller must pre-allocate `paddedSignalBuf`, `stridePaddedDeltaBuf`, and supply the
+  /// derived padding/size values so these buffers are reused across the outer filterCount loop.
   internal func calculateFilterGradientsInto(_ input: Tensor,
                                               deltaSlicePtr: TensorStorage.Pointer,
                                               deltaSize: (rows: Int, columns: Int),
                                               filterIndex: Int,
-                                              resultPtr: TensorStorage.Pointer) {
+                                              resultPtr: TensorStorage.Pointer,
+                                              paddedSignalBuf: TensorStorage,
+                                              stridePaddedDeltaBuf: TensorStorage,
+                                              filterNumPadding: NumSwiftPadding,
+                                              filterPaddedRows: Int,
+                                              filterPaddedColumns: Int,
+                                              filterInputSize: (rows: Int, columns: Int)) {
     let fSliceSize = filterSize.rows * filterSize.columns
     let inputSliceSize = inputSize.rows * inputSize.columns
-
-    let extraPadding = padding.extra(inputSize: (inputSize.rows, inputSize.columns),
-                                     filterSize: filterSize,
-                                     stride: strides)
-    let numPadding = NumSwiftPadding(top: extraPadding.top,
-                                     left: extraPadding.left,
-                                     right: extraPadding.right,
-                                     bottom: extraPadding.bottom)
-
-    let paddedRows    = inputSize.rows + numPadding.top + numPadding.bottom
-    let paddedColumns = inputSize.columns + numPadding.left + numPadding.right
-    let paddedSize    = paddedRows * paddedColumns
-
-    // Determine stride-padded filter shape once
-    let filterInputSize: (rows: Int, columns: Int)
-    if strides.rows > 1 || strides.columns > 1 {
-      filterInputSize = NumSwiftFlat.stridePadShape(inputSize: deltaSize, strides: strides)
-    } else {
-      filterInputSize = deltaSize
-    }
-    let stridePaddedDeltaSize = filterInputSize.rows * filterInputSize.columns
     let convStrides = (filterSize.columns == 1 || filterSize.rows == 1) ? strides : (1, 1)
-
-    let paddedSignalBuf      = TensorStorage.create(count: paddedSize)
-    let stridePaddedDeltaBuf = TensorStorage.create(count: stridePaddedDeltaSize)
 
     for i in 0..<inputSize.depth {
       let signalPtr = input.storage.pointer + i * inputSliceSize
@@ -286,7 +294,7 @@ public class Conv2d: BaseConvolutionalLayer {
       // Zero-pad the input depth slice
       NumSwiftFlat.zeroPad1D(signal: signalPtr,
                               result: paddedSignalBuf.pointer,
-                              padding: numPadding,
+                              padding: filterNumPadding,
                               inputSize: (rows: inputSize.rows, columns: inputSize.columns))
 
       // Stride-pad the delta slice (used as the filter in weight grad conv)
@@ -302,7 +310,7 @@ public class Conv2d: BaseConvolutionalLayer {
                          strides: convStrides,
                          padding: .valid,
                          filterSize: filterInputSize,
-                         inputSize: (rows: paddedRows, columns: paddedColumns),
+                         inputSize: (rows: filterPaddedRows, columns: filterPaddedColumns),
                          batchCount: 1)
     }
   }
