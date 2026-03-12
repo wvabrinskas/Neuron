@@ -163,7 +163,7 @@ public class Tensor: Equatable, Codable {
     let newRows = rRange.count
     let newCols = cRange.count
     
-    var result = Tensor.Value(repeating: 0, count: newDepth * newRows * newCols)
+    let result = TensorStorage.create(count: newDepth * newRows * newCols)
     let newSize = TensorSize(rows: newRows, columns: newCols, depth: newDepth)
     
     var idx = 0
@@ -176,7 +176,7 @@ public class Tensor: Equatable, Codable {
       }
     }
     
-    return Tensor(result, size: newSize, context: context)
+    return Tensor(storage: result, size: newSize, context: context)
   }
   
   // MARK: - Initializers

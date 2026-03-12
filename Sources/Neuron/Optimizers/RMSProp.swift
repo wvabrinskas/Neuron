@@ -38,8 +38,6 @@ public class RMSProp: BaseOptimizer {
     self.eps = eps
     self.b = b
 
-//    v = [Tensor.Value].init(repeating: Tensor.Value(), count: trainable.layers.count)
-//    vb = [Tensor.Value].init(repeating: Tensor.Value(), count: trainable.layers.count)
     v = [TensorStorage].init(repeating: TensorStorage.create(count: 0), count: trainable.layers.count)
     vb = [TensorStorage].init(repeating: TensorStorage.create(count: 0), count: trainable.layers.count)
 
