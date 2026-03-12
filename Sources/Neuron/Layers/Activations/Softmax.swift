@@ -63,7 +63,7 @@ public final class Softmax: BaseActivationLayer {
     let rows = size.rows
     let depth = size.depth
     let src = tensor.storage
-    var result = Tensor.Value(repeating: 0, count: src.count)
+    let result = TensorStorage.create(count: src.count)
 
     // Apply softmax per-row (each row of `columns` elements)
     for d in 0..<depth {
@@ -93,7 +93,7 @@ public final class Softmax: BaseActivationLayer {
       }
     }
 
-    let out = Tensor(result, size: size, context: context)
+    let out = Tensor(storage: result, size: size, context: context)
     out.label = type.asString()
 
     out.setGraph(tensor)
