@@ -53,9 +53,8 @@ public final class Softmax: BaseActivationLayer {
   /// - Returns: Softmax probabilities with passthrough gradient context.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let context = TensorContext { inputs, gradient, wrt in
-      let wrtInputGradient = Tensor(Tensor.Value(gradient.storage), size: gradient.size)
-      wrtInputGradient.label = "softmax_input_gradient"
-      return (wrtInputGradient, Tensor(), Tensor())
+      gradient.label = "softmax_input_gradient"
+      return (gradient, Tensor(), Tensor())
     }
 
     let size = tensor.size
