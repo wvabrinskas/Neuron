@@ -17,6 +17,7 @@ public final class RexNet: BaseLayerGroup {
   private let expandRatio: Tensor.Scalar
   private let strides: (rows: Int, columns: Int)
   private let outChannels: Int
+  private let squeeze: Int
   
   private var shouldSkip: Bool {
     strides.columns == 1 && strides.rows == 1 && outChannels == inputSize.depth
@@ -41,6 +42,7 @@ public final class RexNet: BaseLayerGroup {
     self.expandRatio = expandRatio
     self.strides = strides
     self.outChannels = outChannels
+    self.squeeze = squeeze
     
     super.init(inputSize: inputSize,
                initializer: initializer,
@@ -118,7 +120,7 @@ public final class RexNet: BaseLayerGroup {
   }
   
   enum CodingKeys: String, CodingKey {
-    case inputSize, type, linkId
+    case inputSize, type, linkId, expandRatio, stridesRows, stridesColumns, outChannels, squeeze, innerBlockSequential
   }
   
   override public func onInputSizeSet() {
@@ -131,7 +133,22 @@ public final class RexNet: BaseLayerGroup {
   convenience public required init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
-    self.init(outChannels: 1, linkId: linkId)
+    let expandRatio = try container.decodeIfPresent(Tensor.Scalar.self, forKey: .expandRatio) ?? 0
+    let stridesRows = try container.decodeIfPresent(Int.self, forKey: .stridesRows) ?? 1
+    let stridesColumns = try container.decodeIfPresent(Int.self, forKey: .stridesColumns) ?? 1
+    let outChannels = try container.decodeIfPresent(Int.self, forKey: .outChannels) ?? 1
+    let squeeze = try container.decodeIfPresent(Int.self, forKey: .squeeze) ?? 0
+
+    self.init(strides: (stridesRows, stridesColumns),
+              outChannels: outChannels,
+              squeeze: squeeze,
+              expandRatio: expandRatio,
+              linkId: linkId)
+
+    let innerBlockSequential = try container.decodeIfPresent(Sequential.self, forKey: .innerBlockSequential) ?? Sequential()
+    self.innerBlockSequential = innerBlockSequential
+
+    // set inputSize AFTER restoring innerBlockSequential so onInputSizeSet() sees the decoded layers
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
   }
   
@@ -143,6 +160,12 @@ public final class RexNet: BaseLayerGroup {
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(encodingType, forKey: .type)
     try container.encode(linkId, forKey: .linkId)
+    try container.encode(expandRatio, forKey: .expandRatio)
+    try container.encode(strides.rows, forKey: .stridesRows)
+    try container.encode(strides.columns, forKey: .stridesColumns)
+    try container.encode(outChannels, forKey: .outChannels)
+    try container.encode(squeeze, forKey: .squeeze)
+    try container.encode(innerBlockSequential, forKey: .innerBlockSequential)
   }
   
 /// Performs a forward pass over a batch of tensors, processing each tensor individually and collecting the results.

@@ -359,13 +359,13 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
           NumSwiftFlat.add(outPtr, scalar: beta[i], result: outPtr, count: sliceSize)
 
           // Update moving stats: movingX = movingX * momentum + x * (1 - momentum)
-          // tmpA still holds variance = m2 / batchSize from calculateWelfordVariables.
+          // tmpA holds variance on return from calculateWelfordVariables (see docstring).
           // Update movingVariance first, before tmpA is reused for the mean blending.
           let meanPtr = meanStorage.pointer
-          let mmPtr   = movingMean.storage.pointer + i * sliceSize
-          let mvPtr   = movingVariance.storage.pointer + i * sliceSize
+          let mmPtr = movingMean.storage.pointer + i * sliceSize
+          let mvPtr = movingVariance.storage.pointer + i * sliceSize
 
-          // movingVariance update (tmpA = variance, tmpB = scratch)
+          // movingVariance update: tmpA holds variance from calculateWelfordVariables
           // tmpB = variance * (1 - momentum)
           NumSwiftFlat.mul(tmpA.pointer, scalar: 1 - momentum, result: tmpB.pointer, count: sliceSize)
           // tmpA = movingVariance[i] * momentum  (overwrites variance — no longer needed)
@@ -403,8 +403,10 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
   }
 
   /// Returns (mean, std, normalized) as `TensorStorage` instances for depth slice `index`.
-  /// `varScratch` is a caller-provided scratch buffer of size `sliceSize` used for the intermediate
-  /// variance computation; its contents after this call are undefined.
+  /// `varScratch` is a caller-provided scratch buffer of size `sliceSize`. On return it holds
+  /// the per-element variance (`m2 / batchSize`) for depth slice `index`. Callers may read
+  /// this value after the call; it is guaranteed to be valid until `varScratch` is next passed
+  /// to this function or written by the caller.
   private func calculateWelfordVariables(inputPtr: TensorStorage.Pointer,
                                          sliceSize: Int,
                                          index: Int,
