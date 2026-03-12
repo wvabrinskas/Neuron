@@ -103,7 +103,7 @@ public class RMSProp: BaseOptimizer {
   private func apply(to: inout TensorStorage, gradient: TensorStorage) -> TensorStorage {
     let count = gradient.count
     let oneMinusB = 1 - b
-    var result = TensorStorage.create(count: count)
+    let result = TensorStorage.create(count: count)
 
     for i in 0..<count {
       let g = gradient[i]

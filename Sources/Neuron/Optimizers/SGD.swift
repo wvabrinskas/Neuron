@@ -86,8 +86,9 @@ public class SGD: BaseOptimizer {
           
     apply(to: &vb[i], gradient: biasGradient.storage)
 
-    return (Tensor(storage: v[i], size: gradient.size),
-            Tensor(storage: vb[i], size: biasGradient.size))
+    // force copy so we don't get a tensor that shares memeory with the optimizer
+    return (Tensor(storage: v[i].forceCopy(), size: gradient.size),
+            Tensor(storage: vb[i].forceCopy(), size: biasGradient.size))
   }
 
   private func apply(to: inout TensorStorage, gradient: TensorStorage) {

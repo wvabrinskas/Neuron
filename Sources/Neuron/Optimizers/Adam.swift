@@ -205,7 +205,7 @@ public class Adam: BaseOptimizer {
     }() : nil
 
     let count = gradient.count
-    var result = TensorStorage.create(count: count)
+    let result = TensorStorage.create(count: count)
 
     for i in 0..<count {
       let g = gradient[i]
