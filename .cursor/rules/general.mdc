@@ -25,6 +25,11 @@ alwaysApply: true
 - Verify gradient computations are correct
 - Test serialization/deserialization
 
+### Branching & PRs:
+- All PRs must target `develop` as the base branch, never `main`
+- Feature branches should be created off `develop`
+- `main` is only updated via merges from `develop`
+
 ### Performance:
 - Use `NumSwiftFlat` pointer APIs (e.g., `NumSwiftFlat.mul`, `add`, `sub`, `div`, `sqrt`, `sum`) for all element-wise arithmetic in hot paths instead of `Tensor.Value` operator overloads
 - Allocate output buffers with `TensorStorage.create(count:)` instead of `Tensor.Value(repeating:count:)`

@@ -233,6 +233,7 @@ return (Tensor(storage: v[i].forceCopy(), size: gradient.size), ...)
 - `main`: Stable production branch
 - `develop`: Development branch for integration
 - Feature branches: Branch off `develop`, PR into `develop`
+- **All PRs must target `develop` as the base branch**, not `main`. The `main` branch is only updated via merges from `develop`.
 - Automated tests must pass before PR merge
 
 ## Important Notes
