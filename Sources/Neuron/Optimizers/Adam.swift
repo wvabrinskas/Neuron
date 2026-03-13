@@ -122,7 +122,7 @@ public class Adam: BaseOptimizer {
     var gradients = gradientAccumulator.accumulate()
     
     if let clip = gradientClip {
-      gradients = gradients.gradientL2NormClip(clip)
+      gradients = gradients.gradientL2NormClip(clip, metrics: metricsReporter)
     }
     
     for i in 0..<trainable.layers.count {
