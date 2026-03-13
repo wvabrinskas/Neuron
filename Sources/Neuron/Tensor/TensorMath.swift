@@ -620,7 +620,7 @@ public extension Tensor {
   func testInvalid() {
     for val in storage {
       if val.isNormal == false {
-        print(self)
+        print(val)
         fatalError()
         return
       }

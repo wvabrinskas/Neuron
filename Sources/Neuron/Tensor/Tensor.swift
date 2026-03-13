@@ -764,7 +764,7 @@ public class Tensor: Equatable, Codable {
   ///
   /// - Returns: Euclidean norm over all scalar values.
   public func l2Norm() -> Scalar {
-    Tensor.Scalar.sqrt(storage.sumOfSquares)
+    Tensor.Scalar.sqrt(storage.sumOfSquares + Tensor.Scalar.stabilityFactor)
   }
   
   /// Clamps every element into the symmetric range `[-val, val]`.
@@ -986,11 +986,11 @@ public extension Tensor.Gradient {
     let allBiases = biases.reduce(Tensor()) { partialResult, new in
       partialResult.concat(new, axis: 2)
     }
-
+  
     // Single global norm across weights AND biases combined
     let weightNormSq = allWeights.l2Norm()
     let biasNormSq = allBiases.l2Norm()
-    let globalNorm = Tensor.Scalar(sqrt(weightNormSq * weightNormSq + biasNormSq * biasNormSq))
+    let globalNorm = Tensor.Scalar(sqrt((weightNormSq * weightNormSq + biasNormSq * biasNormSq) + Tensor.Scalar.stabilityFactor))
     
     metrics?.update(metric: .globalGradientNorm, value: globalNorm)
 

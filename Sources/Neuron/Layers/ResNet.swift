@@ -182,7 +182,7 @@ public final class ResNet: BaseLayerGroup {
     try container.encode(linkId, forKey: .linkId)
   }
   
-  /// Runs the residual block forward pass for a batch.
+  /// Runs the residual block forward pass for a batch. We always use TensorBatch because BatchNormalization requires it
   ///
   /// - Parameters:
   ///   - tensorBatch: Input batch.
@@ -223,45 +223,6 @@ public final class ResNet: BaseLayerGroup {
     }
     
     return outs
-  }
-  
-  /// Runs the residual block forward pass for a single tensor.
-  ///
-  /// - Parameters:
-  ///   - tensor: Input tensor.
-  ///   - context: Network execution context.
-  /// - Returns: Residual block output tensor.
-  public override func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
-    // we detach the input tensor because we want to stop at this tensor in respect to this sequential
-    // not all the way up the graph to possibly other input layers
-    let detachedInput = tensor.detached()
-    let blockOut = super.forward(tensor: detachedInput, context: context)
-    
-    // set a copied input so we can separate the input tensors of the two paths.
-    // this allows us to pull the gradients wrt to each input
-    let copiedInputTensor = tensor.copy()
-    copiedInputTensor.label = "copiedInputTensor"
-    
-    let tensorToAdd = if shouldProjectInput {
-      // we project the input here to match the filter depth
-      shortcutSequential.predict(batch: [copiedInputTensor], context: .init())[safe: 0, Tensor()]
-    } else {
-      copiedInputTensor
-    }
-    
-    tensorToAdd.label = "tensorToAdd"
-    
-    let skipOut = blockOut + tensorToAdd
-    let reLuOut = outputRelu.forward(tensor: skipOut)
-    
-    let out = buildForward(input: tensor,
-                           reLuOut: reLuOut,
-                           detachedInput: detachedInput,
-                           copiedInputTensor: copiedInputTensor)
-    
-    // forward calculation
-    out.label = encodingType.rawValue + "-" + linkId
-    return out
   }
   
   /// Applies aggregated gradients to inner and shortcut subpaths.

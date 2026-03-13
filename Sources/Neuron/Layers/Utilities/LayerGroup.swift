@@ -110,12 +110,7 @@ public class BaseLayerGroup: BaseLayer, LayerGrouping {
   ///   - context: Network execution context.
   /// - Returns: Residual block output tensor.
   public override func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
-    // we detach the input tensor because we want to stop at this tensor in respect to this sequential
-    // not all the way up the graph to possibly other input layers
-    let blockOut = innerBlockSequential.predict(batch: [tensor], context: .init())[safe: 0, Tensor()]
-    blockOut.label = "blockOut"
-    
-    return super.forward(tensor: blockOut, context: context)
+    forward(tensorBatch: [tensor], context: context)[safe: 0, Tensor()]
   }
   
 /// Applies the given weight and bias gradients to the inner sequential block.
