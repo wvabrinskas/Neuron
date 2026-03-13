@@ -979,7 +979,7 @@ public extension Tensor.Gradient {
     biases.forEach { $0.l2Normalize() }
   }
   
-  func gradientL2NormClip(_ value: Tensor.Scalar = 1.0) -> Tensor.Gradient {
+  func gradientL2NormClip(_ value: Tensor.Scalar = 1.0, metrics: MetricsReporter? = nil) -> Tensor.Gradient {
     let allWeights = weights.reduce(Tensor()) { partialResult, new in
       partialResult.concat(new, axis: 2)
     }
@@ -991,6 +991,8 @@ public extension Tensor.Gradient {
     let weightNormSq = allWeights.l2Norm()
     let biasNormSq = allBiases.l2Norm()
     let globalNorm = Tensor.Scalar(sqrt(weightNormSq * weightNormSq + biasNormSq * biasNormSq))
+    
+    metrics?.update(metric: .globalGradientNorm, value: globalNorm)
 
     guard globalNorm > value else {
       return .init(input: input, weights: weights, biases: biases)
@@ -998,6 +1000,8 @@ public extension Tensor.Gradient {
 
     // One scaling factor applied to everything
     let scalingFactor = value / globalNorm
+    
+    metrics?.update(metric: .globalGradientScalingFactor, value: scalingFactor)
 
     return .init(
       input: input,
