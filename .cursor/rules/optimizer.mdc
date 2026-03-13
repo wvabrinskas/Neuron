@@ -25,10 +25,10 @@ public class [OptimizerName]: BaseOptimizer {
     // Algorithm-specific parameters
     private var [param1]: Tensor.Scalar
     private var [param2]: Tensor.Scalar
-    
-    // State variables for optimization
-    private var [stateVar1]: [Tensor.Value] = []
-    private var [stateVar2]: [Tensor.Value] = []
+
+    // State variables for optimization (use TensorStorage, not Tensor.Value)
+    private var [stateVar1]: [TensorStorage] = []
+    private var [stateVar2]: [TensorStorage] = []
     
     public override var trainable: Trainable {
         didSet {
@@ -57,14 +57,11 @@ public class [OptimizerName]: BaseOptimizer {
     // Build/rebuild optimizer state
     private func build() {
         // Initialize state variables based on trainable layers
-        // Reset state arrays
-        [stateVar1] = []
-        [stateVar2] = []
-        
-        // Initialize for each layer
-        for layer in trainable.layers where layer.trainable {
-            // Initialize state for this layer
-        }
+        // Reset state arrays (use TensorStorage.create(count: 0) as placeholder)
+        [stateVar1] = [TensorStorage].init(repeating: TensorStorage.create(count: 0), count: trainable.layers.count)
+        [stateVar2] = [TensorStorage].init(repeating: TensorStorage.create(count: 0), count: trainable.layers.count)
+
+        // State is lazily sized on first gradient application when count is known
     }
     
     // Core optimization step

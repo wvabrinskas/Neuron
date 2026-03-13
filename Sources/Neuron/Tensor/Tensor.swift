@@ -163,7 +163,7 @@ public class Tensor: Equatable, Codable {
     let newRows = rRange.count
     let newCols = cRange.count
     
-    var result = Tensor.Value(repeating: 0, count: newDepth * newRows * newCols)
+    let result = TensorStorage.create(count: newDepth * newRows * newCols)
     let newSize = TensorSize(rows: newRows, columns: newCols, depth: newDepth)
     
     var idx = 0
@@ -176,7 +176,7 @@ public class Tensor: Equatable, Codable {
       }
     }
     
-    return Tensor(result, size: newSize, context: context)
+    return Tensor(storage: result, size: newSize, context: context)
   }
   
   // MARK: - Initializers
@@ -351,6 +351,23 @@ public class Tensor: Equatable, Codable {
     setId()
   }
 
+  /// Extracts one depth slice as a flat row-major `TensorStorage.Pointer` directly from storage.
+  /// Each slice has `rows * columns` elements.
+  /// - Parameter d: The depth index (0-based)
+  /// - Returns: A flat contiguous array of the depth slice
+  public func depthPointer(_ d: Int) -> TensorStorage.Pointer {
+    return storage.pointer + d * size.rows * size.columns
+  }
+  
+  public func setDepthPointer(_ d: Int, _ store: TensorStorage) {
+    setDepthPointer(d, store.pointer)
+  }
+  
+  public func setDepthPointer(_ d: Int, _ pointer: TensorStorage.Pointer) {
+    let sliceSize = size.rows * size.columns
+    let dstPtr = storage.pointer + d * sliceSize
+    dstPtr.update(from: pointer, count: sliceSize)
+  }
       
   /// Extracts one depth slice as a flat row-major `Tensor.Value` directly from storage.
   /// Each slice has `rows * columns` elements.
