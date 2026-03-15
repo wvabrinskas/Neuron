@@ -20,6 +20,15 @@ public struct CPU: Device {
   /// Creates a CPU-backed device implementation.
   public init() {}
 
+  /// Performs a transposed 2D convolution (also known as deconvolution) on a batched signal using the CPU.
+  /// - Parameter signal: Pointer to the input tensor storage representing the signal.
+  /// - Parameter filter: Pointer to the tensor storage representing the convolution filter.
+  /// - Parameter result: Pointer to the tensor storage where the output will be written.
+  /// - Parameter strides: The stride values as a tuple of (row, column) step sizes.
+  /// - Parameter padding: The padding strategy to apply during the transposed convolution.
+  /// - Parameter filterSize: The dimensions of the filter as (rows, columns).
+  /// - Parameter inputSize: The spatial dimensions of the input as (rows, columns).
+  /// - Parameter batchCount: The number of samples in the batch to process.
   public func transConv2d(signal: TensorStorage.Pointer,
                           filter: TensorStorage.Pointer,
                           result: TensorStorage.Pointer,
@@ -38,6 +47,15 @@ public struct CPU: Device {
                                   batchCount: batchCount)
   }
   
+  /// Performs a standard 2D convolution on a batched signal using the CPU.
+  /// - Parameter signal: Pointer to the input tensor storage representing the signal.
+  /// - Parameter filter: Pointer to the tensor storage representing the convolution filter.
+  /// - Parameter result: Pointer to the tensor storage where the output will be written.
+  /// - Parameter strides: The stride values as a tuple of (row, column) step sizes.
+  /// - Parameter padding: The padding strategy to apply during the convolution.
+  /// - Parameter filterSize: The dimensions of the filter as (rows, columns).
+  /// - Parameter inputSize: The spatial dimensions of the input as (rows, columns).
+  /// - Parameter batchCount: The number of samples in the batch to process.
   public func conv2d(signal: TensorStorage.Pointer,
                      filter: TensorStorage.Pointer,
                      result: TensorStorage.Pointer,

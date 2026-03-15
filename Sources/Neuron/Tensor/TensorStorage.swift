@@ -20,6 +20,13 @@ import Foundation
 /// `init(pointer:count:deallocator:)` initializer with a custom deallocator.
 public class TensorStorage {
   // MARK: - Inner Buffer (reference-counted memory owner)
+  /// A type alias for a mutable pointer to the tensor's scalar elements.
+
+  /// A reference-counted buffer managing a contiguous block of scalar memory.
+  ///
+  /// Allocates and zero-initializes storage for `count` scalars on creation.
+  /// Supports custom deallocation via an optional deallocator closure.
+  /// - Parameter count: The number of scalar elements to allocate storage for.
   public typealias Pointer = UnsafeMutablePointer<Tensor.Scalar>
 
   final class Buffer {
@@ -297,6 +304,10 @@ public class TensorStorage {
   /// - Returns: The value returned by `body`.
   /// - Throws: Rethrows any error thrown by `body`.
   @discardableResult
+  /// Calls `body` with an `UnsafeBufferPointer` over the stored scalars.
+  /// - Parameter body: A closure that receives the read-only buffer pointer and returns a value.
+  /// - Returns: The value returned by `body`.
+  /// - Throws: Rethrows any error thrown by `body`.
   public func withUnsafeBufferPointer<R>(_ body: (UnsafeBufferPointer<Tensor.Scalar>) throws -> R) rethrows -> R {
     try body(UnsafeBufferPointer(start: _buffer.pointer, count: count))
   }
@@ -307,6 +318,11 @@ public class TensorStorage {
   /// - Returns: The value returned by `body`.
   /// - Throws: Rethrows any error thrown by `body`.
   @discardableResult
+  /// Calls `body` with a mutable `UnsafeMutableBufferPointer` over the stored scalars.
+  /// Triggers a copy-on-write if the buffer is currently shared.
+  /// - Parameter body: A closure that receives the mutable buffer pointer and returns a value.
+  /// - Returns: The value returned by `body`.
+  /// - Throws: Rethrows any error thrown by `body`.
   public func withUnsafeMutableBufferPointer<R>(_ body: (UnsafeMutableBufferPointer<Tensor.Scalar>) throws -> R) rethrows -> R {
     copyBufferIfShared()
     return try body(UnsafeMutableBufferPointer(start: _buffer.pointer, count: count))

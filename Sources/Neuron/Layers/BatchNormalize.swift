@@ -37,6 +37,10 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
   /// Momentum for exponential moving average of inference statistics.
   public let momentum: Tensor.Scalar
 
+  /// A combined tensor of all learnable and tracked parameters for this batch normalization layer.
+  ///
+  /// Returns a `Tensor` concatenating `beta`, `gamma`, `movingMean`, and `movingVariance` in order.
+  /// Setting this property has no effect.
   public override var weights: Tensor {
     get {
       var combined = beta
@@ -48,6 +52,9 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     set {}
   }
 
+  /// Indicates whether the layer should accumulate batch statistics during the forward pass.
+  ///
+  /// Returns `true` when the layer is in training mode, enabling batch normalization accumulation.
   public override var shouldPerformBatching: Bool { isTraining }
 
   private let e: Tensor.Scalar = 1e-5
@@ -104,6 +111,13 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
 
   // MARK: - Codable
 
+  /// Creates a `BatchNormalize` layer by decoding its parameters from the given decoder.
+  ///
+  /// Supports decoding both current per-channel scalar arrays and legacy per-position `Tensor` formats
+  /// for moving mean and variance.
+  ///
+  /// - Parameter decoder: The decoder to read layer parameters from.
+  /// - Throws: A decoding error if required values cannot be read or are in an unexpected format.
   public enum CodingKeys: String, CodingKey {
     case gamma, beta, momentum, movingMean, movingVariance, inputSize, linkId
   }
@@ -136,6 +150,12 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     self.outputSize = inputSize
   }
 
+  /// Encodes the layer's parameters into the given encoder.
+  ///
+  /// Encodes `inputSize`, `beta`, `gamma`, `momentum`, `movingMean`, `movingVariance`, and `linkId`.
+  ///
+  /// - Parameter encoder: The encoder to write layer parameters to.
+  /// - Throws: An encoding error if any value cannot be encoded.
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
