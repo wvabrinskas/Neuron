@@ -822,54 +822,50 @@ public extension Tensor {
       // Concat along rows
       let newRows = selfRows + otherRows
       let newSize = TensorSize(rows: newRows, columns: selfCols, depth: selfDepth)
-      var result = Tensor.Value(repeating: 0, count: selfCols * newRows * selfDepth)
+      let result = TensorStorage.create(count: selfCols * newRows * selfDepth)
+      let dstPtr = result.pointer
+      let selfPtr = storage.pointer
+      let otherPtr = tensor.storage.pointer
       
       for d in 0..<selfDepth {
         for r in 0..<selfRows {
           let srcStart = flatIndex(column: 0, row: r, depth: d)
           let dstStart = d * newRows * selfCols + r * selfCols
-          for c in 0..<selfCols {
-            result[dstStart + c] = storage[srcStart + c]
-          }
+          (dstPtr + dstStart).update(from: selfPtr + srcStart, count: selfCols)
         }
         let minOtherRows = min(otherRows, (d < otherDepth) ? otherRows : 0)
         for r in 0..<minOtherRows {
           let srcStart = tensor.flatIndex(column: 0, row: r, depth: d)
           let dstStart = d * newRows * selfCols + (selfRows + r) * selfCols
           let colsToCopy = min(otherCols, selfCols)
-          for c in 0..<colsToCopy {
-            result[dstStart + c] = tensor.storage[srcStart + c]
-          }
+          (dstPtr + dstStart).update(from: otherPtr + srcStart, count: colsToCopy)
         }
       }
       
-      return Tensor(result, size: newSize, context: context)
+      return Tensor(storage: result, size: newSize, context: context)
       
     } else if axis == 1 {
       // Concat along columns
       let newCols = selfCols + otherCols
       let newSize = TensorSize(rows: selfRows, columns: newCols, depth: selfDepth)
-      var result = Tensor.Value(repeating: 0, count: newCols * selfRows * selfDepth)
+      let result = TensorStorage.create(count: newCols * selfRows * selfDepth)
+      let dstPtr = result.pointer
+      let selfPtr = storage.pointer
+      let otherPtr = tensor.storage.pointer
       
       for d in 0..<selfDepth {
         for r in 0..<selfRows {
           let dstStart = d * selfRows * newCols + r * newCols
-          // Copy self row
           let srcSelfStart = flatIndex(column: 0, row: r, depth: d)
-          for c in 0..<selfCols {
-            result[dstStart + c] = storage[srcSelfStart + c]
-          }
-          // Copy other row
+          (dstPtr + dstStart).update(from: selfPtr + srcSelfStart, count: selfCols)
           if d < otherDepth && r < otherRows {
             let srcOtherStart = tensor.flatIndex(column: 0, row: r, depth: d)
-            for c in 0..<otherCols {
-              result[dstStart + selfCols + c] = tensor.storage[srcOtherStart + c]
-            }
+            (dstPtr + dstStart + selfCols).update(from: otherPtr + srcOtherStart, count: otherCols)
           }
         }
       }
       
-      return Tensor(result, size: newSize, context: context)
+      return Tensor(storage: result, size: newSize, context: context)
     }
     
     return Tensor(storage: storage.copy(), size: size, context: context)
