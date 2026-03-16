@@ -24,7 +24,6 @@ public extension Float16 {
 
 public extension Tensor {
   typealias PointerMathBlock = (_ ptr: TensorStorage.Pointer, _ count: Int) -> Scalar
-  typealias MathAlongBlock = (_ feature: [Scalar], _ value: ([Scalar]?, Scalar?)) -> [Scalar]
   
   /*
       +--------+
@@ -276,68 +275,6 @@ public extension Tensor {
     return Tensor(storage: resultStorage, size: selfSize, context: context)
   }
   
-  /// Applies a mathematical operation along a specific axis with broadcasting support.
-  /// This is the core function used by other *Along methods.
-  ///
-  /// - Parameters:
-  ///   - axis: The axis along which to perform the operation (0, 1, or 2)
-  ///   - input: The tensor to operate with, which will be broadcast along the specified axis
-  ///   - block: The mathematical operation to apply
-  /// - Returns: A new tensor with the result of the operation
-  ///
-  /// - Note: Self-assignment is supported. Methods using this function automatically detect and prevent
-  ///   reference cycles in the computation graph via ` `.
-  func applyAlong(axis: Int, input: Tensor, _ block: MathAlongBlock) -> Tensor {
-    let inputSize = input.size
-    let selfSize = self.size
-    let columns = selfSize.columns
-    let rows = selfSize.rows
-    let depth = selfSize.depth
-        
-    var result: Tensor.Value = []
-    result.reserveCapacity(selfSize.depth * selfSize.rows * selfSize.columns)
-    
-    for d in 0..<depth {
-      for r in 0..<rows {
-        // Extract the row from self
-        let selfStart = flatIndex(column: 0, row: r, depth: d)
-        let feature = storage[safe: selfStart..<(selfStart + columns), 0]
-        
-        let out: [Scalar]
-        
-        if axis == 0,
-           inputSize.columns == columns,
-           inputSize.rows == 1,
-           inputSize.depth == depth {
-          let inputStart = input.flatIndex(column: 0, row: 0, depth: d)
-          let v = input.storage[safe: inputStart..<(inputStart + inputSize.columns), 0]
-          out = block(feature, (v, nil))
-          
-        } else if axis == 1,
-                  inputSize.columns == 1,
-                  inputSize.rows == rows,
-                  inputSize.depth == depth {
-          let v = input.storage[safe: input.flatIndex(column: 0, row: r, depth: d), 0]
-          out = block(feature, (nil, v))
-          
-        } else if axis == 2,
-                  inputSize.columns == columns,
-                  inputSize.rows == rows,
-                  inputSize.depth == 1 {
-          let inputStart = input.flatIndex(column: 0, row: r, depth: 0)
-          let v = input.storage[safe: inputStart..<(inputStart + inputSize.columns), 0]
-          out = block(feature, (v, nil))
-        } else {
-          out = feature
-        }
-        
-        result.append(contentsOf: out)
-      }
-    }
-    
-    return Tensor(result, size: selfSize)
-  }
-  
   func divideContext(value: Tensor) -> TensorContext {
     let branchNode: Tensor? = if sharesGraph(with: value) {
       if self.graphChain.contains(value.id) {
@@ -381,21 +318,7 @@ public extension Tensor {
       else { new.setGraphSafe(value); new.setGraphSafe(self) }
       return new
     }
-    let block: MathAlongBlock = { feature, value in
-      if let valueArray = value.0 {
-        return feature / valueArray
-      } else if let valueScalar = value.1 {
-        return feature / valueScalar
-      } else {
-        return feature
-      }
-    }
-    let out = applyAlong(axis: axis, input: value, block)
-    let new = Tensor(storage: out.storage, size: out.size, context: divideContext(value: value))
-    new.label = "division"
-    if graphChain.contains(value.id) { new.setGraphSafe(self); new.setGraphSafe(value) }
-    else { new.setGraphSafe(value); new.setGraphSafe(self) }
-    return new
+    return Tensor(storage: storage.copy(), size: size, context: divideContext(value: value))
   }
   
   func multiplyContext(value: Tensor) -> TensorContext {
@@ -441,21 +364,7 @@ public extension Tensor {
       else { new.setGraphSafe(value); new.setGraphSafe(self) }
       return new
     }
-    let block: MathAlongBlock = { feature, value in
-      if let valueArray = value.0 {
-        return feature * valueArray
-      } else if let valueScalar = value.1 {
-        return feature * valueScalar
-      } else {
-        return feature
-      }
-    }
-    let out = applyAlong(axis: axis, input: value, block)
-    let new = Tensor(storage: out.storage, size: out.size, context: multiplyContext(value: value))
-    new.label = "multiplication"
-    if graphChain.contains(value.id) { new.setGraphSafe(self); new.setGraphSafe(value) }
-    else { new.setGraphSafe(value); new.setGraphSafe(self) }
-    return new
+    return Tensor(storage: storage.copy(), size: size, context: multiplyContext(value: value))
   }
   
   func addContext(value: Tensor) -> TensorContext {
@@ -516,33 +425,7 @@ public extension Tensor {
       else { new.setGraphSafe(value); new.setGraphSafe(self) }
       return new
     }
-    // Fallback: generic applyAlong path
-    let block: MathAlongBlock = { feature, value in
-      if let valueArray = value.0 {
-        return feature + valueArray
-      } else if let valueScalar = value.1 {
-        return feature + valueScalar
-      } else {
-        return feature
-      }
-    }
-    let out = applyAlong(axis: axis, input: value, block)
-    
-    let new = Tensor(storage: out.storage, size: out.size, context: addContext(value: value))
-    
-    new.label = "addition"
-
-    if graphChain.contains(value.id) {
-      // non branched node
-      new.setGraphSafe(self)
-      new.setGraphSafe(value)
-    } else {
-      // branched node
-      new.setGraphSafe(value)
-      new.setGraphSafe(self)
-    }
-    
-    return new
+    return Tensor(storage: storage.copy(), size: size, context: addContext(value: value))
   }
   
   func subtractContext(value: Tensor) -> TensorContext {
@@ -590,21 +473,7 @@ public extension Tensor {
       else { new.setGraphSafe(value); new.setGraphSafe(self) }
       return new
     }
-    let block: MathAlongBlock = { feature, value in
-      if let valueArray = value.0 {
-        return feature - valueArray
-      } else if let valueScalar = value.1 {
-        return feature - valueScalar
-      } else {
-        return feature
-      }
-    }
-    let out = applyAlong(axis: axis, input: value, block)
-    let new = Tensor(storage: out.storage, size: out.size, context: subtractContext(value: value))
-    new.label = "subtraction"
-    if graphChain.contains(value.id) { new.setGraphSafe(self); new.setGraphSafe(value) }
-    else { new.setGraphSafe(value); new.setGraphSafe(self) }
-    return new
+    return Tensor(storage: storage.copy(), size: size, context: subtractContext(value: value))
   }
   
   func sum() -> Scalar {
