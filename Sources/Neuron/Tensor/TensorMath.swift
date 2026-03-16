@@ -573,6 +573,8 @@ public extension Tensor {
     let columns = size.columns
     let rows = size.rows
     let depth = size.depth
+    let selfPtr = storage.pointer
+    let sliceSize = rows * columns
     
     if axis == 2 {
       let chunkCount = (depth + into - 1) / into
@@ -584,19 +586,18 @@ public extension Tensor {
         let dEnd = min(dStart + into, depth)
         let chunkDepth = dEnd - dStart
         let newSize = TensorSize(rows: rows, columns: columns, depth: chunkDepth)
-        var chunkStorage = Tensor.Value(repeating: 0, count: columns * rows * chunkDepth)
+        let chunkStorage = TensorStorage.create(count: sliceSize * chunkDepth)
+        let dstPtr = chunkStorage.pointer
         
         for d in 0..<chunkDepth {
-          let srcDepth = dStart + d
-          let srcStart = flatIndex(column: 0, row: 0, depth: srcDepth)
-          let dstStart = d * rows * columns
-          for i in 0..<(rows * columns) {
-            let srcIdx = srcStart + i
-            chunkStorage[dstStart + i] = srcIdx < storage.count ? storage[srcIdx] : 0
+          let srcStart = flatIndex(column: 0, row: 0, depth: dStart + d)
+          let copyCount = min(sliceSize, storage.count - srcStart)
+          if copyCount > 0 {
+            (dstPtr + d * sliceSize).update(from: selfPtr + srcStart, count: copyCount)
           }
         }
         
-        results.append(Tensor(chunkStorage, size: newSize))
+        results.append(Tensor(storage: chunkStorage, size: newSize))
       }
       return results
       
@@ -610,20 +611,21 @@ public extension Tensor {
         let rEnd = min(rStart + into, rows)
         let chunkRows = rEnd - rStart
         let newSize = TensorSize(rows: chunkRows, columns: columns, depth: depth)
-        var chunkStorage = Tensor.Value(repeating: 0, count: columns * chunkRows * depth)
+        let chunkStorage = TensorStorage.create(count: columns * chunkRows * depth)
+        let dstPtr = chunkStorage.pointer
         
         for d in 0..<depth {
           for r in 0..<chunkRows {
             let srcStart = flatIndex(column: 0, row: rStart + r, depth: d)
             let dstStart = d * chunkRows * columns + r * columns
-            for c in 0..<columns {
-              let srcIdx = srcStart + c
-              chunkStorage[dstStart + c] = srcIdx < storage.count ? storage[srcIdx] : 0
+            let copyCount = min(columns, storage.count - srcStart)
+            if copyCount > 0 {
+              (dstPtr + dstStart).update(from: selfPtr + srcStart, count: copyCount)
             }
           }
         }
         
-        results.append(Tensor(chunkStorage, size: newSize))
+        results.append(Tensor(storage: chunkStorage, size: newSize))
       }
       return results
       
@@ -637,19 +639,20 @@ public extension Tensor {
         let cEnd = min(cStart + into, columns)
         let chunkCols = cEnd - cStart
         let newSize = TensorSize(rows: rows, columns: chunkCols, depth: depth)
-        var chunkStorage = Tensor.Value(repeating: 0, count: chunkCols * rows * depth)
+        let chunkStorage = TensorStorage.create(count: chunkCols * rows * depth)
+        let dstPtr = chunkStorage.pointer
         
         for d in 0..<depth {
           for r in 0..<rows {
             let dstStart = d * rows * chunkCols + r * chunkCols
             for c in 0..<chunkCols {
               let srcIdx = flatIndex(column: cStart + c, row: r, depth: d)
-              chunkStorage[dstStart + c] = srcIdx < storage.count ? storage[srcIdx] : 0
+              dstPtr[dstStart + c] = srcIdx < storage.count ? selfPtr[srcIdx] : 0
             }
           }
         }
         
-        results.append(Tensor(chunkStorage, size: newSize))
+        results.append(Tensor(storage: chunkStorage, size: newSize))
       }
       return results
       
