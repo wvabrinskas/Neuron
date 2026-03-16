@@ -117,34 +117,31 @@ public final class InstanceNormalize: BaseLayer {
   private func normalizeFlat(inputs: Tensor) -> TensorStorage {
     let depth = inputs.size.depth
     let sliceSize = inputSize.rows * inputSize.columns
-    let outStorage = TensorStorage.create(count: inputs.storage.count)
+    let pcSize = TensorSize(rows: 1, columns: 1, depth: depth)
 
-    // Scratch buffer for centered values (reused each depth slice)
+    var means = [Tensor.Scalar](repeating: 0, count: depth)
+    var stds  = [Tensor.Scalar](repeating: 0, count: depth)
+
     let centeredBuf = TensorStorage.create(count: sliceSize)
 
     for i in 0..<depth {
-      let gammaVal = gamma.storage[i]
-      let betaVal  = beta.storage[i]
-      let inPtr    = inputs.storage.pointer + i * sliceSize
-      let outPtr   = outStorage.pointer + i * sliceSize
-
-      // mean = sum(slice) / sliceSize
+      let inPtr = inputs.storage.pointer + i * sliceSize
       let mean = NumSwiftFlat.mean(inPtr, count: sliceSize)
+      means[i] = mean
 
-      // centered = slice - mean
       NumSwiftFlat.sub(inPtr, scalar: mean, result: centeredBuf.pointer, count: sliceSize)
-
-      // variance = sumOfSquares(centered) / sliceSize
       let sumSq = NumSwiftFlat.sumOfSquares(centeredBuf.pointer, count: sliceSize)
-      let std = Tensor.Scalar.sqrt(sumSq / Tensor.Scalar(sliceSize) + epsilon)
-
-      // normalized = centered / std, then scale: normalized * gamma[i] + beta[i]
-      NumSwiftFlat.div(centeredBuf.pointer, scalar: std, result: outPtr, count: sliceSize)
-      NumSwiftFlat.mul(outPtr, scalar: gammaVal, result: outPtr, count: sliceSize)
-      NumSwiftFlat.add(outPtr, scalar: betaVal, result: outPtr, count: sliceSize)
+      stds[i] = Tensor.Scalar.sqrt(sumSq / Tensor.Scalar(sliceSize) + epsilon)
     }
 
-    return outStorage
+    let meanT  = Tensor(storage: TensorStorage.create(from: means), size: pcSize)
+    let stdT   = Tensor(storage: TensorStorage.create(from: stds), size: pcSize)
+    let gammaT = Tensor(storage: gamma.storage, size: pcSize)
+    let betaT  = Tensor(storage: beta.storage, size: pcSize)
+
+    let normalized = (inputs - meanT) / stdT
+    let output = normalized * gammaT + betaT
+    return output.storage
   }
   
   private func backwardFlat(inputs: Tensor, gradient: Tensor) -> (input: Tensor, weight: Tensor, bias: Tensor) {
