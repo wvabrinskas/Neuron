@@ -1009,11 +1009,13 @@ public extension Tensor {
   }
   
   func map(_ transform: (Tensor.Scalar) -> Tensor.Scalar) -> Tensor {
-    var result = Tensor.Value(repeating: 0, count: storage.count)
+    let result = TensorStorage.create(count: storage.count)
+    let srcPtr = storage.pointer
+    let dstPtr = result.pointer
     for i in 0..<storage.count {
-      result[i] = transform(storage[i])
+      dstPtr[i] = transform(srcPtr[i])
     }
-    return Tensor(result, size: size, context: context)
+    return Tensor(storage: result, size: size, context: context)
   }
   
   static func /(lhs: Scalar, rhs: Tensor) -> Tensor {
@@ -1145,13 +1147,11 @@ public extension Tensor {
   }
   
   func zerosLike() -> Tensor {
-    let zeroStorage = Tensor.Value(repeating: 0, count: storage.count)
-    return Tensor(zeroStorage, size: size)
+    return Tensor(storage: TensorStorage.create(count: storage.count), size: size)
   }
   
   func onesLike() -> Tensor {
-    let oneStorage = Tensor.Value(repeating: 1, count: storage.count)
-    return Tensor(oneStorage, size: size)
+    return Tensor(storage: TensorStorage.create(repeating: 1, count: storage.count), size: size)
   }
   
   func transposed() -> Tensor {
