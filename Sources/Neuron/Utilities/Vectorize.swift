@@ -91,6 +91,10 @@ public class Vectorizer: Vectorizing, Codable {
     0
   }
   
+  /// Initializes a `Vectorizer` instance by decoding it from the given decoder.
+  ///
+  /// - Parameter decoder: The decoder to read data from.
+  /// - Throws: An error if any required value cannot be decoded.
   public enum CodingKeys: String, CodingKey {
     case vector
     case lastKey
@@ -107,6 +111,10 @@ public class Vectorizer: Vectorizing, Codable {
     self.maxIndex = try container.decode(Int.self, forKey: .maxIndex)
   }
   
+  /// Encodes this `Vectorizer` instance into the given encoder.
+  ///
+  /// - Parameter encoder: The encoder to write data to.
+  /// - Throws: An error if any value cannot be encoded.
   public func encode(to encoder: any Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(vector, forKey: .vector)

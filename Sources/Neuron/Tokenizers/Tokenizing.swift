@@ -49,6 +49,7 @@ open class BaseTokenizer: Tokenizing {
       wordEnding
   ]
   
+  /// Coding keys used for encoding and decoding the tokenizer's properties.
   public enum CodingKeys: String, CodingKey {
     case mergeRules
     case vocab

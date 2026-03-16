@@ -16,6 +16,7 @@ public struct TensorSize: Codable, Equatable {
   /// The depth (third dimension) of the tensor.
   public let depth: Int
   
+  /// The number of batches in the tensor.
   public let batchCount: Int
   
   /// Indicates whether the tensor size has no extent, i.e., all dimensions are zero.
@@ -29,14 +30,20 @@ public struct TensorSize: Codable, Equatable {
     [columns, rows, depth, batchCount.nilIfOne].compactMap { $0 } // don't need to return batchCount if it's one
   }
   
+  /// Returns the tensor dimensions as an array in `[columns, rows, depth]` order, excluding the batch dimension.
+  /// - Returns: An array of three integers representing `[columns, rows, depth]`.
   public var unitSize: [Int] {
     [columns, rows, depth]
   }
   
+  /// Coding keys used for encoding and decoding a `TensorSize` instance.
   public enum CodingKeys: String, CodingKey {
     case rows, columns, depth, batchCount
   }
   
+  /// Creates a `TensorSize` by decoding from the given decoder.
+  /// - Parameter decoder: The decoder to read data from.
+  /// - Throws: An error if any required value is missing or cannot be decoded.
   public init(from decoder: any Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     self.rows = try container.decode(Int.self, forKey: .rows)
@@ -45,6 +52,9 @@ public struct TensorSize: Codable, Equatable {
     self.batchCount = try container.decodeIfPresent(Int.self, forKey: .batchCount) ?? 1
   }
   
+  /// Encodes the `TensorSize` into the given encoder.
+  /// - Parameter encoder: The encoder to write data to.
+  /// - Throws: An error if any value cannot be encoded.
   public func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(rows, forKey: .rows)

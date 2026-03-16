@@ -359,10 +359,17 @@ public class Tensor: Equatable, Codable {
     return storage.pointer + d * size.rows * size.columns
   }
   
+  /// Sets the contents of a depth slice from a `TensorStorage` object.
+  /// - Parameter d: The depth index (0-based) to update
+  /// - Parameter store: The `TensorStorage` whose pointer data will be copied into the slice
   public func setDepthPointer(_ d: Int, _ store: TensorStorage) {
     setDepthPointer(d, store.pointer)
   }
   
+  /// Sets the contents of a depth slice from a raw storage pointer.
+  /// Copies `rows * columns` elements from the given pointer into the specified depth slice.
+  /// - Parameter d: The depth index (0-based) to update
+  /// - Parameter pointer: A raw pointer to the source data to copy into the slice
   public func setDepthPointer(_ d: Int, _ pointer: TensorStorage.Pointer) {
     let sliceSize = size.rows * size.columns
     let dstPtr = storage.pointer + d * sliceSize
@@ -396,6 +403,10 @@ public class Tensor: Equatable, Codable {
   // reserved for fetching a single Tensor with multiple batches.
   // Good for GPU parallization
   // Drops the context to fetch the tensor as the Context is tied to the batch as a whole
+  /// Extracts a single batch slice as a new `Tensor`.
+  /// The result has the same rows, columns, and depth as one batch element.
+  /// - Parameter b: The batch index (0-based) to extract
+  /// - Returns: A new `Tensor` containing the data for the specified batch index
   public func batchSlice(_ b: Int) -> Tensor {
     guard b < size.batchCount else {
       assertionFailure("batch index \(b) out of range")

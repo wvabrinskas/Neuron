@@ -9,6 +9,7 @@ import Foundation
 import NumSwift
 
 // currently a WIP and mimics the CPU
+/// A GPU-backed device implementation conforming to the `Device` protocol.
 public struct GPU: Device {
 
   /// Priority to run the multithreaded operations on
@@ -19,6 +20,16 @@ public struct GPU: Device {
   /// Creates a CPU-backed device implementation.
   public init() {}
 
+  /// Performs a batched transposed 2D convolution (deconvolution) on the GPU.
+  ///
+  /// - Parameter signal: Pointer to the input signal tensor storage.
+  /// - Parameter filter: Pointer to the filter/kernel tensor storage.
+  /// - Parameter result: Pointer to the tensor storage where the output will be written.
+  /// - Parameter strides: The stride values as (rows, columns) for the transposed convolution.
+  /// - Parameter padding: The padding strategy to apply during the transposed convolution.
+  /// - Parameter filterSize: The size of the filter as (rows, columns).
+  /// - Parameter inputSize: The size of the input signal as (rows, columns).
+  /// - Parameter batchCount: The number of samples in the batch to process.
   public func transConv2d(signal: TensorStorage.Pointer,
                           filter: TensorStorage.Pointer,
                           result: TensorStorage.Pointer,
@@ -37,6 +48,16 @@ public struct GPU: Device {
                                   batchCount: batchCount)
   }
   
+  /// Performs a batched 2D convolution on the GPU.
+  ///
+  /// - Parameter signal: Pointer to the input signal tensor storage.
+  /// - Parameter filter: Pointer to the filter/kernel tensor storage.
+  /// - Parameter result: Pointer to the tensor storage where the output will be written.
+  /// - Parameter strides: The stride values as (rows, columns) for the convolution.
+  /// - Parameter padding: The padding strategy to apply during the convolution.
+  /// - Parameter filterSize: The size of the filter as (rows, columns).
+  /// - Parameter inputSize: The size of the input signal as (rows, columns).
+  /// - Parameter batchCount: The number of samples in the batch to process.
   public func conv2d(signal: TensorStorage.Pointer,
               filter: TensorStorage.Pointer,
               result: TensorStorage.Pointer,
