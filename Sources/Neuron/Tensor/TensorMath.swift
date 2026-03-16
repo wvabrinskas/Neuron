@@ -142,6 +142,48 @@ public extension Tensor {
 
   private enum _BroadcastOp { case add, sub, mul, div }
 
+  /// Per-channel broadcasting fast path for (W,H,D) op (1,1,D).
+  /// Applies a per-depth scalar from `value` across each spatial slice of `self`.
+  private func _broadcastPerChannelFastPath(value: Tensor, op: _BroadcastOp) -> Tensor? {
+    let selfSize = size
+    let inputSize = value.size
+    guard inputSize.columns == 1,
+          inputSize.rows == 1,
+          inputSize.depth == selfSize.depth else { return nil }
+
+    let columns = selfSize.columns
+    let rows = selfSize.rows
+    let depth = selfSize.depth
+    let sliceSize = columns * rows
+    let totalCount = sliceSize * depth
+    guard totalCount > 0 else { return nil }
+
+    let resultStorage = TensorStorage.create(count: totalCount)
+    let selfPtr = storage.pointer
+    let inputPtr = value.storage.pointer
+    let resultPtr = resultStorage.pointer
+
+    for d in 0..<depth {
+      let offset = d * sliceSize
+      let scalar = inputPtr[d]
+      switch op {
+      case .add: NumSwiftFlat.add(selfPtr + offset, scalar: scalar, result: resultPtr + offset, count: sliceSize)
+      case .sub: NumSwiftFlat.sub(selfPtr + offset, scalar: scalar, result: resultPtr + offset, count: sliceSize)
+      case .mul: NumSwiftFlat.mul(selfPtr + offset, scalar: scalar, result: resultPtr + offset, count: sliceSize)
+      case .div: NumSwiftFlat.div(selfPtr + offset, scalar: scalar, result: resultPtr + offset, count: sliceSize)
+      }
+    }
+
+    let context: TensorContext
+    switch op {
+    case .add: context = addContext(value: value)
+    case .sub: context = subtractContext(value: value)
+    case .mul: context = multiplyContext(value: value)
+    case .div: context = divideContext(value: value)
+    }
+    return Tensor(storage: resultStorage, size: selfSize, context: context)
+  }
+
   /// Pointer-based fast path for *Along broadcasting. Returns result storage when applicable, nil to fall back.
   private func _broadcastAlongFastPath(axis: Int, value: Tensor, op: _BroadcastOp) -> Tensor? {
     let inputSize = value.size
@@ -923,17 +965,22 @@ public extension Tensor {
       return lhs.addAlong(axis: axis, value: rhs)
     }
     
+    if let new = lhs._broadcastPerChannelFastPath(value: rhs, op: .add) {
+      new.label = "addition"
+      if lhs.graphChain.contains(rhs.id) { new.setGraphSafe(lhs); new.setGraphSafe(rhs) }
+      else { new.setGraphSafe(rhs); new.setGraphSafe(lhs) }
+      return new
+    }
+    
     let result = lhs.storage + rhs.storage
     
     let new = Tensor(storage: result, size: lhs.size, context: lhs.addContext(value: rhs))
     new.label = "addition"
     
     if lhs.graphChain.contains(rhs.id) {
-      // non branched node
       new.setGraphSafe(lhs)
       new.setGraphSafe(rhs)
     } else {
-      // branched node
       new.setGraphSafe(rhs)
       new.setGraphSafe(lhs)
     }
@@ -948,17 +995,22 @@ public extension Tensor {
       return lhs.subtractAlong(axis: axis, value: rhs)
     }
     
+    if let new = lhs._broadcastPerChannelFastPath(value: rhs, op: .sub) {
+      new.label = "subtraction"
+      if lhs.graphChain.contains(rhs.id) { new.setGraphSafe(lhs); new.setGraphSafe(rhs) }
+      else { new.setGraphSafe(rhs); new.setGraphSafe(lhs) }
+      return new
+    }
+    
     let result = lhs.storage - rhs.storage
 
     let new = Tensor(storage: result, size: lhs.size, context: lhs.subtractContext(value: rhs))
     new.label = "subtraction"
 
     if lhs.graphChain.contains(rhs.id) {
-      // non branched node
       new.setGraphSafe(lhs)
       new.setGraphSafe(rhs)
     } else {
-      // branched node
       new.setGraphSafe(rhs)
       new.setGraphSafe(lhs)
     }
@@ -973,17 +1025,22 @@ public extension Tensor {
       return lhs.multiplyAlong(axis: axis, value: rhs)
     }
     
+    if let new = lhs._broadcastPerChannelFastPath(value: rhs, op: .mul) {
+      new.label = "multiplication"
+      if lhs.graphChain.contains(rhs.id) { new.setGraphSafe(lhs); new.setGraphSafe(rhs) }
+      else { new.setGraphSafe(rhs); new.setGraphSafe(lhs) }
+      return new
+    }
+    
     let result = lhs.storage * rhs.storage
 
     let new = Tensor(storage: result, size: lhs.size, context: lhs.multiplyContext(value: rhs))
     new.label = "multiplication"
 
     if lhs.graphChain.contains(rhs.id) {
-      // non branched node
       new.setGraphSafe(lhs)
       new.setGraphSafe(rhs)
     } else {
-      // branched node
       new.setGraphSafe(rhs)
       new.setGraphSafe(lhs)
     }
@@ -998,17 +1055,22 @@ public extension Tensor {
       return lhs.divideAlong(axis: axis, value: rhs)
     }
     
+    if let new = lhs._broadcastPerChannelFastPath(value: rhs, op: .div) {
+      new.label = "division"
+      if lhs.graphChain.contains(rhs.id) { new.setGraphSafe(lhs); new.setGraphSafe(rhs) }
+      else { new.setGraphSafe(rhs); new.setGraphSafe(lhs) }
+      return new
+    }
+    
     let result = lhs.storage / rhs.storage
 
     let new = Tensor(storage: result, size: lhs.size, context: lhs.divideContext(value: rhs))
     new.label = "division"
 
     if lhs.graphChain.contains(rhs.id) {
-      // non branched node
       new.setGraphSafe(lhs)
       new.setGraphSafe(rhs)
     } else {
-      // branched node
       new.setGraphSafe(rhs)
       new.setGraphSafe(lhs)
     }
