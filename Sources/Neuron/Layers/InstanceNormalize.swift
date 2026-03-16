@@ -98,10 +98,10 @@ public final class InstanceNormalize: BaseLayer {
   /// - Returns: Normalized tensor with layer-norm backpropagation context.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let tensotContext = TensorContext { inputs, gradient, wrt in
-      self.backwardFlat(inputs: inputs, gradient: gradient)
+      self.backward(inputs: inputs, gradient: gradient)
     }
 
-    let forwardStorage = normalizeFlat(inputs: tensor)
+    let forwardStorage = normalize(inputs: tensor)
     let out = Tensor(storage: forwardStorage, size: tensor.size, context: tensotContext)
     out.setGraph(tensor)
 
@@ -114,7 +114,7 @@ public final class InstanceNormalize: BaseLayer {
     setupTrainables()
   }
 
-  private func normalizeFlat(inputs: Tensor) -> TensorStorage {
+  private func normalize(inputs: Tensor) -> TensorStorage {
     let depth = inputs.size.depth
     let sliceSize = inputSize.rows * inputSize.columns
     let pcSize = TensorSize(rows: 1, columns: 1, depth: depth)
@@ -133,16 +133,16 @@ public final class InstanceNormalize: BaseLayer {
       stds[i] = Tensor.Scalar.sqrt(sumSq / Tensor.Scalar(sliceSize) + epsilon)
     }
 
-    let stdT   = Tensor(storage: TensorStorage.create(from: stds), size: pcSize)
+    let stdT = Tensor(storage: TensorStorage.create(from: stds), size: pcSize)
     let gammaT = Tensor(storage: gamma.storage, size: pcSize)
-    let betaT  = Tensor(storage: beta.storage, size: pcSize)
+    let betaT = Tensor(storage: beta.storage, size: pcSize)
 
     let normalized = centered / stdT
     let output = normalized * gammaT + betaT
     return output.storage
   }
   
-  private func backwardFlat(inputs: Tensor, gradient: Tensor) -> (input: Tensor, weight: Tensor, bias: Tensor) {
+  private func backward(inputs: Tensor, gradient: Tensor) -> (input: Tensor, weight: Tensor, bias: Tensor) {
     let depth = inputs.size.depth
     let sliceSize = inputSize.rows * inputSize.columns
     let N = Tensor.Scalar(sliceSize)
@@ -154,7 +154,7 @@ public final class InstanceNormalize: BaseLayer {
     for i in 0..<depth {
       means[i] = NumSwiftFlat.mean(inputs.depthPointer(i), count: sliceSize)
     }
-
+    
     let meanT = Tensor(storage: TensorStorage.create(from: means), size: pcSize)
     let centered = inputs - meanT
 
@@ -168,16 +168,16 @@ public final class InstanceNormalize: BaseLayer {
 
     let xNormTimesGrad = xNorm * gradient
     var dGammas = [Tensor.Scalar](repeating: 0, count: depth)
-    var dBetas  = [Tensor.Scalar](repeating: 0, count: depth)
+    var dBetas = [Tensor.Scalar](repeating: 0, count: depth)
     for i in 0..<depth {
       dBetas[i] = NumSwiftFlat.sum(gradient.depthPointer(i), count: sliceSize)
       dGammas[i] = NumSwiftFlat.sum(xNormTimesGrad.depthPointer(i), count: sliceSize)
     }
 
-    let gammaT   = Tensor(storage: gamma.storage, size: pcSize)
+    let gammaT = Tensor(storage: gamma.storage, size: pcSize)
     let invNStdT = gammaT / (Tensor(N) * stdT)
-    let dBetaT   = Tensor(storage: TensorStorage.create(from: dBetas), size: pcSize)
-    let dGammaT  = Tensor(storage: TensorStorage.create(from: dGammas), size: pcSize)
+    let dBetaT = Tensor(storage: TensorStorage.create(from: dBetas), size: pcSize)
+    let dGammaT = Tensor(storage: TensorStorage.create(from: dGammas), size: pcSize)
 
     let dInput = (gradient * N - dBetaT - xNorm * dGammaT) * invNStdT
 
@@ -199,8 +199,8 @@ public final class InstanceNormalize: BaseLayer {
     let betaWeights = gradients.weights.depthSliceTensor(0)
     let gammaWeights = gradients.weights.depthSliceTensor(1)
 
-    gamma = gamma - gammaWeights
-    beta = beta - betaWeights
+    gamma = gamma.copy() - gammaWeights
+    beta = beta.copy() - betaWeights
   }
   
   private func setupTrainables() {

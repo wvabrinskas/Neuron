@@ -561,7 +561,7 @@ final class NeuronTests: XCTestCase {
     // Per-channel statistics: depth=1, all values across batch + spatial
     // 5 even [0,1,0,1,0] + 5 odd [1,0,1,0,1] → mean=0.5, var=0.25, std≈0.5
     XCTAssertEqual(norm.sampleCount, batchSize)
-    XCTAssertEqual(norm.movingMean.count, 1)
+    XCTAssertEqual(norm.movingMean.storage.count, 1)
   }
   
   func testBatchNorm2d() {
@@ -651,7 +651,7 @@ final class NeuronTests: XCTestCase {
     
     XCTAssertEqual(norm.sampleCount, batchSize)
     // Per-channel: 5 channels, each with mean=0.5, var=0.25 (same data pattern per channel)
-    XCTAssertEqual(norm.movingMean.count, 5)
+    XCTAssertEqual(norm.movingMean.storage.count, 5)
   }
   
   func testDropout() {

@@ -353,6 +353,7 @@ print(grads.input.count, grads.weights.count, grads.biases.count)
 8. **Gradient/weights layout mismatch**: Layers with multiple params (e.g. gamma, beta) must return gradients in the same order as `weights`. InstanceNormalize and LayerNormalize use `beta | gamma`; gradients must match or Adam weight decay corrupts training. See `InstanceNormalize.swift` and `AGENT_REFERENCE.md`.
 9. **Using `Tensor.Value` arithmetic in hot paths**: Prefer `NumSwiftFlat` pointer APIs to avoid intermediate array allocations. See "Pointer-Based Arithmetic" section.
 10. **Shared-memory bugs with optimizer state**: When returning optimizer state (e.g., SGD velocity) as a Tensor, use `TensorStorage.forceCopy()` to avoid the tensor mutating optimizer internals.
+11. **Tensor self-assignment creates reference cycles**: Tensor arithmetic operators (`+`, `-`, `*`, `/`) build autograd computation graphs. Writing `gamma = gamma - gradients` creates a reference cycle because the result's graph holds a reference to the old `gamma`, which is now the same variable as the new `gamma`. Instead, construct a fresh Tensor from the result's storage: `gamma = Tensor(storage: (gamma - gradients).storage, size: gamma.size)`. Alternatively, perform the arithmetic at the `TensorStorage` level (which has no autograd): `gamma = Tensor(storage: gamma.storage - gradients.storage, size: gamma.size)`. This applies anywhere a Tensor property is updated via arithmetic that references itself.
 
 ## Performance & Memory Profiling
 

@@ -98,5 +98,6 @@ public final class [LayerName]: BaseLayer {
 4. **Device Support**: Inherit device management from BaseLayer
 5. **Codable**: Implement proper encoding/decoding for model persistence
 6. **Pointer-Based Arithmetic**: Use `TensorStorage.create(count:)` for output buffers, `NumSwiftFlat` pointer APIs for element-wise math, and `Tensor(storage:size:)` to construct output tensors. Access depth slices via `tensor.depthPointer(d)` or `tensor.storage.pointer + d * sliceSize` instead of `depthSlice(d)`. Pre-allocate reusable scratch `TensorStorage` buffers outside loops.
+7. **No Tensor Self-Assignment**: Never write `self.gamma = self.gamma - gradients` or similar patterns using Tensor arithmetic operators. The operators build autograd graphs that reference the old value, creating a reference cycle when assigned back to the same property. Instead, use `TensorStorage`-level arithmetic which has no autograd: `gamma = Tensor(storage: gamma.storage - gradients.storage, size: gamma.size)`. This applies to `apply(gradients:)` and any method that updates layer parameters in-place.
 
 
