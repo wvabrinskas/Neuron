@@ -120,26 +120,24 @@ public final class InstanceNormalize: BaseLayer {
     let pcSize = TensorSize(rows: 1, columns: 1, depth: depth)
 
     var means = [Tensor.Scalar](repeating: 0, count: depth)
-    var stds  = [Tensor.Scalar](repeating: 0, count: depth)
-
-    let centeredBuf = TensorStorage.create(count: sliceSize)
-
     for i in 0..<depth {
-      let inPtr = inputs.storage.pointer + i * sliceSize
-      let mean = NumSwiftFlat.mean(inPtr, count: sliceSize)
-      means[i] = mean
+      means[i] = NumSwiftFlat.mean(inputs.depthPointer(i), count: sliceSize)
+    }
 
-      NumSwiftFlat.sub(inPtr, scalar: mean, result: centeredBuf.pointer, count: sliceSize)
-      let sumSq = NumSwiftFlat.sumOfSquares(centeredBuf.pointer, count: sliceSize)
+    let meanT = Tensor(storage: TensorStorage.create(from: means), size: pcSize)
+    let centered = inputs - meanT
+
+    var stds = [Tensor.Scalar](repeating: 0, count: depth)
+    for i in 0..<depth {
+      let sumSq = NumSwiftFlat.sumOfSquares(centered.depthPointer(i), count: sliceSize)
       stds[i] = Tensor.Scalar.sqrt(sumSq / Tensor.Scalar(sliceSize) + epsilon)
     }
 
-    let meanT  = Tensor(storage: TensorStorage.create(from: means), size: pcSize)
     let stdT   = Tensor(storage: TensorStorage.create(from: stds), size: pcSize)
     let gammaT = Tensor(storage: gamma.storage, size: pcSize)
     let betaT  = Tensor(storage: beta.storage, size: pcSize)
 
-    let normalized = (inputs - meanT) / stdT
+    let normalized = centered / stdT
     let output = normalized * gammaT + betaT
     return output.storage
   }
