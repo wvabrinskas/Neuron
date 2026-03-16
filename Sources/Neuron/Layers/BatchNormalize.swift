@@ -234,8 +234,8 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
 
     let batchMeansT = Self.perChannelTensor(from: batchMeans)
     let batchVariancesT = Self.perChannelTensor(from: batchVariances)
-    movingMean = movingMean * momentum + batchMeansT * (1 - momentum)
-    movingVariance = movingVariance * momentum + batchVariancesT * (1 - momentum)
+    movingMean = movingMean.copy() * momentum + batchMeansT * (1 - momentum)
+    movingVariance = movingVariance.copy() * momentum + batchVariancesT * (1 - momentum)
 
     resetDeltas()
     resetChannelAccumulators()
