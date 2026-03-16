@@ -23,7 +23,7 @@ public extension Float16 {
 #endif
 
 public extension Tensor {
-  typealias MathBlock = (_ feature: [Scalar]) -> Scalar
+  typealias PointerMathBlock = (_ ptr: TensorStorage.Pointer, _ count: Int) -> Scalar
   typealias MathAlongBlock = (_ feature: [Scalar], _ value: ([Scalar]?, Scalar?)) -> [Scalar]
   
   /*
@@ -44,61 +44,64 @@ public extension Tensor {
    
    Along axis -1 the Tensor of shape AxBxC, where A is the columns, B is the rows, and C is the depth, would perform a mathematical function along the Z axis returning a (1x1x1) Tensor Scalar
    */
-  func apply(axis: Int, _ block: MathBlock) -> Tensor {
+  func apply(axis: Int, _ block: PointerMathBlock) -> Tensor {
     let columns = size.columns
     let rows = size.rows
     let depth = size.depth
+    let selfPtr = storage.pointer
     
     if axis == 0 {
       // Reduce along rows -> output (columns x 1 x depth)
       let outSize = TensorSize(rows: 1, columns: columns, depth: depth)
-      var outStorage = Tensor.Value(repeating: 0, count: columns * depth)
+      let outStorage = TensorStorage.create(count: columns * depth)
+      let outPtr = outStorage.pointer
+      let scratch = TensorStorage.create(count: rows)
+      let scratchPtr = scratch.pointer
       
       for d in 0..<depth {
         for c in 0..<columns {
-          var workingRow = [Scalar]()
-          workingRow.reserveCapacity(rows)
           for r in 0..<rows {
-            workingRow.append(storage[flatIndex(column: c, row: r, depth: d)])
+            scratchPtr[r] = selfPtr[flatIndex(column: c, row: r, depth: d)]
           }
-          outStorage[d * columns + c] = block(workingRow)
+          outPtr[d * columns + c] = block(scratchPtr, rows)
         }
       }
       
-      return Tensor(outStorage, size: outSize)
+      return Tensor(storage: outStorage, size: outSize)
       
     } else if axis == 1 {
       // Reduce along columns -> output (1 x rows x depth)
       let outSize = TensorSize(rows: rows, columns: 1, depth: depth)
-      var outStorage = Tensor.Value(repeating: 0, count: rows * depth)
+      let outStorage = TensorStorage.create(count: rows * depth)
+      let outPtr = outStorage.pointer
       
       for d in 0..<depth {
         for r in 0..<rows {
           let start = flatIndex(column: 0, row: r, depth: d)
-          let row = Array(storage[start..<(start + columns)])
-          outStorage[d * rows + r] = block(row)
+          outPtr[d * rows + r] = block(selfPtr + start, columns)
         }
       }
       
-      return Tensor(outStorage, size: outSize)
+      return Tensor(storage: outStorage, size: outSize)
       
     } else if axis == 2 {
       // Reduce along depth -> output (columns x rows x 1)
       let outSize = TensorSize(rows: rows, columns: columns, depth: 1)
-      var outStorage = Tensor.Value(repeating: 0, count: columns * rows)
+      let outStorage = TensorStorage.create(count: columns * rows)
+      let outPtr = outStorage.pointer
+      let scratch = TensorStorage.create(count: depth)
+      let scratchPtr = scratch.pointer
       
       for r in 0..<rows {
         for c in 0..<columns {
-          var featureR = [Scalar]()
-          featureR.reserveCapacity(depth)
           for d in 0..<depth {
-            featureR.append(storage[flatIndex(column: c, row: r, depth: d)])
+            scratchPtr[d] = selfPtr[flatIndex(column: c, row: r, depth: d)]
           }
-          outStorage[r * columns + c] = block(featureR)
+          outPtr[r * columns + c] = block(scratchPtr, depth)
         }
       }
       
-      return Tensor(outStorage, size: outSize)
+      return Tensor(storage: outStorage, size: outSize)
     }
     
     return Tensor(storage: storage, size: size)
@@ -688,15 +691,13 @@ public extension Tensor {
   }
   
   func sumOfSquares(axis: Int = -1) -> Tensor {
-    let block: MathBlock = { feature in
-      feature.sumOfSquares
-    }
-    
     if axis == -1 {
       return Tensor(storage.sumOfSquares)
     }
     
-    return apply(axis: axis, block)
+    return apply(axis: axis) { ptr, count in
+      NumSwiftFlat.sumOfSquares(ptr, count: count)
+    }
   }
   
   func split(into: Int, axis: Int = 2) -> [Tensor] {
@@ -795,15 +796,6 @@ public extension Tensor {
   }
   
   func variance(axis: Int = -1) -> Tensor {
-    let block: MathBlock = { feature in
-      let mean = feature.mean
-      let sumOSquares = (feature - mean).sumOfSquares
-      
-      let count = feature.count
-      
-      return sumOSquares / Tensor.Scalar(count)
-    }
-    
     if axis == -1 {
       let meanVal = storage.mean
       let centered = storage - meanVal
@@ -811,28 +803,34 @@ public extension Tensor {
       return Tensor(sumSq / Scalar(storage.count))
     }
     
-    return apply(axis: axis, block)
+    return apply(axis: axis) { ptr, count in
+      let mean = NumSwiftFlat.mean(ptr, count: count)
+      var sumSq: Tensor.Scalar = 0
+      for i in 0..<count {
+        let diff = ptr[i] - mean
+        sumSq += diff * diff
+      }
+      return sumSq / Tensor.Scalar(count)
+    }
   }
   
   func mean(axis: Int = -1) -> Tensor {
-    let block: MathBlock = { feature in
-      feature.mean
-    }
-    
     if axis == -1 {
       guard !storage.isEmpty else { return Tensor(Scalar(0)) }
       return Tensor(storage.mean)
     }
     
-    return apply(axis: axis, block)
+    return apply(axis: axis) { ptr, count in
+      NumSwiftFlat.mean(ptr, count: count)
+    }
   }
   
   func sum(axis: Int = -1) -> Tensor {
     if axis == -1 {
       return Tensor(storage.sum)
     } else {
-      return apply(axis: axis) { feature in
-        feature.sum
+      return apply(axis: axis) { ptr, count in
+        NumSwiftFlat.sum(ptr, count: count)
       }
     }
   }
@@ -846,11 +844,13 @@ public extension Tensor {
       }
       return Tensor(result)
     } else {
-      return apply(axis: axis) { feature in
-        var feature = feature
-        let first = feature.first ?? 0
-        feature = Array(feature.dropFirst())
-        return feature.reduce(first, -)
+      return apply(axis: axis) { ptr, count in
+        guard count > 0 else { return 0 }
+        var result = ptr[0]
+        for i in 1..<count {
+          result -= ptr[i]
+        }
+        return result
       }
     }
   }
@@ -864,22 +864,24 @@ public extension Tensor {
       }
       return Tensor(result)
     } else {
-      return apply(axis: axis) { feature in
-        feature.reduce(1, *)
+      return apply(axis: axis) { ptr, count in
+        var result: Tensor.Scalar = 1
+        for i in 0..<count {
+          result *= ptr[i]
+        }
+        return result
       }
     }
   }
   
   func norm(axis: Int = -1) -> Tensor {
-    let block: MathBlock = { feature in
-      Tensor.Scalar.sqrt(feature.sumOfSquares)
-    }
-    
     if axis == -1 {
       return Tensor(Tensor.Scalar.sqrt(storage.sumOfSquares))
     }
     
-    return apply(axis: axis, block)
+    return apply(axis: axis) { ptr, count in
+      Tensor.Scalar.sqrt(NumSwiftFlat.sumOfSquares(ptr, count: count))
+    }
   }
   
   @discardableResult
