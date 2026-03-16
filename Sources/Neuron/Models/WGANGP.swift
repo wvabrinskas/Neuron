@@ -24,14 +24,10 @@ open class WGANGP: GAN {
   public var lambda: Tensor.Scalar = 0.1
 
   private struct GradientPenalty {
-    static func calculate(gradient: Tensor) -> Tensor {
-      let sumOfSquares = gradient.sumOfSquares().asScalar()
-      let norm = Tensor.Scalar.sqrt(sumOfSquares + .stabilityFactor) - 1
-      return Tensor(norm * norm)
-    }
-    
-    static func calculate(gradients: [Tensor]) -> [Tensor] {
-      gradients.map { calculate(gradient: $0) }
+    static func calculate(gradient: Tensor) -> (penalty: Tensor.Scalar, norm: Tensor.Scalar) {
+      let norm = gradient.norm().asScalar()
+      let normAdjusted = norm - 1
+      return (Tensor(normAdjusted * normAdjusted).asScalar(), norm)
     }
   }
   
@@ -43,68 +39,64 @@ open class WGANGP: GAN {
   override func discriminatorStep(_ real: [Tensor], labels: [Tensor]) {
     discriminator.zeroGradients()
     
-    var avgPenalty: Tensor.Scalar = 0
-    var avgCriticLoss: Tensor.Scalar = 0
-    var avgRealLoss: Tensor.Scalar = 0
-    var avgFakeLoss: Tensor.Scalar = 0
+    let generated = self.getGenerated(.fake, detatch: true, count: batchSize)
+    let interpolated = self.interpolated(real: real, fake: generated.data)
+    
+    let realOut = self.trainOn(real, labels: labels, requiresGradients: true)
+    let fakeOut = self.trainOn(generated.data, labels: generated.labels, requiresGradients: true)
+    
+    // Compute per-sample gradient norms on interpolated samples via manual
+    // backprop (bypasses fit() to get unscaled input gradients).
+    let interOutputs = self.discriminator.predict(interpolated.data)
+    
+    let batchScalar = batchSize.asTensorScalar
+    var sampleNorms = [Tensor.Scalar](repeating: 0, count: batchSize)
+    var samplePenalties = [Tensor.Scalar](repeating: 0, count: batchSize)
     
     Array(0..<batchSize).concurrentForEach(workers: Constants.maxWorkers) { _, i in
-      // create data
-      let realSample = real[i]
-      let realLabel = labels[i]
+      let output = interOutputs[i]
+      let input = interpolated.data[i]
       
-      let generated = self.getGenerated(.fake, detatch: true, count: 1)
-      let interpolated = self.interpolated(real: [realSample], fake: generated.data)
+      let delta = Tensor.fillWith(value: 1, size: output.size)
+      let gradient = output.gradients(delta: delta, wrt: input)
       
-      let fakeSample = generated.data[safe: 0, Tensor()]
-      let fakeLabel = generated.labels[safe: 0, Tensor()]
+      let inputGrad = gradient.input[safe: 0, Tensor()]
+      let penaltyResult = GradientPenalty.calculate(gradient: inputGrad)
       
-      let interSample = interpolated.data[safe: 0, Tensor()]
-      let interLabel = interpolated.labels[safe: 0, Tensor()]
-
-      // get real output
-      let realOut = self.trainOn([realSample], labels: [realLabel], requiresGradients: true)
-      let realOutput = realOut.outputs[safe: 0, Tensor()]
-      
-      // get fake output
-      let fakeOut = self.trainOn([fakeSample], labels: [fakeLabel], requiresGradients: true)
-      let fakeOutput = fakeOut.outputs[safe: 0, Tensor()]
-
-      // get gradient for interpolated
-      let interOut = self.trainOn([interSample], labels: [interLabel], requiresGradients: true)
-      // interpolated gradients wrt to interpolated sample
-      let interGradients = interOut.gradients.input[safe: 0, Tensor()]
-      
-      // calculate gradient penalty
-      let normGradients = interGradients.norm().asScalar()
-      let penalty = LossFunction.meanSquareError.calculate([normGradients], correct: [1.0]) // just using this for the calculation part
-            
-      // calculate critic loss vs real and fake.
-      let criticCost = fakeOutput - realOutput
-      let criticLoss = criticCost + self.lambda * penalty
-          
-      let part1 = Tensor.Scalar(2 / fakeOutput.size.depth) * self.lambda
-      let part2 = normGradients - 1
-      let part3 = interOut.outputs[safe: 0, Tensor()] / normGradients
-      let dGradInter = part1 * part2 * part3
-      
-      let interpolatedGradients = interOut.outputs[safe: 0, Tensor()].gradients(delta: dGradInter,
-                                                                                wrt: interSample)
-
-      let totalGradients = fakeOut.gradients + realOut.gradients + interpolatedGradients
-      
-      self.discriminator.apply(totalGradients)
-
-      avgRealLoss += realOut.loss / self.batchSize.asTensorScalar
-      avgFakeLoss += fakeOut.loss / self.batchSize.asTensorScalar
-      avgPenalty += penalty / self.batchSize.asTensorScalar
-      avgCriticLoss += criticLoss.asScalar() / self.batchSize.asTensorScalar
+      sampleNorms[i] = penaltyResult.norm
+      samplePenalties[i] = penaltyResult.penalty
     }
-  
-    discriminator.metricsReporter?.update(metric: .realImageLoss, value: avgRealLoss)
-    discriminator.metricsReporter?.update(metric: .fakeImageLoss, value: avgFakeLoss)
+    
+    let avgPenalty = samplePenalties.reduce(0, +) / batchScalar
+    let avgNorm = sampleNorms.reduce(0, +) / batchScalar
+    
+    // Without second-order derivatives we cannot compute the true gradient of
+    // the penalty w.r.t. θ. Instead, use the average gradient norm to adaptively
+    // scale the critic update: when ||∇D|| >> 1 the critic is too powerful so we
+    // dampen its gradients; when ||∇D|| ≈ 1 the scale is ≈ 1 (no dampening).
+    let criticScale = Tensor.Scalar(1) / Swift.max(avgNorm, Tensor.Scalar(1))
+    
+    let layerCount = realOut.gradients.weights.count
+    let totalWeights = (0..<layerCount).map { j in
+      (realOut.gradients.weights[j] + fakeOut.gradients.weights[j]) * criticScale
+    }
+    let totalBiases = (0..<layerCount).map { j in
+      (realOut.gradients.biases[j] + fakeOut.gradients.biases[j]) * criticScale
+    }
+    
+    let totalGradients = Tensor.Gradient(
+      input: [],
+      weights: totalWeights,
+      biases: totalBiases
+    )
+    
+    self.discriminator.apply(totalGradients)
+    
+    let criticLoss = fakeOut.loss + realOut.loss + lambda * avgPenalty
+    discriminator.metricsReporter?.update(metric: .realImageLoss, value: realOut.loss)
+    discriminator.metricsReporter?.update(metric: .fakeImageLoss, value: fakeOut.loss)
     discriminator.metricsReporter?.update(metric: .gradientPenalty, value: avgPenalty)
-    discriminator.metricsReporter?.update(metric: .criticLoss, value: avgCriticLoss)
+    discriminator.metricsReporter?.update(metric: .criticLoss, value: criticLoss)
       
     discriminator.step()
   }
@@ -130,8 +122,8 @@ open class WGANGP: GAN {
     
     for i in 0..<real.count {
       let epsilon = Tensor.Scalar.random(in: 0...1)
-      let inter = real[i] * epsilon + (Tensor.Scalar(1) - epsilon) * fake[i]
-      interpolated.append(inter)
+      let inter = real[i].detached() * epsilon + (Tensor.Scalar(1) - epsilon) * fake[i].detached()
+      interpolated.append(inter.detached())
       labels.append(Tensor(1.0))
     }
     

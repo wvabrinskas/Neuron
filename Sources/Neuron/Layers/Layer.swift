@@ -72,7 +72,8 @@ public protocol Layer: AnyObject, Codable {
   var trainable: Bool { get set }
   var isTraining: Bool { get set }
   var initializer: Initializer { get }
-  var device: Device { get set }
+  var deviceType: DeviceType { get set }
+  var device: Device { get }
   var usesOptimizer: Bool { get set }
   var batchSize: Int { get set }
   var linkId: String { get }
@@ -242,8 +243,17 @@ open class BaseLayer: Layer {
   public var isTraining: Bool = true
 /// Whether this layer is currently in training mode, affecting behaviors such as dropout.
   public var initializer: Initializer
+  
+  /// The type of device (e.g., CPU or GPU) used for computation, updating the shared DeviceManager when set.
+  public var deviceType: DeviceType = .cpu {
+    didSet {
+      DeviceManager.shared.type = deviceType
+    }
+  }
 /// The weight initializer strategy used to initialize this layer's parameters.
-  public var device: Device = CPU()
+  public var device: Device {
+    DeviceManager.shared.device
+  }
 /// The compute device (e.g., CPU or GPU) used to execute this layer's operations.
   public var batchSize: Int = 1 {
     didSet {
@@ -367,11 +377,7 @@ open class BaseLayer: Layer {
   /// - Returns: Single weight tensor for simple layers.
   /// - Throws: `LayerErrors` if weights are not initialized.
   public func exportWeights() throws -> [Tensor] {
-    guard self.weights.isEmpty == false else {
-      throw LayerErrors.generic(error: "\(encodingType.rawValue.capitalized) weights have not been initialized.")
-    }
-    
-    return [weights]
+    [weights]
   }
   
   /// Imports this layer's primary weight tensor.
@@ -440,11 +446,11 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
       
       let out = reduce.reduce(first) { partialResult, new in
         partialResult.concat(new, axis: 2)
-      }.storage
+      }
       
-      return Tensor(out, size: .init(rows: filterSize.rows,
-                                     columns: filterSize.columns,
-                                     depth: filterCount * inputSize.depth))
+      return Tensor(storage: out.storage, size: .init(rows: filterSize.rows,
+                                                      columns: filterSize.columns,
+                                                      depth: filterCount * inputSize.depth))
       
     }
     set {
@@ -610,7 +616,7 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
     }
     
     let result = device.activate(tensor, type)
-    let out = Tensor(result.storage, size: result.size, context: tensorContext)
+    let out = Tensor(storage: result.storage, size: result.size, context: tensorContext)
 
     out.setGraph(tensor)
     

@@ -17,6 +17,7 @@ public final class RexNet: BaseLayerGroup {
   private let expandRatio: Tensor.Scalar
   private let strides: (rows: Int, columns: Int)
   private let outChannels: Int
+  private let squeeze: Int
   
   private var shouldSkip: Bool {
     strides.columns == 1 && strides.rows == 1 && outChannels == inputSize.depth
@@ -41,6 +42,7 @@ public final class RexNet: BaseLayerGroup {
     self.expandRatio = expandRatio
     self.strides = strides
     self.outChannels = outChannels
+    self.squeeze = squeeze
     
     super.init(inputSize: inputSize,
                initializer: initializer,
@@ -49,10 +51,10 @@ public final class RexNet: BaseLayerGroup {
                encodingType: .rexNet) { inputSize in
       var layers: [Layer] = []
       
-      let expanded = inputSize.depth.asTensorScalar * expandRatio
-      
       // Step 1: Expand (skip if expand_ratio == 1)
       if expandRatio > 1 {
+        let expanded = inputSize.depth.asTensorScalar * expandRatio
+
         let expandLayers: [Layer] = [
           Conv2d(filterCount: Int(expanded),
                  inputSize: inputSize,
@@ -118,7 +120,7 @@ public final class RexNet: BaseLayerGroup {
   }
   
   enum CodingKeys: String, CodingKey {
-    case inputSize, type, linkId
+    case inputSize, type, linkId, expandRatio, stridesRows, stridesColumns, outChannels, squeeze, innerBlockSequential
   }
   
   override public func onInputSizeSet() {
@@ -131,7 +133,22 @@ public final class RexNet: BaseLayerGroup {
   convenience public required init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
-    self.init(outChannels: 1, linkId: linkId)
+    let expandRatio = try container.decodeIfPresent(Tensor.Scalar.self, forKey: .expandRatio) ?? 0
+    let stridesRows = try container.decodeIfPresent(Int.self, forKey: .stridesRows) ?? 1
+    let stridesColumns = try container.decodeIfPresent(Int.self, forKey: .stridesColumns) ?? 1
+    let outChannels = try container.decodeIfPresent(Int.self, forKey: .outChannels) ?? 1
+    let squeeze = try container.decodeIfPresent(Int.self, forKey: .squeeze) ?? 0
+
+    self.init(strides: (stridesRows, stridesColumns),
+              outChannels: outChannels,
+              squeeze: squeeze,
+              expandRatio: expandRatio,
+              linkId: linkId)
+
+    let innerBlockSequential = try container.decodeIfPresent(Sequential.self, forKey: .innerBlockSequential) ?? Sequential()
+    self.innerBlockSequential = innerBlockSequential
+
+    // set inputSize AFTER restoring innerBlockSequential so onInputSizeSet() sees the decoded layers
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
   }
   
@@ -143,58 +160,73 @@ public final class RexNet: BaseLayerGroup {
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(encodingType, forKey: .type)
     try container.encode(linkId, forKey: .linkId)
+    try container.encode(expandRatio, forKey: .expandRatio)
+    try container.encode(strides.rows, forKey: .stridesRows)
+    try container.encode(strides.columns, forKey: .stridesColumns)
+    try container.encode(outChannels, forKey: .outChannels)
+    try container.encode(squeeze, forKey: .squeeze)
+    try container.encode(innerBlockSequential, forKey: .innerBlockSequential)
   }
   
-/// Performs a forward pass over a batch of tensors, processing each tensor individually and collecting the results.
+/// Performs a forward pass over a batch of tensors, processing each tensor individually and collecting the results. We always use TensorBatch here because BatchNorm only works when passing a batch
 /// - Parameter tensorBatch: The batch of input tensors to process.
 /// - Parameter context: The network context providing execution state and mode information.
 /// - Returns: A `TensorBatch` containing the forward-pass output for each input tensor.
   public override func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
-    var result: TensorBatch = []
-    
-    for tensor in tensorBatch {
-      result.append(forward(tensor: tensor, context: context))
-    }
-    
-    return result
-  }
-  
-/// Performs a forward pass on a single tensor, applying a skip connection when the stride and channel conditions allow,
-/// and registers a backpropagation context for gradient computation.
-/// - Parameter tensor: The input tensor to process.
-/// - Parameter context: The network context providing execution state and mode information.
-/// - Returns: The output tensor after applying the block's transformation and optional residual addition.
-  public override func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
-    
-    let forwardPass = if shouldSkip {
-      super.forward(tensor: tensor, context: context) + tensor
+    let outs = if shouldSkip {
+      super.forward(tensorBatch: tensorBatch, context: context) + tensorBatch
     } else {
-      super.forward(tensor: tensor, context: context)
+      super.forward(tensorBatch: tensorBatch, context: context)
     }
     
-    let tensorContext = TensorContext { inputs, gradient, wrt in
-      // backpropogation calculation
+    var results: TensorBatch = []
+    
+    for (forwardPass, input) in zip(outs, tensorBatch) {
+      let tensorContext = TensorContext { inputs, gradient, wrt in
+        // backpropogation calculation
+        
+        let mainFlowInputGradients = forwardPass.gradients(delta: gradient, wrt: inputs)
+        
+        let wrtInput = mainFlowInputGradients.input[safe: 0, Tensor()]
+        
+        // we can't just use the Add autograd because we need to pass all of the gradients in one giant tensor back
+        let weightSlices = mainFlowInputGradients.weights
+        let totalWeightCount = weightSlices.reduce(0) { $0 + $1.storage.count }
+        let wGradStorage = TensorStorage.create(count: totalWeightCount)
+        var wOffset = 0
+        for t in weightSlices {
+          let c = t.storage.count
+          wGradStorage.pointer.advanced(by: wOffset).update(from: t.storage.pointer, count: c)
+          wOffset += c
+        }
+        
+        let biasSlices = mainFlowInputGradients.biases
+        let totalBiasCount = biasSlices.reduce(0) { $0 + $1.storage.count }
+        let bGradStorage = TensorStorage.create(count: totalBiasCount)
+        var bOffset = 0
+        for t in biasSlices {
+          let c = t.storage.count
+          bGradStorage.pointer.advanced(by: bOffset).update(from: t.storage.pointer, count: c)
+          bOffset += c
+        }
+        
+        let wrtWeights = Tensor(storage: wGradStorage, size: TensorSize(rows: 1, columns: totalWeightCount, depth: 1))
+        let wrtBiases  = Tensor(storage: bGradStorage, size: TensorSize(rows: 1, columns: totalBiasCount, depth: 1))
+        
+        return (wrtInput,
+                wrtWeights,
+                wrtBiases)
+      }
       
-      let mainFlowInputGradients = forwardPass.gradients(delta: gradient, wrt: inputs)
+      let storage = forwardPass.storage
+      let size = forwardPass.size
       
-      let wrtInput = mainFlowInputGradients.input[safe: 0, Tensor()]
+      let newTensor = Tensor(storage: storage, size: size, context: tensorContext)
+      newTensor.setGraph(input)
       
-      // we can't just use the Add autograd because we need to pass all of the gradients in one giant tensor back
-      let wrtWeights: Tensor = Tensor(mainFlowInputGradients.weights.flatMap(\.storage))
-      let wrtBiases: Tensor = Tensor(mainFlowInputGradients.biases.flatMap(\.storage))
-
-      return (wrtInput,
-              wrtWeights,
-              wrtBiases)
+      results.append(newTensor)
     }
     
-    // forward calculation
-    let out = Tensor(forwardPass.storage,
-                     size: forwardPass.size,
-                     context: tensorContext)
-    
-    out.setGraph(tensor)
-    
-    return out
+    return results
   }
 }

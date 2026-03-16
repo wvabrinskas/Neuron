@@ -53,9 +53,8 @@ public final class Softmax: BaseActivationLayer {
   /// - Returns: Softmax probabilities with passthrough gradient context.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let context = TensorContext { inputs, gradient, wrt in
-      let wrtInputGradient = Tensor(Tensor.Value(gradient.storage), size: gradient.size)
-      wrtInputGradient.label = "softmax_input_gradient"
-      return (wrtInputGradient, Tensor(), Tensor())
+      gradient.label = "softmax_input_gradient"
+      return (gradient, Tensor(), Tensor())
     }
 
     let size = tensor.size
@@ -63,7 +62,7 @@ public final class Softmax: BaseActivationLayer {
     let rows = size.rows
     let depth = size.depth
     let src = tensor.storage
-    var result = Tensor.Value(repeating: 0, count: src.count)
+    let result = TensorStorage.create(count: src.count)
 
     // Apply softmax per-row (each row of `columns` elements)
     for d in 0..<depth {
@@ -93,7 +92,7 @@ public final class Softmax: BaseActivationLayer {
       }
     }
 
-    let out = Tensor(result, size: size, context: context)
+    let out = Tensor(storage: result, size: size, context: context)
     out.label = type.asString()
 
     out.setGraph(tensor)

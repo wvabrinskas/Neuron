@@ -98,7 +98,8 @@ public final class Embedding: BaseLayer {
   }
   
   /// Forward path for the layer
-  /// - Parameter tensor: Input word as a 3D tensor with size `rows: 1, columns: vocabSize, depth: batchLength`
+  /// - Parameter tensor: Input word as a 3D tensor with size `rows: 1, columns: 1, depth: batchLength`
+  /// Expects a non one-hot encoded input tensor with each depth slice being a single vecorized number.
   /// - Returns: An output 3D tensor of shape `rows: 1, columns: inputUnits, depth: batchLength`
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     var indicies: [Int] = []
@@ -106,48 +107,45 @@ public final class Embedding: BaseLayer {
     let tensorContext = TensorContext { [inputUnits, vocabSize] inputs, gradient, wrt in
       let sliceSize = inputUnits
       let embSize = TensorSize(rows: 1, columns: inputUnits, depth: vocabSize)
-      var embStorage = Tensor.Value(repeating: 0, count: sliceSize * vocabSize)
-      
+      let embStorage = TensorStorage.create(count: sliceSize * vocabSize)
+
       for (i, index) in indicies.enumerated() {
         guard index < vocabSize, i < gradient.size.depth else { continue }
-        let gradSlice = gradient.depthSlice(i)
-        let offset = index * sliceSize
-        for j in 0..<min(gradSlice.count, sliceSize) {
-          embStorage[offset + j] += gradSlice[j]
-        }
+        let gradPtr = gradient.storage.pointer + i * sliceSize
+        let dstPtr  = embStorage.pointer + index * sliceSize
+        NumSwiftFlat.add(dstPtr, gradPtr, result: dstPtr, count: sliceSize)
       }
 
-      let result = Tensor(embStorage, size: embSize)
+      let result = Tensor(storage: embStorage, size: embSize)
       result.label = "Embedding gradients"
-      
+
       return (Tensor(), result, Tensor())
     }
-    
+
     // Build output by looking up each input's embedding from weights
     let weightDepth = weights.size.depth
     let sliceSize = weights.size.rows * weights.size.columns
-    var outSlices = [Tensor.Value]()
-    
-    for d in 0..<tensor.size.depth {
-      let slice = tensor.depthSlice(d)
-      let scalar = slice.isEmpty ? Tensor.Scalar(0) : slice[0]
+    let outDepth = tensor.size.depth
+    let outStorage = TensorStorage.create(count: sliceSize * outDepth)
+
+    for d in 0..<outDepth {
+      let inputPtr = tensor.depthPointer(d)
+      let scalar = tensor.storage.count > d ? inputPtr[0] : 0
       let index = Int(scalar)
-      indicies.append(index)
-      
+
       guard index >= 0 && index < weightDepth else {
         fatalError("Could not find embedding for index: \(index)")
       }
-      
-      outSlices.append(weights.depthSlice(index))
+
+      indicies.append(index)
+
+      let srcPtr = weights.storage.pointer + index * sliceSize
+      let dstPtr = outStorage.pointer + d * sliceSize
+      dstPtr.update(from: srcPtr, count: sliceSize)
     }
-    
-    // Assemble output tensor
-    var outStorage = Tensor.Value()
-    outStorage.reserveCapacity(sliceSize * outSlices.count)
-    outSlices.forEach { outStorage.append(contentsOf: $0) }
-    
-    let outSize = TensorSize(rows: weights.size.rows, columns: weights.size.columns, depth: outSlices.count)
-    let out = Tensor(outStorage, size: outSize, context: tensorContext)
+
+    let outSize = TensorSize(rows: weights.size.rows, columns: weights.size.columns, depth: outDepth)
+    let out = Tensor(storage: outStorage, size: outSize, context: tensorContext)
     
     out.setGraph(tensor)
 

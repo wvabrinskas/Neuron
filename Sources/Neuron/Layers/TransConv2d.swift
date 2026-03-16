@@ -55,209 +55,242 @@ public final class TransConv2d: Conv2d {
     let inputDepth = inputSize.depth
     let fRows = filterSize.rows
     let fCols = filterSize.columns
+    let fSliceSize = fRows * fCols
     let deltaRows = delta.size.rows
     let deltaCols = delta.size.columns
-    
-    // Build flipped-transposed kernel table as flat arrays
-    var flippedKernels = [Tensor.Value](repeating: Tensor.Value(), count: inputDepth * filterCount)
-    for i in 0..<filterCount {
-      for f in 0..<inputDepth {
-        let kernel = filters[i].depthSlice(f)
-        flippedKernels[f * filterCount + i] = NumSwiftFlat.flip180(kernel, rows: fRows, columns: fCols)
-      }
-    }
-    
-    var weightGradientSlices = [Tensor.Value]()
-    var inputGradientSlices = [Tensor.Value?](repeating: nil, count: inputDepth)
-    
-    for i in 0..<filterCount {
-      let deltaSlice = delta.depthSlice(i)
-      
-      for f in 0..<inputDepth {
-        let kernel = flippedKernels[f * filterCount + i]
-        
-        let grad = NumSwiftFlat.conv2d(signal: deltaSlice, filter: kernel,
-                                       strides: strides, padding: padding,
-                                       filterSize: filterSize,
-                                       inputSize: (rows: deltaRows, columns: deltaCols))
-        
-        if let existing = inputGradientSlices[f] {
-          inputGradientSlices[f] = existing + grad
-        } else {
-          inputGradientSlices[f] = grad
-        }
-      }
-      
-      if trainable {
-        let filterGrads = calculateFilterGradientsFlat(input, deltaSlice,
-                                                        deltaSize: (rows: deltaRows, columns: deltaCols),
-                                                        index: i)
-        // Insert at beginning (matching original behavior)
-        weightGradientSlices.insert(contentsOf: filterGrads, at: 0)
-      }
-    }
-    
-    // Bias gradients: sum of each depth slice of input
-    let biasStorage = Tensor.Value((0..<delta.size.depth).map {
-      delta.depthSlice($0).sum
-    })
-    
-    let biasesTensor = Tensor(biasStorage, size: biases.size)
-    biasesTensor.label = "transconv2d-bias"
-    
-    // Assemble input gradients tensor
+    let deltaSliceSize = deltaRows * deltaCols
     let inputSliceSize = inputSize.rows * inputSize.columns
-    var inputStorage = Tensor.Value(repeating: 0, count: inputSliceSize * inputDepth)
-    for f in 0..<inputDepth {
-      if let slice = inputGradientSlices[f] {
-        let start = f * inputSliceSize
-        for j in 0..<min(slice.count, inputSliceSize) {
-          inputStorage[start + j] = slice[j]
-        }
+
+    // Build flipped-transposed kernel table using pointer APIs.
+    // flippedKernels[f * filterCount + i] = flip180 of filters[i] depth slice f
+    let flippedKernelStorage = TensorStorage.create(count: inputDepth * filterCount * fSliceSize)
+    for i in 0..<filterCount {
+      for f in 0..<inputDepth {
+        let srcPtr = filters[i].storage.pointer + f * fSliceSize
+        let dstPtr = flippedKernelStorage.pointer + (f * filterCount + i) * fSliceSize
+        NumSwiftFlat.flip180(signal: srcPtr, result: dstPtr, rows: fRows, columns: fCols)
       }
     }
-    
-    // Assemble weight gradients tensor
-    let wSliceSize = fRows * fCols
-    var wStorage = Tensor.Value(repeating: 0, count: wSliceSize * weightGradientSlices.count)
-    for (idx, slice) in weightGradientSlices.enumerated() {
-      let start = idx * wSliceSize
-      for j in 0..<min(slice.count, wSliceSize) {
-        wStorage[start + j] = slice[j]
+
+    // Input gradients accumulated across all filters
+    let inputGradStorage = TensorStorage.create(count: inputSliceSize * inputDepth)
+    // Weight gradients: filterCount * inputDepth slices of size fSliceSize
+    let wGradStorage = TensorStorage.create(count: filterCount * inputDepth * fSliceSize)
+
+    let convResultBuf = TensorStorage.create(count: inputSliceSize)
+
+    for i in 0..<filterCount {
+      let deltaSlicePtr = delta.storage.pointer + i * deltaSliceSize
+
+      for f in 0..<inputDepth {
+        let kernelPtr = flippedKernelStorage.pointer + (f * filterCount + i) * fSliceSize
+        let inputGradPtr = inputGradStorage.pointer + f * inputSliceSize
+
+        NumSwiftFlat.conv2d(signal: deltaSlicePtr,
+                             filter: kernelPtr,
+                             result: convResultBuf.pointer,
+                             strides: strides,
+                             padding: padding,
+                             filterSize: filterSize,
+                             inputSize: (rows: deltaRows, columns: deltaCols))
+
+        NumSwiftFlat.add(inputGradPtr, convResultBuf.pointer,
+                          result: inputGradPtr, count: inputSliceSize)
+      }
+
+      if trainable {
+        calculateFilterGradientsInto(input,
+                                      deltaSlicePtr: deltaSlicePtr,
+                                      deltaSize: (rows: deltaRows, columns: deltaCols),
+                                      filterIndex: i,
+                                      resultPtr: wGradStorage.pointer + i * inputDepth * fSliceSize)
       }
     }
-    
-    return (Tensor(inputStorage, size: inputSize),
-            Tensor(wStorage, size: TensorSize(rows: fRows, columns: fCols, depth: weightGradientSlices.count)),
-            biasesTensor)
+
+    // Bias gradients: sum each delta depth slice
+    let biasStorage = TensorStorage.create(count: delta.size.depth)
+    for d in 0..<delta.size.depth {
+      let slicePtr = delta.storage.pointer + d * deltaSliceSize
+      biasStorage[d] = NumSwiftFlat.sum(slicePtr, count: deltaSliceSize)
+    }
+    let biasesTensor = Tensor(storage: biasStorage, size: biases.size)
+    biasesTensor.label = "transconv2d-bias"
+
+    let inputTensor = Tensor(storage: inputGradStorage, size: inputSize)
+    let wSize = TensorSize(rows: fRows, columns: fCols, depth: filterCount * inputDepth)
+    let weightsTensor = Tensor(storage: wGradStorage, size: wSize)
+
+    return (inputTensor, weightsTensor, biasesTensor)
   }
-  
-  internal override func calculateFilterGradientsFlat(_ input: Tensor,
-                                              _ delta: Tensor.Value,
+
+  internal func calculateFilterGradientsInto(_ input: Tensor,
+                                              deltaSlicePtr: TensorStorage.Pointer,
                                               deltaSize: (rows: Int, columns: Int),
-                                              index: Int) -> [Tensor.Value] {
-    var results = [Tensor.Value]()
-    results.reserveCapacity(inputSize.depth)
-    
-    var cachedSignalSize: (rows: Int, columns: Int)?
-    
-    for i in 0..<inputSize.depth {
-      var filter = input.depthSlice(i)
-      var signal = delta
-      var filterInputSize = (rows: inputSize.rows, columns: inputSize.columns)
-      
-      if strides.0 > 1 {
-        let spShape = NumSwiftFlat.stridePadShape(inputSize: filterInputSize, strides: strides)
-        filter = NumSwiftFlat.stridePad(signal: filter, strides: strides, inputSize: filterInputSize)
-        filterInputSize = spShape
-        // Add extra padding on right and bottom
-        filter = NumSwiftFlat.zeroPad(signal: filter,
-                                       padding: NumSwiftPadding(top: 0, left: 0,
-                                                                right: strides.0 - 1,
-                                                                bottom: strides.1 - 1),
-                                       inputSize: filterInputSize)
-        filterInputSize = (rows: filterInputSize.rows + strides.1 - 1,
-                          columns: filterInputSize.columns + strides.0 - 1)
-      }
-      
-      var signalSize = deltaSize
-      if padding == .same {
-        signal = NumSwiftFlat.zeroPad(signal: signal, filterSize: filterSize,
-                                       inputSize: (rows: outputSize.rows, columns: outputSize.columns))
-        let padCalc = NumSwiftFlat.paddingCalculation(strides: (1,1), padding: .same,
-                                                       filterSize: filterSize,
-                                                       inputSize: (rows: outputSize.rows, columns: outputSize.columns))
-        signalSize = (rows: outputSize.rows + padCalc.top + padCalc.bottom,
-                     columns: outputSize.columns + padCalc.left + padCalc.right)
-      }
-      
-      if cachedSignalSize == nil {
-        cachedSignalSize = signalSize
-      } else {
-        signalSize = cachedSignalSize!
-      }
-      
-      let newFilterSize = (filterInputSize.rows, filterInputSize.columns)
-      
-      let result = self.device.conv2d(signal: signal, filter: filter,
-                                      strides: (1,1), padding: .valid,
-                                      filterSize: newFilterSize,
-                                      inputSize: signalSize,
-                                      outputSize: nil)
-      
-      results.append(result)
+                                              filterIndex: Int,
+                                              resultPtr: TensorStorage.Pointer) {
+    let fSliceSize = filterSize.rows * filterSize.columns
+    let inputSliceSize = inputSize.rows * inputSize.columns
+
+    // Determine stride-padded filter shape
+    let baseFilterInputSize = (rows: inputSize.rows, columns: inputSize.columns)
+    let filterInputSize: (rows: Int, columns: Int)
+    let extraPadRight: Int
+    let extraPadBottom: Int
+    let spShape: (rows: Int, columns: Int)
+    if strides.0 > 1 {
+      spShape = NumSwiftFlat.stridePadShape(inputSize: baseFilterInputSize, strides: strides)
+      extraPadRight  = strides.0 - 1
+      extraPadBottom = strides.1 - 1
+      filterInputSize = (rows: spShape.rows + extraPadBottom,
+                         columns: spShape.columns + extraPadRight)
+    } else {
+      spShape = baseFilterInputSize
+      filterInputSize = baseFilterInputSize
+      extraPadRight  = 0
+      extraPadBottom = 0
     }
-    
-    return results
+
+    // Determine signal (delta) size, padding for .same
+    let signalSize: (rows: Int, columns: Int)
+    let deltaNeedsPad = (padding == .same)
+    if deltaNeedsPad {
+      let padCalc = NumSwiftFlat.paddingCalculation(strides: (1, 1), padding: .same,
+                                                     filterSize: filterSize,
+                                                     inputSize: (rows: outputSize.rows, columns: outputSize.columns))
+      signalSize = (rows: outputSize.rows + padCalc.top + padCalc.bottom,
+                   columns: outputSize.columns + padCalc.left + padCalc.right)
+    } else {
+      signalSize = deltaSize
+    }
+
+    // Buffer for stride-padded input must be sized to the stride-padded shape, not the original input shape
+    let stridePaddedFilterSize = spShape.rows * spShape.columns
+    let paddedFilterSize = filterInputSize.rows * filterInputSize.columns
+    let paddedDeltaSize = signalSize.rows * signalSize.columns
+
+    let stridePaddedFilterBuf = TensorStorage.create(count: stridePaddedFilterSize)
+    let paddedFilterBuf = TensorStorage.create(count: paddedFilterSize)
+    let paddedDeltaBuf = TensorStorage.create(count: paddedDeltaSize)
+
+    // Pad signal (delta slice) once for all input depth iterations
+    if deltaNeedsPad {
+      let padCalc = NumSwiftFlat.paddingCalculation(strides: (1, 1), padding: .same,
+                                                     filterSize: filterSize,
+                                                     inputSize: (rows: outputSize.rows, columns: outputSize.columns))
+      NumSwiftFlat.zeroPad1D(signal: deltaSlicePtr,
+                              result: paddedDeltaBuf.pointer,
+                              padding: NumSwiftPadding(top: padCalc.top, left: padCalc.left,
+                                                       right: padCalc.right, bottom: padCalc.bottom),
+                              inputSize: (rows: outputSize.rows, columns: outputSize.columns))
+    } else {
+      paddedDeltaBuf.pointer.update(from: deltaSlicePtr, count: paddedDeltaSize)
+    }
+
+    for i in 0..<inputSize.depth {
+      let filterSrcPtr = input.storage.pointer + i * inputSliceSize
+
+      if strides.0 > 1 {
+        // Stride-pad the input depth slice
+        NumSwiftFlat.stridePad1D(signal: filterSrcPtr,
+                                  result: stridePaddedFilterBuf.pointer,
+                                  strides: strides,
+                                  signalSize: baseFilterInputSize)
+        // Zero-pad right and bottom
+        NumSwiftFlat.zeroPad1D(signal: stridePaddedFilterBuf.pointer,
+                                result: paddedFilterBuf.pointer,
+                                padding: NumSwiftPadding(top: 0, left: 0,
+                                                         right: extraPadRight, bottom: extraPadBottom),
+                                inputSize: spShape)
+      } else {
+        paddedFilterBuf.pointer.update(from: filterSrcPtr, count: inputSliceSize)
+      }
+
+      NumSwiftFlat.conv2d(signal: paddedDeltaBuf.pointer,
+                           filter: paddedFilterBuf.pointer,
+                           result: resultPtr + i * fSliceSize,
+                           strides: (1, 1),
+                           padding: .valid,
+                           filterSize: filterInputSize,
+                           inputSize: signalSize)
+    }
   }
   
-  internal override func conv(_ input: Tensor) -> Tensor.Value {
+  internal override func conv(_ input: Tensor) -> TensorStorage {
     let outRows = outputSize.rows
     let outCols = outputSize.columns
     let outSliceSize = outRows * outCols
     let inRows = inputSize.rows
     let inCols = inputSize.columns
-    
-    // Initialize result storage for all filter outputs
-    var filterOutputs = [Tensor.Value?](repeating: nil, count: filterCount)
-    
+    let inputSliceSize = inRows * inCols
+    let filterSliceSize = filterSize.rows * filterSize.columns
+
+    let spShape = (strides.rows > 1 || strides.columns > 1)
+      ? NumSwiftFlat.stridePadShape(inputSize: (rows: inRows, columns: inCols), strides: strides)
+      : (rows: inRows, columns: inCols)
+
+    let inputRowsDiff = Double(outRows) - Double(spShape.rows)
+    let inputColsDiff = Double(outCols) - Double(spShape.columns)
+
+    let paddingTop = Int(ceil(inputRowsDiff / Double(2)))
+    let paddingBottom = Int(floor(inputRowsDiff / Double(2)))
+    let paddingLeft = Int(ceil(inputColsDiff / Double(2)))
+    let paddingRight = Int(floor(inputColsDiff / Double(2)))
+
+    let numPadding = NumSwiftPadding(top: paddingTop, left: paddingLeft,
+                                     right: paddingRight, bottom: paddingBottom)
+
+    let newRows = spShape.rows + paddingTop + paddingBottom
+    let newColumns = spShape.columns + paddingLeft + paddingRight
+    let paddedSize = newRows * newColumns
+
+    let resultStorage = TensorStorage.create(count: outSliceSize * filterCount)
+    let accumBuf = TensorStorage.create(count: outSliceSize * filterCount)
+    let spBuf = TensorStorage.create(count: spShape.rows * spShape.columns)
+    let paddedBuf = TensorStorage.create(count: paddedSize)
+    let convBuf = TensorStorage.create(count: outSliceSize)
+
     for i in 0..<input.size.depth {
-      let localInput = input.depthSlice(i)
-      var workingInput = NumSwiftFlat.stridePad(signal: localInput, strides: strides,
-                                                 inputSize: (rows: inRows, columns: inCols))
-      
-      let spShape = (strides.rows > 1 || strides.columns > 1)
-        ? NumSwiftFlat.stridePadShape(inputSize: (rows: inRows, columns: inCols), strides: strides)
-        : (rows: inRows, columns: inCols)
-      
-      let inputRowsDiff = Double(outRows) - Double(spShape.rows)
-      let inputColsDiff = Double(outCols) - Double(spShape.columns)
-      
-      let paddingTop = Int(ceil(inputRowsDiff / Double(2)))
-      let paddingBottom = Int(floor(inputRowsDiff / Double(2)))
-      let paddingLeft = Int(ceil(inputColsDiff / Double(2)))
-      let paddingRight = Int(floor(inputColsDiff / Double(2)))
-      
-      let numPadding = NumSwiftPadding(top: paddingTop, left: paddingLeft,
-                                       right: paddingRight, bottom: paddingBottom)
-      
-      workingInput = NumSwiftFlat.zeroPad(signal: workingInput, padding: numPadding, inputSize: spShape)
-      
-      let newRows = spShape.rows + paddingTop + paddingBottom
-      let newColumns = spShape.columns + paddingLeft + paddingRight
-      
+      let signalPtr = input.storage.pointer + i * inputSliceSize
+
+      // Stride-pad input depth slice into spBuf, then zero-pad into paddedBuf
+      NumSwiftFlat.stridePad1D(signal: signalPtr,
+                                result: spBuf.pointer,
+                                strides: strides,
+                                signalSize: (rows: inRows, columns: inCols))
+
+      NumSwiftFlat.zeroPad1D(signal: spBuf.pointer,
+                              result: paddedBuf.pointer,
+                              padding: numPadding,
+                              inputSize: spShape)
+
       for f in 0..<filterCount {
-        let kernel = filters[f].depthSlice(i)
-        
-        var grad = self.device.conv2d(signal: workingInput, filter: kernel,
-                                      strides: (1,1), padding: .same,
-                                      filterSize: filterSize,
-                                      inputSize: (rows: newRows, columns: newColumns),
-                                      outputSize: nil)
-        
-        if let existing = filterOutputs[f] {
-          grad = grad + existing
-        }
-        
-        if biasEnabled {
-          grad = grad + biases.storage[f]
-        }
-        
-        filterOutputs[f] = grad
+        let filterPtr  = filters[f].storage.pointer + i * filterSliceSize
+        let accumPtr   = accumBuf.pointer + f * outSliceSize
+
+        self.device.conv2d(signal: paddedBuf.pointer,
+                           filter: filterPtr,
+                           result: convBuf.pointer,
+                           strides: (1, 1),
+                           padding: .same,
+                           filterSize: filterSize,
+                           inputSize: (rows: newRows, columns: newColumns),
+                           batchCount: 1)
+
+        NumSwiftFlat.add(accumPtr, convBuf.pointer, result: accumPtr, count: outSliceSize)
       }
     }
-    
-    // Assemble flat result
-    var resultStorage = Tensor.Value(repeating: 0, count: outSliceSize * filterCount)
+
+    // Apply bias and copy accumulated results into resultStorage
     for f in 0..<filterCount {
-      if let output = filterOutputs[f] {
-        let start = f * outSliceSize
-        for j in 0..<min(output.count, outSliceSize) {
-          resultStorage[start + j] = output[j]
-        }
+      let accumPtr  = accumBuf.pointer + f * outSliceSize
+      let resultPtr = resultStorage.pointer + f * outSliceSize
+      if biasEnabled {
+        NumSwiftFlat.add(accumPtr, scalar: biases.storage[f], result: resultPtr, count: outSliceSize)
+      } else {
+        resultPtr.update(from: accumPtr, count: outSliceSize)
       }
     }
-    
+
     return resultStorage
   }
   

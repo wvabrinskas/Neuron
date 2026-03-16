@@ -88,7 +88,7 @@ public final class Dropout: BaseLayer {
       droppedOut = tensor * (1 - chance)
     }
 
-    let out = Tensor(droppedOut.storage, size: droppedOut.size, context: tensorContext)
+    let out = Tensor(storage: droppedOut.storage, size: droppedOut.size, context: tensorContext)
     
     out.setGraph(tensor)
         
@@ -109,15 +109,14 @@ public final class Dropout: BaseLayer {
   
   private func generateMask() -> Tensor {
     let total = inputSize.columns * inputSize.rows * inputSize.depth
-    var maskStorage = Tensor.Value(repeating: 0, count: total)
+    let maskStorage = TensorStorage.create(count: total)
     let scale: Tensor.Scalar = 1 / (1 - chance)
-    
+
     for i in 0..<total {
-      let random = Tensor.Scalar.random(in: 0...1)
-      maskStorage[i] = random <= chance ? 0 : scale
+      maskStorage[i] = Tensor.Scalar.random(in: 0...1) <= chance ? 0 : scale
     }
-    
-    return Tensor(maskStorage, size: inputSize)
+
+    return Tensor(storage: maskStorage, size: inputSize)
   }
   
 }

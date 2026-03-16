@@ -9,7 +9,7 @@ import NumSwiftC
 ///
 /// Get debug data from the `Trainable` by calling `print(sequential)`, or using `lldb`: `po trainable`, where `sequential` is your `Trainable` object.
 ///
-public protocol Trainable: AnyObject, Codable, CustomDebugStringConvertible {
+public protocol Trainable: AnyObject, Exportable, CustomDebugStringConvertible {
   
   /// Generic name of the trainable. Used when printing the network
   var name: String { get set }
@@ -23,8 +23,10 @@ public protocol Trainable: AnyObject, Codable, CustomDebugStringConvertible {
   /// Indicates if this particular network has its weights updated. Mainly used for Batch and Layer normalize. As they have different paths for training and not training.
   var isTraining: Bool { get set }
   
+  var deviceType: DeviceType { get set }
+  
   /// The device to execute the ML ops and math ops on. Default: CPU()
-  var device: Device { get set }
+  var device: Device { get }
   
   /// The current batch size. Default: 1
   var batchSize: Int { get set }

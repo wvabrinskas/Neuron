@@ -11,8 +11,8 @@ import NumSwift
 /// An optimizer that implements the RMSProp algorithm, which maintains a moving average of squared gradients to normalize the gradient.
 public class RMSProp: BaseOptimizer {
   private var b: Tensor.Scalar = 0.9
-  private var v: [Tensor.Value] = []
-  private var vb: [Tensor.Value] = []
+  private var v: [TensorStorage] = []
+  private var vb: [TensorStorage] = []
   private var eps: Tensor.Scalar = .stabilityFactor
 
   /// Creates an RMSProp optimizer.
@@ -28,7 +28,6 @@ public class RMSProp: BaseOptimizer {
   ///   - gradientClip: Optional gradient clipping threshold.
   ///   - augmenter: Optional training-time data augmenter.
   public init(_ trainable: Trainable,
-              device: Device = CPU(),
               learningRate: Tensor.Scalar,
               batchSize: Int,
               b: Tensor.Scalar = 0.9,
@@ -39,9 +38,9 @@ public class RMSProp: BaseOptimizer {
     self.eps = eps
     self.b = b
 
-    v = [Tensor.Value].init(repeating: Tensor.Value(), count: trainable.layers.count)
-    vb = [Tensor.Value].init(repeating: Tensor.Value(), count: trainable.layers.count)
-    
+    v = [TensorStorage].init(repeating: TensorStorage.create(count: 0), count: trainable.layers.count)
+    vb = [TensorStorage].init(repeating: TensorStorage.create(count: 0), count: trainable.layers.count)
+
     trainable.compile()
     
     super.init(trainable: trainable,
@@ -89,20 +88,20 @@ public class RMSProp: BaseOptimizer {
     let i = index
     
     if vb[i].isEmpty || v[i].isEmpty {
-      v[i] = Tensor.Value(repeating: 0, count: gradient.storage.count)
-      vb[i] = Tensor.Value(repeating: 0, count: biasGradient.storage.count)
+      v[i] = TensorStorage.create(count: gradient.storage.count)
+      vb[i] = TensorStorage.create(count: biasGradient.storage.count)
     }
     
     let result = apply(to: &v[i], gradient: gradient.storage)
     let biasResult = apply(to: &vb[i], gradient: biasGradient.storage)
     
-    return (Tensor(result, size: gradient.size), Tensor(biasResult, size: biasGradient.size))
+    return (Tensor(storage: result, size: gradient.size), Tensor(storage: biasResult, size: biasGradient.size))
   }
 
-  private func apply(to: inout Tensor.Value, gradient: Tensor.Value) -> Tensor.Value {
+  private func apply(to: inout TensorStorage, gradient: TensorStorage) -> TensorStorage {
     let count = gradient.count
     let oneMinusB = 1 - b
-    var result = Tensor.Value(repeating: 0, count: count)
+    let result = TensorStorage.create(count: count)
 
     for i in 0..<count {
       let g = gradient[i]

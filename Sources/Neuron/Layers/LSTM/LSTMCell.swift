@@ -92,7 +92,7 @@ class LSTMCell {
        input: Int,
        vocabSize: Int,
        biasEnabled: Bool,
-       device: Device = CPU()) {
+       device: Device = DeviceManager.shared.device) {
     self.hidden = hidden
     self.input = input
     self.device = device

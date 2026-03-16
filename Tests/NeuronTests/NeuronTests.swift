@@ -133,6 +133,67 @@ final class NeuronTests: XCTestCase {
     XCTAssert(TensorSize(array: backward.input.first!.shape) == inputShape)
   }
   
+  func testTransConv2d_multiFilter_bias_noNaN() {
+    let inputDepth = 8
+    let filterCount = 4
+    let inputShape = TensorSize(rows: 7, columns: 7, depth: inputDepth)
+
+    let n = Sequential {
+      [
+        Dense(7 * 7 * inputDepth,
+              inputs: 100,
+              initializer: .heNormal,
+              biasEnabled: true),
+        Reshape(to: inputShape),
+        TransConv2d(filterCount: filterCount,
+                    strides: (2, 2),
+                    padding: .same,
+                    filterSize: (4, 4),
+                    initializer: .heNormal,
+                    biasEnabled: true),
+        LeakyReLu(limit: 0.2),
+        Conv2d(filterCount: 1,
+               strides: (1, 1),
+               padding: .same,
+               filterSize: (3, 3),
+               initializer: .heNormal,
+               biasEnabled: true),
+        Tanh()
+      ]
+    }
+
+    n.compile()
+
+    let optim = Adam(n, learningRate: 0.0002, batchSize: 1)
+    let noise = Tensor((0..<100).map { _ in Tensor.Scalar.random(in: -1...1) })
+
+    for step in 0..<5 {
+      optim.zeroGradients()
+      let target = Tensor.fillRandom(in: -1...1, size: .init(rows: 14, columns: 14, depth: 1))
+      let out = optim.fit([noise],
+                          labels: [target],
+                          lossFunction: .meanSquareError,
+                          requiresGradients: true)
+
+      let loss = out.loss
+      XCTAssertFalse(loss.isNaN, "Loss became NaN at step \(step)")
+      XCTAssertFalse(loss.isInfinite, "Loss became Inf at step \(step)")
+
+      optim.apply(out.gradients)
+      optim.step()
+
+      for layer in n.layers {
+        if let conv = layer as? Conv2d {
+          for (fi, f) in conv.filters.enumerated() {
+            for val in f.storage {
+              XCTAssertFalse(val.isNaN, "Filter \(fi) has NaN at step \(step)")
+            }
+          }
+        }
+      }
+    }
+  }
+
   func testFlatten() {
     let r: [[[Tensor.Scalar]]] = [[[1.1,1.2,1.3],
                            [1.4,1.5,1.6]],
@@ -421,7 +482,8 @@ final class NeuronTests: XCTestCase {
     let gradient = out.gradients(delta: delta, wrt: input)
     
     XCTAssert(gradient.input.first?.isEmpty == false)
-    XCTAssert(gradient.weights.first!.isValueEqual(to: Tensor([1.2247448, 1.5], size: .init(array: [1,1,2])), accuracy: 0.00001))
+    // Gradient layout: beta | gamma (matches weights for optimizer)
+    XCTAssert(gradient.weights.first!.isValueEqual(to: Tensor([1.5, 1.2247448], size: .init(array: [1,1,2])), accuracy: 0.00001))
     XCTAssert(gradient.input.first!.isValueEqual(to: Tensor([7.3000486e-08, 0.0, 7.3000486e-08, 0.0, 7.3000486e-08]), accuracy: 0.00001))
   }
   
@@ -441,7 +503,8 @@ final class NeuronTests: XCTestCase {
     let gradient = out.gradients(delta: delta, wrt: input)
     
     XCTAssert(gradient.input.first?.isEmpty == false)
-    XCTAssert(gradient.weights.first!.isValueEqual(to: Tensor([2.4494896, 3.0], size: .init(array: [1,1,2])), accuracy: 0.00001))
+    // Gradient layout: beta | gamma (matches weights for optimizer)
+    XCTAssert(gradient.weights.first!.isValueEqual(to: Tensor([3.0, 2.4494896], size: .init(array: [1,1,2])), accuracy: 0.00001))
     XCTAssert(gradient.input.first!.isValueEqual(to: Tensor([[7.3000486e-08, 0.0, 7.3000486e-08, 0.0, 7.3000486e-08],
                                                              [7.3000486e-08, 0.0, 7.3000486e-08, 0.0, 7.3000486e-08]]), accuracy: 0.00001))
   }
@@ -464,7 +527,8 @@ final class NeuronTests: XCTestCase {
     
     XCTAssert(gradient.input.first?.isEmpty == false)
     XCTAssert(gradient.input.first!.isValueEqual(to: .fillWith(value: 0, size: input.size), accuracy: 0.0001))
-    XCTAssert(gradient.weights.first!.isValueEqual(to: .init([0, 0, 4, 4], size: .init(rows: 1, columns: 2, depth: 2)), accuracy: 0.0001))
+    // Gradient layout: beta | gamma per channel; for 3d test delta=ones, dbeta=sum(delta)=4 per channel, dgamma=sum(x_norm*delta)=0
+    XCTAssert(gradient.weights.first!.isValueEqual(to: .init([4, 4, 0, 0], size: .init(rows: 1, columns: 2, depth: 2)), accuracy: 0.0001))
   }
   
   
@@ -494,14 +558,10 @@ final class NeuronTests: XCTestCase {
       
     }
     
-    XCTAssertEqual(norm.welfordVariance.iterations, batchSize)
-    // m2s and means are now [ContiguousArray<Scalar>] (one flat slice per depth)
-    norm.welfordVariance.m2s.forEach { slice in
-      slice.forEach { scalar in XCTAssertEqual(scalar, 2.5, accuracy: 0.00001) }
-    }
-    norm.welfordVariance.means.forEach { slice in
-      slice.forEach { scalar in XCTAssertEqual(scalar, 0.5, accuracy: 0.00001) }
-    }
+    // Per-channel statistics: depth=1, all values across batch + spatial
+    // 5 even [0,1,0,1,0] + 5 odd [1,0,1,0,1] → mean=0.5, var=0.25, std≈0.5
+    XCTAssertEqual(norm.sampleCount, batchSize)
+    XCTAssertEqual(norm.movingMean.count, 1)
   }
   
   func testBatchNorm2d() {
@@ -522,30 +582,28 @@ final class NeuronTests: XCTestCase {
     norm.batchSize = batchSize
     norm.isTraining = true
     
+    var outputs: [TensorBatch] = []
     batch.concurrentBatchedForEach(workers: Constants.maxWorkers) { elements, workerIndex, indexRange, processingCount, workerId in
-        let _ = norm.forward(tensorBatch: elements, context: .init(batchRange: indexRange,
+        let outs = norm.forward(tensorBatch: elements, context: .init(batchRange: indexRange,
                                                            batchProcessingCount: processingCount,
                                                            totalInBatch: batch.count,
                                                            threadId: workerId))
-      
+        outputs.append(outs)
     }
     
-    XCTAssertEqual(norm.welfordVariance.iterations, batchSize)
+    XCTAssertEqual(norm.sampleCount, batchSize)
     
-    norm.welfordVariance.m2s.forEach { slice in
-      slice.forEach { scalar in
-        XCTAssertEqual(scalar, 2.5, accuracy: 0.001)
-      }
-    }
-    
-    norm.welfordVariance.means.forEach { slice in
-      slice.forEach { scalar in
-        XCTAssertEqual(scalar, 0.5, accuracy: 0.001)
-      }
+    // Verify normalized output: per-channel mean ≈ 0.5, var ≈ 0.25
+    // For x=0: normalized ≈ (0-0.5)/sqrt(0.25+1e-5) ≈ -1.0
+    // For x=1: normalized ≈ (1-0.5)/sqrt(0.25+1e-5) ≈ 1.0
+    let firstOut = outputs.flatMap { $0 }.first!
+    let outValues = firstOut.storage.toArray()
+    for val in outValues {
+      XCTAssertEqual(abs(val), 1.0, accuracy: 0.001)
     }
   }
   
-  func testBatchNorm_isZero_withOneSample() {
+  func testBatchNorm_singleSample_perChannel() {
     let inputSize = TensorSize(array: [3,1,1])
     let input = Tensor([1,2,3])
     let norm = BatchNormalize(inputSize: inputSize)
@@ -557,7 +615,12 @@ final class NeuronTests: XCTestCase {
 
     XCTAssertNotNil(out.first)
     
-    XCTAssertEqual(out.first!.storage, [0,0,0])
+    // Per-channel BN: mean = (1+2+3)/3 = 2, var = 2/3
+    // normalized = (x-2)/sqrt(2/3+1e-5) ≈ [-1.2247, 0, 1.2247]
+    let outValues = out.first!.storage.toArray()
+    XCTAssertEqual(outValues[0], -1.2247, accuracy: 0.001)
+    XCTAssertEqual(outValues[1], 0.0, accuracy: 0.001)
+    XCTAssertEqual(outValues[2], 1.2247, accuracy: 0.001)
   }
   
   func testBatchNorm3d() {
@@ -586,13 +649,9 @@ final class NeuronTests: XCTestCase {
       
     }
     
-    XCTAssertEqual(norm.welfordVariance.iterations, batchSize)
-    norm.welfordVariance.m2s.forEach { slice in
-      slice.forEach { scalar in XCTAssertEqual(scalar, 2.5, accuracy: 0.001) }
-    }
-    norm.welfordVariance.means.forEach { slice in
-      slice.forEach { scalar in XCTAssertEqual(scalar, 0.5, accuracy: 0.001) }
-    }
+    XCTAssertEqual(norm.sampleCount, batchSize)
+    // Per-channel: 5 channels, each with mean=0.5, var=0.25 (same data pattern per channel)
+    XCTAssertEqual(norm.movingMean.count, 5)
   }
   
   func testDropout() {
@@ -638,7 +697,7 @@ final class NeuronTests: XCTestCase {
     XCTAssertEqual(tensor.storage.count, 12)
     
     // Verify round-trip through value property
-    let roundTripped = tensor.storage.reshape(columns: 3).batched(into: 2)
+    let roundTripped = tensor.asArray.reshape(columns: 3).batched(into: 2)
     XCTAssertEqual(roundTripped, data)
   }
   
@@ -651,7 +710,7 @@ final class NeuronTests: XCTestCase {
     XCTAssertEqual(tensor.storage.count, 6)
     
     // value property returns 3D
-    let roundTripped = tensor.storage.reshape(columns: 3)
+    let roundTripped = tensor.asArray.reshape(columns: 3)
     XCTAssertEqual([roundTripped], [data])
   }
   
@@ -664,7 +723,7 @@ final class NeuronTests: XCTestCase {
     XCTAssertEqual(tensor.storage.count, 5)
     
     // value property returns 3D: [[[1, 2, 3, 4, 5]]]
-    let roundTripped = tensor.storage.reshape(columns: 5).batched(into: 1)
+    let roundTripped = tensor.asArray.reshape(columns: 5).batched(into: 1)
     XCTAssertEqual(roundTripped, [[data]])
   }
   
@@ -674,7 +733,7 @@ final class NeuronTests: XCTestCase {
     XCTAssertEqual(tensor.shape, [1, 1, 1])
     XCTAssertEqual(tensor.storage.count, 1)
     XCTAssertEqual(tensor.asScalar(), 42)
-    XCTAssertEqual(tensor.storage, [42])
+    XCTAssertEqual(tensor.storage, TensorStorage([42] as [Tensor.Scalar]))
   }
   
   func testFlatStorageInit_empty() {
@@ -683,7 +742,7 @@ final class NeuronTests: XCTestCase {
     XCTAssertEqual(tensor.shape, [0, 0, 0])
     XCTAssertTrue(tensor.isEmpty)
     XCTAssertEqual(tensor.storage.count, 0)
-    XCTAssertEqual(tensor.storage, [])
+    XCTAssertEqual(tensor.storage, TensorStorage(count: 0))
   }
   
   func testFlatSubscript_getSet() {

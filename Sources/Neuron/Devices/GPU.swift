@@ -8,22 +8,84 @@
 import Foundation
 import NumSwift
 
-/// A device abstraction representing GPU-accelerated computation.
-///
-/// Wraps the shared `GPUManager` and conforms to the `Device` protocol,
-/// providing GPU-backed implementations of neural network operations.
-public class GPU: Device {
-  /// The Quality of Service priority used when dispatching GPU work.
+// currently a WIP and mimics the CPU
+/// A GPU-backed device implementation conforming to the `Device` protocol.
+public struct GPU: Device {
+
+  /// Priority to run the multithreaded operations on
   public var qosPriority: DispatchQoS.QoSClass = .default
-  /// The device type identifier, always `.gpu` for this class.
+  /// The device type identifier for this implementation, set to `.cpu`.
   public var type: DeviceType = .gpu
 
-  private let manager = GPUManager.shared
-  
-  /// Performs 2D convolution on the GPU device abstraction.
+  /// Creates a CPU-backed device implementation.
+  public init() {}
+
+  /// Performs a batched transposed 2D convolution (deconvolution) on the GPU.
   ///
-  /// Currently routed through the flat NumSwift backend while GPU kernels
-  /// continue to evolve.
+  /// - Parameter signal: Pointer to the input signal tensor storage.
+  /// - Parameter filter: Pointer to the filter/kernel tensor storage.
+  /// - Parameter result: Pointer to the tensor storage where the output will be written.
+  /// - Parameter strides: The stride values as (rows, columns) for the transposed convolution.
+  /// - Parameter padding: The padding strategy to apply during the transposed convolution.
+  /// - Parameter filterSize: The size of the filter as (rows, columns).
+  /// - Parameter inputSize: The size of the input signal as (rows, columns).
+  /// - Parameter batchCount: The number of samples in the batch to process.
+  public func transConv2d(signal: TensorStorage.Pointer,
+                          filter: TensorStorage.Pointer,
+                          result: TensorStorage.Pointer,
+                          strides: (Int, Int),
+                          padding: NumSwift.ConvPadding,
+                          filterSize: (rows: Int, columns: Int),
+                          inputSize: (rows: Int, columns: Int),
+                          batchCount: Int) {
+    NumSwiftFlat.transConv2dBatch(signal: signal,
+                                  filter: filter,
+                                  result: result,
+                                  strides: strides,
+                                  padding: padding,
+                                  filterSize: filterSize,
+                                  inputSize: inputSize,
+                                  batchCount: batchCount)
+  }
+  
+  /// Performs a batched 2D convolution on the GPU.
+  ///
+  /// - Parameter signal: Pointer to the input signal tensor storage.
+  /// - Parameter filter: Pointer to the filter/kernel tensor storage.
+  /// - Parameter result: Pointer to the tensor storage where the output will be written.
+  /// - Parameter strides: The stride values as (rows, columns) for the convolution.
+  /// - Parameter padding: The padding strategy to apply during the convolution.
+  /// - Parameter filterSize: The size of the filter as (rows, columns).
+  /// - Parameter inputSize: The size of the input signal as (rows, columns).
+  /// - Parameter batchCount: The number of samples in the batch to process.
+  public func conv2d(signal: TensorStorage.Pointer,
+              filter: TensorStorage.Pointer,
+              result: TensorStorage.Pointer,
+              strides: (Int, Int),
+              padding: NumSwift.ConvPadding,
+              filterSize: (rows: Int, columns: Int),
+              inputSize: (rows: Int, columns: Int),
+              batchCount: Int) {
+    NumSwiftFlat.conv2dBatch(signal: signal,
+                             filter: filter,
+                             result: result,
+                             strides: strides,
+                             padding: padding,
+                             filterSize: filterSize,
+                             inputSize: inputSize,
+                             batchCount: batchCount)
+  }
+  
+  /// Calculates the convolution of the given inputs
+  /// - Parameters:
+  ///   - signal: The signal as a Tensor.Value array to perform the convolution on
+  ///   - filter: The filter as a Tensor.Value array  to apply to the signal
+  ///   - strides: Convolutional strides
+  ///   - padding: Convolutional padding
+  ///   - filterSize: Size of the filter
+  ///   - inputSize: Size of the signal
+  ///   - outputSize: Optional declaration of the output size of the convolution
+  /// - Returns: The convolution result as a Tensor.Value array
   public func conv2d(signal: Tensor.Value,
                      filter: Tensor.Value,
                      strides: (Int, Int),
@@ -39,10 +101,16 @@ public class GPU: Device {
                         inputSize: inputSize)
   }
   
-  /// Performs transposed 2D convolution on the GPU device abstraction.
-  ///
-  /// Currently routed through the flat NumSwift backend while GPU kernels
-  /// continue to evolve.
+  /// Calculates the transposed convolution of the given inputs
+  /// - Parameters:
+  ///   - signal: The signal as a Tensor.Value to perform the transposed convolution on
+  ///   - filter: The filter as a Tensor.Value  to apply to the signal
+  ///   - strides: Convolutional strides
+  ///   - padding: Convolutional padding
+  ///   - filterSize: Size of the filter
+  ///   - inputSize: Size of the signal
+  ///   - outputSize: Optional declaration of the output size of the transposed convolution
+  /// - Returns: The transposed convolution result as a Tensor.Value
   public func transConv2d(signal: Tensor.Value,
                           filter: Tensor.Value,
                           strides: (Int, Int),
@@ -58,35 +126,23 @@ public class GPU: Device {
                              inputSize: inputSize)
   }
   
-  
-  /// Applies an activation function using the GPU activation pipeline.
-  ///
+  /// Performs an activation function
   /// - Parameters:
-  ///   - input: Input tensor.
-  ///   - type: Activation to apply.
-  /// - Returns: Activated tensor with original shape.
+  ///   - input: The input Tensor to perform the activation function on
+  ///   - type: The type of activation to apply
+  /// - Returns: The activated result as a Tensor
   public func activate(_ input: Tensor, _ type: Activation) -> Tensor {
-    let flat = Array(input.storage)
-    let activated = self.manager.activate(flat, type)
-
-    let reshaped = activated.reshape(columns: input.size.columns).batched(into: input.size.depth)
-
-    return Tensor(reshaped)
+    type.activate(input: input)
   }
   
-  /// Applies an activation derivative using the GPU activation pipeline.
-  ///
+  
+  /// Performs an activation derivative function
   /// - Parameters:
-  ///   - input: Input tensor.
-  ///   - type: Activation derivative to evaluate.
-  /// - Returns: Tensor containing derivative values.
+  ///   - input: The input Tensor to perform the activation derivative function on
+  ///   - type: The type of activation derivative to apply
+  /// - Returns: The activated derivative result as a Tensor
   public func derivate(_ input: Tensor, _ type: Activation) -> Tensor {
-    let flat = Array(input.storage)
-    let activated = self.manager.activate(flat, type, derivate: true)
-
-    let reshaped = activated.reshape(columns: input.size.columns).batched(into: input.size.depth)
-
-    return Tensor(reshaped)
+    type.derivate(input)
   }
   
   /// Performs matrix multiplication for two tensors.

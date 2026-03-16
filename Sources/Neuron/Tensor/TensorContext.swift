@@ -30,7 +30,7 @@ public struct TensorContext: Codable {
   ///   gradients are zero tensors.
   public init(backpropagate: TensorContextFunction? = nil) {
     let defaultFunction = { (input: Tensor, gradient: Tensor, wrt: Tensor?) in
-      return (Tensor(gradient.storage, size: gradient.size), Tensor(), Tensor())
+      return (Tensor(storage: gradient.storage, size: gradient.size), Tensor(), Tensor())
     }
     
     self.backpropagate = backpropagate ?? defaultFunction

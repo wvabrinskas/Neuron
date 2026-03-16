@@ -128,7 +128,7 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
   ///   - optimizerParameters: Optimizer hyperparameters.
   ///   - lstmParameters: LSTM architecture hyperparameters.
   ///   - extraLayers: Additional layers appended after embedding/LSTM.
-  public init(device: Device = CPU(),
+  public init(device: DeviceType = .cpu,
               returnSequence: Bool = true,
               dataset: Dataset,
               classifierParameters: ClassifierParameters,
@@ -149,7 +149,6 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
     let network = Sequential { [] }
     
     let optimizer = Adam(network,
-                         device: device,
                          learningRate: optimizerParameters.learningRate,
                          batchSize: classifierParameters.batchSize,
                          b1: optimizerParameters.b1,
@@ -157,7 +156,8 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
                          eps: optimizerParameters.eps,
                          weightDecay: optimizerParameters.weightDecay,
                          gradientClip: nil)
-
+    
+    optimizer.deviceType = device
     optimizer.metricsReporter = optimizerParameters.metricsReporter
       
     super.init(optimizer: optimizer,

@@ -82,10 +82,15 @@ public class Tensor: Equatable, Codable {
   
   // MARK: - Flat Storage
   
-  /// The flat contiguous storage for this tensor's data.
+  /// The pointer-backed contiguous storage for this tensor's data.
   /// Memory layout: `index = d * rows * columns + r * columns + c`
-  /// 
-  public internal(set) var storage: Tensor.Value
+  public internal(set) var storage: TensorStorage
+  
+  /// Bridge property: copies storage into a `ContiguousArray<Scalar>` for compatibility
+  /// with APIs that require `Tensor.Value`. Prefer `storage` subscript access in hot paths.
+  public var asArray: Tensor.Value {
+    storage.toContiguousArray()
+  }
   
   /// The shape metadata (columns, rows, depth)
   public internal(set) var size: TensorSize
@@ -158,7 +163,7 @@ public class Tensor: Equatable, Codable {
     let newRows = rRange.count
     let newCols = cRange.count
     
-    var result = Tensor.Value(repeating: 0, count: newDepth * newRows * newCols)
+    let result = TensorStorage.create(count: newDepth * newRows * newCols)
     let newSize = TensorSize(rows: newRows, columns: newCols, depth: newDepth)
     
     var idx = 0
@@ -171,14 +176,14 @@ public class Tensor: Equatable, Codable {
       }
     }
     
-    return Tensor(result, size: newSize, context: context)
+    return Tensor(storage: result, size: newSize, context: context)
   }
   
   // MARK: - Initializers
 
   /// Default initializer with no context or value
   public init() {
-    self.storage = Tensor.Value()
+    self.storage = TensorStorage.create(count: 0)
     self.size = TensorSize(rows: 0, columns: 0, depth: 0)
     self.context = TensorContext()
   }
@@ -202,7 +207,7 @@ public class Tensor: Equatable, Codable {
       self.size = TensorSize(rows: maxRows, columns: maxCols, depth: depth)
       
       let totalCount = maxCols * maxRows * depth
-      var flat = Tensor.Value(repeating: 0, count: totalCount)
+      let flat = TensorStorage.create(count: totalCount)
       for d in 0..<depth {
         let depthSlice = nestedValue[d]
         for r in 0..<depthSlice.count {
@@ -214,11 +219,14 @@ public class Tensor: Equatable, Codable {
         }
       }
       self.storage = flat
-    } else {
-      let storage = try container.decode(Tensor.Value.self, forKey: .storage)
+    } else if let decoded = try? container.decode(TensorStorage.self, forKey: .storage) {
       let size = try container.decode(TensorSize.self, forKey: .size)
-      
-      self.storage = storage
+      self.storage = decoded
+      self.size = size
+    } else {
+      let legacyStorage = try container.decode(Tensor.Value.self, forKey: .storage)
+      let size = try container.decode(TensorSize.self, forKey: .size)
+      self.storage = TensorStorage.create(from: legacyStorage)
       self.size = size
     }
     
@@ -236,10 +244,10 @@ public class Tensor: Equatable, Codable {
   ///   - context: Backpropagation context
   public init(_ data: Scalar? = nil, context: TensorContext = TensorContext()) {
     if let data = data {
-      self.storage = Tensor.Value([data])
+      self.storage = TensorStorage.create(from: [data])
       self.size = TensorSize(rows: 1, columns: 1, depth: 1)
     } else {
-      self.storage = Tensor.Value()
+      self.storage = TensorStorage.create(count: 0)
       self.size = TensorSize(rows: 0, columns: 0, depth: 0)
     }
     
@@ -253,8 +261,7 @@ public class Tensor: Equatable, Codable {
   ///   - data: `[Scalar]` object to set
   ///   - context: Backpropagation context
   public init(_ data: [Scalar], context: TensorContext = TensorContext()) {
-    // 1D data is stored as shape (data.count, 1, 1) -- matching the old [[data]] layout
-    self.storage = Tensor.Value(data)
+    self.storage = TensorStorage.create(from: data)
     self.size = TensorSize(rows: 1, columns: data.count, depth: 1)
     self.context = context
     self.features = data.count
@@ -266,14 +273,13 @@ public class Tensor: Equatable, Codable {
   ///   - data: `[[Scalar]]` object to set
   ///   - context: Backpropagation context
   public init(_ data: [[Scalar]], context: TensorContext = TensorContext()) {
-    // 2D data is stored as shape (cols, rows, 1) -- matching the old [data] layout
     let rows = data.count
     let cols = data[safe: 0]?.count ?? 0
     
     self.size = TensorSize(rows: rows, columns: cols, depth: 1)
     
     let totalCount = cols * rows
-    var flat = Tensor.Value(repeating: 0, count: totalCount)
+    let flat = TensorStorage.create(count: totalCount)
     for r in 0..<rows {
       let row = data[r]
       let baseIndex = r * cols
@@ -300,9 +306,8 @@ public class Tensor: Equatable, Codable {
     self.size = TensorSize(rows: rows, columns: columns, depth: depth)
     
     let totalCount = columns * rows * depth
-    var flat = Tensor.Value(repeating: 0, count: totalCount)
+    let flat = TensorStorage.create(count: totalCount)
     
-    // Fill the flat array, zero-padding any ragged edges
     for d in 0..<depth {
       let depthSlice = data[d]
       for r in 0..<depthSlice.count {
@@ -320,12 +325,25 @@ public class Tensor: Equatable, Codable {
     setId()
   }
   
-  /// Direct initializer from flat storage and size. No copy is performed.
+  /// Initializer from flat ContiguousArray and size. Creates a TensorStorage copy.
   /// - Parameters:
   ///   - storage: Flat contiguous array of scalar values
   ///   - size: Shape metadata (columns, rows, depth)
   ///   - context: Backpropagation context
   public init(_ storage: Tensor.Value, size: TensorSize, context: TensorContext = TensorContext()) {
+    self.storage = TensorStorage.create(from: storage)
+    self.size = size
+    self.context = context
+    self.features = size.depth
+    setId()
+  }
+  
+  /// Direct initializer from TensorStorage and size. No copy is performed.
+  /// - Parameters:
+  ///   - storage: Pointer-backed tensor storage
+  ///   - size: Shape metadata (columns, rows, depth)
+  ///   - context: Backpropagation context
+  public init(storage: TensorStorage, size: TensorSize, context: TensorContext = TensorContext()) {
     self.storage = storage
     self.size = size
     self.context = context
@@ -333,6 +351,30 @@ public class Tensor: Equatable, Codable {
     setId()
   }
 
+  /// Extracts one depth slice as a flat row-major `TensorStorage.Pointer` directly from storage.
+  /// Each slice has `rows * columns` elements.
+  /// - Parameter d: The depth index (0-based)
+  /// - Returns: A flat contiguous array of the depth slice
+  public func depthPointer(_ d: Int) -> TensorStorage.Pointer {
+    return storage.pointer + d * size.rows * size.columns
+  }
+  
+  /// Sets the contents of a depth slice from a `TensorStorage` object.
+  /// - Parameter d: The depth index (0-based) to update
+  /// - Parameter store: The `TensorStorage` whose pointer data will be copied into the slice
+  public func setDepthPointer(_ d: Int, _ store: TensorStorage) {
+    setDepthPointer(d, store.pointer)
+  }
+  
+  /// Sets the contents of a depth slice from a raw storage pointer.
+  /// Copies `rows * columns` elements from the given pointer into the specified depth slice.
+  /// - Parameter d: The depth index (0-based) to update
+  /// - Parameter pointer: A raw pointer to the source data to copy into the slice
+  public func setDepthPointer(_ d: Int, _ pointer: TensorStorage.Pointer) {
+    let sliceSize = size.rows * size.columns
+    let dstPtr = storage.pointer + d * sliceSize
+    dstPtr.update(from: pointer, count: sliceSize)
+  }
       
   /// Extracts one depth slice as a flat row-major `Tensor.Value` directly from storage.
   /// Each slice has `rows * columns` elements.
@@ -341,7 +383,7 @@ public class Tensor: Equatable, Codable {
   public func depthSlice(_ d: Int) -> Tensor.Value {
     let sliceSize = size.rows * size.columns
     let start = d * sliceSize
-    return Tensor.Value(storage[start..<(start + sliceSize)])
+    return Tensor.Value(UnsafeBufferPointer(start: storage.pointer + start, count: sliceSize))
   }
   
   /// MARK: - Depth Slice Access
@@ -356,6 +398,25 @@ public class Tensor: Equatable, Codable {
     for i in 0..<sliceSize {
       storage[start + i] = data[i]
     }
+  }
+  
+  // reserved for fetching a single Tensor with multiple batches.
+  // Good for GPU parallization
+  // Drops the context to fetch the tensor as the Context is tied to the batch as a whole
+  /// Extracts a single batch slice as a new `Tensor`.
+  /// The result has the same rows, columns, and depth as one batch element.
+  /// - Parameter b: The batch index (0-based) to extract
+  /// - Returns: A new `Tensor` containing the data for the specified batch index
+  public func batchSlice(_ b: Int) -> Tensor {
+    guard b < size.batchCount else {
+      assertionFailure("batch index \(b) out of range")
+      return self
+    }
+    
+    let sliceSize = size.rows * size.columns * size.depth
+    let start = b * sliceSize
+    let value = Tensor.Value(UnsafeBufferPointer(start: storage.pointer + start, count: sliceSize))
+    return Tensor(value, size: TensorSize(rows: size.rows, columns: size.columns, depth: size.depth))
   }
   
   /// Creates a new Tensor from a single depth slice of this tensor.
@@ -393,8 +454,7 @@ public class Tensor: Equatable, Codable {
       
       for r in 0..<rows {
         let start = d * rows * columns + r * columns
-        let end = start + columns
-        depthSlice.append(Array(storage[start..<end]))
+        depthSlice.append(Array(UnsafeBufferPointer(start: storage.pointer + start, count: columns)))
       }
       result.append(depthSlice)
     }
@@ -633,7 +693,7 @@ public class Tensor: Equatable, Codable {
   /// Remove this Tensor from the graph.
   /// - Returns: Detached Tensor
   public func detached() -> Tensor {
-    let tensor = Tensor(storage, size: size, context: TensorContext())
+    let tensor = Tensor(storage: storage.copy(), size: size, context: TensorContext())
     tensor.id = self.id
     return tensor
   }
@@ -642,10 +702,10 @@ public class Tensor: Equatable, Codable {
   /// - Returns: Copied Tensor
   public func copy(keepContext: Bool = false) -> Tensor {
     guard keepContext == false else {
-      return Tensor(storage, size: size, context: context)
+      return Tensor(storage: storage.copy(), size: size, context: context)
     }
     
-    return Tensor(storage, size: size)
+    return Tensor(storage: storage.copy(), size: size)
   }
   
   /// Indicates whether this tensor represents exactly one scalar value.
@@ -705,26 +765,25 @@ public class Tensor: Equatable, Codable {
   
   /// Normalizes tensor values to unit L2 norm in place.
   public func l2Normalize() {
-    let flatArray = Array(storage)
-    let flatValue: Tensor.Scalar = flatArray.sumOfSquares
-    let normalized = flatArray / Tensor.Scalar.sqrt(flatValue + Tensor.Scalar.stabilityFactor)
-    self.storage = Tensor.Value(normalized)
+    let flatValue = storage.sumOfSquares
+    let divisor = Tensor.Scalar.sqrt(flatValue + Tensor.Scalar.stabilityFactor)
+    let normalized = storage / divisor
+    self.storage = normalized
   }
   
   /// Computes the L2 norm of the tensor values.
   ///
   /// - Returns: Euclidean norm over all scalar values.
   public func l2Norm() -> Scalar {
-    Tensor.Scalar.sqrt(Array(storage).sumOfSquares)
+    Tensor.Scalar.sqrt(storage.sumOfSquares + Tensor.Scalar.stabilityFactor)
   }
   
   /// Clamps every element into the symmetric range `[-val, val]`.
   ///
   /// - Parameter val: Absolute clamp bound.
   public func clip(_ val: Scalar = 0.01) {
-    for i in 0..<storage.count {
-      storage[i] = Swift.max(-val, Swift.min(val, storage[i]))
-    }
+    let clipped = storage.clipped(to: val)
+    self.storage = clipped
   }
   
   // MARK: - Codable
@@ -736,7 +795,6 @@ public class Tensor: Equatable, Codable {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(label, forKey: .label)
     try container.encode(context, forKey: .context)
-    // we no longer encode value as in the future we want to deprecate this. Tensor.Value in storage property is the properly stored data
     try container.encode(storage, forKey: .storage)
     try container.encode(size, forKey: .size)
     try container.encode(id, forKey: .id)
@@ -751,8 +809,8 @@ extension Tensor: CustomDebugStringConvertible {
   /// Useful for debugging; prints each depth slice with row and column layout.
   public var debugDescription: String {
     var string = """
-                 <Tensor \n
-                 """
+               <Tensor \n
+               """
     
     string += "shape: (col: \(size.columns), rows: \(size.rows), depth: \(size.depth))\n"
     string += "-----\n"
@@ -763,8 +821,7 @@ extension Tensor: CustomDebugStringConvertible {
     for d in 0..<size.depth {
       for r in 0..<size.rows {
         let start = d * size.rows * size.columns + r * size.columns
-        let end = start + size.columns
-        let row = Array(storage[start..<end])
+        let row = (0..<size.columns).map { storage[start + $0] }
         string += "\(row)\n"
       }
       string += "-----\n"
@@ -772,7 +829,17 @@ extension Tensor: CustomDebugStringConvertible {
     
     string += "graph: \(graph.isEmpty == false)\n"
     string += ">"
-    return string
+    
+    var returnString = string
+    // skip self, start at 1
+    for b in 1..<size.batchCount {
+      if size.batchCount > 1 {
+        returnString += "\n--- batch index \(b) ---\n"
+      }
+      returnString += batchSlice(b).debugDescription
+    }
+    
+    return returnString
   }
 }
 
@@ -785,6 +852,25 @@ extension Array where Element == Tensor {
     let first = mutableSelf.removeFirst()
     let mean = mutableSelf.reduce(first, +) / count.asTensorScalar
     return mean
+  }
+  
+  var asTensor: Tensor {
+    let firstSize = self[safe: 0, Tensor()].size
+    let size = TensorSize(rows: firstSize.rows,
+                          columns: firstSize.columns,
+                          depth: firstSize.depth,
+                          batchCount: count)
+    
+    let unitSize = size.rows * size.columns * size.depth
+    
+    let result: TensorStorage = .init(count: size.rows * size.columns * size.depth * size.batchCount)
+    
+    for b in 0..<count {
+      let storage = self[b].storage
+      (result.pointer + (b * unitSize)).update(from: storage.pointer, count: unitSize)
+    }
+    
+    return Tensor(storage: result, size: size)
   }
   
   func gradients(_ deltas: [Tensor], wrt: [Tensor]) -> [Tensor.Gradient] {
@@ -904,18 +990,20 @@ public extension Tensor.Gradient {
     biases.forEach { $0.l2Normalize() }
   }
   
-  func gradientL2NormClip(_ value: Tensor.Scalar = 1.0) -> Tensor.Gradient {
+  func gradientL2NormClip(_ value: Tensor.Scalar = 1.0, metrics: MetricsReporter? = nil) -> Tensor.Gradient {
     let allWeights = weights.reduce(Tensor()) { partialResult, new in
       partialResult.concat(new, axis: 2)
     }
     let allBiases = biases.reduce(Tensor()) { partialResult, new in
       partialResult.concat(new, axis: 2)
     }
-
+  
     // Single global norm across weights AND biases combined
     let weightNormSq = allWeights.l2Norm()
     let biasNormSq = allBiases.l2Norm()
-    let globalNorm = Tensor.Scalar(sqrt(weightNormSq * weightNormSq + biasNormSq * biasNormSq))
+    let globalNorm = Tensor.Scalar(sqrt((weightNormSq * weightNormSq + biasNormSq * biasNormSq) + Tensor.Scalar.stabilityFactor))
+    
+    metrics?.update(metric: .globalGradientNorm, value: globalNorm)
 
     guard globalNorm > value else {
       return .init(input: input, weights: weights, biases: biases)
@@ -923,6 +1011,8 @@ public extension Tensor.Gradient {
 
     // One scaling factor applied to everything
     let scalingFactor = value / globalNorm
+    
+    metrics?.update(metric: .globalGradientScalingFactor, value: scalingFactor)
 
     return .init(
       input: input,
@@ -987,19 +1077,18 @@ public extension Tensor.Gradient {
 public extension Tensor {
   static func fillRandom(in range: ClosedRange<Tensor.Scalar> = 0...1, size: TensorSize) -> Tensor {
     let count = size.columns * size.rows * size.depth
-    var storage = Tensor.Value(repeating: 0, count: count)
+    let s = TensorStorage.create(count: count)
     
     for i in 0..<count {
-      storage[i] = Tensor.Scalar.random(in: range)
+      s[i] = Tensor.Scalar.random(in: range)
     }
     
-    return Tensor(storage, size: size)
+    return Tensor(storage: s, size: size)
   }
   
   static func fillWith(value: Tensor.Scalar, size: TensorSize) -> Tensor {
-    let count = size.columns * size.rows * size.depth
-    let storage = Tensor.Value(repeating: value, count: count)
-    return Tensor(storage, size: size)
+    let s = TensorStorage.create(repeating: value, count: size.columns * size.rows * size.depth)
+    return Tensor(storage: s, size: size)
   }
 }
 

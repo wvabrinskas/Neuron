@@ -29,6 +29,24 @@ public enum DeviceType: String, Codable {
 public protocol Device {
   var type: DeviceType { get }
   var qosPriority: DispatchQoS.QoSClass { get set }
+  
+  func transConv2d(signal: TensorStorage.Pointer,
+                          filter: TensorStorage.Pointer,
+                          result: TensorStorage.Pointer,
+                          strides: (Int, Int),
+                          padding: NumSwift.ConvPadding,
+                          filterSize: (rows: Int, columns: Int),
+                          inputSize: (rows: Int, columns: Int),
+                          batchCount: Int)
+  
+  func conv2d(signal: TensorStorage.Pointer,
+              filter: TensorStorage.Pointer,
+              result: TensorStorage.Pointer,
+              strides: (Int, Int),
+              padding: NumSwift.ConvPadding,
+              filterSize: (rows: Int, columns: Int),
+              inputSize: (rows: Int, columns: Int),
+              batchCount: Int)
 
   /// Computes a 2D convolution on flat tensor storage.
   ///
@@ -89,4 +107,16 @@ public protocol Device {
   ///   - b: Right tensor.
   /// - Returns: Matrix product tensor.
   func matmul(_ a: Tensor, _ b: Tensor) -> Tensor
+}
+
+final class DeviceManager {
+  static let shared = DeviceManager()
+
+  var type: DeviceType = .cpu {
+    didSet {
+      device = type.device()
+    }
+  }
+  
+  private(set) var device: Device = CPU()
 }

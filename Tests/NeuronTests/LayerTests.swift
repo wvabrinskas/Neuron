@@ -1134,7 +1134,7 @@ final class LayerTests: XCTestCase {
                  "bertha",
                  "sarah"]
     
-    let vectorizer = Vectorizer<String>()
+    let vectorizer = Vectorizer()
 
     let batchLength = 10
     
@@ -1179,7 +1179,7 @@ final class LayerTests: XCTestCase {
                  "bertha",
                  "sarah"]
     
-    let vectorizer = Vectorizer<String>()
+    let vectorizer = Vectorizer()
 
     let batchLength = 10
     
@@ -1281,6 +1281,68 @@ final class LayerTests: XCTestCase {
                  learningRate: 0.01)
   }
   
-  
+  // MARK: - RexNet Encode/Decode
+
+  func testRexNetClassifier_importExport() {
+    let inputSize: TensorSize = .init(rows: 8, columns: 8, depth: 3)
+    let classes = 5
+
+    let network = Sequential {
+      [
+        RexNet(inputSize: inputSize,
+               initializer: .heNormal,
+               strides: (1, 1),
+               outChannels: 3,
+               expandRatio: 2),
+        GlobalAvgPool(),
+        Dense(classes, initializer: .heNormal, biasEnabled: true),
+        Softmax()
+      ]
+    }
+
+    network.compile()
+
+    XCTAssertTrue(network.isCompiled, "Network should compile successfully")
+
+    guard let exportURL = ExportHelper.getModel(filename: "rexnet-classifier-test",
+                                                compress: true,
+                                                model: network) else {
+      XCTFail("Failed to export model")
+      return
+    }
+
+    let imported = Sequential.import(exportURL)
+    imported.compile()
+
+    XCTAssertEqual(imported.debugDescription, network.debugDescription,
+                   "Imported network structure should match original")
+    
+    XCTAssertTrue((try? network.exportWeights()) == (try? imported.exportWeights()))
+    
+  }
+
+  func testRexNetDecodeEncode() {
+    let inputSize: TensorSize = .init(rows: 4, columns: 4, depth: 3)
+
+    let rexNet = RexNet(inputSize: inputSize,
+                        initializer: .heNormal,
+                        strides: (1, 1),
+                        outChannels: 3,
+                        expandRatio: 2)
+
+    let expectedWeights = rexNet.weights
+
+    do {
+      let jsonOut = try JSONEncoder().encode(rexNet)
+      let jsonIn = try JSONDecoder().decode(RexNet.self, from: jsonOut)
+
+      let outWeights = jsonIn.weights
+
+      XCTAssertTrue(expectedWeights.isValueEqual(to: outWeights))
+    } catch {
+      XCTFail(error.localizedDescription)
+    }
+  }
+
 
 }

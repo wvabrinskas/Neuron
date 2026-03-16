@@ -22,6 +22,8 @@ public enum Metric: String {
   case batchTime
   case optimizerRunTime
   case batchConcurrency
+  case globalGradientNorm
+  case globalGradientScalingFactor
 }
 
 /// A protocol that defines the interface for objects that collect and store training metrics.

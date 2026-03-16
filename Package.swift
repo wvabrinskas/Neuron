@@ -6,8 +6,6 @@ import PackageDescription
 let package = Package(
     name: "Neuron",
     platforms: [ .iOS(.v14),
-                 .tvOS(.v14),
-                 .watchOS(.v7),
                  .macOS(.v14)],
     products: [
         .library(
@@ -15,7 +13,7 @@ let package = Package(
             targets: ["Neuron"])
     ],
     dependencies: [
-      .package(url: "https://github.com/wvabrinskas/NumSwift.git", from: "2.0.20"),
+      .package(url: "https://github.com/wvabrinskas/NumSwift.git", from: "2.0.24"),
       .package(url: "https://github.com/wvabrinskas/Logger.git", from: "1.0.6"),
       .package(url: "https://github.com/apple/swift-numerics", from: "1.0.0"),
       .package(url: "https://github.com/apple/swift-atomics.git", from: "1.2.0"),
