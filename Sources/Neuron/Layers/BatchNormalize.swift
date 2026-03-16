@@ -72,8 +72,8 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
   private var batchVariances: [Tensor.Scalar] = []
 
   private struct Normalization {
-    let normalized: TensorStorage
-    let std: Tensor.Scalar
+    let normalized: Tensor
+    let stds: [Tensor.Scalar]
   }
 
   /// Creates a batch-normalization layer.
@@ -204,12 +204,12 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     }
 
     let forward = normalize(inputs: tensor, context: context)
-    let normalizations = forward.normalized
+    let normalization = forward.normalized
 
     let tensorContext = TensorContext { inputs, gradient, wrt in
       let backward = self.backward(inputs: inputs,
                                    gradient: gradient,
-                                   normalizations: normalizations)
+                                   normalization: normalization)
       backward.label = "BatchNorm"
       return (backward, Tensor(), Tensor())
     }
@@ -282,74 +282,60 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
   }
 
   private func normalize(inputs: Tensor,
-                         context: NetworkContext) -> (output: TensorStorage, normalized: [Normalization]) {
+                         context: NetworkContext) -> (output: TensorStorage, normalized: Normalization) {
     let depth = inputs.size.depth
     let sliceSize = inputSize.rows * inputSize.columns
-    let outStorage = TensorStorage.create(count: inputs.storage.count)
-    var normalizedInputs: [Normalization] = []
+
+    var means = [Tensor.Scalar](repeating: 0, count: depth)
+    var stds  = [Tensor.Scalar](repeating: 0, count: depth)
 
     for c in 0..<depth {
-      let inputPtr = inputs.storage.pointer + c * sliceSize
-      let outPtr   = outStorage.pointer + c * sliceSize
-
-      let mean_c: Tensor.Scalar
-      let std_c: Tensor.Scalar
-
       if isTraining {
         let M = Tensor.Scalar(max(sampleCount * sliceSize, 1))
-        mean_c = channelSums[c] / M
+        let mean_c = channelSums[c] / M
         let var_c = max(channelSumSqs[c] / M - mean_c * mean_c, 0)
-        std_c = Tensor.Scalar.sqrt(var_c + e)
-
+        means[c] = mean_c
+        stds[c] = Tensor.Scalar.sqrt(var_c + e)
         batchMeans[c] = mean_c
         batchVariances[c] = var_c
       } else {
-        mean_c = movingMean[c]
-        std_c = Tensor.Scalar.sqrt(movingVariance[c] + e)
+        means[c] = movingMean[c]
+        stds[c] = Tensor.Scalar.sqrt(movingVariance[c] + e)
       }
-
-      // normalized = (input - mean_c) / std_c
-      let normStorage = TensorStorage.create(count: sliceSize)
-      NumSwiftFlat.sub(inputPtr, scalar: mean_c, result: normStorage.pointer, count: sliceSize)
-      NumSwiftFlat.div(normStorage.pointer, scalar: std_c, result: normStorage.pointer, count: sliceSize)
-
-      normalizedInputs.append(Normalization(normalized: normStorage, std: std_c))
-
-      // output = gamma_c * normalized + beta_c
-      NumSwiftFlat.mul(normStorage.pointer, scalar: gamma[c], result: outPtr, count: sliceSize)
-      NumSwiftFlat.add(outPtr, scalar: beta[c], result: outPtr, count: sliceSize)
     }
 
-    return (outStorage, normalizedInputs)
+    let pcSize = TensorSize(rows: 1, columns: 1, depth: depth)
+    let meanT  = Tensor(storage: TensorStorage.create(from: means), size: pcSize)
+    let stdT   = Tensor(storage: TensorStorage.create(from: stds), size: pcSize)
+    let gammaT = Tensor(storage: TensorStorage.create(from: gamma), size: pcSize)
+    let betaT  = Tensor(storage: TensorStorage.create(from: beta), size: pcSize)
+
+    let normalized = (inputs - meanT) / stdT
+    let output = normalized * gammaT + betaT
+
+    return (output.storage, Normalization(normalized: normalized, stds: stds))
   }
 
   private func backward(inputs: Tensor,
                         gradient: Tensor,
-                        normalizations: [Normalization]) -> Tensor {
+                        normalization: Normalization) -> Tensor {
     let depth = inputs.size.depth
     let sliceSize = inputSize.rows * inputSize.columns
-    let outStorage = TensorStorage.create(count: inputs.storage.count)
-    let tmpA = TensorStorage.create(count: sliceSize)
+
+    let gradTimesNorm = gradient * normalization.normalized
 
     for c in 0..<depth {
-      let gradPtr = gradient.storage.pointer + c * sliceSize
-      let outPtr  = outStorage.pointer + c * sliceSize
-
-      let normStorage = normalizations[c].normalized
-      let std_c = normalizations[c].std
-
       updateLock.with {
-        NumSwiftFlat.mul(gradPtr, normStorage.pointer, result: tmpA.pointer, count: sliceSize)
-        dGamma[c] += NumSwiftFlat.sum(tmpA.pointer, count: sliceSize)
-        dBeta[c] += NumSwiftFlat.sum(gradPtr, count: sliceSize)
+        dGamma[c] += NumSwiftFlat.sum(gradTimesNorm.depthPointer(c), count: sliceSize)
+        dBeta[c] += NumSwiftFlat.sum(gradient.depthPointer(c), count: sliceSize)
       }
-
-      // Frozen BN gradient: dx = dy * gamma_c / std_c
-      let scale = gamma[c] / std_c
-      NumSwiftFlat.mul(gradPtr, scalar: scale, result: outPtr, count: sliceSize)
     }
 
-    return Tensor(storage: outStorage, size: inputs.size)
+    var scales = [Tensor.Scalar](repeating: 0, count: depth)
+    for c in 0..<depth { scales[c] = gamma[c] / normalization.stds[c] }
+    let scaleT = Tensor(storage: TensorStorage.create(from: scales),
+                        size: TensorSize(rows: 1, columns: 1, depth: depth))
+    return gradient * scaleT
   }
 
   // MARK: - Codable Helpers
