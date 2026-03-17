@@ -171,7 +171,9 @@ open class ArithmeticLayer: BaseLayer {
     super.onInputSizeSet()
     /// do something when the input size is set when calling `compile` on `Sequential`
     /// like setting the output size or initializing the weights
-    outputSize = inputSize
+    if outputSize.isEmpty {
+      outputSize = inputSize
+    }
   }
   
   required convenience public init(from decoder: Decoder) throws {
@@ -197,13 +199,16 @@ open class ArithmeticLayer: BaseLayer {
   ///   - context: The network context in which the forward pass is executed.
   /// - Returns: The output tensor produced by applying the layer's function to the input and linked tensors.
   public override func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
-    
     guard let other = lookupInput(input: tensor) else {
       assertionFailure("could not find reference input tensor in graph")
       return Tensor()
     }
     
-    let out = function(input: tensor, other: other)
+    let out = if inverse {
+      function(input: other, other: tensor)
+    } else {
+      function(input: tensor, other: other)
+    }
     
     return super.forward(tensor: out, context: context)
   }

@@ -8,7 +8,8 @@
 import Foundation
 
 /// Object that defines a size of a Tensor
-public struct TensorSize: Codable, Equatable {
+public struct TensorSize: Codable, Equatable, Comparable {
+
   /// The number of rows in the tensor.
   public let rows: Int
   /// The number of columns in the tensor.
@@ -40,6 +41,16 @@ public struct TensorSize: Codable, Equatable {
   public enum CodingKeys: String, CodingKey {
     case rows, columns, depth, batchCount
   }
+  
+  public static func < (lhs: TensorSize, rhs: TensorSize) -> Bool {
+    (lhs.columns * lhs.rows * lhs.depth) < (rhs.columns * rhs.rows * rhs.depth)
+  }
+  
+  
+  public static func > (lhs: TensorSize, rhs: TensorSize) -> Bool {
+    (lhs.columns * lhs.rows * lhs.depth) > (rhs.columns * rhs.rows * rhs.depth)
+  }
+  
   
   /// Creates a `TensorSize` by decoding from the given decoder.
   /// - Parameter decoder: The decoder to read data from.

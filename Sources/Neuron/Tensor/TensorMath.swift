@@ -1027,8 +1027,15 @@ public extension Tensor {
     
     if let new = lhs._broadcastPerChannelFastPath(value: rhs, op: .mul) {
       new.label = "multiplication"
-      if lhs.graphChain.contains(rhs.id) { new.setGraphSafe(lhs); new.setGraphSafe(rhs) }
-      else { new.setGraphSafe(rhs); new.setGraphSafe(lhs) }
+      
+      if lhs.graphChain.contains(rhs.id) {
+        new.setGraphSafe(lhs)
+        new.setGraphSafe(rhs)
+      } else {
+        new.setGraphSafe(rhs)
+        new.setGraphSafe(lhs)
+      }
+      
       return new
     }
     

@@ -43,10 +43,6 @@ public final class Subtract: ArithmeticLayer {
   }
   
   override public func function(input: Tensor, other: Tensor) -> Tensor {
-    if inverse {
-      other - input
-    } else {
-      input - other
-    }
+    input - other
   }
 }

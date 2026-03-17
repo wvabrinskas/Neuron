@@ -86,17 +86,23 @@ public final class RexNet: BaseLayerGroup {
       
       // Step 3: Squeeze-and-Excite (optional)
       if squeeze > 0 {
+        let channelsBeforeSE = expandRatio > 1
+            ? Int(inputSize.depth.asTensorScalar * expandRatio)
+            : inputSize.depth
+        
         let squeezeLayers: [Layer] = [
           GlobalAvgPool(),
-          Dense(Int(inputSize.depth) / squeeze,
+          Dense(channelsBeforeSE / squeeze,
                 initializer: initializer,
                 biasEnabled: true),
           ReLu(),
-          Dense(inputSize.depth,
+          Dense(channelsBeforeSE,
                 initializer: initializer,
                 biasEnabled: true),
           Sigmoid(),
-          Multiply(linkTo: "squeeze")
+          Reshape(to: .init(rows: 1, columns: 1, depth: channelsBeforeSE)),
+          Multiply(inverse: true,
+                   linkTo: "squeeze")
         ]
         
         layers.append(contentsOf: squeezeLayers)
