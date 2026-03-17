@@ -140,11 +140,11 @@ public extension Tensor {
     }
   }
 
-  private enum _BroadcastOp { case add, sub, mul, div }
+  private enum BroadcastOp { case add, sub, mul, div }
 
   /// Per-channel broadcasting fast path for (W,H,D) op (1,1,D).
   /// Applies a per-depth scalar from `value` across each spatial slice of `self`.
-  private func _broadcastPerChannelFastPath(value: Tensor, op: _BroadcastOp) -> Tensor? {
+  private func broadcastPerChannelFastPath(value: Tensor, op: BroadcastOp) -> Tensor? {
     let selfSize = size
     let inputSize = value.size
     guard inputSize.columns == 1,
@@ -174,7 +174,7 @@ public extension Tensor {
       }
     }
 
-    let context = _perChannelBroadcastContext(value: value, op: op)
+    let context = perChannelBroadcastContext(value: value, op: op)
     return Tensor(storage: resultStorage, size: selfSize, context: context)
   }
 
@@ -182,7 +182,7 @@ public extension Tensor {
   /// Correctly reduces gradients spatially (sum over H,W) when backpropagating
   /// through the `value (1,1,C)` path, avoiding the shape mismatch that the
   /// generic arithmetic contexts produce.
-  private func _perChannelBroadcastContext(value: Tensor, op: _BroadcastOp) -> TensorContext {
+  private func perChannelBroadcastContext(value: Tensor, op: BroadcastOp) -> TensorContext {
     // `self` is (H,W,C), `value` is (1,1,C)
     let selfCapture = self
     let valueSize = value.size
@@ -233,7 +233,7 @@ public extension Tensor {
   }
 
   /// Pointer-based fast path for *Along broadcasting. Returns result storage when applicable, nil to fall back.
-  private func _broadcastAlongFastPath(axis: Int, value: Tensor, op: _BroadcastOp) -> Tensor? {
+  private func broadcastAlongFastPath(axis: Int, value: Tensor, op: BroadcastOp) -> Tensor? {
     let inputSize = value.size
     let selfSize = size
     let columns = selfSize.columns
@@ -384,7 +384,7 @@ public extension Tensor {
         branchNode?.setGradientBranch(gradB)
         return (gradB, Tensor(), Tensor())
       } else {
-        let gradA = gradient * (1 / value)
+        let gradA = gradient / value
         gradA.label = "division_grad_a"
         branchNode?.setGradientBranch(gradA)
         return (gradA, Tensor(), Tensor())
@@ -402,7 +402,7 @@ public extension Tensor {
   /// - Note: Self-assignment is now handled automatically. The operation detects and prevents
   ///   reference cycles in the computation graph, so manual `.copy()` calls are no longer required.
   func divideAlong(axis: Int, value: Tensor) -> Tensor {
-    if let new = _broadcastAlongFastPath(axis: axis, value: value, op: .div) {
+    if let new = broadcastAlongFastPath(axis: axis, value: value, op: .div) {
       new.label = "division"
       if graphChain.contains(value.id) { new.setGraphSafe(self); new.setGraphSafe(value) }
       else { new.setGraphSafe(value); new.setGraphSafe(self) }
@@ -448,7 +448,7 @@ public extension Tensor {
   /// - Note: Self-assignment is now handled automatically. The operation detects and prevents
   ///   reference cycles in the computation graph, so manual `.copy()` calls are no longer required.
   func multiplyAlong(axis: Int, value: Tensor) -> Tensor {
-    if let new = _broadcastAlongFastPath(axis: axis, value: value, op: .mul) {
+    if let new = broadcastAlongFastPath(axis: axis, value: value, op: .mul) {
       new.label = "multiplication"
       if graphChain.contains(value.id) { new.setGraphSafe(self); new.setGraphSafe(value) }
       else { new.setGraphSafe(value); new.setGraphSafe(self) }
@@ -509,7 +509,7 @@ public extension Tensor {
   /// - Note: Self-assignment is now handled automatically. The operation detects and prevents
   ///   reference cycles in the computation graph, so manual `.copy()` calls are no longer required.
   func addAlong(axis: Int, value: Tensor) -> Tensor {
-    if let new = _broadcastAlongFastPath(axis: axis, value: value, op: .add) {
+    if let new = broadcastAlongFastPath(axis: axis, value: value, op: .add) {
       new.label = "addition"
       if graphChain.contains(value.id) { new.setGraphSafe(self); new.setGraphSafe(value) }
       else { new.setGraphSafe(value); new.setGraphSafe(self) }
@@ -557,7 +557,7 @@ public extension Tensor {
   /// - Note: Self-assignment is now handled automatically. The operation detects and prevents
   ///   reference cycles in the computation graph, so manual `.copy()` calls are no longer required.
   func subtractAlong(axis: Int, value: Tensor) -> Tensor {
-    if let new = _broadcastAlongFastPath(axis: axis, value: value, op: .sub) {
+    if let new = broadcastAlongFastPath(axis: axis, value: value, op: .sub) {
       new.label = "subtraction"
       if graphChain.contains(value.id) { new.setGraphSafe(self); new.setGraphSafe(value) }
       else { new.setGraphSafe(value); new.setGraphSafe(self) }
@@ -1013,7 +1013,7 @@ public extension Tensor {
       return lhs.addAlong(axis: axis, value: rhs)
     }
     
-    if let new = lhs._broadcastPerChannelFastPath(value: rhs, op: .add) {
+    if let new = lhs.broadcastPerChannelFastPath(value: rhs, op: .add) {
       new.label = "addition"
       if lhs.graphChain.contains(rhs.id) { new.setGraphSafe(lhs); new.setGraphSafe(rhs) }
       else { new.setGraphSafe(rhs); new.setGraphSafe(lhs) }
@@ -1043,7 +1043,7 @@ public extension Tensor {
       return lhs.subtractAlong(axis: axis, value: rhs)
     }
     
-    if let new = lhs._broadcastPerChannelFastPath(value: rhs, op: .sub) {
+    if let new = lhs.broadcastPerChannelFastPath(value: rhs, op: .sub) {
       new.label = "subtraction"
       if lhs.graphChain.contains(rhs.id) { new.setGraphSafe(lhs); new.setGraphSafe(rhs) }
       else { new.setGraphSafe(rhs); new.setGraphSafe(lhs) }
@@ -1073,7 +1073,7 @@ public extension Tensor {
       return lhs.multiplyAlong(axis: axis, value: rhs)
     }
     
-    if let new = lhs._broadcastPerChannelFastPath(value: rhs, op: .mul) {
+    if let new = lhs.broadcastPerChannelFastPath(value: rhs, op: .mul) {
       new.label = "multiplication"
       
       if lhs.graphChain.contains(rhs.id) {
@@ -1110,7 +1110,7 @@ public extension Tensor {
       return lhs.divideAlong(axis: axis, value: rhs)
     }
     
-    if let new = lhs._broadcastPerChannelFastPath(value: rhs, op: .div) {
+    if let new = lhs.broadcastPerChannelFastPath(value: rhs, op: .div) {
       new.label = "division"
       if lhs.graphChain.contains(rhs.id) { new.setGraphSafe(lhs); new.setGraphSafe(rhs) }
       else { new.setGraphSafe(rhs); new.setGraphSafe(lhs) }

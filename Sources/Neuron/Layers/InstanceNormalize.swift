@@ -119,21 +119,22 @@ public final class InstanceNormalize: BaseLayer {
     let sliceSize = inputSize.rows * inputSize.columns
     let pcSize = TensorSize(rows: 1, columns: 1, depth: depth)
 
-    var means = [Tensor.Scalar](repeating: 0, count: depth)
+    var means = TensorStorage.create(count: depth)
     for i in 0..<depth {
       means[i] = NumSwiftFlat.mean(inputs.depthPointer(i), count: sliceSize)
     }
 
-    let meanT = Tensor(storage: TensorStorage.create(from: means), size: pcSize)
+    let meanT = Tensor(storage: means, size: pcSize)
     let centered = inputs - meanT
 
-    var stds = [Tensor.Scalar](repeating: 0, count: depth)
+    var stds = TensorStorage.create(count: depth)
+    
     for i in 0..<depth {
       let sumSq = NumSwiftFlat.sumOfSquares(centered.depthPointer(i), count: sliceSize)
       stds[i] = Tensor.Scalar.sqrt(sumSq / Tensor.Scalar(sliceSize) + epsilon)
     }
 
-    let stdT = Tensor(storage: TensorStorage.create(from: stds), size: pcSize)
+    let stdT = Tensor(storage: stds, size: pcSize)
     let gammaT = Tensor(storage: gamma.storage, size: pcSize)
     let betaT = Tensor(storage: beta.storage, size: pcSize)
 
@@ -148,14 +149,14 @@ public final class InstanceNormalize: BaseLayer {
     let N = Tensor.Scalar(sliceSize)
     let pcSize = TensorSize(rows: 1, columns: 1, depth: depth)
 
-    var means = [Tensor.Scalar](repeating: 0, count: depth)
-    var stds  = [Tensor.Scalar](repeating: 0, count: depth)
+    let means = TensorStorage.create(count: depth)
+    let stds = TensorStorage.create(count: depth)
 
     for i in 0..<depth {
       means[i] = NumSwiftFlat.mean(inputs.depthPointer(i), count: sliceSize)
     }
     
-    let meanT = Tensor(storage: TensorStorage.create(from: means), size: pcSize)
+    let meanT = Tensor(storage: means, size: pcSize)
     let centered = inputs - meanT
 
     for i in 0..<depth {
@@ -163,12 +164,13 @@ public final class InstanceNormalize: BaseLayer {
       stds[i] = Tensor.Scalar.sqrt(sumSq / N + epsilon)
     }
 
-    let stdT = Tensor(storage: TensorStorage.create(from: stds), size: pcSize)
+    let stdT = Tensor(storage: stds, size: pcSize)
     let xNorm = centered / stdT
 
     let xNormTimesGrad = xNorm * gradient
-    var dGammas = [Tensor.Scalar](repeating: 0, count: depth)
-    var dBetas = [Tensor.Scalar](repeating: 0, count: depth)
+    let dGammas = TensorStorage.create(count: depth)
+    let dBetas = TensorStorage.create(count: depth)
+    
     for i in 0..<depth {
       dBetas[i] = NumSwiftFlat.sum(gradient.depthPointer(i), count: sliceSize)
       dGammas[i] = NumSwiftFlat.sum(xNormTimesGrad.depthPointer(i), count: sliceSize)
@@ -176,13 +178,13 @@ public final class InstanceNormalize: BaseLayer {
 
     let gammaT = Tensor(storage: gamma.storage, size: pcSize)
     let invNStdT = gammaT / (Tensor(N) * stdT)
-    let dBetaT = Tensor(storage: TensorStorage.create(from: dBetas), size: pcSize)
-    let dGammaT = Tensor(storage: TensorStorage.create(from: dGammas), size: pcSize)
+    let dBetaT = Tensor(storage: dBetas, size: pcSize)
+    let dGammaT = Tensor(storage: dGammas, size: pcSize)
 
     let dInput = (gradient * N - dBetaT - xNorm * dGammaT) * invNStdT
 
-    let dGammaTensor = Tensor(storage: TensorStorage.create(from: dGammas), size: TensorSize(rows: 1, columns: depth, depth: 1))
-    let dBetaTensor  = Tensor(storage: TensorStorage.create(from: dBetas), size: TensorSize(rows: 1, columns: depth, depth: 1))
+    let dGammaTensor = Tensor(storage: dGammas, size: TensorSize(rows: 1, columns: depth, depth: 1))
+    let dBetaTensor  = Tensor(storage: dBetas, size: TensorSize(rows: 1, columns: depth, depth: 1))
 
     return (dInput,
             dBetaTensor.concat(dGammaTensor, axis: 2),
