@@ -37,7 +37,11 @@ public final class Multiply: ArithmeticLayer {
   }
   
   override public func function(input: Tensor, other: Tensor) -> Tensor {
-    input * other
+    if inverse {
+      other * input
+    } else {
+      input * other
+    }
   }
 }
 
