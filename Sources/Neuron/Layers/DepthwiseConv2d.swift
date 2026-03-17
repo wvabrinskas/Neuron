@@ -451,11 +451,11 @@ public class DepthwiseConv2d: BaseConvolutionalLayer {
                          filterSize: self.filterSize,
                          inputSize: (self.inputSize.rows, self.inputSize.columns),
                          batchCount: 1)
+    }
 
-      if self.biasEnabled {
-        let bias = self.biases.storage[i]
-        NumSwiftFlat.add(destPtr, scalar: bias, result: destPtr, count: outSliceSize)
-      }
+    if biasEnabled {
+      let biasT = Tensor(storage: biases.storage, size: TensorSize(rows: 1, columns: 1, depth: outputSize.depth))
+      return Tensor(storage: resultStorage, size: outputSize) + biasT
     }
 
     return Tensor(storage: resultStorage, size: outputSize)

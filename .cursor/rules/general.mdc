@@ -30,6 +30,18 @@ alwaysApply: true
 - Feature branches should be created off `develop`
 - `main` is only updated via merges from `develop`
 
+### Tensor Self-Assignment:
+- **NEVER** write `tensor = tensor op value` where `op` is `+`, `-`, `*`, or `/` on Tensor types. The autograd operators build a computation graph that references the old tensor, creating a reference cycle when assigned back to the same variable.
+- Instead, drop the autograd context by constructing a new Tensor from the result's storage:
+  ```swift
+  // BAD: gamma = gamma - gradients  (reference cycle!)
+  // GOOD:
+  gamma = Tensor(storage: (gamma - gradients).storage, size: gamma.size)
+  // ALSO GOOD (TensorStorage arithmetic has no autograd):
+  gamma = Tensor(storage: gamma.storage - gradients.storage, size: gamma.size)
+  ```
+- This applies to any layer property (gamma, beta, movingMean, etc.) updated via arithmetic referencing itself.
+
 ### Performance:
 - Use `NumSwiftFlat` pointer APIs (e.g., `NumSwiftFlat.mul`, `add`, `sub`, `div`, `sqrt`, `sum`) for all element-wise arithmetic in hot paths instead of `Tensor.Value` operator overloads
 - Allocate output buffers with `TensorStorage.create(count:)` instead of `Tensor.Value(repeating:count:)`

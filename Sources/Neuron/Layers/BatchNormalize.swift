@@ -25,14 +25,14 @@ import NumSwift
 ///
 /// Backpropagation uses the frozen-BN gradient `dx = dy × γ / σ`.
 public final class BatchNormalize: BaseThreadBatchingLayer {
-  /// Learnable scale parameters, one per channel.
-  public var gamma: [Tensor.Scalar] = []
-  /// Learnable shift parameters, one per channel.
-  public var beta: [Tensor.Scalar] = []
-  /// Per-channel moving mean for inference.
-  public var movingMean: [Tensor.Scalar] = []
-  /// Per-channel moving variance for inference.
-  public var movingVariance: [Tensor.Scalar] = []
+  /// Learnable scale parameters, one per channel. Shape: `(1, 1, depth)`.
+  public var gamma: Tensor = .init()
+  /// Learnable shift parameters, one per channel. Shape: `(1, 1, depth)`.
+  public var beta: Tensor = .init()
+  /// Per-channel moving mean for inference. Shape: `(1, 1, depth)`.
+  public var movingMean: Tensor = .init()
+  /// Per-channel moving variance for inference. Shape: `(1, 1, depth)`.
+  public var movingVariance: Tensor = .init()
 
   /// Momentum for exponential moving average of inference statistics.
   public let momentum: Tensor.Scalar
@@ -43,10 +43,10 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
   /// Setting this property has no effect.
   public override var weights: Tensor {
     get {
-      var combined = beta
-      combined.append(contentsOf: gamma)
-      combined.append(contentsOf: movingMean)
-      combined.append(contentsOf: movingVariance)
+      var combined = beta.storage.toArray()
+      combined.append(contentsOf: gamma.storage.toArray())
+      combined.append(contentsOf: movingMean.storage.toArray())
+      combined.append(contentsOf: movingVariance.storage.toArray())
       return Tensor(combined)
     }
     set {}
@@ -72,8 +72,8 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
   private var batchVariances: [Tensor.Scalar] = []
 
   private struct Normalization {
-    let normalized: TensorStorage
-    let std: Tensor.Scalar
+    let normalized: Tensor
+    let stds: [Tensor.Scalar]
   }
 
   /// Creates a batch-normalization layer.
@@ -93,10 +93,10 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
               movingVariance: [Tensor.Scalar] = [],
               inputSize: TensorSize? = nil,
               linkId: String = UUID().uuidString) {
-    self.gamma = gamma
-    self.beta = beta
-    self.movingMean = movingMean
-    self.movingVariance = movingVariance
+    self.gamma = Self.perChannelTensor(from: gamma)
+    self.beta = Self.perChannelTensor(from: beta)
+    self.movingMean = Self.perChannelTensor(from: movingMean)
+    self.movingVariance = Self.perChannelTensor(from: movingVariance)
     self.momentum = momentum
 
     super.init(inputSize: inputSize,
@@ -159,11 +159,11 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
-    try container.encode(beta, forKey: .beta)
-    try container.encode(gamma, forKey: .gamma)
+    try container.encode(beta.storage.toArray(), forKey: .beta)
+    try container.encode(gamma.storage.toArray(), forKey: .gamma)
     try container.encode(momentum, forKey: .momentum)
-    try container.encode(movingMean, forKey: .movingMean)
-    try container.encode(movingVariance, forKey: .movingVariance)
+    try container.encode(movingMean.storage.toArray(), forKey: .movingMean)
+    try container.encode(movingVariance.storage.toArray(), forKey: .movingVariance)
     try container.encode(linkId, forKey: .linkId)
   }
 
@@ -175,7 +175,7 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     let sliceSize = inputSize.rows * inputSize.columns
     updateLock.with {
       for c in 0..<tensor.size.depth {
-        let ptr = tensor.storage.pointer + c * sliceSize
+        let ptr = tensor.depthPointer(c)
         channelSums[c] += NumSwiftFlat.sum(ptr, count: sliceSize)
         NumSwiftFlat.mul(ptr, ptr, result: scratchBuffer.pointer, count: sliceSize)
         channelSumSqs[c] += NumSwiftFlat.sum(scratchBuffer.pointer, count: sliceSize)
@@ -204,12 +204,12 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     }
 
     let forward = normalize(inputs: tensor, context: context)
-    let normalizations = forward.normalized
+    let normalization = forward.normalized
 
     let tensorContext = TensorContext { inputs, gradient, wrt in
       let backward = self.backward(inputs: inputs,
                                    gradient: gradient,
-                                   normalizations: normalizations)
+                                   normalization: normalization)
       backward.label = "BatchNorm"
       return (backward, Tensor(), Tensor())
     }
@@ -226,17 +226,16 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
     super.apply(gradients: gradients, learningRate: learningRate)
 
     let N = Tensor.Scalar(max(sampleCount, 1))
-    let avgDGamma = dGamma / N
-    let avgDBeta = dBeta / N
+    let avgDGammaT = Self.perChannelTensor(from: dGamma) / N
+    let avgDBetaT = Self.perChannelTensor(from: dBeta) / N
 
-    gamma = gamma - (avgDGamma * learningRate)
-    beta = beta - (avgDBeta * learningRate)
+    gamma = gamma.copy() - avgDGammaT * learningRate
+    beta = beta.copy() - avgDBetaT * learningRate
 
-    // Update moving stats from cached batch statistics
-    for c in 0..<inputSize.depth {
-      movingMean[c] = momentum * movingMean[c] + (1 - momentum) * batchMeans[c]
-      movingVariance[c] = momentum * movingVariance[c] + (1 - momentum) * batchVariances[c]
-    }
+    let batchMeansT = Self.perChannelTensor(from: batchMeans)
+    let batchVariancesT = Self.perChannelTensor(from: batchVariances)
+    movingMean = movingMean.copy() * momentum + batchMeansT * (1 - momentum)
+    movingVariance = movingVariance.copy() * momentum + batchVariancesT * (1 - momentum)
 
     resetDeltas()
     resetChannelAccumulators()
@@ -260,10 +259,11 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
 
   private func setupTrainables() {
     let depth = inputSize.depth
-    if gamma.isEmpty { gamma = [Tensor.Scalar](repeating: 1, count: depth) }
-    if beta.isEmpty { beta = [Tensor.Scalar](repeating: 0, count: depth) }
-    if movingMean.isEmpty { movingMean = [Tensor.Scalar](repeating: 0, count: depth) }
-    if movingVariance.isEmpty { movingVariance = [Tensor.Scalar](repeating: 1, count: depth) }
+    let pcSize = TensorSize(rows: 1, columns: 1, depth: depth)
+    if gamma.isEmpty { gamma = Tensor(storage: TensorStorage.create(repeating: 1, count: depth), size: pcSize) }
+    if beta.isEmpty { beta = Tensor(storage: TensorStorage.create(count: depth), size: pcSize) }
+    if movingMean.isEmpty { movingMean = Tensor(storage: TensorStorage.create(count: depth), size: pcSize) }
+    if movingVariance.isEmpty { movingVariance = Tensor(storage: TensorStorage.create(repeating: 1, count: depth), size: pcSize) }
     if batchMeans.count != depth { batchMeans = [Tensor.Scalar](repeating: 0, count: depth) }
     if batchVariances.count != depth { batchVariances = [Tensor.Scalar](repeating: 0, count: depth) }
   }
@@ -282,74 +282,66 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
   }
 
   private func normalize(inputs: Tensor,
-                         context: NetworkContext) -> (output: TensorStorage, normalized: [Normalization]) {
+                         context: NetworkContext) -> (output: TensorStorage, normalized: Normalization) {
     let depth = inputs.size.depth
     let sliceSize = inputSize.rows * inputSize.columns
-    let outStorage = TensorStorage.create(count: inputs.storage.count)
-    var normalizedInputs: [Normalization] = []
 
-    for c in 0..<depth {
-      let inputPtr = inputs.storage.pointer + c * sliceSize
-      let outPtr   = outStorage.pointer + c * sliceSize
+    let meanT: Tensor
+    let stdT: Tensor
+    var stds = [Tensor.Scalar](repeating: 0, count: depth)
 
-      let mean_c: Tensor.Scalar
-      let std_c: Tensor.Scalar
+    if isTraining {
+      var means = [Tensor.Scalar](repeating: 0, count: depth)
 
-      if isTraining {
+      for c in 0..<depth {
         let M = Tensor.Scalar(max(sampleCount * sliceSize, 1))
-        mean_c = channelSums[c] / M
+        let mean_c = channelSums[c] / M
         let var_c = max(channelSumSqs[c] / M - mean_c * mean_c, 0)
-        std_c = Tensor.Scalar.sqrt(var_c + e)
-
+        means[c] = mean_c
+        stds[c] = Tensor.Scalar.sqrt(var_c + e)
         batchMeans[c] = mean_c
         batchVariances[c] = var_c
-      } else {
-        mean_c = movingMean[c]
-        std_c = Tensor.Scalar.sqrt(movingVariance[c] + e)
       }
 
-      // normalized = (input - mean_c) / std_c
-      let normStorage = TensorStorage.create(count: sliceSize)
-      NumSwiftFlat.sub(inputPtr, scalar: mean_c, result: normStorage.pointer, count: sliceSize)
-      NumSwiftFlat.div(normStorage.pointer, scalar: std_c, result: normStorage.pointer, count: sliceSize)
-
-      normalizedInputs.append(Normalization(normalized: normStorage, std: std_c))
-
-      // output = gamma_c * normalized + beta_c
-      NumSwiftFlat.mul(normStorage.pointer, scalar: gamma[c], result: outPtr, count: sliceSize)
-      NumSwiftFlat.add(outPtr, scalar: beta[c], result: outPtr, count: sliceSize)
+      meanT = Self.perChannelTensor(from: means)
+      stdT = Self.perChannelTensor(from: stds)
+    } else {
+      meanT = movingMean
+      stdT = movingVariance.sqrt(adding: e)
+      for c in 0..<depth { stds[c] = stdT.storage[c] }
     }
 
-    return (outStorage, normalizedInputs)
+    let normalized = (inputs - meanT) / stdT
+    let output = normalized * gamma + beta
+
+    return (output.storage, Normalization(normalized: normalized, stds: stds))
   }
 
   private func backward(inputs: Tensor,
                         gradient: Tensor,
-                        normalizations: [Normalization]) -> Tensor {
+                        normalization: Normalization) -> Tensor {
     let depth = inputs.size.depth
     let sliceSize = inputSize.rows * inputSize.columns
-    let outStorage = TensorStorage.create(count: inputs.storage.count)
-    let tmpA = TensorStorage.create(count: sliceSize)
+
+    let gradTimesNorm = gradient * normalization.normalized
 
     for c in 0..<depth {
-      let gradPtr = gradient.storage.pointer + c * sliceSize
-      let outPtr  = outStorage.pointer + c * sliceSize
-
-      let normStorage = normalizations[c].normalized
-      let std_c = normalizations[c].std
-
       updateLock.with {
-        NumSwiftFlat.mul(gradPtr, normStorage.pointer, result: tmpA.pointer, count: sliceSize)
-        dGamma[c] += NumSwiftFlat.sum(tmpA.pointer, count: sliceSize)
-        dBeta[c] += NumSwiftFlat.sum(gradPtr, count: sliceSize)
+        dGamma[c] += NumSwiftFlat.sum(gradTimesNorm.depthPointer(c), count: sliceSize)
+        dBeta[c] += NumSwiftFlat.sum(gradient.depthPointer(c), count: sliceSize)
       }
-
-      // Frozen BN gradient: dx = dy * gamma_c / std_c
-      let scale = gamma[c] / std_c
-      NumSwiftFlat.mul(gradPtr, scalar: scale, result: outPtr, count: sliceSize)
     }
 
-    return Tensor(storage: outStorage, size: inputs.size)
+    let stdsT = Self.perChannelTensor(from: normalization.stds)
+    let scaleT = gamma / stdsT
+    return gradient * scaleT
+  }
+
+  private static func perChannelTensor(from scalars: [Tensor.Scalar]) -> Tensor {
+    let depth = scalars.count
+    guard depth > 0 else { return Tensor() }
+    return Tensor(storage: TensorStorage.create(from: scalars),
+                  size: TensorSize(rows: 1, columns: 1, depth: depth))
   }
 
   // MARK: - Codable Helpers

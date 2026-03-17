@@ -399,10 +399,12 @@ public class Conv2d: BaseConvolutionalLayer {
         }
       }
 
-      if biasEnabled {
-        let biasVal = biases.storage[f]
-        NumSwiftFlat.add(resultPtr, scalar: biasVal, result: resultPtr, count: outSliceSize)
-      }
+    }
+
+    if biasEnabled {
+      let biasT = Tensor(storage: biases.storage, size: TensorSize(rows: 1, columns: 1, depth: filterCount))
+      let result = Tensor(storage: resultStorage, size: outputSize) + biasT
+      return result.storage
     }
 
     return resultStorage

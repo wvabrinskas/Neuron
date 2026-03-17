@@ -280,15 +280,13 @@ public final class TransConv2d: Conv2d {
       }
     }
 
-    // Apply bias and copy accumulated results into resultStorage
-    for f in 0..<filterCount {
-      let accumPtr  = accumBuf.pointer + f * outSliceSize
-      let resultPtr = resultStorage.pointer + f * outSliceSize
-      if biasEnabled {
-        NumSwiftFlat.add(accumPtr, scalar: biases.storage[f], result: resultPtr, count: outSliceSize)
-      } else {
-        resultPtr.update(from: accumPtr, count: outSliceSize)
-      }
+    // Copy accumulated results into resultStorage
+    resultStorage.pointer.update(from: accumBuf.pointer, count: outSliceSize * filterCount)
+
+    if biasEnabled {
+      let biasT = Tensor(storage: biases.storage, size: TensorSize(rows: 1, columns: 1, depth: filterCount))
+      let result = Tensor(storage: resultStorage, size: outputSize) + biasT
+      return result.storage
     }
 
     return resultStorage

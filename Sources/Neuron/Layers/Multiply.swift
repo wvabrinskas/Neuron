@@ -15,11 +15,13 @@ public final class Multiply: ArithmeticLayer {
   public init(inputSize: TensorSize = TensorSize(array: []),
               initializer: InitializerType = .heNormal,
               linkId: String = UUID().uuidString,
+              inverse: Bool = false,
               linkTo: String) {
     super.init(inputSize: inputSize,
                initializer: initializer,
                biasEnabled: false,
                encodingType: .multiply,
+               inverse: inverse,
                linkId: linkId,
                linkTo: linkTo)
   }

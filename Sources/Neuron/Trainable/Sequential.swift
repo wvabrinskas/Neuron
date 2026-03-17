@@ -245,7 +245,12 @@ public final class Sequential: Trainable, Logger {
     
     var errorMsg: String = ""
     
+    var linkLayers: [String: Layer] = [:]
+    
     for layer in layers {
+      
+      linkLayers[layer.linkId] = layer
+      
       if i == 0 && layer.inputSize.isEmpty {
         fatalError("The first layer should contain an input size")
       }
@@ -264,9 +269,17 @@ public final class Sequential: Trainable, Logger {
         }
         
         layer.inputSize = inputSize
+        
+        // set outputSize to be the larger of the two sizes 
+        if let mathLayer = layer as? ArithmeticLayer,
+           let linkedLayer = linkLayers[mathLayer.linkTo]  {
+          mathLayer.outputSize = max(inputSize, linkedLayer.outputSize)
+        }
       }
       
       inputSize = layer.outputSize
+
+      
       i += 1
     }
     

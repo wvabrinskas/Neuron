@@ -98,10 +98,10 @@ public final class InstanceNormalize: BaseLayer {
   /// - Returns: Normalized tensor with layer-norm backpropagation context.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let tensotContext = TensorContext { inputs, gradient, wrt in
-      self.backwardFlat(inputs: inputs, gradient: gradient)
+      self.backward(inputs: inputs, gradient: gradient)
     }
 
-    let forwardStorage = normalizeFlat(inputs: tensor)
+    let forwardStorage = normalize(inputs: tensor)
     let out = Tensor(storage: forwardStorage, size: tensor.size, context: tensotContext)
     out.setGraph(tensor)
 
@@ -114,97 +114,77 @@ public final class InstanceNormalize: BaseLayer {
     setupTrainables()
   }
 
-  private func normalizeFlat(inputs: Tensor) -> TensorStorage {
+  private func normalize(inputs: Tensor) -> TensorStorage {
     let depth = inputs.size.depth
     let sliceSize = inputSize.rows * inputSize.columns
-    let outStorage = TensorStorage.create(count: inputs.storage.count)
+    let pcSize = TensorSize(rows: 1, columns: 1, depth: depth)
 
-    // Scratch buffer for centered values (reused each depth slice)
-    let centeredBuf = TensorStorage.create(count: sliceSize)
-
+    var means = [Tensor.Scalar](repeating: 0, count: depth)
     for i in 0..<depth {
-      let gammaVal = gamma.storage[i]
-      let betaVal  = beta.storage[i]
-      let inPtr    = inputs.storage.pointer + i * sliceSize
-      let outPtr   = outStorage.pointer + i * sliceSize
-
-      // mean = sum(slice) / sliceSize
-      let mean = NumSwiftFlat.mean(inPtr, count: sliceSize)
-
-      // centered = slice - mean
-      NumSwiftFlat.sub(inPtr, scalar: mean, result: centeredBuf.pointer, count: sliceSize)
-
-      // variance = sumOfSquares(centered) / sliceSize
-      let sumSq = NumSwiftFlat.sumOfSquares(centeredBuf.pointer, count: sliceSize)
-      let std = Tensor.Scalar.sqrt(sumSq / Tensor.Scalar(sliceSize) + epsilon)
-
-      // normalized = centered / std, then scale: normalized * gamma[i] + beta[i]
-      NumSwiftFlat.div(centeredBuf.pointer, scalar: std, result: outPtr, count: sliceSize)
-      NumSwiftFlat.mul(outPtr, scalar: gammaVal, result: outPtr, count: sliceSize)
-      NumSwiftFlat.add(outPtr, scalar: betaVal, result: outPtr, count: sliceSize)
+      means[i] = NumSwiftFlat.mean(inputs.depthPointer(i), count: sliceSize)
     }
 
-    return outStorage
+    let meanT = Tensor(storage: TensorStorage.create(from: means), size: pcSize)
+    let centered = inputs - meanT
+
+    var stds = [Tensor.Scalar](repeating: 0, count: depth)
+    for i in 0..<depth {
+      let sumSq = NumSwiftFlat.sumOfSquares(centered.depthPointer(i), count: sliceSize)
+      stds[i] = Tensor.Scalar.sqrt(sumSq / Tensor.Scalar(sliceSize) + epsilon)
+    }
+
+    let stdT = Tensor(storage: TensorStorage.create(from: stds), size: pcSize)
+    let gammaT = Tensor(storage: gamma.storage, size: pcSize)
+    let betaT = Tensor(storage: beta.storage, size: pcSize)
+
+    let normalized = centered / stdT
+    let output = normalized * gammaT + betaT
+    return output.storage
   }
   
-  private func backwardFlat(inputs: Tensor, gradient: Tensor) -> (input: Tensor, weight: Tensor, bias: Tensor) {
+  private func backward(inputs: Tensor, gradient: Tensor) -> (input: Tensor, weight: Tensor, bias: Tensor) {
     let depth = inputs.size.depth
     let sliceSize = inputSize.rows * inputSize.columns
     let N = Tensor.Scalar(sliceSize)
+    let pcSize = TensorSize(rows: 1, columns: 1, depth: depth)
 
-    let dInputResult = TensorStorage.create(count: sliceSize * depth)
-    let dGammaResult = TensorStorage.create(count: depth)
-    let dBetaResult  = TensorStorage.create(count: depth)
-
-    // Scratch buffers reused each depth slice
-    let xNorm = TensorStorage.create(count: sliceSize)  // (input - mean) / std
-    let tmp   = TensorStorage.create(count: sliceSize)  // general scratch
+    var means = [Tensor.Scalar](repeating: 0, count: depth)
+    var stds  = [Tensor.Scalar](repeating: 0, count: depth)
 
     for i in 0..<depth {
-      let gammaVal = gamma.storage[i]
-      let inPtr    = inputs.storage.pointer + i * sliceSize
-      let gradPtr  = gradient.storage.pointer + i * sliceSize
-      let outPtr   = dInputResult.pointer + i * sliceSize
+      means[i] = NumSwiftFlat.mean(inputs.depthPointer(i), count: sliceSize)
+    }
+    
+    let meanT = Tensor(storage: TensorStorage.create(from: means), size: pcSize)
+    let centered = inputs - meanT
 
-      // mean, variance, std  (matching forward pass)
-      let mean = NumSwiftFlat.mean(inPtr, count: sliceSize)
-      NumSwiftFlat.sub(inPtr, scalar: mean, result: xNorm.pointer, count: sliceSize)
-      let sumSq = NumSwiftFlat.sumOfSquares(xNorm.pointer, count: sliceSize)
-      let std = Tensor.Scalar.sqrt(sumSq / N + epsilon)
-
-      // x_norm = (input - mean) / std  (reuse xNorm buffer)
-      NumSwiftFlat.div(xNorm.pointer, scalar: std, result: xNorm.pointer, count: sliceSize)
-
-      // dL_dbeta = sum(grad)
-      let dL_dbeta = NumSwiftFlat.sum(gradPtr, count: sliceSize)
-
-      // dL_dgamma = sum(x_norm * grad)
-      NumSwiftFlat.mul(xNorm.pointer, gradPtr, result: tmp.pointer, count: sliceSize)
-      let dL_dgamma = NumSwiftFlat.sum(tmp.pointer, count: sliceSize)
-
-      // invNStd = gamma[i] / (N * std)
-      let invNStd = gammaVal / (N * std)
-
-      // dl_dx = invNStd * (N * grad - dL_dbeta - x_norm * dL_dgamma)
-      // tmp = N * grad - dL_dbeta
-      NumSwiftFlat.mul(gradPtr, scalar: N, result: tmp.pointer, count: sliceSize)
-      NumSwiftFlat.sub(tmp.pointer, scalar: dL_dbeta, result: tmp.pointer, count: sliceSize)
-      // xNorm = x_norm * dL_dgamma  (reuse xNorm)
-      NumSwiftFlat.mul(xNorm.pointer, scalar: dL_dgamma, result: xNorm.pointer, count: sliceSize)
-      // tmp = tmp - xNorm
-      NumSwiftFlat.sub(tmp.pointer, xNorm.pointer, result: tmp.pointer, count: sliceSize)
-      // outPtr = invNStd * tmp
-      NumSwiftFlat.mul(tmp.pointer, scalar: invNStd, result: outPtr, count: sliceSize)
-
-      dGammaResult[i] = dL_dgamma
-      dBetaResult[i]  = dL_dbeta
+    for i in 0..<depth {
+      let sumSq = NumSwiftFlat.sumOfSquares(centered.depthPointer(i), count: sliceSize)
+      stds[i] = Tensor.Scalar.sqrt(sumSq / N + epsilon)
     }
 
-    let dGammaTensor = Tensor(storage: dGammaResult, size: TensorSize(rows: 1, columns: depth, depth: 1))
-    let dBetaTensor  = Tensor(storage: dBetaResult,  size: TensorSize(rows: 1, columns: depth, depth: 1))
+    let stdT = Tensor(storage: TensorStorage.create(from: stds), size: pcSize)
+    let xNorm = centered / stdT
 
-    // Return dBeta.concat(dGamma) to match weights layout (beta.concat(gamma)) for correct optimizer indexing
-    return (Tensor(storage: dInputResult, size: inputs.size),
+    let xNormTimesGrad = xNorm * gradient
+    var dGammas = [Tensor.Scalar](repeating: 0, count: depth)
+    var dBetas = [Tensor.Scalar](repeating: 0, count: depth)
+    for i in 0..<depth {
+      dBetas[i] = NumSwiftFlat.sum(gradient.depthPointer(i), count: sliceSize)
+      dGammas[i] = NumSwiftFlat.sum(xNormTimesGrad.depthPointer(i), count: sliceSize)
+    }
+
+    let gammaT = Tensor(storage: gamma.storage, size: pcSize)
+    let invNStdT = gammaT / (Tensor(N) * stdT)
+    let dBetaT = Tensor(storage: TensorStorage.create(from: dBetas), size: pcSize)
+    let dGammaT = Tensor(storage: TensorStorage.create(from: dGammas), size: pcSize)
+
+    let dInput = (gradient * N - dBetaT - xNorm * dGammaT) * invNStdT
+
+    let dGammaTensor = Tensor(storage: TensorStorage.create(from: dGammas), size: TensorSize(rows: 1, columns: depth, depth: 1))
+    let dBetaTensor  = Tensor(storage: TensorStorage.create(from: dBetas), size: TensorSize(rows: 1, columns: depth, depth: 1))
+
+    return (dInput,
             dBetaTensor.concat(dGammaTensor, axis: 2),
             Tensor())
   }
@@ -219,8 +199,8 @@ public final class InstanceNormalize: BaseLayer {
     let betaWeights = gradients.weights.depthSliceTensor(0)
     let gammaWeights = gradients.weights.depthSliceTensor(1)
 
-    gamma = gamma - gammaWeights
-    beta = beta - betaWeights
+    gamma = gamma.copy() - gammaWeights
+    beta = beta.copy() - betaWeights
   }
   
   private func setupTrainables() {
