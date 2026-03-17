@@ -1264,7 +1264,7 @@ final class LayerTests: XCTestCase {
     
     let gradients = out.gradients(delta: error, wrt: input)
     
-    XCTAssertEqual(resNet.innerBlockSequential.layers.count, 14)
+    XCTAssertEqual(resNet.innerBlockSequential.layers.count, 15)
     
     let totalWeights = resNet.innerBlockSequential.layers.filter(\.usesOptimizer).reduce(into: 0) { $0 = $0 + $1.weights.size.columns * $1.weights.size.rows * $1.weights.size.depth }
     
