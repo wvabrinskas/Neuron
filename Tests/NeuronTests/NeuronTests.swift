@@ -855,19 +855,184 @@ final class NeuronTests: XCTestCase {
     // Ragged 3D array: different row sizes in different depth slices
     let ragged: Tensor.Data = [[[1, 2, 3], [4, 5, 6]], [[7, 8, 9]]]
     let tensor = Tensor(ragged)
-    
+
     // Should normalize to max dimensions: cols=3, rows=2, depth=2
     XCTAssertEqual(tensor.shape, [3, 2, 2])
     XCTAssertEqual(tensor.storage.count, 12)
-    
+
     // First depth slice: [1,2,3], [4,5,6]
     XCTAssertEqual(tensor[0, 0, 0], 1)
     XCTAssertEqual(tensor[2, 1, 0], 6)
-    
+
     // Second depth slice: [7,8,9], then zero-padded row
     XCTAssertEqual(tensor[0, 0, 1], 7)
     XCTAssertEqual(tensor[2, 0, 1], 9)
     XCTAssertEqual(tensor[0, 1, 1], 0) // zero-padded
   }
-  
+
+  // MARK: - Per-channel broadcast context gradient tests
+  // Covers _perChannelBroadcastContext for all four ops.
+  // Layout: self is (cols:2, rows:2, depth:2), value is (cols:1, rows:1, depth:2).
+  // self depth-0 slice = [1,2,3,4], depth-1 slice = [5,6,7,8]
+  // value = [scale0, scale1]  (one scalar per depth)
+
+  /// Helper: build a (2,2,2) self tensor and (1,1,2) value tensor, run the op,
+  /// then return gradients w.r.t. both self and value.
+  private func perChannelBroadcastGrads(
+    op: (Tensor, Tensor) -> Tensor,
+    selfValues: [Tensor.Scalar],
+    scaleValues: [Tensor.Scalar],
+    gradValues: [Tensor.Scalar]
+  ) -> (wrtSelf: Tensor, wrtValue: Tensor) {
+    let selfSize  = TensorSize(rows: 2, columns: 2, depth: 2)
+    let valueSize = TensorSize(rows: 1, columns: 1, depth: 2)
+
+    let lhs = Tensor(Tensor.Value(selfValues), size: selfSize)
+    let rhs = Tensor(Tensor.Value(scaleValues), size: valueSize)
+    lhs.label = "lhs"
+    rhs.label = "rhs"
+
+    let out = op(lhs, rhs)
+    out.setGraph(lhs)
+    out.setGraph(rhs)
+
+    let gradTensor = Tensor(Tensor.Value(gradValues), size: selfSize)
+    let wrtSelf  = out.gradients(delta: gradTensor, wrt: lhs).input.first!
+    let wrtValue = out.gradients(delta: gradTensor, wrt: rhs).input.first!
+    return (wrtSelf, wrtValue)
+  }
+
+  func testPerChannelBroadcast_add_forward() {
+    // (2×2×2) + (1×1×2): each spatial slice of depth d gets scale[d] added
+    let lhs = Tensor(Tensor.Value([1,2,3,4,5,6,7,8]), size: TensorSize(rows: 2, columns: 2, depth: 2))
+    let rhs = Tensor(Tensor.Value([10, 20]), size: TensorSize(rows: 1, columns: 1, depth: 2))
+    let out = lhs + rhs
+    // depth-0: [1+10,2+10,3+10,4+10] = [11,12,13,14]
+    // depth-1: [5+20,6+20,7+20,8+20] = [25,26,27,28]
+    XCTAssertEqual(out.asArray, [11,12,13,14,25,26,27,28])
+  }
+
+  func testPerChannelBroadcast_add_gradWrtSelf() {
+    // d(out)/d(self) for add = 1 → grad passes through unchanged
+    let grads = perChannelBroadcastGrads(
+      op: +,
+      selfValues:  [1,2,3,4,5,6,7,8],
+      scaleValues: [10,20],
+      gradValues:  [1,1,1,1,1,1,1,1]
+    )
+    XCTAssertEqual(grads.wrtSelf.shape, [2,2,2])
+    XCTAssertEqual(grads.wrtSelf.asArray, [1,1,1,1,1,1,1,1])
+  }
+
+  func testPerChannelBroadcast_add_gradWrtValue() {
+    // d(out)/d(value) for add = 1 → grad is summed spatially per channel
+    // all-ones gradient: sum over 4 spatial elements per depth → [4, 4]
+    let grads = perChannelBroadcastGrads(
+      op: +,
+      selfValues:  [1,2,3,4,5,6,7,8],
+      scaleValues: [10,20],
+      gradValues:  [1,1,1,1,1,1,1,1]
+    )
+    XCTAssertEqual(grads.wrtValue.shape, [1,1,2])
+    XCTAssertEqual(grads.wrtValue.asArray, [4,4])
+  }
+
+  func testPerChannelBroadcast_sub_gradWrtSelf() {
+    // d(out)/d(self) for sub = 1 → grad passes through unchanged
+    let grads = perChannelBroadcastGrads(
+      op: -,
+      selfValues:  [1,2,3,4,5,6,7,8],
+      scaleValues: [1,2],
+      gradValues:  [1,1,1,1,2,2,2,2]
+    )
+    XCTAssertEqual(grads.wrtSelf.shape, [2,2,2])
+    XCTAssertEqual(grads.wrtSelf.asArray, [1,1,1,1,2,2,2,2])
+  }
+
+  func testPerChannelBroadcast_sub_gradWrtValue() {
+    // d(out)/d(value) for sub = -1 → spatial sum of -gradient
+    // depth-0: sum(−1,−1,−1,−1) = −4; depth-1: sum(−2,−2,−2,−2) = −8
+    let grads = perChannelBroadcastGrads(
+      op: -,
+      selfValues:  [1,2,3,4,5,6,7,8],
+      scaleValues: [1,2],
+      gradValues:  [1,1,1,1,2,2,2,2]
+    )
+    XCTAssertEqual(grads.wrtValue.shape, [1,1,2])
+    XCTAssertEqual(grads.wrtValue.asArray, [-4,-8])
+  }
+
+  func testPerChannelBroadcast_mul_gradWrtSelf() {
+    // d(out)/d(self) for mul = value (broadcast) → grad * scale
+    // depth-0 elements × scale0=2: [1,1,1,1]*2=[2,2,2,2]
+    // depth-1 elements × scale1=3: [1,1,1,1]*3=[3,3,3,3]
+    let grads = perChannelBroadcastGrads(
+      op: *,
+      selfValues:  [1,2,3,4,5,6,7,8],
+      scaleValues: [2,3],
+      gradValues:  [1,1,1,1,1,1,1,1]
+    )
+    XCTAssertEqual(grads.wrtSelf.shape, [2,2,2])
+    XCTAssertEqual(grads.wrtSelf.asArray, [2,2,2,2,3,3,3,3])
+  }
+
+  func testPerChannelBroadcast_mul_gradWrtValue() {
+    // d(out)/d(value) for mul = spatial sum of (grad * self)
+    // depth-0: sum([1*1,1*2,1*3,1*4]) = 10; depth-1: sum([1*5,1*6,1*7,1*8]) = 26
+    let grads = perChannelBroadcastGrads(
+      op: *,
+      selfValues:  [1,2,3,4,5,6,7,8],
+      scaleValues: [2,3],
+      gradValues:  [1,1,1,1,1,1,1,1]
+    )
+    XCTAssertEqual(grads.wrtValue.shape, [1,1,2])
+    XCTAssertEqual(grads.wrtValue.asArray, [10,26])
+  }
+
+  func testPerChannelBroadcast_div_gradWrtSelf() {
+    // d(out)/d(self) for div = 1/value (broadcast)
+    // depth-0: grad / scale0=2 → [0.5,0.5,0.5,0.5]
+    // depth-1: grad / scale1=4 → [0.25,0.25,0.25,0.25]
+    let grads = perChannelBroadcastGrads(
+      op: /,
+      selfValues:  [1,2,3,4,5,6,7,8],
+      scaleValues: [2,4],
+      gradValues:  [1,1,1,1,1,1,1,1]
+    )
+    XCTAssertEqual(grads.wrtSelf.shape, [2,2,2])
+    for v in grads.wrtSelf.asArray.prefix(4) { XCTAssertEqual(v, 0.5, accuracy: 1e-5) }
+    for v in grads.wrtSelf.asArray.suffix(4) { XCTAssertEqual(v, 0.25, accuracy: 1e-5) }
+  }
+
+  func testPerChannelBroadcast_div_gradWrtValue() {
+    // d(out)/d(value) for div = spatial sum of (−grad * self / value²)
+    // depth-0: value=2 → −(1+2+3+4)/4 = −10/4 = −2.5
+    // depth-1: value=4 → −(5+6+7+8)/16 = −26/16 = −1.625
+    let grads = perChannelBroadcastGrads(
+      op: /,
+      selfValues:  [1,2,3,4,5,6,7,8],
+      scaleValues: [2,4],
+      gradValues:  [1,1,1,1,1,1,1,1]
+    )
+    XCTAssertEqual(grads.wrtValue.shape, [1,1,2])
+    XCTAssertEqual(grads.wrtValue.asArray[0], -2.5,   accuracy: 1e-5)
+    XCTAssertEqual(grads.wrtValue.asArray[1], -1.625, accuracy: 1e-5)
+  }
+
+  func testPerChannelBroadcast_noNaN_gradients() {
+    // Smoke test: no NaN or Inf gradients produced for any op
+    let selfValues:  [Tensor.Scalar] = [1,2,3,4,5,6,7,8]
+    let scaleValues: [Tensor.Scalar] = [2,3]
+    let gradValues:  [Tensor.Scalar] = [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8]
+    let ops: [(Tensor, Tensor) -> Tensor] = [
+      { $0 + $1 }, { $0 - $1 }, { $0 * $1 }, { $0 / $1 }
+    ]
+    for op in ops {
+      let g = perChannelBroadcastGrads(op: op, selfValues: selfValues,
+                                       scaleValues: scaleValues, gradValues: gradValues)
+      for v in g.wrtSelf.asArray  { XCTAssertFalse(v.isNaN || v.isInfinite) }
+      for v in g.wrtValue.asArray { XCTAssertFalse(v.isNaN || v.isInfinite) }
+    }
+  }
+
 }
