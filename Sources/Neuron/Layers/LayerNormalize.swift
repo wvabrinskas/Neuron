@@ -102,10 +102,10 @@ public final class LayerNormalize: BaseLayer {
   /// - Returns: Normalized tensor with layer-norm backpropagation context.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let tensorContext = TensorContext { inputs, gradient, wrt in
-      self.backwardFlat(inputs: inputs, gradient: gradient)
+      self.backward(inputs: inputs, gradient: gradient)
     }
     
-    let forwardStorage = normalizeFlat(inputs: tensor)
+    let forwardStorage = normalize(inputs: tensor)
     let out = Tensor(storage: forwardStorage, size: tensor.size, context: tensorContext)
     out.setGraph(tensor)
     
@@ -118,7 +118,7 @@ public final class LayerNormalize: BaseLayer {
     setupTrainables()
   }
 
-  private func normalizeFlat(inputs: Tensor) -> TensorStorage {
+  private func normalize(inputs: Tensor) -> TensorStorage {
     let sliceSize = inputSize.rows * inputSize.columns * inputSize.depth
     let total = Tensor.Scalar(sliceSize)
     
@@ -139,7 +139,7 @@ public final class LayerNormalize: BaseLayer {
     return scaled.storage
   }
   
-  private func backwardFlat(inputs: Tensor, gradient: Tensor) -> (input: Tensor, weight: Tensor, bias: Tensor) {
+  private func backward(inputs: Tensor, gradient: Tensor) -> (input: Tensor, weight: Tensor, bias: Tensor) {
     let gammaTensor = gamma.asScalar()
     let featureTensor = inputs
     let gradTensor = gradient
