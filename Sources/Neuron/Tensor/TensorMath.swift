@@ -174,14 +174,62 @@ public extension Tensor {
       }
     }
 
-    let context: TensorContext
-    switch op {
-    case .add: context = addContext(value: value)
-    case .sub: context = subtractContext(value: value)
-    case .mul: context = multiplyContext(value: value)
-    case .div: context = divideContext(value: value)
-    }
+    let context = _perChannelBroadcastContext(value: value, op: op)
     return Tensor(storage: resultStorage, size: selfSize, context: context)
+  }
+
+  /// Specialized context for (H,W,C) op (1,1,C) broadcast operations.
+  /// Correctly reduces gradients spatially (sum over H,W) when backpropagating
+  /// through the `value (1,1,C)` path, avoiding the shape mismatch that the
+  /// generic arithmetic contexts produce.
+  private func _perChannelBroadcastContext(value: Tensor, op: _BroadcastOp) -> TensorContext {
+    // `self` is (H,W,C), `value` is (1,1,C)
+    let selfCapture = self
+    let valueSize = value.size
+
+    func reduceSpatial(_ t: Tensor) -> Tensor {
+      let depth = valueSize.depth
+      let sliceSize = t.size.rows * t.size.columns
+      let sumStorage = TensorStorage.create(count: depth)
+      let srcPtr = t.storage.pointer
+      for d in 0..<depth {
+        var s: Tensor.Scalar = 0
+        let base = d * sliceSize
+        for i in 0..<sliceSize { s += srcPtr[base + i] }
+        sumStorage[d] = s
+      }
+      return Tensor(storage: sumStorage, size: valueSize)
+    }
+
+    return TensorContext { inputs, gradient, wrt in
+      if value.graphChain.contains(wrt.id) || value.id == wrt.id {
+        // Gradient w.r.t. value (1,1,C) — reduce spatial dims back to (1,1,C)
+        switch op {
+        case .add:
+          return (reduceSpatial(gradient), Tensor(), Tensor())
+        case .sub:
+          return (reduceSpatial(gradient * Tensor.Scalar(-1)), Tensor(), Tensor())
+        case .mul:
+          return (reduceSpatial(gradient * selfCapture.copy()), Tensor(), Tensor())
+        case .div:
+          let valueSq = value * value
+          let ratio = selfCapture.copy() / valueSq
+          return (reduceSpatial(gradient * ratio * Tensor.Scalar(-1)), Tensor(), Tensor())
+        }
+      } else {
+        // Gradient w.r.t. self (H,W,C) — broadcast, no reduction needed
+        switch op {
+        case .add:
+          return (gradient, Tensor(), Tensor())
+        case .sub:
+          return (gradient, Tensor(), Tensor())
+        case .mul:
+          return (gradient * value.copy(), Tensor(), Tensor())
+        case .div:
+          return (gradient / value.copy(), Tensor(), Tensor())
+        }
+      }
+    }
   }
 
   /// Pointer-based fast path for *Along broadcasting. Returns result storage when applicable, nil to fall back.
