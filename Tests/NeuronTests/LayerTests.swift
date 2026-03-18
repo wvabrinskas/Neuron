@@ -1250,7 +1250,7 @@ final class LayerTests: XCTestCase {
                         outChannels: 3,
                         squeeze: 2,
                         expandRatio: 2)
-    
+        
     let outputSize = resNet.outputSize
 
     let input = Tensor.fillRandom(size: inputSize)

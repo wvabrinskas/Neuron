@@ -99,7 +99,8 @@ private struct TrainablePrinter {
   static let col1Width = 20
   static let col2Width = 15
   static let col3Width = 10
-  
+  static let col4Width = 9
+
   struct Column {
     var value: String
     var width: Int
@@ -131,41 +132,175 @@ private struct TrainablePrinter {
     let col3 = Column(value: "Param #", width: col3Width, leftAlign: false)
     
     var previousLine: Line = Line(columns: [col1, col2, col3])
-    var totalParameters: Int = 0
     
     string.append(previousLine.build())
     
-    for layer in trainable.layers {
-      let line = line(layer: layer, previousLine: previousLine)
-      if let lastLineParam = Int((line.columns.last?.value ?? "").replacingOccurrences(of: " ", with: "")) {
-        totalParameters += lastLineParam
+    // do we want to support showing skip connection?
+    struct LinkLayer {
+      var linkId: String
+      var slot: Int  // fixed visual column slot (0-based), assigned at insertion and never changed
+    }
+    
+    var layerString: [String] = []
+    
+    var linkLayers: [LinkLayer] = []
+    var linkingSet: Set<String> = []
+    var maxSlot: Int = 0  // high-water mark of simultaneous open slots
+    
+    let totalParametersTensors: [Tensor] = (try? trainable.exportWeights())?.fullFlatten() ?? []
+    let totalParameters = totalParametersTensors.reduce(0) { $0 + Int($1.shape.reduce(1, *)) }
+    
+    for layer in trainable.layers.reversed() {
+      // when we hit a layer that has a linkTo, aka a ArithmeticLayer, we store the layer it's linked to
+      var hasLinkTo: Bool = false
+      if let mathLayer = layer as? ArithmeticLayer {
+        linkingSet.insert(mathLayer.linkTo)
+        let newSlot = linkLayers.count  // next available slot
+        linkLayers.append(.init(linkId: mathLayer.linkTo, slot: newSlot))
+        maxSlot = max(maxSlot, newSlot + 1)
+        hasLinkTo = true
       }
       
-      string.append(spacer)
-      string.append(line.build())
+      let currentLink = linkLayers.first(where: { $0.linkId == layer.linkId })
+      let layerIsLinked: Bool = currentLink != nil
+
+      let linkType: LinkType = if layerIsLinked {
+        .top
+      } else if hasLinkTo {
+        .bottom
+      } else if linkingSet.isEmpty == false {
+        .line
+      } else {
+        .none
+      }
+
+      // branchOffset = 1-based slot of the current link's corner (or total open count for .line)
+      // dimensions = total width of the connection zone (max simultaneous slots ever open)
+      let offset: Int
+      if let link = currentLink {
+        offset = link.slot + 1  // fixed slot, never changes
+      } else if hasLinkTo {
+        offset = linkLayers.last!.slot + 1  // slot of the just-appended link
+      } else {
+        offset = maxSlot  // .line: zone width stays at max
+      }
+            
+      let activeSlots = Set(linkLayers.map { $0.slot })
+
+      let line = line(layer: layer,
+                      previousLine: previousLine,
+                      branchOffset: offset,
+                      dimensions: maxSlot,
+                      linkType: linkType,
+                      linkId: layer.linkId,
+                      activeSlots: activeSlots)
+      
+      // this means we've completed the link and we should remove it
+      if linkType == .top {
+        linkingSet.remove(layer.linkId)
+        linkLayers.removeAll(where: { $0.linkId == layer.linkId })
+      }
+      
+      let toAdd = spacer + line.build()
+      
+      layerString.append(toAdd)
       previousLine = line
     }
     
+    string.append(layerString.reversed().joined())
+     
     string.append(spacer)
     string.append("\nTotal Parameters: \(totalParameters)\n")
     
     return string
   }
   
-  static func line(layer: Layer, previousLine: Line? = nil) -> Line {
-    var parameters = layer.weights.storage.count
-    
-    // TODO: maybe find a better way to do this so we can just reference a property like `parameters` or something
-    if let conv = layer as? ConvolutionalLayer {
-      parameters = conv.filters.map { $0.storage.count }.sumSlow
-    } else if let lstm = layer as? LSTM {
-      parameters = lstm.forgetGateWeights.storage.count + lstm.gateGateWeights.storage.count + lstm.hiddenOutputWeights.storage.count + lstm.inputGateWeights.storage.count + lstm.outputGateWeights.storage.count
-    }
+  static func line(layer: Layer,
+                   previousLine: Line? = nil,
+                   branchOffset: Int = 1,
+                   dimensions: Int = 0,
+                   linkType: LinkType = .none,
+                   linkId: String = "",
+                   activeSlots: Set<Int> = []) -> Line {
+    let parameters = layer.weights.storage.count
     
     let col1 = Column(value: layer.encodingType.rawValue, width: col1Width)
     let col2 = Column(value: "\(layer.outputSize.asArray)", width: col2Width)
     let col3 = Column(value: "\(parameters)", width: col3Width, leftAlign: false)
+    
+    let columns = [col1, col2, col3]
+    
+    guard case .none = linkType else {
+      // Fall through to render connection columns
+      return buildWithLinks(columns: columns,
+                            branchOffset: branchOffset,
+                            dimensions: dimensions,
+                            columnWidth: 3,
+                            linkType: linkType,
+                            activeSlots: activeSlots)
+    }
 
-    return Line(columns: [col1, col2, col3])
+    return Line(columns: columns)
+  }
+
+  private static func buildWithLinks(columns: [Column],
+                                     branchOffset: Int,
+                                     dimensions: Int,
+                                     columnWidth: Int,
+                                     linkType: LinkType,
+                                     activeSlots: Set<Int>) -> Line {
+    var columns = columns
+    // Total active connection columns = max of open links and current link's level
+    let totalColumns = max(dimensions, branchOffset)
+    // The corner symbol lands at the column matching the link's level (1-based → index branchOffset-1)
+    let cornerIndex = branchOffset - 1
+
+    // Build the full connection zone as a single fixed-width string so symbols align perfectly.
+    // Total zone width = col4Width + (totalColumns - 1) * columnWidth.
+    // Each "slot" occupies columnWidth chars, with slot 0 occupying col4Width chars.
+    // The right-most character of slot i is at index: col4Width - 1 + i * columnWidth
+    let totalWidth = col4Width + (totalColumns - 1) * columnWidth
+    var buf = [Character](repeating: " ", count: totalWidth)
+
+    func slotEnd(_ slot: Int) -> Int { col4Width - 1 + slot * columnWidth }
+
+    switch linkType {
+    case .top:
+      // ┐ at this link's fixed slot.
+      buf[slotEnd(cornerIndex)] = "┐"
+      // If the corner is not at slot 0, draw dashes from slotEnd(0) to the corner
+      // so the leftmost dash aligns with where ← connects on the sink row
+      if cornerIndex > 0 {
+        for i in slotEnd(0)..<slotEnd(cornerIndex) { buf[i] = "-" }
+      }
+      // Other still-open links get | at their fixed slots (overwrite dashes where needed)
+      for slot in activeSlots where slot != cornerIndex { buf[slotEnd(slot)] = "|" }
+    case .bottom:
+      if cornerIndex == 0 {
+        // Single-slot: ← + ┘ at slot 0
+        buf[slotEnd(0) - 1] = "←"
+        buf[slotEnd(0)] = "┘"
+        // Other open links get | (slots > 0)
+        for slot in activeSlots where slot != 0 { buf[slotEnd(slot)] = "|" }
+      } else {
+        // Multi-slot: ← one before slot 0 (matching single-slot position), dashes from slot 0 to corner, ┘ at corner slot
+        buf[slotEnd(0) - 1] = "←"
+        for i in slotEnd(0)..<slotEnd(cornerIndex) { buf[i] = "-" }
+        buf[slotEnd(cornerIndex)] = "┘"
+        // Other open links that are NOT in the bridge range get |
+        for slot in activeSlots where slot != cornerIndex && slot != 0 { buf[slotEnd(slot)] = "|" }
+      }
+    default:
+      // | at every currently-open slot
+      for slot in activeSlots { buf[slotEnd(slot)] = "|" }
+    }
+
+    columns.append(.init(value: String(buf), width: totalWidth, leftAlign: true))
+
+    return Line(columns: columns)
+  }
+  
+  enum LinkType {
+    case top, bottom, line, none
   }
 }

@@ -13,6 +13,28 @@ extension XCTestCase {
 
 final class NeuronTests: XCTestCase {
   
+  func test_sequentionSkipConnection_printing() {
+    let network = Sequential(
+      Dense(32, inputs: 10, linkId: "link1"),
+      ReLu(),
+      Divide(linkTo: "link1"),
+      Swish(),
+      Dense(21, linkId: "link2"),
+      Swish(),
+      Subtract(linkTo: "link2"),
+      Swish(),
+      Dense(16, linkId: "link3"),
+      Dense(16),
+      Swish(),
+      Multiply(linkTo: "link3"),
+      Dense(16),
+      Swish()
+    )
+    
+    network.compile()
+    
+    print(network)
+  }
   
   func test_addition_and_Relu() {
     let size = TensorSize(array: [5,5,1])
