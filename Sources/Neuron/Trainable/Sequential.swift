@@ -245,12 +245,15 @@ public final class Sequential: Trainable, Logger {
     
     var errorMsg: String = ""
     
-    var linkLayersOutputSizes: [String: TensorSize] = [:]
+    // use the pointer to the layer instead of output size so order doesnt matter when setting this dictionary
+    // onInputSizeSet is where layers mostly assign their outputSize so we'd have to make sure
+    // we set this dictionary AFTER inputSize is set but that's not reliable.
+    var linkLayers: [String: Layer] = [:]
     
     for layer in layers {
-      
-      linkLayersOutputSizes[layer.linkId] = layer.outputSize
-      
+            
+      linkLayers[layer.linkId] = layer
+
       if i == 0 && layer.inputSize.isEmpty {
         fatalError("The first layer should contain an input size")
       }
@@ -270,10 +273,11 @@ public final class Sequential: Trainable, Logger {
         
         layer.inputSize = inputSize
         
-        // set outputSize to be the larger of the two sizes 
+
+        // set outputSize to be the larger of the two sizes
         if let mathLayer = layer as? ArithmeticLayer,
-           let linkedLayer = linkLayersOutputSizes[mathLayer.linkTo]  {
-          mathLayer.outputSize = max(inputSize, linkedLayer)
+           let linkedLayer = linkLayers[mathLayer.linkTo]  {
+          mathLayer.outputSize = max(inputSize, linkedLayer.outputSize)
         }
       }
       
