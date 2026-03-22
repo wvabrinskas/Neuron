@@ -583,7 +583,7 @@ public extension Tensor {
     for val in storage {
       if val.isNormal == false {
         print(val)
-        fatalError()
+        assertionFailure()
         return
       }
     }

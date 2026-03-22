@@ -233,11 +233,9 @@ final class TensorStorageTests: XCTestCase {
     let ptr = UnsafeMutablePointer<Tensor.Scalar>.allocate(capacity: count)
     ptr.initialize(repeating: 42, count: count)
 
-    var didDeallocate = false
     let storage = TensorStorage(pointer: ptr, count: count, deallocator: {
       ptr.deinitialize(count: count)
       ptr.deallocate()
-      didDeallocate = true
     })
 
     XCTAssertEqual(storage[0], 42)

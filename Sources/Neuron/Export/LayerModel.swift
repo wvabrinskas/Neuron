@@ -53,7 +53,7 @@ public class LayerModel: Codable {
 }
 
 
-extension NumSwift.ConvPadding: Codable {
+extension NumSwift.ConvPadding: @retroactive Codable {
   private enum CodingKeys: String, CodingKey {
     case same
     case valid

@@ -119,7 +119,7 @@ public final class InstanceNormalize: BaseLayer {
     let sliceSize = inputSize.rows * inputSize.columns
     let pcSize = TensorSize(rows: 1, columns: 1, depth: depth)
 
-    var means = TensorStorage.create(count: depth)
+    let means = TensorStorage.create(count: depth)
     for i in 0..<depth {
       means[i] = NumSwiftFlat.mean(inputs.depthPointer(i), count: sliceSize)
     }
@@ -127,7 +127,7 @@ public final class InstanceNormalize: BaseLayer {
     let meanT = Tensor(storage: means, size: pcSize)
     let centered = inputs - meanT
 
-    var stds = TensorStorage.create(count: depth)
+    let stds = TensorStorage.create(count: depth)
     
     for i in 0..<depth {
       let sumSq = NumSwiftFlat.sumOfSquares(centered.depthPointer(i), count: sliceSize)
