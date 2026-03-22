@@ -40,7 +40,7 @@ public enum LossFunction {
     let cols = size.columns
         
     // Build result using flat storage
-    var resultStorage = TensorStorage.create(count: depth * 1 * rows)
+    let resultStorage = TensorStorage.create(count: depth * 1 * rows)
     let depthScalar = Tensor.Scalar(depth)
     
     for d in 0..<depth {
