@@ -42,11 +42,19 @@ public struct TensorSize: Codable, Equatable, Comparable {
     case rows, columns, depth, batchCount
   }
   
+  /// Returns a Boolean value indicating whether the total element count of the left tensor is less than that of the right tensor.
+  /// - Parameter lhs: The left-hand side `TensorSize` to compare.
+  /// - Parameter rhs: The right-hand side `TensorSize` to compare.
+  /// - Returns: `true` if the total number of elements in `lhs` is less than in `rhs`; otherwise, `false`.
   public static func < (lhs: TensorSize, rhs: TensorSize) -> Bool {
     (lhs.columns * lhs.rows * lhs.depth) < (rhs.columns * rhs.rows * rhs.depth)
   }
   
   
+  /// Returns a Boolean value indicating whether the total element count of the left tensor is greater than that of the right tensor.
+  /// - Parameter lhs: The left-hand side `TensorSize` to compare.
+  /// - Parameter rhs: The right-hand side `TensorSize` to compare.
+  /// - Returns: `true` if the total number of elements in `lhs` is greater than in `rhs`; otherwise, `false`.
   public static func > (lhs: TensorSize, rhs: TensorSize) -> Bool {
     (lhs.columns * lhs.rows * lhs.depth) > (rhs.columns * rhs.rows * rhs.depth)
   }
