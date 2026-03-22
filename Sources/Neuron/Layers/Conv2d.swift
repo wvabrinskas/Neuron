@@ -346,10 +346,9 @@ public class Conv2d: BaseConvolutionalLayer {
   
   // supports processing multiple in a batch at once
   internal func conv(_ input: Tensor) -> TensorStorage {
-    let batchCount = inputSize.batchCount
     let outRows = outputSize.rows
     let outCols = outputSize.columns
-    let outSliceSize = outRows * outCols * batchCount
+    let outSliceSize = outRows * outCols
     let inputSliceSize = inputSize.rows * inputSize.columns
     let filterSliceSize = filterSize.rows * filterSize.columns
 
@@ -368,10 +367,12 @@ public class Conv2d: BaseConvolutionalLayer {
       let tempBuf = TensorStorage.create(count: outSliceSize)
 
       for i in 0..<inputSize.depth {
-        let signalPtr = input.storage.pointer + i * inputSliceSize
-        let filterPtr = filters[f].storage.pointer + i * filterSliceSize
+        let signalPtr = input.depthPointer(i)
+        let filterPtr = filters[f].depthPointer(i)
 
         if i == 0 {
+          // this only does a 2d convolution over the depth of a single tensor
+          // batchCount really doesn't help here since a batch is an array of 3d tensors
           self.device.conv2d(signal: signalPtr,
                              filter: filterPtr,
                              result: resultPtr,
@@ -380,7 +381,7 @@ public class Conv2d: BaseConvolutionalLayer {
                              filterSize: filterSize,
                              inputSize: (inputSize.rows,
                                          inputSize.columns),
-                             batchCount: batchCount)
+                             batchCount: 1)
         } else {
           self.device.conv2d(signal: signalPtr,
                              filter: filterPtr,
@@ -390,7 +391,7 @@ public class Conv2d: BaseConvolutionalLayer {
                              filterSize: filterSize,
                              inputSize: (inputSize.rows,
                                          inputSize.columns),
-                             batchCount: batchCount)
+                             batchCount: 1)
           
           NumSwiftFlat.add(resultPtr,
                            tempBuf.pointer,
