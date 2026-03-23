@@ -32,17 +32,10 @@ public final class Subtract: ArithmeticLayer {
                linkTo: linkTo)
   }
 
-  convenience public required init(from decoder: Decoder) throws {
-    let container = try decoder.container(keyedBy: CodingKeys.self)
-    let linkTo = try container.decodeIfPresent(String.self, forKey: .linkTo) ?? ""
-    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
-    let inverse = try container.decodeIfPresent(Bool.self, forKey: .inverse) ?? false
-    self.init(linkId: linkId, inverse: inverse, linkTo: linkTo)
-    
-    self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
-    self.linkTo = linkTo
+  required public init(from decoder: Decoder) throws {
+    try super.init(from: decoder)
   }
-  
+
   override public func function(input: Tensor, other: Tensor) -> Tensor {
     input - other
   }
