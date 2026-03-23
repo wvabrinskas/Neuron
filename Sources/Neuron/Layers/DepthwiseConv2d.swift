@@ -154,7 +154,7 @@ public class DepthwiseConv2d: BaseConvolutionalLayer {
     
     outputSize = TensorSize(array: [columns, rows, inputSize.depth])
     
-    if biasEnabled {
+    if biasEnabled && biases.isEmpty {
       biases = Tensor([Tensor.Scalar](repeating: 0, count: inputSize.depth))
     }
   }

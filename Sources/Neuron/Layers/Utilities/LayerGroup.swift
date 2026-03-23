@@ -36,6 +36,7 @@ public class BaseLayerGroup: BaseLayer, LayerGrouping {
       super.isTraining
     }
     set {
+      super.isTraining = newValue
       innerBlockSequential.isTraining = newValue
     }
   }
