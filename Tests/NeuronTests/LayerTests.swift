@@ -1473,6 +1473,56 @@ final class LayerTests: XCTestCase {
     }
   }
 
+  func testRexNetDecodeEncode_forwardPassMatch() throws {
+    let initializer: InitializerType = .heNormal
+
+    let network = Sequential {[
+      Conv2d(filterCount: 16,
+             inputSize: TensorSize(rows: 8, columns: 8, depth: 3),
+             strides: (1, 1),
+             padding: .same,
+             filterSize: (3, 3),
+             initializer: initializer,
+             biasEnabled: false),
+      BatchNormalize(),
+      Swish(),
+
+      RexNet(strides: (1, 1),
+             outChannels: 16,
+             squeeze: 4,
+             expandRatio: 3),
+
+      GlobalAvgPool(),
+      Dropout(0.2),
+      Dense(4, initializer: initializer, biasEnabled: true),
+      Softmax()
+    ]}
+
+    network.compile()
+
+    // Run a forward pass in inference mode on original network
+    network.isTraining = false
+
+    let input = Tensor.fillRandom(size: TensorSize(rows: 8, columns: 8, depth: 3))
+    let originalOutput = network.predict(input, context: .init())
+
+    // Export and reimport
+    let url = network.export()
+    XCTAssertNotNil(url)
+
+    let imported = Sequential.import(url!)
+    imported.compile()
+    imported.isTraining = false
+
+    let importedOutput = imported.predict(input, context: .init())
+
+    // Outputs must match
+    XCTAssertEqual(originalOutput.size, importedOutput.size, "Output size mismatch")
+    XCTAssertTrue(originalOutput.isValueEqual(to: importedOutput, accuracy: 0.0001),
+                  "Forward pass outputs differ after import. Original: \(originalOutput.storage.toArray().prefix(10)), Imported: \(importedOutput.storage.toArray().prefix(10))")
+
+  }
+
   func test_rexNet_isTraining_set() {
     let inputSize: TensorSize = .init(rows: 4, columns: 4, depth: 3)
 
