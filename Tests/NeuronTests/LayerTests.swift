@@ -1439,10 +1439,38 @@ final class LayerTests: XCTestCase {
     
     let importedWeights: [Tensor] = try importedSequential.exportWeights().fullFlatten()
     
+    XCTAssertEqual(expectedWeightsArray.count, importedWeights.count, "Weight tensor count mismatch")
+
     for (e, i) in zip(expectedWeightsArray, importedWeights) {
       XCTAssertTrue(e.isValueEqual(to: i, accuracy: 0.000001))
     }
-    
+
+    // Verify Dense biases are preserved through export/import
+    func collectDenseBiases(from seq: Sequential) -> [Tensor] {
+      var biases: [Tensor] = []
+      for layer in seq.layers {
+        if let dense = layer as? Dense, dense.biasEnabled {
+          biases.append(dense.biases)
+        }
+        if let group = layer as? BaseLayerGroup {
+          for inner in group.innerBlockSequential.layers {
+            if let dense = inner as? Dense, dense.biasEnabled {
+              biases.append(dense.biases)
+            }
+          }
+        }
+      }
+      return biases
+    }
+
+    let expectedBiases = collectDenseBiases(from: network)
+    let importedBiases = collectDenseBiases(from: importedSequential)
+
+    XCTAssertEqual(expectedBiases.count, importedBiases.count, "Dense bias count mismatch")
+
+    for (e, i) in zip(expectedBiases, importedBiases) {
+      XCTAssertTrue(e.isValueEqual(to: i, accuracy: 0.000001), "Dense biases differ after import")
+    }
   }
 
   func test_rexNet_isTraining_set() {
@@ -1457,13 +1485,15 @@ final class LayerTests: XCTestCase {
     let sequential = Sequential(rexNet)
     
     sequential.isTraining = true
-    
+
+    XCTAssertTrue(rexNet.isTraining, "RexNet isTraining getter should return true")
     rexNet.innerBlockSequential.layers.forEach { layer in
       XCTAssertTrue(layer.isTraining)
     }
-    
+
     sequential.isTraining = false
-    
+
+    XCTAssertFalse(rexNet.isTraining, "RexNet isTraining getter should return false after setting")
     rexNet.innerBlockSequential.layers.forEach { layer in
       XCTAssertFalse(layer.isTraining)
     }

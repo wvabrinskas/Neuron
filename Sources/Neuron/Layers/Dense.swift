@@ -84,7 +84,9 @@ public final class Dense: BaseLayer {
     precondition(inputSize.rows == 1 && inputSize.depth == 1, "Dense expects Tensor dimensions of Nx1x1 where N is the columns, got: \(inputSize)")
     
     initializeWeights(inputs: inputSize.columns)
-    self.biases = Tensor([Tensor.Scalar](repeating: 0, count: outputSize.columns))
+    if biases.isEmpty {
+      self.biases = Tensor([Tensor.Scalar](repeating: 0, count: outputSize.columns))
+    }
   }
   
   private func initializeWeights(inputs: Int) {
