@@ -138,7 +138,7 @@ open class ArithmeticLayer: BaseLayer {
   // and applies the arithmetic to it that the layer defines along with the input to this layer
   var linkTo: String
   
-  let inverse: Bool
+  private(set) var inverse: Bool
   
   override public var usesOptimizer: Bool { get { false } set { } }
 
@@ -160,7 +160,7 @@ open class ArithmeticLayer: BaseLayer {
   }
 
   enum CodingKeys: String, CodingKey {
-    case inputSize, type, linkTo, linkId
+    case inputSize, type, linkTo, linkId, inverse
   }
   
   open func function(input: Tensor, other: Tensor) -> Tensor {
@@ -190,6 +190,7 @@ open class ArithmeticLayer: BaseLayer {
     try container.encode(encodingType, forKey: .type)
     try container.encode(linkTo, forKey: .linkTo)
     try container.encode(linkId, forKey: .linkId)
+    try container.encode(inverse, forKey: .inverse)
   }
 
   /// Performs the forward pass by looking up the linked input tensor and applying the binary function.
