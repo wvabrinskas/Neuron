@@ -1343,6 +1343,131 @@ final class LayerTests: XCTestCase {
       XCTFail(error.localizedDescription)
     }
   }
+  
+  func testRexNetDecodeEncode_inModel() throws {
+    let initializer: InitializerType = .heNormal
+    
+    var network = Sequential {[
+
+      Conv2d(filterCount: 32,
+             inputSize: TensorSize(rows: 64, columns: 64, depth: 3),
+             strides: (2, 2),
+             padding: .same,
+             filterSize: (3, 3),
+             initializer: initializer,
+             biasEnabled: false),
+      BatchNormalize(),
+      Swish(),
+
+      RexNet(strides: (1, 1),
+             outChannels: 16,
+             squeeze: 0,
+             expandRatio: 1),
+
+      RexNet(strides: (2, 2),
+             outChannels: 38,
+             squeeze: 0,
+             expandRatio: 3),
+
+      RexNet(strides: (1, 1),
+             outChannels: 38,
+             squeeze: 4,
+             expandRatio: 3),
+
+      RexNet(strides: (2, 2),
+             outChannels: 61,
+             squeeze: 4,
+             expandRatio: 6),
+
+      RexNet(strides: (1, 1),
+             outChannels: 61,
+             squeeze: 4,
+             expandRatio: 6),
+
+      RexNet(strides: (2, 2),
+             outChannels: 84,
+             squeeze: 4,
+             expandRatio: 6),
+
+      RexNet(strides: (1, 1),
+             outChannels: 84,
+             squeeze: 4,
+             expandRatio: 6),
+
+      RexNet(strides: (1, 1),
+             outChannels: 84,
+             squeeze: 4,
+             expandRatio: 6),
+
+      RexNet(strides: (1, 1),
+             outChannels: 128,
+             squeeze: 4,
+             expandRatio: 6),
+
+      Conv2d(filterCount: 1280,
+             strides: (1, 1),
+             padding: .same,
+             filterSize: (1, 1),
+             initializer: initializer,
+             biasEnabled: false),
+      BatchNormalize(),
+      Swish(),
+
+      GlobalAvgPool(),
+
+      // Regularise before the classifier
+      Dropout(0.2),
+
+      Dense(1098,
+            initializer: initializer,
+            biasEnabled: true),
+
+      Softmax()
+    ]}
+    
+    network.compile()
+    
+    let expectedWeightsArray: [Tensor] = try network.exportWeights().fullFlatten()
+    
+    let urlOut = network.export()
+    
+    XCTAssertNotNil(urlOut)
+
+    let importedSequential = Sequential.import(urlOut!)
+    
+    importedSequential.compile()
+    
+    let importedWeights: [Tensor] = try importedSequential.exportWeights().fullFlatten()
+    
+    for (e, i) in zip(expectedWeightsArray, importedWeights) {
+      XCTAssertTrue(e.isValueEqual(to: i, accuracy: 0.000001))
+    }
+    
+  }
+
+  func test_rexNet_isTraining_set() {
+    let inputSize: TensorSize = .init(rows: 4, columns: 4, depth: 3)
+
+    let rexNet = RexNet(inputSize: inputSize,
+                        initializer: .heNormal,
+                        strides: (1, 1),
+                        outChannels: 3,
+                        expandRatio: 2)
+    
+    let sequential = Sequential(rexNet)
+    
+    sequential.isTraining = true
+    
+    rexNet.innerBlockSequential.layers.forEach { layer in
+      XCTAssertTrue(layer.isTraining)
+    }
+    
+    sequential.isTraining = false
+    
+    rexNet.innerBlockSequential.layers.forEach { layer in
+      XCTAssertFalse(layer.isTraining)
+    }
+  }
 
 
 }
