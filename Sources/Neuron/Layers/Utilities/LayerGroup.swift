@@ -54,7 +54,12 @@ public class BaseLayerGroup: BaseLayer, LayerGrouping {
         firstTensor = firstTensor.concat(t, axis: 2)
       }
       
-      return firstTensor
+      let weightTensor = Tensor(storage: firstTensor.storage.copy(),
+                                size: .init(rows: 1,
+                                            columns: firstTensor.storage.count,
+                                            depth: 1))
+      
+      return weightTensor
     }
     set {
       // todo: figure out how to apply weights
