@@ -176,8 +176,20 @@ open class ArithmeticLayer: BaseLayer {
     }
   }
   
-  required convenience public init(from decoder: Decoder) throws {
-    self.init(encodingType: .add, linkTo: "")
+  required public init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    self.linkTo = try container.decodeIfPresent(String.self, forKey: .linkTo) ?? ""
+    self.inverse = try container.decodeIfPresent(Bool.self, forKey: .inverse) ?? false
+
+    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
+    let encodingType = try container.decodeIfPresent(EncodingType.self, forKey: .type) ?? .add
+
+    super.init(inputSize: nil,
+               biasEnabled: false,
+               linkId: linkId,
+               encodingType: encodingType)
+
+    self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
   }
   
   /// Encodes the layer's properties into the given encoder.
