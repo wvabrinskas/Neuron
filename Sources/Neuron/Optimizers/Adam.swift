@@ -123,11 +123,13 @@ public class Adam: BaseOptimizer {
     
     if let clip = gradientClip {
       gradients = gradients.gradientL2NormClip(clip, metrics: metricsReporter)
+    } else if metricsReporter?.metricsToGather.contains(.globalGradientNorm) == true {
+      gradients.calculateL2Norm(metrics: metricsReporter)
     }
     
     for i in 0..<trainable.layers.count {
       let layer = trainable.layers[i]
-      let gradient = gradients.weights[i]
+      let gradient = gradients.weights[i] 
       let biasGradient = gradients.biases[i]
       
       var adamGradient: Gradient = (gradient, biasGradient)

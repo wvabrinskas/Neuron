@@ -79,8 +79,6 @@ open class BaseOptimizer: Optimizer {
   public var trainable: Trainable
   /// The number of samples processed in each optimization step.
   public var batchSize: Int
-  /// A flag indicating whether gradient calculations should be passed through without modification.
-  public var passthroughGradientCalculation: Bool = false
   /// The current learning rate, returning the decayed value if a decay function is set, otherwise the base rate.
   public var learningRate: Tensor.Scalar {
     get {
