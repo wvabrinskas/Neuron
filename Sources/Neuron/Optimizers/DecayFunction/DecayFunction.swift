@@ -25,7 +25,7 @@ public protocol DecayFunction {
   /// Resets decay state back to its initial learning-rate value.
   func reset()
   /// Advances decay state by one optimization step.
-  func step(type: DecayStepType)
+  func step()
 }
 
 open class BaseDecayFunction: DecayFunction {
@@ -66,7 +66,7 @@ open class BaseDecayFunction: DecayFunction {
   ///
   /// Subclasses should override to compute `decayedLearningRate` and then call
   /// `super.step()` to keep step accounting in sync.
-  open func step(type: DecayStepType) {
+  open func step() {
     // override and apply function here
     globalSteps += 1
   }

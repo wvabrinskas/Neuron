@@ -16,7 +16,6 @@ import Numerics
 public final class CosineAnnealingDecay: BaseDecayFunction {
   private let minLR: Tensor.Scalar
   private let maxLR: Tensor.Scalar
-  private let epochs: Int
   
   
   /// Creates an exponential learning-rate decay schedule.
@@ -28,26 +27,23 @@ public final class CosineAnnealingDecay: BaseDecayFunction {
   ///   - staircase: When `true`, uses floor-stepped exponent updates.
   public init(learningRate: Tensor.Scalar,
               minLearningRate: Tensor.Scalar,
-              epochs: Int) {
+              decaySteps: Int) {
     self.minLR = minLearningRate
     self.maxLR = learningRate
-    self.epochs = epochs
     
     super.init(learningRate: learningRate,
                decayRate: 0,
-               decaySteps: 0,
+               decaySteps: Tensor.Scalar(decaySteps),
                staircase: false)
   }
   
   /// Advances the schedule and computes the next decayed learning rate.
-  public override func step(type: DecayStepType) {
-    guard case .epoch(let epoch) = type else { return }
-    
-    let cosine = Tensor.Scalar.cos(Tensor.Scalar.pi * Tensor.Scalar(epoch) / Tensor.Scalar(epochs))
+  public override func step() {
+    let cosine = Tensor.Scalar.cos(Tensor.Scalar.pi * Tensor.Scalar(globalSteps) / Tensor.Scalar(decaySteps))
     let adjusted = minLR + 0.5 * (maxLR - minLR) * (1 + cosine)
     
     decayedLearningRate = adjusted
     
-    super.step(type: type)
+    super.step()
   }
 }

@@ -25,7 +25,7 @@ public protocol Optimizer: AnyObject {
   var weightClip: Tensor.Scalar? { get set }
   var gradientClip: Tensor.Scalar? { get set }
   var gradientAccumulator: GradientAccumulator { get }
-  var decayFunction: DecayFunction? { get set }
+  var learningRateScheduler: LearningRateScheduling? { get set }
   var batchSize: Int { get }
   var augmenter: Augmenter? { get set }
 
@@ -74,7 +74,7 @@ open class BaseOptimizer: Optimizer {
   /// An optional augmenter applied to input data during training.
   public var augmenter: Augmenter?
   /// An optional decay function that adjusts the learning rate over time.
-  public var decayFunction: DecayFunction?
+  public var learningRateScheduler: LearningRateScheduling?
   /// The trainable network whose parameters are updated by this optimizer.
   public var trainable: Trainable
   /// The number of samples processed in each optimization step.
@@ -82,8 +82,8 @@ open class BaseOptimizer: Optimizer {
   /// The current learning rate, returning the decayed value if a decay function is set, otherwise the base rate.
   public var learningRate: Tensor.Scalar {
     get {
-      if let decayFunction {
-        return decayFunction.decayedLearningRate
+      if let learningRateScheduler {
+        return learningRateScheduler.learningRate
       } else {
         return localLearningRate
       }
@@ -165,7 +165,7 @@ open class BaseOptimizer: Optimizer {
   /// call `super.step()` to advance decay/timer bookkeeping.
   public func step() {
     // override
-    decayFunction?.step(type: .batch)
+    learningRateScheduler?.step(type: .batch)
     metricsReporter?.endTimer(metric: .optimizerRunTime)
   }
   
@@ -174,7 +174,7 @@ open class BaseOptimizer: Optimizer {
   /// Subclasses should clear algorithm-specific buffers, then call `super.reset()`.
   public func reset() {
     // override
-    decayFunction?.reset()
+    learningRateScheduler?.reset()
   }
 
   func weightClip(layer: Layer) {
@@ -357,7 +357,7 @@ open class BaseOptimizer: Optimizer {
   }
   
   open func onEpochEnd(epoch: Int) {
-    decayFunction?.step(type: .epoch(epoch))
+    learningRateScheduler?.step(type: .epoch(epoch))
   }
   
 }
