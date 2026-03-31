@@ -9,8 +9,7 @@ import Foundation
 
 public class CosineWarmupFunction: BaseWarmupFunction {
   public override func step() {
-    let newLr = targetLearningRate * 0.5 * (1 - Tensor.Scalar.cos(Tensor.Scalar.pi * Tensor.Scalar(globalSteps) / Tensor.Scalar(warmupSteps)))
-    setWarmedLearningRate(newLr)
+    warmedLearningRate = targetLearningRate * 0.5 * (1 - Tensor.Scalar.cos(Tensor.Scalar.pi * Tensor.Scalar(globalSteps) / Tensor.Scalar(warmupSteps)))
     
     super.step()
   }

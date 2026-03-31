@@ -9,9 +9,7 @@ import Foundation
 
 public class LinearWarmupFunction: BaseWarmupFunction {
   public override func step() {
-    let newLr = targetLearningRate * (Tensor.Scalar(globalSteps) / Tensor.Scalar(warmupSteps))
-    setWarmedLearningRate(newLr)
-    
+    warmedLearningRate = targetLearningRate * (Tensor.Scalar(globalSteps) / Tensor.Scalar(warmupSteps))
     super.step()
   }
 }

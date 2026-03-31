@@ -36,7 +36,6 @@ open class BaseDecayFunction: DecayFunction {
   let decayRate: Tensor.Scalar
   let decaySteps: Tensor.Scalar
   var globalSteps: Tensor.Scalar = 0
-  let staircase: Bool
   
   /// Creates a base learning-rate decay schedule.
   ///
@@ -47,13 +46,11 @@ open class BaseDecayFunction: DecayFunction {
   ///   - staircase: Whether to apply discrete staircase decay.
   public init(learningRate: Tensor.Scalar,
               decayRate: Tensor.Scalar,
-              decaySteps: Tensor.Scalar,
-              staircase: Bool) {
+              decaySteps: Tensor.Scalar) {
     self.originalLearningRate = learningRate
     self.decayedLearningRate = learningRate
     self.decayRate = decayRate
     self.decaySteps = decaySteps
-    self.staircase = staircase
   }
   
   /// Restores the original learning rate and step counter.

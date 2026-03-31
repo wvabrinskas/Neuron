@@ -33,8 +33,7 @@ public final class CosineAnnealingDecay: BaseDecayFunction {
     
     super.init(learningRate: learningRate,
                decayRate: 0,
-               decaySteps: Tensor.Scalar(decaySteps),
-               staircase: false)
+               decaySteps: Tensor.Scalar(decaySteps))
   }
   
   /// Advances the schedule and computes the next decayed learning rate.

@@ -20,7 +20,7 @@ public protocol WarmupFunction {
 
 open class BaseWarmupFunction: WarmupFunction {
 /// The current decayed learning rate value.
-  public private(set) var warmedLearningRate: Tensor.Scalar = Tensor.Scalar.stabilityFactor
+  public var warmedLearningRate: Tensor.Scalar = Tensor.Scalar.stabilityFactor
   
   public var warmupState: WarmupState {
     warmedLearningRate >= targetLearningRate ? .complete : .warming
@@ -34,10 +34,6 @@ open class BaseWarmupFunction: WarmupFunction {
               warmupSteps: Tensor.Scalar) {
     self.targetLearningRate = targetLearningRate
     self.warmupSteps = warmupSteps
-  }
-  
-  func setWarmedLearningRate(_ rate: Tensor.Scalar) {
-    warmedLearningRate = rate
   }
   
   open func reset() {
