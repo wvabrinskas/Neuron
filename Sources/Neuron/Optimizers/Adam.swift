@@ -129,7 +129,7 @@ public class Adam: BaseOptimizer {
     
     for i in 0..<trainable.layers.count {
       let layer = trainable.layers[i]
-      let gradient = gradients.weights[i] 
+      let gradient = gradients.weights[i]
       let biasGradient = gradients.biases[i]
       
       var adamGradient: Gradient = (gradient, biasGradient)

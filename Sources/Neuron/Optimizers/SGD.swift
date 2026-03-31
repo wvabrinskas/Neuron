@@ -52,6 +52,8 @@ public class SGD: BaseOptimizer {
 
     if let clip = gradientClip {
       gradients = gradients.gradientL2NormClip(clip)
+    } else if metricsReporter?.metricsToGather.contains(.globalGradientNorm) == true {
+      gradients.calculateL2Norm(metrics: metricsReporter)
     }
     
     for i in 0..<trainable.layers.count {
