@@ -1523,6 +1523,124 @@ final class LayerTests: XCTestCase {
 
   }
 
+  // MARK: - Mish Activation Tests
+
+  func test_mish_forward_positive_input() {
+    let mish = Mish()
+    mish.inputSize = TensorSize(rows: 1, columns: 1, depth: 1)
+
+    let input = Tensor([Tensor.Scalar(1.0)])
+    let output = mish.forward(tensor: input, context: .init())
+
+    XCTAssertEqual(output.storage[0], 0.86509836, accuracy: 0.0001)
+  }
+
+  func test_mish_forward_zero_input() {
+    let mish = Mish()
+    mish.inputSize = TensorSize(rows: 1, columns: 1, depth: 1)
+
+    let input = Tensor([Tensor.Scalar(0.0)])
+    let output = mish.forward(tensor: input, context: .init())
+
+    XCTAssertEqual(output.storage[0], 0.0, accuracy: 0.0001)
+  }
+
+  func test_mish_forward_negative_input() {
+    // Mish allows small negative values (unlike ReLU)
+    let mish = Mish()
+    mish.inputSize = TensorSize(rows: 1, columns: 1, depth: 1)
+
+    let input = Tensor([Tensor.Scalar(-1.0)])
+    let output = mish.forward(tensor: input, context: .init())
+
+    XCTAssertEqual(output.storage[0], -0.30340144, accuracy: 0.0001)
+  }
+
+  func test_mish_outputSize_matchesInputSize() {
+    let inputSize = TensorSize(rows: 4, columns: 4, depth: 3)
+    let mish = Mish(inputSize: inputSize)
+
+    let input = Tensor.fillRandom(size: inputSize)
+    let output = mish.forward(tensor: input, context: .init())
+
+    XCTAssertEqual(output.shape, inputSize.asArray)
+    XCTAssertEqual(mish.outputSize, inputSize)
+  }
+
+  func test_mish_gradient_positive_input() {
+    let inputSize = TensorSize(rows: 1, columns: 1, depth: 1)
+    let mish = Mish()
+    mish.inputSize = inputSize
+
+    let input = Tensor([Tensor.Scalar(1.0)])
+    let output = mish.forward(tensor: input, context: .init())
+
+    let delta = Tensor([Tensor.Scalar(0.2)])
+    let gradients = output.gradients(delta: delta, wrt: input)
+
+    XCTAssertNotNil(gradients.input.first)
+    XCTAssertEqual(gradients.input[0].storage[0], 0.20980726, accuracy: 0.0001)
+  }
+
+  func test_mish_gradient_zero_input() {
+    let inputSize = TensorSize(rows: 1, columns: 1, depth: 1)
+    let mish = Mish()
+    mish.inputSize = inputSize
+
+    let input = Tensor([Tensor.Scalar(0.0)])
+    let output = mish.forward(tensor: input, context: .init())
+
+    let delta = Tensor([Tensor.Scalar(0.2)])
+    let gradients = output.gradients(delta: delta, wrt: input)
+
+    XCTAssertNotNil(gradients.input.first)
+    XCTAssertEqual(gradients.input[0].storage[0], 0.12, accuracy: 0.0001)
+  }
+
+  func test_mish_gradient_negative_input() {
+    let inputSize = TensorSize(rows: 1, columns: 1, depth: 1)
+    let mish = Mish()
+    mish.inputSize = inputSize
+
+    let input = Tensor([Tensor.Scalar(-1.0)])
+    let output = mish.forward(tensor: input, context: .init())
+
+    let delta = Tensor([Tensor.Scalar(0.2)])
+    let gradients = output.gradients(delta: delta, wrt: input)
+
+    XCTAssertNotNil(gradients.input.first)
+    XCTAssertEqual(gradients.input[0].storage[0], 0.011843345, accuracy: 0.0001)
+  }
+
+  func test_mish_gradient_shape_preserved() {
+    let inputSize = TensorSize(rows: 3, columns: 3, depth: 2)
+    let mish = Mish()
+    mish.inputSize = inputSize
+
+    let input = Tensor.fillRandom(size: inputSize)
+    let output = mish.forward(tensor: input, context: .init())
+
+    let delta = Tensor.fillWith(value: 1.0, size: inputSize)
+    let gradients = output.gradients(delta: delta, wrt: input)
+
+    XCTAssertNotNil(gradients.input.first)
+    XCTAssertEqual(gradients.input[0].shape, inputSize.asArray)
+  }
+
+  func test_mish_decodeEncode() {
+    let inputSize = TensorSize(rows: 4, columns: 4, depth: 3)
+    let mish = Mish(inputSize: inputSize)
+
+    do {
+      let jsonOut = try JSONEncoder().encode(mish)
+      let jsonIn = try JSONDecoder().decode(Mish.self, from: jsonOut)
+
+      XCTAssertEqual(jsonIn.inputSize, inputSize)
+    } catch {
+      XCTFail(error.localizedDescription)
+    }
+  }
+
   func test_rexNet_isTraining_set() {
     let inputSize: TensorSize = .init(rows: 4, columns: 4, depth: 3)
 

@@ -21,6 +21,7 @@ public enum Activation: Codable, Equatable {
   case softmax
   case seLu
   case geLu
+  case mish
   case none
   
   /// Returns the numeric activation identifier used by Metal kernels.
@@ -36,7 +37,8 @@ public enum Activation: Codable, Equatable {
     case .softmax: return 5
     case .seLu: return 6
     case .geLu: return 7
-    case .none: return 8
+    case .mish: return 8
+    case .none: return 9
     }
   }
   
@@ -53,6 +55,7 @@ public enum Activation: Codable, Equatable {
     case .softmax: return "softmax"
     case .seLu: return "seLu"
     case .geLu: return "geLu"
+    case .mish: return "mish"
     case .none: return "none"
     }
   }
@@ -107,7 +110,8 @@ public enum Activation: Codable, Equatable {
       let denom = Tensor.Scalar.exp(x) + Tensor.Scalar.exp(-x)
 
       returnValue = num / (denom + Tensor.Scalar.stabilityFactor)
-    case .none, .softmax:
+    case .none, .softmax, .mish:
+      // these use a custom forward pass
       returnValue = input
     }
   
@@ -153,7 +157,8 @@ public enum Activation: Codable, Equatable {
     case .tanh:
       let tan = self.activate(input: input)
       return 1 - (Tensor.Scalar.pow(tan, 2))
-    case .none, .softmax:
+    case .none, .softmax, .mish:
+      // these use a custom backward pass
       return 1
     }
   }

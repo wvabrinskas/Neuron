@@ -40,6 +40,7 @@ public enum EncodingType: String, Codable {
        multiply,
        subtract,
        divide,
+       mish,
        none
 }
 
@@ -611,6 +612,11 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
     self.init(inputSize: .init(),
               type: .none,
               encodingType: .none)
+  }
+  
+  override public func onInputSizeSet() {
+    super.onInputSizeSet()
+    outputSize = inputSize
   }
   
   /// Applies the activation function and builds backpropagation context.
