@@ -65,15 +65,17 @@ public final class Mish: BaseActivationLayer {
       let sech2 = (1 - tanhSp * tanhSp)
       
       let wrtInput = (tanhSp + inputs * sigmoidOut * sech2) * gradient
-      
+      wrtInput.label = "mish_input_gradient"
+    
       return (wrtInput, Tensor(), Tensor())
     }
     
     // forward calculation - setGraph connects `tensor` so the custom context fires during backprop
-    let out = Tensor(storage: newStorage, size: tensor.size, context: tensorContext)
+    let out = Tensor(storage: newStorage, size: outputSize, context: tensorContext)
+    out.label = "mish"
     out.setGraph(tensor)
     
-    return super.forward(tensor: out, context: context)
+    return out
   }
 }
 
