@@ -19,6 +19,7 @@ public enum LossFunction {
   case binaryCrossEntropySoftmax
   case wasserstein
   case minimaxBinaryCrossEntropy
+  case focalSoftmax(alpha: Tensor.Scalar, gamma: Tensor.Scalar)
   
   
   /// Calculate the loss given a prediction tensor and a label tensor.
@@ -77,6 +78,37 @@ public enum LossFunction {
   /// - Returns: The loss as a tensor object.
   public func derivative(_ predicted: Tensor, correct: Tensor) -> Tensor {
     switch self {
+    case .focalSoftmax(let alpha, let gamma):
+
+      let size = predicted.size
+      let cols = size.columns
+      let rows = size.rows
+      let depth = size.depth
+      let result = TensorStorage.create(count: cols * rows * depth)
+      
+      for d in 0..<depth {
+        let depthOffset = d * rows * cols
+        for r in 0..<rows {
+          let rowOffset = depthOffset + r * cols
+          
+          // Find the true-class probability p_t via the one-hot label.
+          var pt: Tensor.Scalar = .stabilityFactor
+          for c in 0..<cols where correct.storage[rowOffset + c] > 0 {
+            pt = max(min(predicted.storage[rowOffset + c], 1 - .stabilityFactor), .stabilityFactor)
+            break
+          }
+          
+          let oneMinusPt = max(1 - pt, Tensor.Scalar.stabilityFactor)  // prevent 0^0
+          let G = alpha * Tensor.Scalar.pow(oneMinusPt, gamma - 1) * (gamma * Tensor.Scalar.log(pt) + oneMinusPt)
+          
+          for c in 0..<cols {
+            result[rowOffset + c] = G * (correct.storage[rowOffset + c] - predicted.storage[rowOffset + c])
+          }
+        }
+      }
+      
+      return Tensor(storage: result, size: size)
+
     case .meanSquareError:
       return 2 * (predicted - correct)
     case .crossEntropy:
@@ -121,6 +153,15 @@ public enum LossFunction {
     }
     
     switch self {
+    case .focalSoftmax(let alpha, let gamma):
+      // we just need index of max because we multiply by the label and in one-hot labels
+      // all other's result in 0
+      // we take the value of predicted that corresponds to the one hot label value.
+      let indexOfMax = Int(correct.indexOfMax.0)
+      let p = predicted[indexOfMax]
+      let pClamped = max(min(p, 1 - .stabilityFactor), .stabilityFactor)
+
+      return -alpha * Tensor.Scalar.pow((1 - pClamped), gamma) * Tensor.Scalar.log(pClamped)
     case .wasserstein:
       guard correct.count == 1 && predicted.count == 1 else {
         return 0
@@ -141,16 +182,14 @@ public enum LossFunction {
       return sum / Tensor.Scalar(predicted.count)
       
     case .crossEntropySoftmax, .crossEntropy:
-      var sum: Tensor.Scalar = 0
+      // we just need index of max because we multiply by the label and in one-hot labels
+      // all other's result in 0
+      // we take the value of predicted that corresponds to the one hot label value.
+      let indexOfMax = Int(correct.indexOfMax.0)
+      let p = predicted[indexOfMax]
 
-      for i in 0..<predicted.count {
-        let predicted = predicted[i]
-        let correct = correct[i]
-        sum += -1 * (correct * Tensor.Scalar.log(predicted + .stabilityFactor))
-      }
-      
-      return sum
-      
+      return -1 * Tensor.Scalar.log(p + .stabilityFactor)
+            
     case .binaryCrossEntropy,
          .binaryCrossEntropySoftmax,
          .minimaxBinaryCrossEntropy:
