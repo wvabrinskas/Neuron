@@ -33,12 +33,12 @@ final class LossFunctionTests: XCTestCase {
   }
 
   func test_meanSquareError_derivative() {
-    // 2 * (predicted - correct) = [-1.0, 0.6, 0.4]
+    // 2 * (predicted - correct) / N, N=3 → [-1.0/3, 0.6/3, 0.4/3]
     let size = TensorSize(rows: 1, columns: 3, depth: 1)
     let predicted = Tensor([0.5, 0.3, 0.2], size: size)
     let correct = Tensor([1.0, 0.0, 0.0], size: size)
     let derivative = LossFunction.meanSquareError.derivative(predicted, correct: correct)
-    let expected = Tensor([-1.0, 0.6, 0.4], size: size)
+    let expected = Tensor([-1.0 / 3.0, 0.6 / 3.0, 0.4 / 3.0], size: size)
     XCTAssertTrue(derivative.isValueEqual(to: expected, accuracy: accuracy))
   }
 
@@ -311,6 +311,48 @@ final class LossFunctionTests: XCTestCase {
     let ceLoss = LossFunction.crossEntropy.calculate(predicted, correct: correct)
     // Focal loss should be less than CE for well-classified samples
     XCTAssertLessThan(focalLoss, ceLoss)
+  }
+
+  // MARK: - Huber
+
+  func test_huber_calculateScalar() {
+    // delta=1.0, predicted=[0.5, 2.0, 0.2], correct=[1.0, 0.0, 0.0]
+    // e[0]=0.5:  |e|≤δ → 0.5 * 0.5^2 = 0.125
+    // e[1]=-2.0: |e|>δ → 1.0 * (2.0 - 0.5) = 1.5
+    // e[2]=-0.2: |e|≤δ → 0.5 * 0.04 = 0.02
+    // mean = (0.125 + 1.5 + 0.02) / 3 ≈ 0.54833
+    let predicted: [Tensor.Scalar] = [0.5, 2.0, 0.2]
+    let correct: [Tensor.Scalar] = [1.0, 0.0, 0.0]
+    let loss = LossFunction.huber(delta: 1.0).calculate(predicted, correct: correct)
+    XCTAssertEqual(loss, 0.54833, accuracy: accuracy)
+  }
+
+  func test_huber_calculateTensor() {
+    let size = TensorSize(rows: 1, columns: 3, depth: 1)
+    let predicted = Tensor([0.5, 2.0, 0.2], size: size)
+    let correct = Tensor([1.0, 0.0, 0.0], size: size)
+    let loss = LossFunction.huber(delta: 1.0).calculate(predicted, correct: correct)
+    XCTAssertEqual(loss.asScalar(), 0.54833, accuracy: accuracy)
+  }
+
+  func test_huber_derivative() {
+    // delta=1.0, predicted=[0.5, 2.0, 0.2], correct=[1.0, 0.0, 0.0], N=3
+    // e[0]=0.5:  |e|≤δ → -e/N = -0.5/3 ≈ -0.16667
+    // e[1]=-2.0: |e|>δ → -δ*sign(e)/N = -1*(-1)/3 = 1/3 ≈ 0.33333
+    // e[2]=-0.2: |e|≤δ → -e/N = 0.2/3 ≈ 0.06667
+    let size = TensorSize(rows: 1, columns: 3, depth: 1)
+    let predicted = Tensor([0.5, 2.0, 0.2], size: size)
+    let correct = Tensor([1.0, 0.0, 0.0], size: size)
+    let derivative = LossFunction.huber(delta: 1.0).derivative(predicted, correct: correct)
+    let expected = Tensor([-0.5 / 3.0, 1.0 / 3.0, 0.2 / 3.0], size: size)
+    XCTAssertTrue(derivative.isValueEqual(to: expected, accuracy: accuracy))
+  }
+
+  func test_huber_perfectPrediction() {
+    let predicted: [Tensor.Scalar] = [1.0, 0.0, 0.0]
+    let correct: [Tensor.Scalar] = [1.0, 0.0, 0.0]
+    let loss = LossFunction.huber(delta: 1.0).calculate(predicted, correct: correct)
+    XCTAssertEqual(loss, 0.0, accuracy: accuracy)
   }
 
   // MARK: - Edge Cases

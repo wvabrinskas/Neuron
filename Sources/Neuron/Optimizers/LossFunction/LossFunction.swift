@@ -20,6 +20,7 @@ public enum LossFunction {
   case wasserstein
   case minimaxBinaryCrossEntropy
   case focalSoftmax(alpha: Tensor.Scalar, gamma: Tensor.Scalar)
+  case huber(delta: Tensor.Scalar)
   
   
   /// Calculate the loss given a prediction tensor and a label tensor.
@@ -78,8 +79,32 @@ public enum LossFunction {
   /// - Returns: The loss as a tensor object.
   public func derivative(_ predicted: Tensor, correct: Tensor) -> Tensor {
     switch self {
+    case .huber(let delta):
+      let size = predicted.size
+      let cols = size.columns
+      let rows = size.rows
+      let depth = size.depth
+      let result = TensorStorage.create(count: cols * rows * depth)
+      let C = Tensor.Scalar(cols * rows * depth)
+      
+      var i = 0
+      zip(predicted.storage, correct.storage).forEach { (pred, true_) in
+        let e = true_ - pred          // residual
+        let absE = abs(e)
+        
+        let grad: Tensor.Scalar = if absE <= delta {
+          -e                 // quadratic region: -residual
+        } else {
+          -delta * (e > 0 ? 1.0 : -1.0)   // linear region: clamped
+        }
+        
+        let val = grad / C              // account for the mean reduction
+        result[i] = val
+        i += 1
+      }
+      return Tensor(storage: result, size: predicted.size)
+      
     case .focalSoftmax(let alpha, let gamma):
-
       let size = predicted.size
       let cols = size.columns
       let rows = size.rows
@@ -110,7 +135,8 @@ public enum LossFunction {
       return Tensor(storage: result, size: size)
 
     case .meanSquareError:
-      return 2 * (predicted - correct)
+      let N = Tensor.Scalar(predicted.size.columns * predicted.size.rows * predicted.size.depth)
+      return 2 * (predicted - correct) / N
     case .crossEntropy:
       return predicted.map { -1 * (1 / $0) }
       
@@ -153,6 +179,14 @@ public enum LossFunction {
     }
     
     switch self {
+    case .huber(let delta):
+      let elementWise = zip(predicted, correct).map { (pred, true_) -> Tensor.Scalar in
+        let e = true_ - pred
+        let absE = abs(e)
+        return absE <= delta ? 0.5 * e * e : delta * (absE - 0.5 * delta)
+      }
+      return elementWise.reduce(0, +) / Tensor.Scalar(elementWise.count)
+      
     case .focalSoftmax(let alpha, let gamma):
       // we just need index of max because we multiply by the label and in one-hot labels
       // all other's result in 0
