@@ -11,7 +11,16 @@ import NumSwift
 import Foundation
 import NumSwift
 
+/// A neural network activation layer that applies the Mish activation function.
+///
+/// Mish is a self-regularized non-monotonic activation defined as `f(x) = x * tanh(softplus(x))`.
+/// It tends to outperform ReLU and Swish in deep networks by allowing small negative values to pass through.
 public final class Mish: BaseActivationLayer {
+  /// Creates a Mish activation layer.
+  /// - Parameters:
+  ///   - inputSize: The expected input tensor size. Defaults to an empty `TensorSize`.
+  ///   - initializer: The weight initializer type. Defaults to `.heNormal`.
+  ///   - linkId: A unique identifier for this layer. Defaults to a new UUID string.
   public init(inputSize: TensorSize = TensorSize(array: []),
               initializer: InitializerType = .heNormal,
               linkId: String = UUID().uuidString) {
@@ -35,6 +44,9 @@ public final class Mish: BaseActivationLayer {
     self.outputSize = inputSize
   }
   
+  /// Encodes the layer's configuration into the given encoder.
+  /// - Parameter encoder: The encoder to write layer data into.
+  /// - Throws: An error if any value fails to encode.
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
@@ -42,6 +54,11 @@ public final class Mish: BaseActivationLayer {
     try container.encode(linkId, forKey: .linkId)
   }
   
+  /// Performs the forward pass of the Mish activation: `f(x) = x * tanh(ln(1 + eˣ))`.
+  /// - Parameters:
+  ///   - tensor: The input tensor to activate.
+  ///   - context: The network context for this pass (training vs inference).
+  /// - Returns: A new tensor with the Mish activation applied element-wise.
   public override func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
     let forward = tensor.storage
     let newStorage = TensorStorage.create(count: forward.count)

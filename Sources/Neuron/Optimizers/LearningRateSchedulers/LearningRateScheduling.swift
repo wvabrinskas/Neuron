@@ -16,6 +16,10 @@ public enum LearningRateScheduleStepType: Equatable {
   case batch, epoch(Int)
 }
 
+/// Defines the interface for a combined warmup + decay learning rate schedule.
+///
+/// Implementations first apply a warmup phase to ramp the learning rate up,
+/// then hand off to a decay function once warmup is complete.
 public protocol LearningRateScheduling {
   var learningRate: Tensor.Scalar { get }
   var warmup: WarmupFunction { get }
@@ -24,13 +28,26 @@ public protocol LearningRateScheduling {
   func reset()
 }
 
+/// A learning rate scheduler that sequentially applies warmup followed by decay.
+///
+/// During warmup the learning rate is driven by the provided `WarmupFunction`.
+/// Once warmup completes, the `DecayFunction` takes over for the remainder of training.
 public final class SequentialLearningRateScheduler: LearningRateScheduling {
+  /// The current effective learning rate, updated on every call to `step(type:)`.
   public var learningRate: Tensor.Scalar
+  /// The warmup schedule used during the initial training phase.
   public let warmup: WarmupFunction
+  /// The decay schedule applied after warmup completes.
   public let decay: DecayFunction
   
   private let type: LearningRateScheduleStepType
   
+  /// Creates a `SequentialLearningRateScheduler`.
+  /// - Parameters:
+  ///   - learningRate: The starting learning rate passed to the warmup function.
+  ///   - warmup: The warmup schedule to apply first.
+  ///   - decay: The decay schedule to apply after warmup completes.
+  ///   - type: The step granularity (`.batch` or `.epoch`) that triggers an update.
   public init(learningRate: Tensor.Scalar,
               warmup: WarmupFunction,
               decay: DecayFunction,
@@ -41,6 +58,10 @@ public final class SequentialLearningRateScheduler: LearningRateScheduling {
     self.type = type
   }
   
+  /// Advances the schedule by one step if the provided `type` matches the scheduler's configured step type.
+  ///
+  /// Delegates to the warmup function until warmup is complete, then delegates to the decay function.
+  /// - Parameter type: The step type triggering this update (`.batch` or `.epoch`).
   public func step(type: LearningRateScheduleStepType) {
     guard type == self.type else { return }
     
@@ -53,6 +74,7 @@ public final class SequentialLearningRateScheduler: LearningRateScheduling {
     }
   }
   
+  /// Resets the scheduler, warmup, and decay back to their initial states.
   public func reset() {
     warmup.reset()
     decay.reset()
