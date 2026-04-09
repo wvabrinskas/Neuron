@@ -24,6 +24,7 @@ public enum Metric: String {
   case batchConcurrency
   case globalGradientNorm
   case globalGradientScalingFactor
+  case currentLearningRate
 }
 
 /// A protocol that defines the interface for objects that collect and store training metrics.

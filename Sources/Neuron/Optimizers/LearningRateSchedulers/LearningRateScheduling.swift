@@ -42,6 +42,8 @@ public final class SequentialLearningRateScheduler: LearningRateScheduling {
   
   private let type: LearningRateScheduleStepType
   
+  private let metricsReporter: MetricsReporter?
+  
   /// Creates a `SequentialLearningRateScheduler`.
   /// - Parameters:
   ///   - learningRate: The starting learning rate passed to the warmup function.
@@ -51,11 +53,13 @@ public final class SequentialLearningRateScheduler: LearningRateScheduling {
   public init(learningRate: Tensor.Scalar,
               warmup: WarmupFunction,
               decay: DecayFunction,
-              type: LearningRateScheduleStepType) {
+              type: LearningRateScheduleStepType,
+              metricsReporter: MetricsReporter? = nil) {
     self.learningRate = learningRate
     self.warmup = warmup
     self.decay = decay
     self.type = type
+    self.metricsReporter = metricsReporter
   }
   
   /// Advances the schedule by one step if the provided `type` matches the scheduler's configured step type.
@@ -72,6 +76,8 @@ public final class SequentialLearningRateScheduler: LearningRateScheduling {
       decay.step()
       learningRate = decay.decayedLearningRate
     }
+    
+    metricsReporter?.update(metric: .currentLearningRate, value: learningRate)
   }
   
   /// Resets the scheduler, warmup, and decay back to their initial states.
@@ -80,6 +86,8 @@ public final class SequentialLearningRateScheduler: LearningRateScheduling {
     decay.reset()
     
     learningRate = warmup.warmedLearningRate
+    
+    metricsReporter?.update(metric: .currentLearningRate, value: learningRate)
   }
 
 }
