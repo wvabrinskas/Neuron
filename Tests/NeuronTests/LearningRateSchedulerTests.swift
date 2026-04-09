@@ -219,7 +219,7 @@ final class LearningRateSchedulerTests: XCTestCase {
     let decay = ExponentialDecay(learningRate: targetLR, decayRate: 0.99, decaySteps: 100)
     let scheduler = SequentialLearningRateScheduler(learningRate: 0.0001, warmup: warmup, decay: decay, type: .batch)
 
-    var previous: Tensor.Scalar = -Float.infinity
+    var previous: Tensor.Scalar = -Tensor.Scalar.infinity
     for i in 0..<Int(warmupSteps) + 1 {
       scheduler.step(type: .batch)
       XCTAssertGreaterThanOrEqual(scheduler.learningRate, previous,

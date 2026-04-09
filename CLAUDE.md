@@ -150,7 +150,7 @@ Follow the template in `.cursor/rules/trainable.mdc`:
 - Use NumSwift operations for mathematical computations
 - Minimize memory allocations in forward passes
 - Create unit tests verifying gradient computations and serialization
-- **Use `Tensor.Scalar` typealias**: All new functions that need access to a scalar type like `Float` should use `Tensor.Scalar` instead of hardcoding `Float`. This ensures compatibility with Float16 quantization (when `QUANTIZED_F16` flag is set). See `TensorSIMD.swift` for examples of this pattern.
+- **Never hardcode `Float` or `Float16` when interacting with Tensor**: Always use `Tensor.Scalar` for scalar types, numeric literals (e.g., `Tensor.Scalar(0.0)` not `Float(0.0)`), function signatures, and local variables in any code that touches Tensor. This includes layer parameters, optimizer hyperparameters (learning rate, beta, epsilon), loss function computations, weight initialization, and test assertions. This ensures compatibility with Float16 quantization (when `QUANTIZED_F16` flag is set). See `TensorSIMD.swift` for examples of this pattern.
 - **Support both Float and Float16**: Any new math functions on a Tensor should be implemented for both `Float` and `Float16` types. This ensures the framework works correctly regardless of whether quantization is enabled.
 - **Prefer pointer-based arithmetic**: Use `TensorStorage.Pointer` and `NumSwiftFlat` APIs instead of `Tensor.Value` array arithmetic. See "Pointer-Based Arithmetic" section below.
 
