@@ -8,14 +8,6 @@
 import Foundation
 import NumSwift
 
-/// Defines the granularity at which a decay step is applied.
-///
-/// - `batch`: Decay is applied once per batch.
-/// - `epoch`: Decay is applied once per epoch, with an associated integer epoch index.
-public enum DecayStepType {
-  case batch, epoch(Int)
-}
-
 /// A protocol defining a learning-rate decay schedule.
 ///
 /// Types conforming to `DecayFunction` provide a decayed learning rate

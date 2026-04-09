@@ -38,19 +38,19 @@ final class LearningRateSchedulerTests: XCTestCase {
 
   func test_step_wrongType_doesNothing_batchScheduler() {
     let (scheduler, _, _) = makeScheduler(initialLR: 0.0001, type: .batch)
-    scheduler.step(type: .epoch(0))
+    scheduler.step(type: .epoch)
     XCTAssertEqual(scheduler.learningRate, 0.0001)
   }
 
   func test_step_wrongType_doesNothing_epochScheduler() {
-    let (scheduler, _, _) = makeScheduler(initialLR: 0.0001, type: .epoch(0))
+    let (scheduler, _, _) = makeScheduler(initialLR: 0.0001, type: .epoch)
     scheduler.step(type: .batch)
     XCTAssertEqual(scheduler.learningRate, 0.0001)
   }
 
   func test_step_correctEpochType_advancesScheduler() {
-    let (scheduler, _, _) = makeScheduler(initialLR: 0.0001, type: .epoch(0))
-    scheduler.step(type: .epoch(0))
+    let (scheduler, _, _) = makeScheduler(initialLR: 0.0001, type: .epoch)
+    scheduler.step(type: .epoch)
     // First warmup step: globalSteps=0 → warmedLR = targetLR * 0/warmupSteps = 0
     XCTAssertEqual(scheduler.learningRate, 0, accuracy: 1e-7)
   }
