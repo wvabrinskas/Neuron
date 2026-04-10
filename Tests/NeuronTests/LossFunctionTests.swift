@@ -288,18 +288,48 @@ final class LossFunctionTests: XCTestCase {
     let loss = LossFunction.focalSoftmax(alpha: 0.25, gamma: 2.0).calculate(predicted, correct: correct)
     XCTAssertEqual(loss.asScalar(), 0.008025, accuracy: accuracy)
   }
+  
+  func test_focalSoftmax_derivative_hardExample() {
+    // Hard example: true class has very low probability (p_t = 0.01)
+    // This is the regime where focal loss should produce meaningful gradients
+    // and where the old buggy derivative would explode.
+    //
+    // pt=0.01, α=0.25, γ=2.0
+    // G = α · (1-p_t)^(γ-1) · [(1-p_t) - γ·p_t·log(p_t)]
+    //   = 0.25 · 0.99^1 · (0.99 - 2·0.01·log(0.01))
+    //   = 0.25 · 0.99 · (0.99 - 2·0.01·(-4.60517))
+    //   = 0.25 · 0.99 · (0.99 + 0.092103)
+    //   = 0.25 · 0.99 · 1.082103
+    //   ≈ 0.267821
+    let size = TensorSize(rows: 1, columns: 3, depth: 1)
+    let predicted = Tensor([0.495, 0.01, 0.495], size: size)
+    let correct = Tensor([0.0, 1.0, 0.0], size: size)
+    let derivative = LossFunction.focalSoftmax(alpha: 0.25, gamma: 2.0).derivative(predicted, correct: correct)
+    // result_j = G · (p_j - y_j)
+    // j=0: 0.267821 ·  0.495  ≈  0.132571
+    // j=1: 0.267821 · -0.990  ≈ -0.265143
+    // j=2: 0.267821 ·  0.495  ≈  0.132571
+    let expected = Tensor([0.132571, -0.265143, 0.132571], size: size)
+    XCTAssertTrue(derivative.isValueEqual(to: expected, accuracy: 0.001))
+    
+    // Sanity check: gradient for true class should be bounded (not explode)
+    // With the old buggy derivative, this value would have been ~-2.01 (7.6× too large)
+    let trueClassGrad = derivative.storage[1]
+    XCTAssertTrue(abs(trueClassGrad) < 1.0,
+                  "True-class gradient should be bounded; got \(trueClassGrad)")
+  }
 
   func test_focalSoftmax_derivative() {
-    // pt=0.7, G = 0.25 * 0.3 * (2*log(0.7)+0.3) ≈ -0.031001
+    // pt=0.7, G = 0.25 * 0.3 * (0.3 - 2*0.7*log(0.7)) ≈ 0.059951
     // result_j = G * (p_j - y_j)
     let size = TensorSize(rows: 1, columns: 3, depth: 1)
     let predicted = Tensor([0.1, 0.7, 0.2], size: size)
     let correct = Tensor([0.0, 1.0, 0.0], size: size)
     let derivative = LossFunction.focalSoftmax(alpha: 0.25, gamma: 2.0).derivative(predicted, correct: correct)
-    // j=0: -0.031001 * 0.1  ≈ -0.003100
-    // j=1: -0.031001 * -0.3 ≈  0.009300
-    // j=2: -0.031001 * 0.2  ≈ -0.006200
-    let expected = Tensor([0.0031, -0.0093, 0.0062], size: size)
+    // j=0: 0.059951 *  0.1 ≈  0.005995
+    // j=1: 0.059951 * -0.3 ≈ -0.017985
+    // j=2: 0.059951 *  0.2 ≈  0.011990
+    let expected = Tensor([0.005995, -0.017985, 0.011990], size: size)
     XCTAssertTrue(derivative.isValueEqual(to: expected, accuracy: 0.001))
   }
 
