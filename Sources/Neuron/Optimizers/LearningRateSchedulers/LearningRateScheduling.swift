@@ -60,6 +60,8 @@ public final class SequentialLearningRateScheduler: LearningRateScheduling {
     self.decay = decay
     self.type = type
     self.metricsReporter = metricsReporter
+    
+    reset()
   }
   
   /// Advances the schedule by one step if the provided `type` matches the scheduler's configured step type.
