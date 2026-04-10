@@ -132,6 +132,10 @@ public final class Sequential: Trainable, Logger {
     self.layers = layers()
   }
   
+  /// Decodes a `Sequential` model from a serialized `.smodel` file.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: An error if required values cannot be decoded.
   convenience public init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     

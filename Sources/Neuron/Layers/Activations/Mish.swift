@@ -35,6 +35,10 @@ public final class Mish: BaseActivationLayer {
     case inputSize, type, linkId
   }
   
+  /// Decodes a Mish activation layer from a serialized model.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: An error if required values cannot be decoded.
   convenience public required init(from decoder: Decoder) throws {
     self.init()
     let container = try decoder.container(keyedBy: CodingKeys.self)

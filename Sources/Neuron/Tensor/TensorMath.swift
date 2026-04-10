@@ -9,6 +9,7 @@ import Foundation
 import NumSwift
 
 public extension Float {
+  /// A small constant added to denominators and square-roots for numerical stability.
   static var stabilityFactor: Self {
     1e-12
   }
@@ -16,6 +17,8 @@ public extension Float {
 
 #if arch(arm64)
 public extension Float16 {
+  /// A small constant added to denominators and square-roots for numerical stability.
+  /// Uses a larger value than `Float` to account for reduced precision in Float16.
   static var stabilityFactor: Self {
     1e-4
   }
@@ -23,6 +26,8 @@ public extension Float16 {
 #endif
 
 public extension Tensor {
+  /// A closure type that receives a pointer to a contiguous block of scalars and its count,
+  /// and returns a single reduced scalar result (e.g., sum, mean, or max).
   typealias PointerMathBlock = (_ ptr: TensorStorage.Pointer, _ count: Int) -> Scalar
   
   /*

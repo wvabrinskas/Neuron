@@ -218,6 +218,10 @@ public class TensorStorage {
 
   // MARK: - Codable
 
+  /// Decodes tensor storage from a single-value JSON array.
+  ///
+  /// - Parameter decoder: The decoder to read scalar data from.
+  /// - Throws: An error if the array cannot be decoded.
   public required convenience init(from decoder: any Decoder) throws {
     let container = try decoder.singleValueContainer()
     let array = try container.decode([Tensor.Scalar].self)

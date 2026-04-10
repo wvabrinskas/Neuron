@@ -164,6 +164,14 @@ open class ArithmeticLayer: BaseLayer {
     case inputSize, type, linkTo, linkId, inverse
   }
   
+  /// Applies the arithmetic operation to two input tensors.
+  ///
+  /// Subclasses must override this method to provide the actual element-wise operation.
+  ///
+  /// - Parameters:
+  ///   - input: The primary input tensor.
+  ///   - other: The secondary input tensor (from the linked layer).
+  /// - Returns: The result of applying the arithmetic operation.
   open func function(input: Tensor, other: Tensor) -> Tensor {
     fatalError("override in subclass")
   }
@@ -177,6 +185,10 @@ open class ArithmeticLayer: BaseLayer {
     }
   }
   
+  /// Decodes an ArithmeticLayer from a serialized model.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: An error if required values cannot be decoded.
   required public init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     self.linkTo = try container.decodeIfPresent(String.self, forKey: .linkTo) ?? ""
@@ -323,11 +335,15 @@ open class BaseLayer: Layer {
     forward(tensor: tensor, context: context)
   }
   
+  /// Not intended for direct use — concrete layer subclasses must override to implement their own deserialization.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: Always produces a default empty layer; subclasses should override.
   required convenience public init(from decoder: Decoder) throws {
     // override
     self.init(encodingType: .none)
   }
-  
+
   /// Encodes layer configuration for persistence.
   ///
   /// Subclasses should override and encode their own fields.
@@ -522,6 +538,10 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
     }
   }
   
+  /// Not intended for direct use — concrete convolutional layer subclasses must override.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: Always produces a default empty layer; subclasses should override.
   required convenience public init(from decoder: Decoder) throws {
     // override
     self.init(filterCount: 0, encodingType: .none)
@@ -608,6 +628,10 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
     self.usesOptimizer = false
   }
   
+  /// Not intended for direct use — concrete activation layer subclasses must override.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: Always produces a default empty activation layer; subclasses should override.
   required convenience public init(from decoder: Decoder) throws {
     self.init(inputSize: .init(),
               type: .none,
@@ -679,6 +703,9 @@ open class BaseThreadBatchingLayer: BaseLayer {
     }
   }
 
+  /// Whether the layer should accumulate batch statistics during the forward pass.
+  ///
+  /// Returns `true` by default when the layer is in training mode.
   open var shouldPerformBatching: Bool {
     isTraining
   }

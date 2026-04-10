@@ -30,12 +30,16 @@ public final class Flatten: BaseLayer {
     outputSize = TensorSize(array: [total, 1, 1])
   }
   
+  /// Decodes a Flatten layer from a serialized model.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: An error if required values cannot be decoded.
   convenience public required init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
     self.init(linkId: linkId)
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
-    
+
     let total = inputSize.columns * inputSize.rows * inputSize.depth
     self.outputSize = TensorSize(array: [total, 1, 1])
   }

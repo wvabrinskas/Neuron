@@ -12,6 +12,7 @@ import NumSwift
 
 public extension TensorStorage {
 
+  /// Returns element-wise sum of two storages, operating on the shorter count.
   static func + (lhs: TensorStorage, rhs: TensorStorage) -> TensorStorage {
     let count = Swift.min(lhs.count, rhs.count)
     let result = TensorStorage.create(count: count)
@@ -19,6 +20,7 @@ public extension TensorStorage {
     return result
   }
 
+  /// Returns element-wise difference of two storages, operating on the shorter count.
   static func - (lhs: TensorStorage, rhs: TensorStorage) -> TensorStorage {
     let count = Swift.min(lhs.count, rhs.count)
     let result = TensorStorage.create(count: count)
@@ -26,6 +28,7 @@ public extension TensorStorage {
     return result
   }
 
+  /// Returns element-wise product of two storages, operating on the shorter count.
   static func * (lhs: TensorStorage, rhs: TensorStorage) -> TensorStorage {
     let count = Swift.min(lhs.count, rhs.count)
     let result = TensorStorage.create(count: count)
@@ -33,6 +36,7 @@ public extension TensorStorage {
     return result
   }
 
+  /// Returns element-wise quotient of two storages, operating on the shorter count.
   static func / (lhs: TensorStorage, rhs: TensorStorage) -> TensorStorage {
     let count = Swift.min(lhs.count, rhs.count)
     let result = TensorStorage.create(count: count)
@@ -45,24 +49,28 @@ public extension TensorStorage {
 
 public extension TensorStorage {
 
+  /// Returns a new storage with `rhs` added to every element.
   static func + (lhs: TensorStorage, rhs: Tensor.Scalar) -> TensorStorage {
     let result = TensorStorage.create(count: lhs.count)
     NumSwiftFlat.add(lhs.pointer, scalar: rhs, result: result.pointer, count: lhs.count)
     return result
   }
 
+  /// Returns a new storage with `rhs` subtracted from every element.
   static func - (lhs: TensorStorage, rhs: Tensor.Scalar) -> TensorStorage {
     let result = TensorStorage.create(count: lhs.count)
     NumSwiftFlat.sub(lhs.pointer, scalar: rhs, result: result.pointer, count: lhs.count)
     return result
   }
 
+  /// Returns a new storage with every element multiplied by `rhs`.
   static func * (lhs: TensorStorage, rhs: Tensor.Scalar) -> TensorStorage {
     let result = TensorStorage.create(count: lhs.count)
     NumSwiftFlat.mul(lhs.pointer, scalar: rhs, result: result.pointer, count: lhs.count)
     return result
   }
 
+  /// Returns a new storage with every element divided by `rhs`.
   static func / (lhs: TensorStorage, rhs: Tensor.Scalar) -> TensorStorage {
     let result = TensorStorage.create(count: lhs.count)
     NumSwiftFlat.div(lhs.pointer, scalar: rhs, result: result.pointer, count: lhs.count)
@@ -74,24 +82,28 @@ public extension TensorStorage {
 
 public extension TensorStorage {
 
+  /// Returns a new storage with every element multiplied by the scalar `lhs`.
   static func * (lhs: Tensor.Scalar, rhs: TensorStorage) -> TensorStorage {
     let result = TensorStorage.create(count: rhs.count)
     NumSwiftFlat.mul(rhs.pointer, scalar: lhs, result: result.pointer, count: rhs.count)
     return result
   }
 
+  /// Returns a new storage with `lhs` subtracted element-wise from each element in `rhs`.
   static func - (lhs: Tensor.Scalar, rhs: TensorStorage) -> TensorStorage {
     let result = TensorStorage.create(count: rhs.count)
     NumSwiftFlat.sub(scalar: lhs, rhs.pointer, result: result.pointer, count: rhs.count)
     return result
   }
 
+  /// Returns a new storage with `lhs` divided element-wise by each element in `rhs`.
   static func / (lhs: Tensor.Scalar, rhs: TensorStorage) -> TensorStorage {
     let result = TensorStorage.create(count: rhs.count)
     NumSwiftFlat.div(scalar: lhs, rhs.pointer, result: result.pointer, count: rhs.count)
     return result
   }
 
+  /// Returns a new storage with `lhs` added to every element.
   static func + (lhs: Tensor.Scalar, rhs: TensorStorage) -> TensorStorage {
     let result = TensorStorage.create(count: rhs.count)
     NumSwiftFlat.add(rhs.pointer, scalar: lhs, result: result.pointer, count: rhs.count)
