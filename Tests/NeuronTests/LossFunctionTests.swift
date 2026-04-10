@@ -38,7 +38,7 @@ final class LossFunctionTests: XCTestCase {
     let predicted = Tensor([0.5, 0.3, 0.2], size: size)
     let correct = Tensor([1.0, 0.0, 0.0], size: size)
     let derivative = LossFunction.meanSquareError.derivative(predicted, correct: correct)
-    let expected = Tensor([-1.0 / 3.0, 0.6 / 3.0, 0.4 / 3.0], size: size)
+    let expected = Tensor([-1.0 / 3.0, 0.6 / 3.0, 0.4 / 3.0] as Tensor.Value, size: size)
     XCTAssertTrue(derivative.isValueEqual(to: expected, accuracy: accuracy))
   }
 
@@ -73,7 +73,7 @@ final class LossFunctionTests: XCTestCase {
     let predicted = Tensor([0.1, 0.7, 0.2], size: size)
     let correct = Tensor([0.0, 1.0, 0.0], size: size)
     let derivative = LossFunction.crossEntropy.derivative(predicted, correct: correct)
-    let expected = Tensor([-10.0, -1.0 / 0.7, -5.0], size: size)
+    let expected = Tensor([-10.0, -1.0 / 0.7, -5.0] as Tensor.Value, size: size)
     XCTAssertTrue(derivative.isValueEqual(to: expected, accuracy: accuracy))
   }
 
@@ -344,7 +344,7 @@ final class LossFunctionTests: XCTestCase {
     let predicted = Tensor([0.5, 2.0, 0.2], size: size)
     let correct = Tensor([1.0, 0.0, 0.0], size: size)
     let derivative = LossFunction.huber(delta: 1.0).derivative(predicted, correct: correct)
-    let expected = Tensor([-0.5 / 3.0, 1.0 / 3.0, 0.2 / 3.0], size: size)
+    let expected = Tensor([-0.5 / 3.0, 1.0 / 3.0, 0.2 / 3.0] as Tensor.Value, size: size)
     XCTAssertTrue(derivative.isValueEqual(to: expected, accuracy: accuracy))
   }
 
