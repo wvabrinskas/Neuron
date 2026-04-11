@@ -37,6 +37,9 @@ public final class TransConv2d: Conv2d {
   }
   
   /// Recomputes transposed-convolution output shape for the current input size.
+  ///
+  /// For `.same` padding: `out = in * stride`.
+  /// For `.valid` padding: `out = (in - 1) * stride + filterSize`.
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     

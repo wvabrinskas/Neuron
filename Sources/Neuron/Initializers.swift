@@ -15,10 +15,13 @@ public enum InitializerType: Codable, Equatable {
   case xavierNormal
   ///Generates weights based on a uniform distribution
   case xavierUniform
-  
+  /// He normal initialization: samples from `N(0, sqrt(2/fanIn))`. Recommended for ReLU activations.
   case heNormal
+  /// He uniform initialization: samples from `Uniform(-sqrt(6/fanIn), sqrt(6/fanIn))`. Recommended for ReLU activations.
   case heUniform
+  /// Orthogonal initialization scaled by `gain`. Each depth slice is an orthonormal matrix.
   case orthogonal(gain: Tensor.Scalar)
+  /// Normal distribution initialization with the specified standard deviation.
   case normal(std: Tensor.Scalar)
   
   /// Creates an executable initializer from this initializer type.

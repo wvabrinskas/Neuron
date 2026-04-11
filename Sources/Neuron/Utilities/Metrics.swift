@@ -157,32 +157,32 @@ internal extension MetricCalculator {
 @dynamicMemberLookup
 /// A class that collects, aggregates, and periodically reports training metrics during model training loops.
 public class MetricsReporter: MetricCalculator {
-/// A lock used to synchronize concurrent access to shared metric state.
+  /// A lock used to synchronize concurrent access to shared metric state.
   public var lock: NSLock = NSLock()
   internal var totalValCorrectGuesses: Int = 0
   internal var totalValGuesses: Int = 0
-  
+
   internal var totalCorrectGuesses: Int = 0
   internal var totalGuesses: Int = 0
-  
+
   private var frequency: Int
   private var currentStep: Int = 0
   private var timers: [Metric: [CFAbsoluteTime]] = [:]
-  
+
   private var timerQueue = SynchronousOperationQueue(name: "metrics_reporter")
-  
-/// The set of metrics that this reporter is configured to gather and record.
+
+  /// The set of metrics that this reporter is configured to gather and record.
   public var metricsToGather: Set<Metric>
-/// A dictionary storing the current scalar values for each recorded metric.
+  /// A dictionary storing the current scalar values for each recorded metric.
   public var metrics: [Metric : Tensor.Scalar] = [:]
-/// An optional closure called with the current metrics dictionary each time the reporting frequency threshold is reached.
+  /// An optional closure called with the current metrics dictionary each time the reporting frequency threshold is reached.
   public var receive: ((_ metrics: [Metric: Tensor.Scalar]) -> ())? = nil
   
   deinit {
     timerQueue.cancelAllOperations()
   }
   
-/// Retrieves a metric value by its raw string name using dynamic member lookup.
+  /// Retrieves a metric value by its raw string name using dynamic member lookup.
   ///
   /// - Parameter member: The raw string name of the metric to look up.
   /// - Returns: The scalar value for the matching metric, or `nil` if the name does not correspond to a known metric.

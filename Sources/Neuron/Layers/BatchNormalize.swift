@@ -111,13 +111,7 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
 
   // MARK: - Codable
 
-  /// Creates a `BatchNormalize` layer by decoding its parameters from the given decoder.
-  ///
-  /// Supports decoding both current per-channel scalar arrays and legacy per-position `Tensor` formats
-  /// for moving mean and variance.
-  ///
-  /// - Parameter decoder: The decoder to read layer parameters from.
-  /// - Throws: A decoding error if required values cannot be read or are in an unexpected format.
+  /// Coding keys used to encode and decode the batch normalization layer's parameters.
   public enum CodingKeys: String, CodingKey {
     case gamma, beta, momentum, movingMean, movingVariance, inputSize, linkId
   }

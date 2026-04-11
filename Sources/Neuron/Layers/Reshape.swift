@@ -84,6 +84,7 @@ public final class Reshape: BaseLayer {
     return super.forward(tensor: out, context: context)
   }
   
+  /// Sets `outputSize` to the configured reshape target whenever the input size changes.
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     outputSize = reshapeSize

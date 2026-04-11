@@ -79,6 +79,10 @@ public protocol Trainable: AnyObject, Exportable, CustomDebugStringConvertible {
 }
 
 public extension Trainable {
+  /// A textual representation of the network structure suitable for debugging.
+  ///
+  /// Returns a table of layer names, output shapes, and parameter counts.
+  /// Returns an informational message when the network has not yet been compiled.
   var debugDescription: String {
     guard isCompiled else {
       return "Trainable isn't compiled yet. Please compile first."

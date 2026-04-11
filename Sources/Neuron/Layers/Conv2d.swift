@@ -98,7 +98,10 @@ public class Conv2d: BaseConvolutionalLayer {
     try container.encode(linkId, forKey: .linkId)
   }
   
-  /// Recomputes output shape when input shape changes.
+  /// Recomputes output shape when the input shape changes.
+  ///
+  /// Derives `outputSize` using the standard convolution output formula:
+  /// `out = ((in + 2*pad - (filter-1) - 1) / stride) + 1`.
   public override func onInputSizeSet() {
     super.onInputSizeSet()
     

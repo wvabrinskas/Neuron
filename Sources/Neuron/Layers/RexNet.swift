@@ -23,14 +23,16 @@ public final class RexNet: BaseLayerGroup {
     strides.columns == 1 && strides.rows == 1 && outChannels == inputSize.depth
   }
   
-/// Creates a new `RexNet` layer group with the specified configuration.
-/// - Parameter inputSize: The optional input tensor size for the layer. Defaults to `nil`.
-/// - Parameter initializer: The weight initializer type to use. Defaults to the framework's default initializer.
-/// - Parameter strides: The row and column strides for the convolution operation. Defaults to `(1, 1)`.
-/// - Parameter outChannels: The number of output channels produced by this block.
-/// - Parameter squeeze: The squeeze factor used in channel reduction. Defaults to `0`.
-/// - Parameter expandRatio: The ratio by which channels are expanded before the depthwise convolution. Defaults to `0`.
-/// - Parameter linkId: A unique string identifier used to link this layer. Defaults to a new UUID string.
+  /// Creates a new `RexNet` layer group with the specified configuration.
+  ///
+  /// - Parameters:
+  ///   - inputSize: The optional input tensor size for the layer. Defaults to `nil`.
+  ///   - initializer: The weight initializer type to use. Defaults to the framework's default initializer.
+  ///   - strides: The row and column strides for the convolution operation. Defaults to `(1, 1)`.
+  ///   - outChannels: The number of output channels produced by this block.
+  ///   - squeeze: The squeeze factor used in channel reduction. Defaults to `0`.
+  ///   - expandRatio: The ratio by which channels are expanded before the depthwise convolution. Defaults to `0`.
+  ///   - linkId: A unique string identifier used to link this layer. Defaults to a new UUID string.
   public init(inputSize: TensorSize? = nil,
               initializer: InitializerType = Constants.defaultInitializer,
               strides: (rows: Int, columns: Int) = (1,1),
@@ -179,10 +181,15 @@ public final class RexNet: BaseLayerGroup {
     try container.encode(innerBlockSequential, forKey: .innerBlockSequential)
   }
   
-/// Performs a forward pass over a batch of tensors, processing each tensor individually and collecting the results. We always use TensorBatch here because BatchNorm only works when passing a batch
-/// - Parameter tensorBatch: The batch of input tensors to process.
-/// - Parameter context: The network context providing execution state and mode information.
-/// - Returns: A `TensorBatch` containing the forward-pass output for each input tensor.
+  /// Performs a forward pass over a batch of tensors, applying the inner block and an optional skip connection.
+  ///
+  /// The full batch is always forwarded together because `BatchNormalize` layers inside the
+  /// inner block require all batch members to be present for accurate statistics.
+  ///
+  /// - Parameters:
+  ///   - tensorBatch: The batch of input tensors to process.
+  ///   - context: The network context providing execution state and mode information.
+  /// - Returns: A `TensorBatch` containing the forward-pass output for each input tensor.
   public override func forward(tensorBatch: TensorBatch, context: NetworkContext) -> TensorBatch {
     let outs = if shouldSkip {
       super.forward(tensorBatch: tensorBatch, context: context) + tensorBatch

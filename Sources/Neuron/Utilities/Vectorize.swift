@@ -94,17 +94,14 @@ public class Vectorizer: Vectorizing, Codable {
     0
   }
   
-  /// Initializes a `Vectorizer` instance by decoding it from the given decoder.
-  ///
-  /// - Parameter decoder: The decoder to read data from.
-  /// - Throws: An error if any required value cannot be decoded.
+  /// Coding keys for encoding and decoding `Vectorizer` state.
   public enum CodingKeys: String, CodingKey {
     case vector
     case lastKey
     case startAndEndingEncoding
     case maxIndex
   }
-  
+
   /// Decodes a `Vectorizer` instance from a serialized model.
   ///
   /// - Parameter decoder: Decoder used during model loading.

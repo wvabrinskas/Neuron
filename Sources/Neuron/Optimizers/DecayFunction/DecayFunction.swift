@@ -26,7 +26,7 @@ public protocol DecayFunction {
 /// Subclasses should override `step()` to implement a specific decay formula,
 /// update `decayedLearningRate`, and call `super.step()` to keep `globalSteps` in sync.
 open class BaseDecayFunction: DecayFunction {
-/// The current decayed learning rate value.
+  /// The current decayed learning rate value.
   public var decayedLearningRate: Tensor.Scalar
   
   let originalLearningRate: Tensor.Scalar

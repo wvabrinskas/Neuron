@@ -10,7 +10,7 @@ import Foundation
 /// A helper struct providing utilities for exporting model data to various file formats.
 public struct ExportHelper: ModelBuilder {
   
-/// Defines supported file extensions for exported model files.
+  /// Defines supported file extensions for exported model files.
   public enum FileExtensions: String {
     /// File extension used for serialized network model files.
     case smodel
@@ -18,9 +18,12 @@ public struct ExportHelper: ModelBuilder {
     case stokens
   }
   
-  /// Accepts an array of T generics and returns the array as a CSV url that was saved to disk
-  /// - Parameter data: The data to encode to a CSV
-  /// - Returns: The url that points to the written file. nil if it failed to write
+  /// Encodes an array of values as CSV text and writes the file to the documents directory.
+  ///
+  /// - Parameters:
+  ///   - filename: Output filename without the `.csv` extension. Defaults to `"file"`.
+  ///   - data: Elements to encode; `description` is used for serialization.
+  /// - Returns: URL to the written CSV file, or `nil` on failure.
   public static func getCSV<T>(filename: String = "file", _ data: [T]) -> URL? {
     var stringData = data.description
     stringData = stringData.replacingOccurrences(of: ",", with: ",\n")
