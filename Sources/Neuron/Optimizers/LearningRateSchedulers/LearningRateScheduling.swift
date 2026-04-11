@@ -57,6 +57,7 @@ public final class SequentialLearningRateScheduler: LearningRateScheduling {
   ///   - warmup: The warmup schedule to apply first.
   ///   - decay: The decay schedule to apply after warmup completes.
   ///   - type: The step granularity (`.batch` or `.epoch`) that triggers an update.
+  ///   - metricsReporter: Optional reporter used to publish the current learning rate metric.
   public init(learningRate: Tensor.Scalar,
               warmup: WarmupFunction,
               decay: DecayFunction,
