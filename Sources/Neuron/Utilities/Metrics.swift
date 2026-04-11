@@ -10,27 +10,45 @@ import NumSwift
 
 /// An enumeration of supported metric types used to track training and evaluation statistics.
 public enum Metric: String {
+  /// Training loss computed over the current batch.
   case loss
+  /// Training accuracy computed over the current batch.
   case accuracy
+  /// Validation loss computed on the held-out validation set.
   case valLoss
+  /// Generator loss for GAN-style training.
   case generatorLoss
+  /// Critic (discriminator) loss for WGAN/GAN-style training.
   case criticLoss
+  /// Gradient penalty term used in WGAN-GP training.
   case gradientPenalty
+  /// Discriminator loss on real samples.
   case realImageLoss
+  /// Discriminator loss on fake (generated) samples.
   case fakeImageLoss
+  /// Validation accuracy computed on the held-out validation set.
   case valAccuracy
+  /// Wall-clock time taken to process one training batch (forward + backward + accumulation).
   case batchTime
+  /// Wall-clock time taken by the optimizer's `step()` call (gradient application).
   case optimizerRunTime
+  /// Average number of samples processed concurrently per worker.
   case batchConcurrency
+  /// Global L2 norm of all gradient tensors before clipping.
   case globalGradientNorm
+  /// Scaling factor applied to gradients during global norm clipping.
   case globalGradientScalingFactor
+  /// The current effective learning rate output by the active schedule.
   case currentLearningRate
 }
 
 /// A protocol that defines the interface for objects that collect and store training metrics.
 public protocol MetricLogger: AnyObject {
+  /// The set of metrics actively gathered by this logger.
   var metricsToGather: Set<Metric> { get set }
+  /// The current scalar values for each metric, keyed by `Metric`.
   var metrics: [Metric: Tensor.Scalar] { get set }
+  /// A lock used to serialize concurrent metric writes.
   var lock: NSLock { get }
   /// Records a metric value when the metric is enabled for gathering.
   ///

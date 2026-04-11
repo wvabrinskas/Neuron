@@ -41,6 +41,12 @@ public final class Add: ArithmeticLayer {
     try super.init(from: decoder)
   }
 
+  /// Adds two tensors element-wise.
+  ///
+  /// - Parameters:
+  ///   - input: The primary input tensor.
+  ///   - other: The tensor from the linked layer.
+  /// - Returns: Element-wise sum of `input` and `other`.
   override public func function(input: Tensor, other: Tensor) -> Tensor {
     input + other
   }

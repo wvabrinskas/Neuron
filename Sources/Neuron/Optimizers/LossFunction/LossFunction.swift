@@ -11,15 +11,25 @@ import NumSwift
 /// An enumeration of common loss functions used for training neural networks.
 /// Each case represents a different strategy for measuring prediction error.
 public enum LossFunction {
+  /// Mean squared error: average of squared differences between prediction and target.
   case meanSquareError
+  /// Cross-entropy loss used without a preceding Softmax layer.
   case crossEntropy
+  /// Cross-entropy loss optimized for use with a preceding Softmax layer.
   case crossEntropySoftmax
+  /// Cross-entropy with label smoothing, parameterized by a smoothing coefficient.
   case crossEntropySoftmaxSmoothing(Tensor.Scalar)
+  /// Binary cross-entropy loss used without a preceding Softmax layer.
   case binaryCrossEntropy
+  /// Binary cross-entropy loss optimized for use with a preceding Softmax layer.
   case binaryCrossEntropySoftmax
+  /// Wasserstein distance loss used for WGAN training.
   case wasserstein
+  /// Minimax binary cross-entropy used for standard GAN discriminator training.
   case minimaxBinaryCrossEntropy
+  /// Focal loss with softmax, down-weighting easy examples using `alpha` and `gamma`.
   case focalSoftmax(alpha: Tensor.Scalar, gamma: Tensor.Scalar)
+  /// Huber (smooth L1) loss with a transition threshold `delta`.
   case huber(delta: Tensor.Scalar)
   
   

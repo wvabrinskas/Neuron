@@ -40,6 +40,12 @@ public final class Subtract: ArithmeticLayer {
     try super.init(from: decoder)
   }
 
+  /// Subtracts `other` from `input` element-wise (or the reverse when `inverse` is `true`).
+  ///
+  /// - Parameters:
+  ///   - input: The primary input tensor.
+  ///   - other: The tensor from the linked layer.
+  /// - Returns: Element-wise difference `input - other`.
   override public func function(input: Tensor, other: Tensor) -> Tensor {
     input - other
   }

@@ -18,9 +18,9 @@ public class Classifier {
   private let killOnAccuracy: Bool
   private let accuracyMonitor: AccuracyMonitor
   
-/// An optional closure called when the target accuracy threshold is reached.
+  /// An optional closure called when the target accuracy threshold is reached.
   public var onAccuracyReached: (() -> ())? = nil
-/// An optional closure called at the completion of each training epoch.
+  /// An optional closure called at the completion of each training epoch.
   public var onEpochCompleted: (() -> ())? = nil
   
   /// The optimizer used to update the model's weights during training.
