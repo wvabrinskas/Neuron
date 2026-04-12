@@ -80,6 +80,8 @@ public struct LayerModelConverter {
       layer = try getLayer(layer: Divide.self, container: con)
     case .mish:
       layer = try getLayer(layer: Mish.self, container: con)
+    case .prelu:
+      layer = try getLayer(layer: PReLu.self, container: con)
     case .none:
       layer = nil
     }
