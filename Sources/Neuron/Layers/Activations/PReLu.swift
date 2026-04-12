@@ -32,7 +32,7 @@ public final class PReLu: BaseActivationLayer {
   }
   
   enum CodingKeys: String, CodingKey {
-    case inputSize, type, linkId
+    case inputSize, type, linkId, alpha
   }
 
   convenience public required init(from decoder: Decoder) throws {
@@ -40,6 +40,7 @@ public final class PReLu: BaseActivationLayer {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
     self.linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
+    self.alpha = try container.decodeIfPresent(Tensor.Scalar.self, forKey: .alpha) ?? 0.25
     
     self.outputSize = inputSize
   }
@@ -52,6 +53,7 @@ public final class PReLu: BaseActivationLayer {
     try container.encode(inputSize, forKey: .inputSize)
     try container.encode(encodingType, forKey: .type)
     try container.encode(linkId, forKey: .linkId)
+    try container.encode(alpha, forKey: .alpha)
   }
 
   public override func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
