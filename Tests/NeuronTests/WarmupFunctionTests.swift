@@ -107,7 +107,7 @@ final class WarmupFunctionTests: XCTestCase {
     let warmupSteps: Tensor.Scalar = 20
     let warmup = LinearWarmupFunction(targetLearningRate: targetLR, warmupSteps: warmupSteps)
 
-    var previous: Tensor.Scalar = -Float.infinity
+    var previous: Tensor.Scalar = -Tensor.Scalar.infinity
     for i in 0..<Int(warmupSteps) + 1 {
       warmup.step()
       XCTAssertGreaterThanOrEqual(warmup.warmedLearningRate, previous,
@@ -180,7 +180,7 @@ final class WarmupFunctionTests: XCTestCase {
     let warmupSteps: Tensor.Scalar = 20
     let warmup = CosineWarmupFunction(targetLearningRate: targetLR, warmupSteps: warmupSteps)
 
-    var previous: Tensor.Scalar = -Float.infinity
+    var previous: Tensor.Scalar = -Tensor.Scalar.infinity
     for i in 0..<Int(warmupSteps) + 1 {
       warmup.step()
       XCTAssertGreaterThanOrEqual(warmup.warmedLearningRate, previous,

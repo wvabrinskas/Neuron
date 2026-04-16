@@ -12,7 +12,7 @@ alwaysApply: true
 - Follow Swift naming conventions
 - Use `public` visibility for API classes
 - Use `private` for implementation details
-- Use `Tensor.Scalar` typealias instead of hardcoding `Float` for any new functions that need access to a scalar type. This ensures compatibility with Float16 quantization (when `QUANTIZED_F16` flag is set). See `TensorSIMD.swift` for examples.
+- **Never hardcode `Float` or `Float16`** in any code that interacts with `Tensor`. Always use `Tensor.Scalar` for scalar types, numeric literals (e.g., `Tensor.Scalar(0.0)` not `Float(0.0)`), function signatures, and local variables. This ensures compatibility with Float16 quantization (when `QUANTIZED_F16` flag is set). See `TensorSIMD.swift` for examples. This applies to: layer parameters, optimizer hyperparameters, loss function computations, weight initialization, and test assertions.
 - Any new math functions on a Tensor should be implemented for both `Float` and `Float16` types to ensure the framework works correctly with or without quantization enabled.
 
 ### Error Handling:
