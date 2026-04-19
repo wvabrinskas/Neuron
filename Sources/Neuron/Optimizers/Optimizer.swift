@@ -357,7 +357,7 @@ open class BaseOptimizer: Optimizer {
   }
   
   open func onEpochEnd(epoch: Int) {
-    learningRateScheduler?.step(type: .epoch(epoch))
+    learningRateScheduler?.step(type: .epoch)
   }
   
 }
