@@ -116,18 +116,20 @@ public enum LossFunction {
         for r in 0..<rows {
           let rowOffset = depthOffset + r * cols
           
-          // Find the true-class probability p_t via the one-hot label.
           var pt: Tensor.Scalar = .stabilityFactor
           for c in 0..<cols where correct.storage[rowOffset + c] > 0 {
             pt = max(min(predicted.storage[rowOffset + c], 1 - .stabilityFactor), .stabilityFactor)
             break
           }
           
-          let oneMinusPt = max(1 - pt, Tensor.Scalar.stabilityFactor)  // prevent 0^0
-          let G = alpha * Tensor.Scalar.pow(oneMinusPt, gamma - 1) * (gamma * Tensor.Scalar.log(pt) + oneMinusPt)
+          let oneMinusPt = max(1 - pt, Tensor.Scalar.stabilityFactor)
+          // G = α · (1-p_t)^(γ-1) · [(1-p_t) - γ·p_t·log(p_t)]
+          let G = alpha * Tensor.Scalar.pow(oneMinusPt, gamma - 1)
+                * (oneMinusPt - gamma * pt * Tensor.Scalar.log(pt))
           
           for c in 0..<cols {
-            result[rowOffset + c] = G * (correct.storage[rowOffset + c] - predicted.storage[rowOffset + c])
+            // (p - y), not (y - p)
+            result[rowOffset + c] = G * (predicted.storage[rowOffset + c] - correct.storage[rowOffset + c])
           }
         }
       }

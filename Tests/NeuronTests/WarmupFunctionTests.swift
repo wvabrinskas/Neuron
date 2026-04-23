@@ -31,7 +31,7 @@ final class WarmupFunctionTests: XCTestCase {
 
     warmup.reset()
 
-    XCTAssertEqual(warmup.warmedLearningRate, Tensor.Scalar.stabilityFactor)
+    XCTAssertEqual(warmup.warmedLearningRate, 0)
     XCTAssertEqual(warmup.globalSteps, 0)
     XCTAssertEqual(warmup.warmupState, .warming)
   }
@@ -217,7 +217,7 @@ final class WarmupFunctionTests: XCTestCase {
 
     warmup.reset()
 
-    XCTAssertEqual(warmup.warmedLearningRate, Tensor.Scalar.stabilityFactor)
+    XCTAssertEqual(warmup.warmedLearningRate, 0)
     XCTAssertEqual(warmup.globalSteps, 0)
     XCTAssertEqual(warmup.warmupState, .warming)
   }
