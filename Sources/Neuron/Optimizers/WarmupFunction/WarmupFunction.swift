@@ -47,7 +47,7 @@ open class BaseWarmupFunction: WarmupFunction {
   }
   
   open func reset() {
-    warmedLearningRate = Tensor.Scalar.stabilityFactor
+    warmedLearningRate = 0
     globalSteps = 0
   }
   
