@@ -29,6 +29,7 @@ public protocol Vectorizing: Exportable {
   typealias Vector = [Item: Int]
   typealias InverseVector = [Int: Item]
   
+  /// The last integer index assigned during vectorization.
   var lastKey: Int { get }
   /// Value that indicate starting of a vector
   var start: Int { get }
@@ -67,11 +68,13 @@ public protocol Vectorizing: Exportable {
 /// ex. Can take a string and apply a integer value to the word so that if it came up again
 /// it would return the same integer value for that word.
 public class Vectorizer: Vectorizing, Codable {
-/// The maximum index currently assigned, representing the next available index offset
-/// after reserving indices for start and end tokens.
+  /// The current full vector storage of every value passed in keyed by the `Item`.
   public private(set) var vector: Vector = [:]
+  /// The current full vector storage of every value passed in keyed by the `Index`.
   public private(set) var inverseVector: InverseVector = [:]
-  
+
+  /// The maximum index currently assigned, representing the next available index offset
+  /// after reserving indices for start and end tokens.
   public private(set) var lastKey: Int = 0
   
   /// Value that indicate starting of a vactor
@@ -102,6 +105,10 @@ public class Vectorizer: Vectorizing, Codable {
     case maxIndex
   }
   
+  /// Decodes a `Vectorizer` instance from a serialized model.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: An error if required values cannot be decoded.
   public required init(from decoder: any Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     self.vector = try container.decode(Vector.self, forKey: .vector)

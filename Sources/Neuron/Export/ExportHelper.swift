@@ -12,7 +12,10 @@ public struct ExportHelper: ModelBuilder {
   
 /// Defines supported file extensions for exported model files.
   public enum FileExtensions: String {
-    case smodel, stokens
+    /// File extension used for serialized network model files.
+    case smodel
+    /// File extension used for serialized tokenizer/vectorizer files.
+    case stokens
   }
   
   /// Accepts an array of T generics and returns the array as a CSV url that was saved to disk

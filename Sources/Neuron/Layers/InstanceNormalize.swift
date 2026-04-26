@@ -59,6 +59,10 @@ public final class InstanceNormalize: BaseLayer {
     setupTrainables()
   }
   
+  /// Decodes an InstanceNormalize layer from a serialized model.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: An error if required values cannot be decoded.
   convenience public required init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let gamma = try container.decodeIfPresent(Tensor.self, forKey: .gamma) ?? .init()

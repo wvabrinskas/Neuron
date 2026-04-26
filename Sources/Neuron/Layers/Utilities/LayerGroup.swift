@@ -92,6 +92,10 @@ public class BaseLayerGroup: BaseLayer, LayerGrouping {
                encodingType: encodingType)
   }
   
+  /// Not supported on `BaseLayerGroup` — subclasses must override with their own serialization logic.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: Always triggers a `fatalError`; implement in concrete subclasses.
   required convenience public init(from decoder: Decoder) throws {
     fatalError("init(from:) has not been implemented")
   }

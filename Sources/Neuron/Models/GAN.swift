@@ -28,8 +28,11 @@ open class GAN {
   public var validateGenerator: ((_ output: Tensor) -> ())? = nil
   /// An optional closure called when training has fully completed.
   public var onCompleted: (() -> ())? = nil
+  /// The loss function used to evaluate generator and discriminator performance.
   public private(set) var lossFunction: LossFunction = .minimaxBinaryCrossEntropy
+  /// The label value assigned to generated (fake) samples during discriminator training.
   public private(set) var fakeLabel: Tensor.Scalar = 0
+  /// The label value assigned to real samples during discriminator training.
   public private(set) var realLabel: Tensor.Scalar = 1
   /// The number of epochs for which the GAN will be trained.
   public var epochs: Int

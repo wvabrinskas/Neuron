@@ -13,8 +13,21 @@ public typealias TokenizerCorpus = [String]
 
 /// A protocol that defines tokenization capabilities with support for encoding, decoding, and exporting trained models.
 public protocol Tokenizing: Exportable {
+  /// Trains the tokenizer on the given corpus, building the vocabulary and merge rules.
+  ///
+  /// - Parameter corpus: An array of text strings used to fit the tokenizer.
   func train(corpus: TokenizerCorpus)
+
+  /// Encodes a text string into a sequence of integer token IDs.
+  ///
+  /// - Parameter input: The string to encode.
+  /// - Returns: A sequence of integer token IDs.
   func encode(_ input: String) -> [Int]
+
+  /// Decodes a sequence of integer token IDs back into a text string.
+  ///
+  /// - Parameter ids: The integer token IDs to decode.
+  /// - Returns: The reconstructed text string.
   func decode(_ ids: [Int]) -> String
 }
 
@@ -88,6 +101,9 @@ open class BaseTokenizer: Tokenizing {
     try container.encode(targetVocabSize, forKey: .targetVocabSize)
   }
   
+  /// Trains the BPE tokenizer on the given text corpus, building a vocabulary up to `targetVocabSize`.
+  ///
+  /// - Parameter corpus: An array of text strings used to learn byte-pair merge rules.
   open func train(corpus: TokenizerCorpus) {
     let flatCorpus = corpus.joined(separator: " ")
     
@@ -138,8 +154,12 @@ open class BaseTokenizer: Tokenizing {
     }
   }
   
+  /// Encodes a text string into a sequence of token IDs using the learned BPE vocabulary.
+  ///
+  /// - Parameter text: The input string to encode.
+  /// - Returns: An array of integer token IDs corresponding to the input text.
   open func encode(_ text: String) -> [Int] {
-    
+
     var tokenIds: [Int] = []
     let words = text.components(separatedBy: " ")
     
@@ -181,6 +201,10 @@ open class BaseTokenizer: Tokenizing {
     return tokenIds
   }
   
+  /// Decodes a sequence of token IDs back into a human-readable string.
+  ///
+  /// - Parameter tokenIds: An array of integer token IDs to decode.
+  /// - Returns: The reconstructed string with end-of-word markers replaced by spaces.
   open func decode(_ tokenIds: [Int]) -> String {
     // Invert the vocab dictionary
     let idToToken = reverseVocab

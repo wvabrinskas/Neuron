@@ -23,6 +23,7 @@ public protocol Trainable: AnyObject, Exportable, CustomDebugStringConvertible {
   /// Indicates if this particular network has its weights updated. Mainly used for Batch and Layer normalize. As they have different paths for training and not training.
   var isTraining: Bool { get set }
   
+  /// The compute device type used for inference and training.
   var deviceType: DeviceType { get set }
   
   /// The device to execute the ML ops and math ops on. Default: CPU()

@@ -33,6 +33,10 @@ public final class Add: ArithmeticLayer {
                linkTo: linkTo)
   }
 
+  /// Decodes an Add layer from a serialized model.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: An error if required values cannot be decoded.
   required public init(from decoder: Decoder) throws {
     try super.init(from: decoder)
   }

@@ -30,6 +30,10 @@ public final class LeakyReLu: BaseActivationLayer {
          linkId
   }
   
+  /// Decodes a LeakyReLU layer from a serialized model.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: An error if required values cannot be decoded.
   convenience public required init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let limit = try container.decodeIfPresent(Tensor.Scalar.self, forKey: .limit) ?? 0.01

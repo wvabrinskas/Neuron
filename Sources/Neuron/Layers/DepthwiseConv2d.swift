@@ -100,6 +100,10 @@ public class DepthwiseConv2d: BaseConvolutionalLayer {
          linkId
   }
   
+  /// Decodes a DepthwiseConv2d layer from a serialized model.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: An error if required values cannot be decoded.
   required convenience public init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
