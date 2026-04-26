@@ -8,6 +8,7 @@
 import Foundation
 
 public extension Int {
+  /// Converts the integer to a `Tensor.Scalar` value (`Float` or `Float16` depending on build configuration).
   var asTensorScalar: Tensor.Scalar {
     Tensor.Scalar(self)
   }

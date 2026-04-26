@@ -13,20 +13,34 @@ import NumSwift
 /// Conforming types manage the training loop, gradient computation, weight updates,
 /// and optional augmentation or metrics reporting.
 public protocol Optimizer: AnyObject {
+  /// A tuple containing weight and bias gradient tensors for a single layer.
   typealias Gradient = (weights: Tensor, biases: Tensor)
+  /// A tuple containing per-batch outputs, accumulated gradients, scalar loss, and accuracy.
   typealias Output = (outputs: [Tensor], gradients: Tensor.Gradient, loss: Tensor.Scalar, accuracy: Tensor.Scalar)
-  
+
+  /// The trainable network model whose parameters this optimizer manages.
   var trainable: Trainable { get set }
+  /// The current learning rate, taking into account any active decay or warmup schedule.
   var learningRate: Tensor.Scalar { get }
+  /// Indicates whether the optimizer is in training mode.
   var isTraining: Bool { get set }
+  /// The compute device used for forward and backward operations.
   var device: Device { get }
+  /// The compute device type; setting this updates the shared `DeviceManager`.
   var deviceType: DeviceType { get set }
+  /// An optional reporter for gathering training metrics such as loss, accuracy, and timing.
   var metricsReporter: MetricsReporter? { get set }
+  /// An optional upper bound for weight clipping applied after each parameter update.
   var weightClip: Tensor.Scalar? { get set }
+  /// An optional global gradient norm clip threshold applied before parameter updates.
   var gradientClip: Tensor.Scalar? { get set }
+  /// The accumulator that aggregates per-sample gradients across a mini-batch.
   var gradientAccumulator: GradientAccumulator { get }
+  /// An optional learning rate scheduler that applies warmup and/or decay.
   var learningRateScheduler: LearningRateScheduling? { get set }
+  /// The number of samples per optimization step.
   var batchSize: Int { get }
+  /// An optional augmenter applied to input data during training.
   var augmenter: Augmenter? { get set }
 
   /// Runs inference via call syntax.
@@ -66,6 +80,9 @@ public protocol Optimizer: AnyObject {
   /// - Returns: Prediction tensors.
   func predict(_ data: [Tensor]) -> [Tensor]
   
+  /// Called at the end of each training epoch; used to update learning rate schedulers and other epoch-level state.
+  ///
+  /// - Parameter epoch: The zero-based epoch index that just completed.
   func onEpochEnd(epoch: Int)
 }
 
@@ -356,6 +373,9 @@ open class BaseOptimizer: Optimizer {
     }
   }
   
+  /// Called at the end of each training epoch to advance the learning rate scheduler.
+  ///
+  /// - Parameter epoch: The index of the epoch that just completed.
   open func onEpochEnd(epoch: Int) {
     learningRateScheduler?.step(type: .epoch)
   }

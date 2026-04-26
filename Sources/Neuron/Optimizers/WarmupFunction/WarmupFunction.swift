@@ -46,11 +46,16 @@ open class BaseWarmupFunction: WarmupFunction {
     self.warmupSteps = warmupSteps
   }
   
+  /// Resets the warmup schedule to its initial state, zeroing the learning rate and step counter.
   open func reset() {
     warmedLearningRate = 0
     globalSteps = 0
   }
-  
+
+  /// Advances the warmup schedule by one step.
+  ///
+  /// Subclasses should override this method to update `warmedLearningRate` using their
+  /// specific warmup formula, then call `super.step()` to increment `globalSteps`.
   open func step() {
     // override and apply function here
     globalSteps += 1

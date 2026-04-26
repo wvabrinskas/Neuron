@@ -23,8 +23,9 @@ public class Classifier {
 /// An optional closure called at the completion of each training epoch.
   public var onEpochCompleted: (() -> ())? = nil
   
+  /// The optimizer used to update the model's weights during training.
   public private(set) var optimizer: Optimizer
-  
+
   /// Creates a classifier training wrapper around an optimizer/trainable pair.
   ///
   /// - Parameters:
