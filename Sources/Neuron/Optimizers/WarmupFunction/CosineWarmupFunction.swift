@@ -14,8 +14,7 @@ import Foundation
 public class CosineWarmupFunction: BaseWarmupFunction {
   /// Advances the warmup schedule by one step and updates `warmedLearningRate` using the cosine formula.
   public override func step() {
-    super.step()
-    
     warmedLearningRate = targetLearningRate * 0.5 * (1 - Tensor.Scalar.cos(Tensor.Scalar.pi * Tensor.Scalar(globalSteps) / Tensor.Scalar(warmupSteps)))
+    super.step()
   }
 }

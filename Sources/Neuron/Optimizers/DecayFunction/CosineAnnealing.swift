@@ -38,11 +38,9 @@ public final class CosineAnnealingDecay: BaseDecayFunction {
   
   /// Advances the schedule and computes the next decayed learning rate.
   public override func step() {
-    super.step()
-    
     let cosine = Tensor.Scalar.cos(Tensor.Scalar.pi * Tensor.Scalar(globalSteps) / Tensor.Scalar(decaySteps))
     let adjusted = minLR + 0.5 * (maxLR - minLR) * (1 + cosine)
-    
     decayedLearningRate = adjusted
+    super.step()
   }
 }
