@@ -32,7 +32,7 @@ public protocol WarmupFunction {
 /// Subclasses should override `step()` to implement a specific warmup formula,
 /// update `warmedLearningRate`, and call `super.step()` to advance `globalSteps`.
 open class BaseWarmupFunction: WarmupFunction {
-/// The current warmed learning rate, updated on each call to `step()`.
+  /// The current warmed learning rate, updated on each call to `step()`.
   public var warmedLearningRate: Tensor.Scalar = Tensor.Scalar.stabilityFactor
   
   /// The current phase of the warmup schedule — `.warming` while below target, `.complete` once reached.

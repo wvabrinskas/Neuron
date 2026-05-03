@@ -10,7 +10,10 @@ import NumSwift
 
 /// Represents the type of compute device available for tensor operations.
 public enum DeviceType: String, Codable {
-  case cpu, gpu
+  /// The CPU compute device, used for all standard operations.
+  case cpu
+  /// The GPU compute device. Currently a work-in-progress and falls back to CPU.
+  case gpu
   
   func device() -> Device {
     switch self {

@@ -24,6 +24,9 @@ public final class Flatten: BaseLayer {
     case inputSize, type, linkId
   }
   
+  /// Recalculates the flat output size whenever the input size changes.
+  ///
+  /// Sets `outputSize` to `(columns: columns×rows×depth, rows: 1, depth: 1)`.
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     let total = inputSize.columns * inputSize.rows * inputSize.depth

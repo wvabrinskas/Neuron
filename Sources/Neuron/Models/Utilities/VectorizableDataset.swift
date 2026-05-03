@@ -16,8 +16,9 @@ public typealias VectorizingDatasetData = (training: [DatasetModel], val: [Datas
 /// for encoding items as one-hot tensors or index-based tensors.
 public protocol VectorizingDataset {
   typealias Item = String
+  /// The vectorizer used to encode and decode dataset items.
   var vectorizer: Vectorizer { get }
-  
+  /// The total number of unique tokens in the vocabulary.
   var vocabSize: Int { get }
   /// One-hot encodes dataset items.
   ///
@@ -64,14 +65,18 @@ public protocol VectorizingDataset {
   func export(name: String?, overrite: Bool, compress: Bool) -> URL?
 }
 
+/// A base implementation of `VectorizingDataset` backed by a `Vectorizer` instance.
+///
+/// Provides default implementations for one-hot encoding, vectorization, decoding,
+/// and model export. Subclasses should override `build()` to supply training data.
 open class VectorizableDataset: VectorizingDataset {
 
-/// The vectorizer used to encode and decode dataset items.
+  /// The vectorizer used to encode and decode dataset items.
   public let vectorizer: Vectorizer
 
-/// The number of unique tokens in the vocabulary.
-///
-/// Reflects the size of the vectorizer's internal vector mapping.
+  /// The number of unique tokens in the vocabulary.
+  ///
+  /// Reflects the size of the vectorizer's internal vector mapping.
   public var vocabSize: Int = 0
 
   /// Creates a dataset backed by the given vectorizer.

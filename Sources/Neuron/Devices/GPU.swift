@@ -10,14 +10,16 @@ import NumSwift
 
 // currently a WIP and mimics the CPU
 /// A GPU-backed device implementation conforming to the `Device` protocol.
+///
+/// - Note: GPU execution is currently a work in progress. All operations fall back to CPU-backed NumSwift implementations.
 public struct GPU: Device {
 
-  /// Priority to run the multithreaded operations on
+  /// Quality of Service priority used for concurrent dispatch blocks on this device.
   public var qosPriority: DispatchQoS.QoSClass = .default
-  /// The device type identifier for this implementation, set to `.cpu`.
+  /// The device type identifier for this implementation, set to `.gpu`.
   public var type: DeviceType = .gpu
 
-  /// Creates a CPU-backed device implementation.
+  /// Creates a GPU-backed device instance.
   public init() {}
 
   /// Performs a batched transposed 2D convolution (deconvolution) on the GPU.

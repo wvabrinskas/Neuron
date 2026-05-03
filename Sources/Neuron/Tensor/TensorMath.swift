@@ -1075,30 +1075,72 @@ public extension Tensor {
     return Tensor(storage: result, size: size, context: context)
   }
   
+  /// Returns a new tensor where each element is `lhs` divided by the corresponding element.
+  ///
+  /// - Parameters:
+  ///   - lhs: The scalar numerator.
+  ///   - rhs: The tensor whose elements serve as denominators.
+  /// - Returns: A new `Tensor` with values `lhs / rhs[i]` for each element.
   static func /(lhs: Scalar, rhs: Tensor) -> Tensor {
     return Tensor(storage: lhs / rhs.storage, size: rhs.size, context: rhs.context)
   }
-  
+
+  /// Returns a new tensor where each element is multiplied by the scalar `lhs`.
+  ///
+  /// - Parameters:
+  ///   - lhs: The scalar multiplier.
+  ///   - rhs: The tensor to scale.
+  /// - Returns: A new `Tensor` with values `rhs[i] * lhs` for each element.
   static func *(lhs: Scalar, rhs: Tensor) -> Tensor {
     return Tensor(storage: rhs.storage * lhs, size: rhs.size, context: rhs.context)
   }
-  
+
+  /// Returns a new tensor where each element is `lhs` minus the corresponding element.
+  ///
+  /// - Parameters:
+  ///   - lhs: The scalar minuend.
+  ///   - rhs: The tensor whose elements serve as subtrahends.
+  /// - Returns: A new `Tensor` with values `lhs - rhs[i]` for each element.
   static func -(lhs: Scalar, rhs: Tensor) -> Tensor {
     return Tensor(storage: lhs - rhs.storage, size: rhs.size, context: rhs.context)
   }
-  
+
+  /// Returns a new tensor with every element divided by the scalar `rhs`.
+  ///
+  /// - Parameters:
+  ///   - lhs: The tensor to divide.
+  ///   - rhs: The scalar divisor.
+  /// - Returns: A new `Tensor` with values `lhs[i] / rhs` for each element.
   static func /(lhs: Tensor, rhs: Scalar) -> Tensor {
     return Tensor(storage: lhs.storage / rhs, size: lhs.size, context: lhs.context)
   }
-  
+
+  /// Returns a new tensor with every element multiplied by the scalar `rhs`.
+  ///
+  /// - Parameters:
+  ///   - lhs: The tensor to scale.
+  ///   - rhs: The scalar multiplier.
+  /// - Returns: A new `Tensor` with values `lhs[i] * rhs` for each element.
   static func *(lhs: Tensor, rhs: Scalar) -> Tensor {
     return Tensor(storage: lhs.storage * rhs, size: lhs.size, context: lhs.context)
   }
-  
+
+  /// Returns a new tensor with the scalar `rhs` subtracted from every element.
+  ///
+  /// - Parameters:
+  ///   - lhs: The tensor to subtract from.
+  ///   - rhs: The scalar subtrahend.
+  /// - Returns: A new `Tensor` with values `lhs[i] - rhs` for each element.
   static func -(lhs: Tensor, rhs: Scalar) -> Tensor {
     return Tensor(storage: lhs.storage - rhs, size: lhs.size, context: lhs.context)
   }
-  
+
+  /// Returns a new tensor with the scalar `rhs` added to every element.
+  ///
+  /// - Parameters:
+  ///   - lhs: The tensor to add to.
+  ///   - rhs: The scalar addend.
+  /// - Returns: A new `Tensor` with values `lhs[i] + rhs` for each element.
   static func +(lhs: Tensor, rhs: Scalar) -> Tensor {
     return Tensor(storage: lhs.storage + rhs, size: lhs.size, context: lhs.context)
   }
@@ -1230,14 +1272,26 @@ public extension Tensor {
     return new
   }
   
+  /// Returns a new tensor of the same shape with all elements set to zero.
+  ///
+  /// - Returns: A zero-filled `Tensor` with the same `size` as `self`.
   func zerosLike() -> Tensor {
     return Tensor(storage: TensorStorage.create(count: storage.count), size: size)
   }
-  
+
+  /// Returns a new tensor of the same shape with all elements set to one.
+  ///
+  /// - Returns: A ones-filled `Tensor` with the same `size` as `self`.
   func onesLike() -> Tensor {
     return Tensor(storage: TensorStorage.create(repeating: 1, count: storage.count), size: size)
   }
-  
+
+  /// Returns a new tensor that is the transpose of this tensor.
+  ///
+  /// For each depth slice, rows and columns are swapped. The resulting tensor has shape
+  /// `(rows: columns, columns: rows, depth: depth)`.
+  ///
+  /// - Returns: A new `Tensor` with rows and columns exchanged for each depth slice.
   func transposed() -> Tensor {
     let columns = size.columns
     let rows = size.rows
