@@ -43,6 +43,12 @@ public final class Divide: ArithmeticLayer {
     try super.init(from: decoder)
   }
 
+  /// Divides `input` by `other` element-wise (or the reverse when `inverse` is `true`).
+  ///
+  /// - Parameters:
+  ///   - input: The primary input tensor (numerator by default).
+  ///   - other: The tensor from the linked layer (denominator by default).
+  /// - Returns: Element-wise quotient `input / other`.
   override public func function(input: Tensor, other: Tensor) -> Tensor {
     input / other
   }

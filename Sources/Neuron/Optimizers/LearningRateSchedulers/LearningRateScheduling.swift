@@ -21,10 +21,17 @@ public enum LearningRateScheduleStepType: Equatable {
 /// Implementations first apply a warmup phase to ramp the learning rate up,
 /// then hand off to a decay function once warmup is complete.
 public protocol LearningRateScheduling {
+  /// The current effective learning rate produced by the active schedule phase.
   var learningRate: Tensor.Scalar { get }
+  /// The warmup schedule applied during the initial training phase.
   var warmup: WarmupFunction { get }
+  /// The decay schedule applied once warmup is complete.
   var decay: DecayFunction { get }
+  /// Advances the schedule by one step of the specified type.
+  ///
+  /// - Parameter type: Whether the step corresponds to a batch or an epoch boundary.
   func step(type: LearningRateScheduleStepType)
+  /// Resets the scheduler, warmup, and decay to their initial states.
   func reset()
 }
 

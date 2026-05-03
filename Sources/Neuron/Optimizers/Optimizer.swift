@@ -87,6 +87,12 @@ public protocol Optimizer: AnyObject {
 }
 
 // TODO: allow for arbitrary weight shape in Optimizer, so we dont have to cram all weights into a 3D tensor
+/// A concrete base implementation of the `Optimizer` protocol that handles common training
+/// infrastructure such as gradient accumulation, learning rate management, batch processing,
+/// and metrics reporting.
+///
+/// Subclasses override `step()` to implement algorithm-specific gradient application logic
+/// (e.g., Adam, SGD, RMSProp) while inheriting the full training loop from `fit(_:labels:wrt:lossFunction:validation:requiresGradients:)`.
 open class BaseOptimizer: Optimizer {
   /// An optional augmenter applied to input data during training.
   public var augmenter: Augmenter?

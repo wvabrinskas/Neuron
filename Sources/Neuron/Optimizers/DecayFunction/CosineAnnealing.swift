@@ -18,13 +18,12 @@ public final class CosineAnnealingDecay: BaseDecayFunction {
   private let maxLR: Tensor.Scalar
   
   
-  /// Creates an exponential learning-rate decay schedule.
+  /// Creates a cosine annealing learning-rate schedule.
   ///
   /// - Parameters:
-  ///   - learningRate: Initial learning rate.
-  ///   - decayRate: Multiplicative factor applied every `decaySteps`.
-  ///   - decaySteps: Step interval used by the decay equation.
-  ///   - staircase: When `true`, uses floor-stepped exponent updates.
+  ///   - learningRate: Maximum (initial) learning rate.
+  ///   - minLearningRate: Minimum learning rate at the end of each cycle.
+  ///   - decaySteps: Number of steps in one annealing cycle.
   public init(learningRate: Tensor.Scalar,
               minLearningRate: Tensor.Scalar,
               decaySteps: Int) {

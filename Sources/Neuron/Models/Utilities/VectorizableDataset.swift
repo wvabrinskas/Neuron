@@ -41,11 +41,26 @@ public protocol VectorizingDataset {
   /// - Returns: Tuple containing training and validation datasets.
   func build() async -> VectorizingDatasetData
   
+  /// Builds a dataset instance by loading a vectorizer from a file URL.
+  ///
+  /// - Parameter url: File URL from which to import vectorizer state.
+  /// - Returns: A new dataset instance initialized with the imported vectorizer.
   static func build(url: URL) -> Self
-  
+
   @_spi(Visualizer)
+  /// Builds a dataset instance by loading a vectorizer from raw data bytes.
+  ///
+  /// - Parameter data: Raw data from which to import vectorizer state.
+  /// - Returns: A new dataset instance initialized with the imported vectorizer.
   static func build(data: Data) -> Self
-  
+
+  /// Exports the dataset's vectorizer to disk and returns the resulting file URL.
+  ///
+  /// - Parameters:
+  ///   - name: Optional filename prefix for the exported file.
+  ///   - overrite: When `false`, a timestamp is appended to avoid overwriting.
+  ///   - compress: When `true`, the exported file uses compact JSON.
+  /// - Returns: URL to the exported file, or `nil` on failure.
   func export(name: String?, overrite: Bool, compress: Bool) -> URL?
 }
 
@@ -59,6 +74,9 @@ open class VectorizableDataset: VectorizingDataset {
 /// Reflects the size of the vectorizer's internal vector mapping.
   public var vocabSize: Int = 0
 
+  /// Creates a dataset backed by the given vectorizer.
+  ///
+  /// - Parameter vectorizer: Vectorizer used to encode and decode dataset items.
   public required init(vectorizer: Vectorizer = .init()) {
     self.vectorizer = vectorizer
     self.vocabSize = vectorizer.vector.count

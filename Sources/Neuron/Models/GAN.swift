@@ -8,6 +8,11 @@
 import Foundation
 import NumSwift
 
+/// A base class implementing the standard Generative Adversarial Network training loop.
+///
+/// Manages alternating updates between a generator and discriminator network using
+/// the minimax binary cross-entropy formulation. Subclass to override training steps
+/// (e.g., `WGAN`, `WGANGP`).
 open class GAN {
   /// Indicates whether training data is real or generated (fake).
   public enum TrainingType: String {

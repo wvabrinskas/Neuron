@@ -162,9 +162,10 @@ public final class RexNet: BaseLayerGroup {
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
   }
   
-/// Encodes this `RexNet` instance into the given encoder, storing the input size, encoding type, and link ID.
-/// - Parameter encoder: The encoder to write data into.
-/// - Throws: An error if any values fail to encode.
+  /// Encodes this `RexNet` instance into the given encoder, storing the input size, encoding type, and link ID.
+  ///
+  /// - Parameter encoder: The encoder to write data into.
+  /// - Throws: An error if any values fail to encode.
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)

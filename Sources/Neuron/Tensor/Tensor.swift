@@ -46,9 +46,9 @@ public class Tensor: Equatable, Codable {
   
   /// The legacy nested-array type for tensor data. Prefer using `storage` and `size` for new code.
   public typealias Data = [[[Scalar]]]
-/// A flat contiguous array of `Scalar` values used as the internal storage for tensor data.
+  /// A flat contiguous array of `Tensor.Scalar` values used as the internal storage for tensor data.
   public typealias Value = ContiguousArray<Scalar> //[Scalar]
-/// A unique identifier type for `Tensor` instances.
+  /// A unique identifier type for `Tensor` instances.
   public typealias ID = UInt64
   
   /// A dictionary mapping tensor IDs to their corresponding branch gradient tensors,
@@ -149,7 +149,15 @@ public class Tensor: Equatable, Codable {
     set { storage[flatIndex(column: c, row: r, depth: d)] = newValue }
   }
   
-  /// only works for 3D tensors, Input is [colRange, rowRange, depthRange]
+  /// Returns a sub-tensor by slicing along all three dimensions simultaneously.
+  ///
+  /// Only works for 3D tensors. The ranges are relative to the full bounds of each dimension.
+  ///
+  /// - Parameters:
+  ///   - colRange: A range expression selecting the column indices to include.
+  ///   - rowRange: A range expression selecting the row indices to include.
+  ///   - depthRange: A range expression selecting the depth indices to include.
+  /// - Returns: A new `Tensor` containing the selected slice, sharing the same context.
   public subscript(_ colRange: some RangeExpression<Int>,
                    _ rowRange: some RangeExpression<Int>,
                    _ depthRange: some RangeExpression<Int>) -> Tensor {
@@ -183,7 +191,7 @@ public class Tensor: Equatable, Codable {
   
   // MARK: - Initializers
 
-  /// Default initializer with no context or value
+  /// Creates an empty tensor with zero dimensions and no context.
   public init() {
     self.storage = TensorStorage.create(count: 0)
     self.size = TensorSize(rows: 0, columns: 0, depth: 0)
@@ -426,8 +434,12 @@ public class Tensor: Equatable, Codable {
     return Tensor(value, size: TensorSize(rows: size.rows, columns: size.columns, depth: size.depth))
   }
   
-  /// Creates a new Tensor from a single depth slice of this tensor.
-  /// The result has depth=1 and the same rows/columns.
+  /// Creates a new `Tensor` from a single depth slice of this tensor.
+  ///
+  /// The result has `depth = 1` and the same `rows` and `columns` as the original.
+  ///
+  /// - Parameter d: The depth index (0-based) to extract.
+  /// - Returns: A new `Tensor` containing only the data at depth `d`.
   public func depthSliceTensor(_ d: Int) -> Tensor {
     let sliceStorage = depthSlice(d)
     return Tensor(sliceStorage, size: TensorSize(rows: size.rows, columns: size.columns, depth: 1))
@@ -853,14 +865,23 @@ extension Tensor: CustomDebugStringConvertible {
 // MARK: - Array<Tensor> Extensions
 
 extension Array where Element == Tensor {
-  
+
+  /// Computes the element-wise mean over an array of tensors.
+  ///
+  /// All tensors in the array must have the same shape. The result is a new
+  /// `Tensor` whose every element is the average of the corresponding elements
+  /// across all tensors in the array.
   var mean: Tensor {
     var mutableSelf = self
     let first = mutableSelf.removeFirst()
     let mean = mutableSelf.reduce(first, +) / count.asTensorScalar
     return mean
   }
-  
+
+  /// Packs an array of same-shaped tensors into a single batched tensor.
+  ///
+  /// The resulting tensor has a `batchCount` equal to the array count. Use
+  /// `tensor.batchSlice(_:)` to extract individual batch elements.
   var asTensor: Tensor {
     let firstSize = self[safe: 0, Tensor()].size
     let size = TensorSize(rows: firstSize.rows,
@@ -880,6 +901,14 @@ extension Array where Element == Tensor {
     return Tensor(storage: result, size: size)
   }
   
+  /// Computes gradients for an array of output tensors given matching delta and `wrt` tensors.
+  ///
+  /// Processes each (output, delta, wrt) triple in parallel using `Constants.maxWorkers` threads.
+  ///
+  /// - Parameters:
+  ///   - deltas: The incoming error tensors, one per output tensor.
+  ///   - wrt: The input tensors to differentiate with respect to, one per output tensor.
+  /// - Returns: An array of `Tensor.Gradient` values in the same order as `self`.
   func gradients(_ deltas: [Tensor], wrt: [Tensor]) -> [Tensor.Gradient] {
     var result = [Tensor.Gradient](repeating: .init(),
                                    count: deltas.count)
@@ -895,95 +924,143 @@ extension Array where Element == Tensor {
     return result
   }
   
+  /// Returns a new array formed by adding corresponding tensors element-wise.
+  ///
+  /// - Parameters:
+  ///   - lhs: The left-hand array of tensors.
+  ///   - rhs: The right-hand array of tensors (must be the same length as `lhs`).
+  /// - Returns: An array where each element is `lhs[i] + rhs[i]`.
   static func +(lhs: [Tensor], rhs: [Tensor]) -> Self {
     var result: [Tensor] = []
-    
+
     for i in 0..<lhs.count {
       let left = lhs[i]
       let right = rhs[i]
       result.append(left + right)
     }
-    
+
     return result
   }
-  
+
+  /// Returns a new array formed by subtracting corresponding tensors element-wise.
+  ///
+  /// - Parameters:
+  ///   - lhs: The left-hand array of tensors.
+  ///   - rhs: The right-hand array of tensors (must be the same length as `lhs`).
+  /// - Returns: An array where each element is `lhs[i] - rhs[i]`.
   static func -(lhs: [Tensor], rhs: [Tensor]) -> Self {
     var result: [Tensor] = []
-    
+
     for i in 0..<lhs.count {
       let left = lhs[i]
       let right = rhs[i]
       result.append(left - right)
     }
-    
+
     return result
   }
-  
+
+  /// Returns a new array formed by multiplying corresponding tensors element-wise.
+  ///
+  /// - Parameters:
+  ///   - lhs: The left-hand array of tensors.
+  ///   - rhs: The right-hand array of tensors (must be the same length as `lhs`).
+  /// - Returns: An array where each element is `lhs[i] * rhs[i]`.
   static func *(lhs: [Tensor], rhs: [Tensor]) -> Self {
     var result: [Tensor] = []
-    
+
     for i in 0..<lhs.count {
       let left = lhs[i]
       let right = rhs[i]
       result.append(left * right)
     }
-    
+
     return result
   }
-  
+
+  /// Returns a new array formed by dividing corresponding tensors element-wise.
+  ///
+  /// - Parameters:
+  ///   - lhs: The left-hand array of tensors.
+  ///   - rhs: The right-hand array of tensors (must be the same length as `lhs`).
+  /// - Returns: An array where each element is `lhs[i] / rhs[i]`.
   static func /(lhs: [Tensor], rhs: [Tensor]) -> Self {
     var result: [Tensor] = []
-    
+
     for i in 0..<lhs.count {
       let left = lhs[i]
       let right = rhs[i]
       result.append(left / right)
     }
-    
+
     return result
   }
 
+  /// Returns a new array by scaling every tensor by the scalar `rhs`.
+  ///
+  /// - Parameters:
+  ///   - lhs: The array of tensors to scale.
+  ///   - rhs: The scalar multiplier.
+  /// - Returns: An array where each element is `lhs[i] * rhs`.
   static func *(lhs: [Tensor], rhs: Tensor.Scalar) -> Self {
     var result: [Tensor] = []
-    
+
     for i in 0..<lhs.count {
       let left = lhs[i]
       result.append(left * rhs)
     }
-    
+
     return result
   }
-  
+
+  /// Returns a new array by subtracting the scalar `rhs` from every tensor element-wise.
+  ///
+  /// - Parameters:
+  ///   - lhs: The array of tensors.
+  ///   - rhs: The scalar to subtract.
+  /// - Returns: An array where each element is `lhs[i] - rhs`.
   static func -(lhs: [Tensor], rhs: Tensor.Scalar) -> Self {
     var result: [Tensor] = []
-    
+
     for i in 0..<lhs.count {
       let left = lhs[i]
       result.append(left - rhs)
     }
-    
+
     return result
   }
-  
+
+  /// Returns a new array by dividing every tensor by the scalar `rhs` element-wise.
+  ///
+  /// - Parameters:
+  ///   - lhs: The array of tensors.
+  ///   - rhs: The scalar divisor.
+  /// - Returns: An array where each element is `lhs[i] / rhs`.
   static func /(lhs: [Tensor], rhs: Tensor.Scalar) -> Self {
     var result: [Tensor] = []
-    
+
     for i in 0..<lhs.count {
       let left = lhs[i]
       result.append(left / rhs)
     }
-    
+
     return result
   }
-  
+
+  /// Returns a new array by adding the scalar `rhs` to every tensor element-wise.
+  ///
+  /// - Parameters:
+  ///   - lhs: The array of tensors.
+  ///   - rhs: The scalar to add.
+  /// - Returns: An array where each element is `lhs[i] + rhs`.
   static func +(lhs: [Tensor], rhs: Tensor.Scalar) -> Self {
     var result: [Tensor] = []
-    
+
     for i in 0..<lhs.count {
       let left = lhs[i]
       result.append(left + rhs)
     }
-    
+
     return result
   }
 }
