@@ -12,7 +12,7 @@ import NumSwift
 public struct CPU: Device {
 
   
-  /// Priority to run the multithreaded operations on
+  /// Quality of Service priority used for concurrent dispatch blocks on this device.
   public var qosPriority: DispatchQoS.QoSClass = .default
   /// The device type identifier for this implementation, set to `.cpu`.
   public var type: DeviceType = .cpu

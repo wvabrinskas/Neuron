@@ -47,17 +47,23 @@ public enum EncodingType: String, Codable {
        none
 }
 
-/// A layer that performs an activation function
+/// A layer that performs an activation function.
 public protocol ActivationLayer: Layer {
+  /// The specific activation function applied by this layer.
   var type: Activation { get }
 }
 
-/// A layer that performs a convolution operation
+/// A layer that performs a convolution operation.
 public protocol ConvolutionalLayer: Layer {
+  /// The number of convolutional filters in this layer.
   var filterCount: Int { get }
+  /// The learnable filter kernels for this layer.
   var filters: [Tensor] { get }
+  /// The spatial dimensions (rows and columns) of each filter kernel.
   var filterSize: (rows: Int, columns: Int) { get }
+  /// The step size used when sliding the filter over the input.
   var strides: (rows: Int, columns: Int) { get }
+  /// The padding strategy applied before convolution.
   var padding: NumSwift.ConvPadding { get }
 }
 
@@ -675,6 +681,7 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
 /// initializer with the appropriate `Activation` case.
 open class BaseActivationLayer: BaseLayer, ActivationLayer {
 
+  /// Returns an empty string; activation layers have no additional detail to display.
   public override var details: String {
       ""
   }
@@ -774,6 +781,10 @@ open class BaseThreadBatchingLayer: BaseLayer {
   let updateLock = NSLock()
   let iterations = ManagedAtomic<Int>(0)
 
+  /// Whether the layer is currently in training mode.
+  ///
+  /// Setting this to `false` also resets the internal iteration counter so the
+  /// next training epoch starts with a clean synchronization state.
   override public var isTraining: Bool {
     didSet {
       if isTraining == false {

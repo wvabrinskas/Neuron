@@ -106,6 +106,7 @@ public final class Dropout: BaseLayer {
   ///   - learningRate: Ignored.
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {}
   
+  /// Sets `outputSize` equal to `inputSize` since dropout preserves tensor shape.
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     outputSize = inputSize

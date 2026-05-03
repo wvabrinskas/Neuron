@@ -31,6 +31,10 @@ public protocol Tokenizing: Exportable {
   func decode(_ ids: [Int]) -> String
 }
 
+/// A base Byte Pair Encoding (BPE) tokenizer that learns subword merge rules from a text corpus.
+///
+/// Subclasses may override `train(_:)`, `encode(_:)`, and `decode(_:)` to customise tokenization behaviour.
+/// The learned vocabulary and merge rules are serializable via the `Exportable` protocol.
 open class BaseTokenizer: Tokenizing {
   private var vocab: [String: Int] = [:]
   private var reverseVocab: [Int: String] = [:]

@@ -9,9 +9,11 @@ import NumSwift
 import Foundation
 
 
-/// Used for a model to send desired accuracy information to a model. 
+/// Used for a model to send desired accuracy information to a model.
 public struct AccuracyThreshold: Hashable {
+  /// The target accuracy fraction in `[0, 1]` at which training should stop.
   let value: Tensor.Scalar
+  /// The sliding-window size over which accuracy is averaged before comparing to `value`.
   let averageCount: Int
   
   
