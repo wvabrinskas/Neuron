@@ -303,30 +303,22 @@ public class TensorStorage {
 
   // MARK: - Unsafe Access
 
-  /// Calls `body` with an immutable `UnsafeBufferPointer` over the stored scalars.
-  /// - Parameter body: A closure that receives the buffer pointer and returns a value.
-  /// - Returns: The value returned by `body`.
-  /// - Throws: Rethrows any error thrown by `body`.
-  @discardableResult
   /// Calls `body` with an `UnsafeBufferPointer` over the stored scalars.
   /// - Parameter body: A closure that receives the read-only buffer pointer and returns a value.
   /// - Returns: The value returned by `body`.
   /// - Throws: Rethrows any error thrown by `body`.
+  @discardableResult
   public func withUnsafeBufferPointer<R>(_ body: (UnsafeBufferPointer<Tensor.Scalar>) throws -> R) rethrows -> R {
     try body(UnsafeBufferPointer(start: _buffer.pointer, count: count))
   }
 
   /// Calls `body` with a mutable `UnsafeMutableBufferPointer` over the stored scalars.
+  ///
   /// Triggers a copy-on-write if the buffer is currently shared.
   /// - Parameter body: A closure that receives the mutable buffer pointer and returns a value.
   /// - Returns: The value returned by `body`.
   /// - Throws: Rethrows any error thrown by `body`.
   @discardableResult
-  /// Calls `body` with a mutable `UnsafeMutableBufferPointer` over the stored scalars.
-  /// Triggers a copy-on-write if the buffer is currently shared.
-  /// - Parameter body: A closure that receives the mutable buffer pointer and returns a value.
-  /// - Returns: The value returned by `body`.
-  /// - Throws: Rethrows any error thrown by `body`.
   public func withUnsafeMutableBufferPointer<R>(_ body: (UnsafeMutableBufferPointer<Tensor.Scalar>) throws -> R) rethrows -> R {
     copyBufferIfShared()
     return try body(UnsafeMutableBufferPointer(start: _buffer.pointer, count: count))
@@ -380,6 +372,8 @@ extension TensorStorage: Sequence {
       self.storage = storage
     }
 
+    /// Advances to the next scalar element and returns it, or returns `nil` when exhausted.
+    /// - Returns: The next `Tensor.Scalar` value, or `nil` if the iterator has been exhausted.
     public mutating func next() -> Tensor.Scalar? {
       guard index < storage.count else { return nil }
       let value = storage._buffer.pointer[index]

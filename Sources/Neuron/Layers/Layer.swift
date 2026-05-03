@@ -10,7 +10,10 @@ import NumSwift
 import NumSwiftC
 import Atomics
 
-/// Layer types
+/// Identifies the concrete type of a layer for serialization and reconstruction.
+///
+/// Each case maps to a distinct `Layer` subclass.  The raw string value is
+/// persisted inside `.smodel` files so names must not be changed.
 public enum EncodingType: String, Codable {
   case leakyRelu,
        relu,
@@ -60,23 +63,54 @@ public protocol ConvolutionalLayer: Layer {
 
 /// A batch of tensors used as input or output for a layer.
 public typealias TensorBatch = [Tensor]
-/// The the object that perform ML operations
+
+/// The primary protocol that every neural network layer must conform to.
+///
+/// A `Layer` object transforms an input `Tensor` into an output `Tensor` and
+/// optionally maintains trainable parameters (`weights`, `biases`).  Layers are
+/// chained together inside a `Sequential` container; an `Optimizer` compiles the
+/// chain and drives parameter updates.
+///
+/// Implement `forward(tensor:context:)` with the forward math and attach a
+/// `TensorContext` whose `backpropagate` closure implements the backward pass.
+///
+/// ## Minimal conformance
+/// Inherit from `BaseLayer` instead of conforming directly — `BaseLayer` provides
+/// sensible defaults for all secondary properties so you only need to override
+/// `forward(tensor:context:)`, `apply(gradients:learningRate:)`, and the
+/// `Codable` methods.
 public protocol Layer: AnyObject, Codable {
+  /// A human-readable summary describing the layer's configuration and dimensions.
   var details: String { get }
+  /// The serialization identifier used when encoding and decoding this layer.
   var encodingType: EncodingType { get set }
+  /// Additional encodable values that a layer may need persisted alongside standard fields.
   var extraEncodables: [String: Codable]? { get }
+  /// The spatial dimensions expected at this layer's input.
   var inputSize: TensorSize { get set }
+  /// The spatial dimensions produced at this layer's output.
   var outputSize: TensorSize { get }
+  /// The learnable weight tensor for this layer.
   var weights: Tensor { get }
+  /// The learnable bias tensor for this layer.
   var biases: Tensor { get }
+  /// Whether a bias term is added during the forward pass.
   var biasEnabled: Bool { get set }
+  /// Whether parameter updates are applied to this layer during training.
   var trainable: Bool { get set }
+  /// Whether the layer is currently in training mode (affects dropout, batch norm, etc.).
   var isTraining: Bool { get set }
+  /// The weight initializer strategy used when constructing this layer's parameters.
   var initializer: Initializer { get }
+  /// The device type (CPU/GPU) to which this layer is assigned.
   var deviceType: DeviceType { get set }
+  /// The compute device object used to run this layer's operations.
   var device: Device { get }
+  /// Whether the optimizer manages gradient scaling before calling `apply(gradients:learningRate:)`.
   var usesOptimizer: Bool { get set }
+  /// The number of samples processed simultaneously in a single forward/backward step.
   var batchSize: Int { get set }
+  /// A stable string identifier used to reference this layer's output from arithmetic layers.
   var linkId: String { get }
   @discardableResult
   /// Runs the layer's forward transformation for a single tensor.
@@ -113,10 +147,14 @@ public protocol Layer: AnyObject, Codable {
 
 /// Errors that can occur during layer operations such as weight importing.
 public enum LayerErrors: Error, LocalizedError {
+  /// The incoming weight tensors could not be applied to the layer.
   case weightImportError
+  /// A generic layer error with a developer-supplied message.
+  ///
+  /// - Parameter error: Description of the specific problem.
   case generic(error: String)
-  
-/// A human-readable description of the error that occurred.
+
+  /// A human-readable description of the error that occurred.
   public var errorDescription: String? {
     switch self {
     case .weightImportError:
@@ -128,12 +166,20 @@ public enum LayerErrors: Error, LocalizedError {
 }
 
 extension Layer {
-/// Default implementation of `extraEncodables` returning an empty dictionary.
+  /// Default implementation of `extraEncodables` returning an empty dictionary.
   public var extraEncodables: [String: Codable]? {
     return [:]
   }
 }
 
+/// An abstract base class for element-wise binary arithmetic operations between two tensor streams.
+///
+/// `ArithmeticLayer` walks the input tensor's computation graph to locate the output of the
+/// layer identified by `linkTo`, then applies the subclass-defined `function(input:other:)`
+/// to produce a combined output.  The `inverse` flag reverses the argument order.
+///
+/// Subclass `ArithmeticLayer` (or use the concrete `Add`, `Subtract`, `Multiply`, `Divide`)
+/// to implement any custom pointwise binary operation.
 open class ArithmeticLayer: BaseLayer {
   // looks up through the tensor input graph to find the first input tensor with this label applied.
   // and applies the arithmetic to it that the layer defines along with the input to this layer
@@ -244,35 +290,42 @@ open class ArithmeticLayer: BaseLayer {
   }
 }
 
-open class BaseLayer: Layer {
 /// A base class providing default implementations of common `Layer` properties and behaviors.
+///
+/// Concrete layer types should subclass `BaseLayer` and override:
+/// - `forward(tensor:context:)` for the forward math
+/// - `apply(gradients:learningRate:)` for parameter updates
+/// - `onInputSizeSet()` to react to shape changes (e.g. initialize weights)
+/// - `encode(to:)` / `init(from:)` for serialization
+open class BaseLayer: Layer {
+  /// A human-readable summary of the layer's input and output sizes.
   public var details: String {
     """
     Input: \(formatTensorSize(inputSize)) → Output: \(formatTensorSize(outputSize))
     """
   }
-  
-/// A human-readable summary of the layer's input and output sizes.
+
+  /// The encoding type used to identify this layer during serialization.
   public var encodingType: EncodingType
-/// The encoding type used to identify this layer during serialization.
+  /// The input tensor size for this layer. Setting this triggers `onInputSizeSet()` to reconfigure the layer.
   public var inputSize: TensorSize = .init() {
     didSet {
       onInputSizeSet()
     }
   }
-/// The input tensor size for this layer. Setting this triggers `onInputSizeSet()` to reconfigure the layer.
+  /// The output tensor size produced by this layer.
   public var outputSize: TensorSize = .init()
-/// The output tensor size produced by this layer.
+  /// The learnable weight parameters of this layer.
   public var weights: Tensor = .init()
-/// The learnable weight parameters of this layer.
+  /// The learnable bias parameters of this layer.
   public var biases: Tensor = .init()
-/// The learnable bias parameters of this layer.
+  /// Whether bias parameters are applied during the forward pass.
   public var biasEnabled: Bool = false
-/// Whether bias parameters are applied during the forward pass.
+  /// Whether this layer's parameters are updated during training.
   public var trainable: Bool = true
-/// Whether this layer's parameters are updated during training.
+  /// Whether this layer is currently in training mode, affecting behaviors such as dropout.
   public var isTraining: Bool = true
-/// Whether this layer is currently in training mode, affecting behaviors such as dropout.
+  /// The weight initializer strategy used to initialize this layer's parameters.
   public var initializer: Initializer
   
   /// The type of device (e.g., CPU or GPU) used for computation, updating the shared DeviceManager when set.
@@ -281,23 +334,27 @@ open class BaseLayer: Layer {
       DeviceManager.shared.type = deviceType
     }
   }
-/// The weight initializer strategy used to initialize this layer's parameters.
+
+  /// The compute device (e.g., CPU or GPU) used to execute this layer's operations.
   public var device: Device {
     DeviceManager.shared.device
   }
-/// The compute device (e.g., CPU or GPU) used to execute this layer's operations.
+
+  /// The number of samples processed in a single forward/backward pass. Setting this triggers `onBatchSizeSet()`.
   public var batchSize: Int = 1 {
     didSet {
       onBatchSizeSet()
     }
   }
-  
+
   /// Set this to reference the output of this layer in an arithmetic layer. eg a Shortcut path
   public var linkId: String = UUID().uuidString
-  
+
   // defines whether the gradients are run through the optimizer before being applied.
   // this could be useful if a layer manages its own weight updates
-/// The number of samples processed in a single forward/backward pass. Setting this triggers `onBatchSizeSet()`.
+  /// Whether the gradients for this layer are passed through the optimizer before being applied.
+  ///
+  /// Set to `false` for layers that manage their own parameter updates (e.g., `Embedding`).
   public var usesOptimizer: Bool = true
   
   /// Creates a new base layer configuration.
@@ -461,8 +518,15 @@ open class BaseLayer: Layer {
   
 }
 
+/// A base class for 2-D convolutional layers, providing shared filter storage and weight management.
+///
+/// `BaseConvolutionalLayer` owns the `filters` array, handles filter initialization via
+/// `initializeFilters()`, and consolidates `exportWeights` / `importWeights` for all
+/// convolutional subclasses.  Concrete subclasses (`Conv2d`, `TransConv2d`, `DepthwiseConv2d`)
+/// override `onInputSizeSet()` to derive `outputSize` and `forward(tensor:context:)` to
+/// implement the specific convolution algorithm.
 open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
-/// Whether gradients are passed through the optimizer before being applied. Set to `false` if the layer manages its own weight updates.
+  /// A human-readable summary including filter count, strides, and padding configuration.
   public override var details: String {
     super.details +
     """
@@ -472,35 +536,38 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
     Padding: \(padding.asString)
     """
   }
-  
-/// A human-readable summary including filter count, strides, and padding configuration.
+
+  /// A combined tensor representation of all convolutional filters, concatenated along the depth axis.
+  ///
+  /// Setting this property directly is not supported; use the `filters` array instead.
   public override var weights: Tensor {
     get {
       var reduce = filters
       let first = reduce.removeFirst()
-      
+
       let out = reduce.reduce(first) { partialResult, new in
         partialResult.concat(new, axis: 2)
       }
-      
+
       return Tensor(storage: out.storage, size: .init(rows: filterSize.rows,
                                                       columns: filterSize.columns,
                                                       depth: filterCount * inputSize.depth))
-      
+
     }
     set {
       fatalError("Please use the `filters` property instead to manage weights on Convolutional layers")
     }
   }
-/// A combined tensor representation of all convolutional filters, concatenated along the depth axis.
+
+  /// The number of convolutional filters applied at this layer.
   public var filterCount: Int
-/// The number of convolutional filters applied at this layer.
+  /// The collection of filter tensors used for convolution.
   public var filters: [Tensor] = []
-/// The collection of filter tensors used for convolution.
+  /// The spatial dimensions (rows and columns) of each filter kernel.
   public var filterSize: (rows: Int, columns: Int)
-/// The spatial dimensions (rows and columns) of each filter kernel.
+  /// The step size (rows and columns) used when sliding the filter over the input.
   public var strides: (rows: Int, columns: Int)
-/// The step size (rows and columns) used when sliding the filter over the input.
+  /// The padding strategy applied to the input before convolution.
   public var padding: NumSwift.ConvPadding
   
   /// Default initializer for a 2d convolutional layer
@@ -599,14 +666,20 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
   }
 }
 
+/// A base class for activation-function layers.
+///
+/// `BaseActivationLayer` implements the standard `forward(tensor:context:)` by
+/// delegating to the device's `activate(_:_:)` / `derivate(_:_:)` methods and
+/// automatically building the `TensorContext` for backpropagation.  Subclasses
+/// only need to provide the `Codable` implementation and call the designated
+/// initializer with the appropriate `Activation` case.
 open class BaseActivationLayer: BaseLayer, ActivationLayer {
-  
-/// The padding strategy applied to the input before convolution.
+
   public override var details: String {
       ""
   }
-  
-/// The activation function type applied by this layer.
+
+  /// The activation function type applied by this layer.
   public let type: Activation
 
   /// Creates a base activation layer.
@@ -691,6 +764,12 @@ extension NumSwift.ConvPadding {
 
 
 
+/// A base class for normalization layers that must accumulate statistics across all batch tensors
+/// before normalizing each individual tensor.
+///
+/// Subclasses override `performThreadBatchingForwardPass(tensor:context:)` to collect
+/// per-tensor statistics under a lock, then call `super.forward(tensorBatch:context:)` once
+/// all batch members have checked in.
 open class BaseThreadBatchingLayer: BaseLayer {
   let updateLock = NSLock()
   let iterations = ManagedAtomic<Int>(0)

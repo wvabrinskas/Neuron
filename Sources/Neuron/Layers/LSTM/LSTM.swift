@@ -75,11 +75,17 @@ public final class LSTM: BaseLayer {
   
   /// A container holding the activation tensors produced by each gate of an LSTM cell for a single time step.
   public class LSTMActivations {
+    /// Forget-gate activation tensor for this time step.
     let forgetGate: Tensor
+    /// Input-gate activation tensor for this time step.
     let inputGate: Tensor
+    /// Output-gate activation tensor for this time step.
     let outputGate: Tensor
+    /// Gate-gate (cell-input) activation tensor for this time step.
     let gateGate: Tensor
-    
+
+    /// Creates activations from a raw `LSTMCell.Activations` value.
+    /// - Parameter activations: The cell activations from which to copy gate tensors.
     init(activations: LSTMCell.Activations) {
       self.forgetGate = activations.fa
       self.inputGate = activations.ia
@@ -87,6 +93,12 @@ public final class LSTM: BaseLayer {
       self.gateGate = activations.ga
     }
     
+    /// Creates default-empty gate activations.
+    /// - Parameters:
+    ///   - forgetGate: Forget-gate activation. Defaults to an empty tensor.
+    ///   - inputGate: Input-gate activation. Defaults to an empty tensor.
+    ///   - outputGate: Output-gate activation. Defaults to an empty tensor.
+    ///   - gateGate: Gate-gate activation. Defaults to an empty tensor.
     init(forgetGate: Tensor = .init(),
          inputGate: Tensor = .init(),
          outputGate: Tensor = .init(),
@@ -97,16 +109,30 @@ public final class LSTM: BaseLayer {
       self.gateGate = gateGate
     }
   }
-  
+
   /// A cache storing intermediate values computed during an LSTM forward pass, used for backpropagation.
   public class Cache {
+    /// Gate activations recorded during the forward pass for this time step.
     var lstm: LSTMActivations
+    /// Cell memory state tensor at this time step.
     var cell: Tensor
+    /// Hidden-state activation tensor at this time step.
     var activation: Tensor
+    /// Embedded input vector at this time step.
     var embedding: Tensor
+    /// Output cell used to project the hidden state to vocabulary logits.
     var output: OutputCell?
+    /// Projected output (softmax probabilities) at this time step.
     var outputValue: Tensor
-    
+
+    /// Creates a cache entry for a single LSTM time step.
+    /// - Parameters:
+    ///   - lstm: Gate activations for this time step.
+    ///   - cell: Cell memory state tensor.
+    ///   - activation: Hidden-state activation tensor.
+    ///   - embedding: Embedded input for this time step.
+    ///   - output: Optional output cell holding projection weights.
+    ///   - outputValue: Projected vocabulary probability tensor.
     init(lstm: LSTMActivations = .init(),
          cell: Tensor = .init(),
          activation: Tensor = .init(),
@@ -121,6 +147,14 @@ public final class LSTM: BaseLayer {
       self.outputValue = outputValue
     }
     
+    /// Updates cache fields with new values, preserving existing values for any `nil` arguments.
+    /// - Parameters:
+    ///   - lstm: Replacement gate activations, or `nil` to keep current.
+    ///   - cell: Replacement cell state tensor, or `nil` to keep current.
+    ///   - activation: Replacement hidden-state tensor, or `nil` to keep current.
+    ///   - embedding: Replacement embedded input, or `nil` to keep current.
+    ///   - output: Replacement output cell, or `nil` to keep current.
+    ///   - outputValue: Replacement projected output, or `nil` to keep current.
     func updating(lstm: LSTMActivations? = nil,
                   cell: Tensor? = nil,
                   activation: Tensor? = nil,

@@ -10,6 +10,9 @@ import NumSwift
 
 public extension Float {
   /// A small constant added to denominators and square-roots for numerical stability.
+  ///
+  /// Value is `1e-12`. Use `Tensor.Scalar.stabilityFactor` in generic contexts so
+  /// that code works for both `Float` and `Float16`.
   static var stabilityFactor: Self {
     1e-12
   }
@@ -18,7 +21,9 @@ public extension Float {
 #if arch(arm64)
 public extension Float16 {
   /// A small constant added to denominators and square-roots for numerical stability.
-  /// Uses a larger value than `Float` to account for reduced precision in Float16.
+  ///
+  /// Uses a larger value (`1e-4`) than the `Float` equivalent to account for the
+  /// reduced dynamic range of `Float16`. Only available on arm64.
   static var stabilityFactor: Self {
     1e-4
   }
@@ -28,26 +33,24 @@ public extension Float16 {
 public extension Tensor {
   /// A closure type that receives a pointer to a contiguous block of scalars and its count,
   /// and returns a single reduced scalar result (e.g., sum, mean, or max).
+  ///
+  /// Used by `apply(axis:_:)` to perform axis-wise reductions over the tensor.
   typealias PointerMathBlock = (_ ptr: TensorStorage.Pointer, _ count: Int) -> Scalar
   
-  /*
-      +--------+
-     /        /|
-    /        Z |
-   +---X----+  |
-   |        |  |
-   |   -1   Y  +
-   |        | /
-   |        |/
-   +--------+
-   Along axis 0 the Tensor of shape AxBxC, where A is the columns, B is the rows, and C is the depth, would perform a mathematical function along the Y axis returning a (Ax1xC) Tensor
-   
-   Along axis 1 the Tensor of shape AxBxC, where A is the columns, B is the rows, and C is the depth, would perform a mathematical function along the X axis returning a (1xBxC) Tensor
-   
-   Along axis 2 the Tensor of shape AxBxC, where A is the columns, B is the rows, and C is the depth, would perform a mathematical function along the Z axis returning a (AxBx1) Tensor
-   
-   Along axis -1 the Tensor of shape AxBxC, where A is the columns, B is the rows, and C is the depth, would perform a mathematical function along the Z axis returning a (1x1x1) Tensor Scalar
-   */
+  /// Applies a reduction closure along the specified axis, returning a tensor with that
+  /// dimension collapsed to size 1.
+  ///
+  /// Axis semantics for a tensor of shape `(columns A, rows B, depth C)`:
+  /// - `0`: reduce along rows (Y axis) → shape `(A, 1, C)`
+  /// - `1`: reduce along columns (X axis) → shape `(1, B, C)`
+  /// - `2`: reduce along depth (Z axis) → shape `(A, B, 1)`
+  /// - `-1`: reduce all elements → scalar shape `(1, 1, 1)`
+  ///
+  /// - Parameters:
+  ///   - axis: The dimension to reduce along (`0`, `1`, `2`, or `-1` for global).
+  ///   - block: A `PointerMathBlock` closure that maps a contiguous pointer and element
+  ///            count to a single reduced `Tensor.Scalar`.
+  /// - Returns: A new `Tensor` with the specified dimension collapsed.
   func apply(axis: Int, _ block: PointerMathBlock) -> Tensor {
     let columns = size.columns
     let rows = size.rows
@@ -571,10 +574,15 @@ public extension Tensor {
     return Tensor(storage: storage.copy(), size: size, context: subtractContext(value: value))
   }
   
+  /// Returns the sum of all scalar elements in the tensor.
+  /// - Returns: The sum of every element across all dimensions.
   func sum() -> Scalar {
     storage.sum
   }
-  
+
+  /// Asserts (in debug builds) that no element exceeds `limit`.
+  ///
+  /// - Parameter limit: The maximum allowed scalar value.
   func testLarge(limit: Scalar) {
     for val in storage {
       if val > limit {
@@ -583,7 +591,11 @@ public extension Tensor {
       }
     }
   }
-  
+
+  /// Asserts (in debug builds) that all elements are normal floating-point values.
+  ///
+  /// Triggers an assertion failure and prints the offending value when a
+  /// denormalized, infinite, or NaN element is found.
   func testInvalid() {
     for val in storage {
       if val.isNormal == false {
@@ -593,7 +605,8 @@ public extension Tensor {
       }
     }
   }
-  
+
+  /// Asserts (in debug builds) that no element is infinite.
   func testInf() {
     for val in storage {
       if val.isInfinite {
@@ -602,7 +615,8 @@ public extension Tensor {
       }
     }
   }
-  
+
+  /// Asserts (in debug builds) that no element is NaN.
   func testNaN() {
     for val in storage {
       if val.isNaN {
@@ -611,7 +625,13 @@ public extension Tensor {
       }
     }
   }
-  
+
+  /// Computes the batched matrix multiplication `self @ with` for matching depths.
+  ///
+  /// Requires `self.size.columns == with.size.rows` and `self.size.depth == with.size.depth`.
+  ///
+  /// - Parameter with: The right-hand matrix tensor.
+  /// - Returns: A new tensor of shape `(self.rows, with.columns, depth)`.
   func matmul(_ with: Tensor) -> Tensor {
     let aSize = self.size
     let bSize = with.size
@@ -654,6 +674,11 @@ public extension Tensor {
     return Tensor(storage: resultStorage, size: outSize)
   }
   
+  /// Returns the sum of squared elements, either globally or along a specific axis.
+  ///
+  /// - Parameter axis: The axis along which to compute the sum of squares. Pass `-1` (default)
+  ///   to reduce all elements to a single scalar tensor.
+  /// - Returns: A `Tensor` containing the sum-of-squares result.
   func sumOfSquares(axis: Int = -1) -> Tensor {
     if axis == -1 {
       return Tensor(storage.sumOfSquares)
@@ -664,6 +689,14 @@ public extension Tensor {
     }
   }
   
+  /// Splits the tensor into chunks of size `into` along the specified axis.
+  ///
+  /// The last chunk may be smaller than `into` if the dimension is not evenly divisible.
+  ///
+  /// - Parameters:
+  ///   - into: The maximum number of slices per chunk along the chosen axis.
+  ///   - axis: The axis along which to split (`0` = rows, `1` = columns, `2` = depth). Defaults to `2`.
+  /// - Returns: An array of tensors, each covering one chunk along `axis`.
   func split(into: Int, axis: Int = 2) -> [Tensor] {
     let columns = size.columns
     let rows = size.rows
@@ -756,12 +789,22 @@ public extension Tensor {
     }
   }
   
+  /// Returns a new tensor with element-wise square root, optionally adding a stability offset first.
+  ///
+  /// - Parameter adding: A small constant added to each element before taking the square root,
+  ///   to avoid numerical instability near zero. Defaults to `Tensor.Scalar.stabilityFactor`.
+  /// - Returns: A new `Tensor` with values `sqrt(element + adding)`.
   func sqrt(adding: Tensor.Scalar = .stabilityFactor) -> Tensor {
     let shifted = storage + adding
     let result = shifted.squareRoot()
     return Tensor(storage: result, size: size, context: context)
   }
   
+  /// Returns the variance of elements, either globally or along a specific axis.
+  ///
+  /// - Parameter axis: The axis along which to compute variance. Pass `-1` (default) to
+  ///   compute the global variance as a scalar tensor.
+  /// - Returns: A `Tensor` containing the variance result.
   func variance(axis: Int = -1) -> Tensor {
     if axis == -1 {
       let meanVal = storage.mean
@@ -781,6 +824,11 @@ public extension Tensor {
     }
   }
   
+  /// Returns the mean of elements, either globally or along a specific axis.
+  ///
+  /// - Parameter axis: The axis along which to compute the mean. Pass `-1` (default) to
+  ///   reduce all elements to a scalar tensor.
+  /// - Returns: A `Tensor` containing the mean result.
   func mean(axis: Int = -1) -> Tensor {
     if axis == -1 {
       guard !storage.isEmpty else { return Tensor(Scalar(0)) }
@@ -792,6 +840,11 @@ public extension Tensor {
     }
   }
   
+  /// Returns the sum of elements, either globally or along a specific axis.
+  ///
+  /// - Parameter axis: The axis along which to sum. Pass `-1` (default) to reduce
+  ///   all elements to a scalar tensor.
+  /// - Returns: A `Tensor` containing the sum result.
   func sum(axis: Int = -1) -> Tensor {
     if axis == -1 {
       return Tensor(storage.sum)
@@ -802,6 +855,13 @@ public extension Tensor {
     }
   }
   
+  /// Returns the cumulative subtraction of elements, either globally or along a specific axis.
+  ///
+  /// Starts from zero and subtracts each element in order. For global reduction (`axis == -1`)
+  /// this is equivalent to the negated sum of all elements.
+  ///
+  /// - Parameter axis: The axis along which to subtract. Pass `-1` (default) for a global result.
+  /// - Returns: A `Tensor` containing the subtraction result.
   func subtract(axis: Int = -1) -> Tensor {
     if axis == -1 {
       guard storage.count > 0 else { return Tensor(Scalar(0)) }
@@ -822,6 +882,11 @@ public extension Tensor {
     }
   }
   
+  /// Returns the product of all elements, either globally or along a specific axis.
+  ///
+  /// - Parameter axis: The axis along which to compute the product. Pass `-1` (default) to
+  ///   reduce all elements to a scalar tensor.
+  /// - Returns: A `Tensor` containing the product result.
   func multiply(axis: Int = -1) -> Tensor {
     if axis == -1 {
       guard storage.count > 0 else { return Tensor(Scalar(1)) }
@@ -841,6 +906,11 @@ public extension Tensor {
     }
   }
   
+  /// Returns the L2 norm (Euclidean length) of elements, either globally or along a specific axis.
+  ///
+  /// - Parameter axis: The axis along which to compute the norm. Pass `-1` (default) to
+  ///   compute the global norm as a scalar tensor.
+  /// - Returns: A `Tensor` containing the norm result.
   func norm(axis: Int = -1) -> Tensor {
     if axis == -1 {
       return Tensor(Tensor.Scalar.sqrt(storage.sumOfSquares))
@@ -851,6 +921,19 @@ public extension Tensor {
     }
   }
   
+  /// Concatenates another tensor to this tensor along the specified axis.
+  ///
+  /// Axis semantics:
+  /// - `0`: concatenate along rows (new rows below existing rows)
+  /// - `1`: concatenate along columns (new columns to the right)
+  /// - `2`: concatenate along depth
+  /// - `3`: concatenate along the batch dimension (both tensors must share the same unit size)
+  /// - `-1`: flat concatenation into a 1D tensor
+  ///
+  /// - Parameters:
+  ///   - tensor: The tensor to append.
+  ///   - axis: The dimension along which to concatenate. Defaults to `1` (columns).
+  /// - Returns: A new `Tensor` that is the concatenation of `self` and `tensor`.
   @discardableResult
   func concat(_ tensor: Tensor, axis: Int = 1) -> Tensor {
     if isEmpty {
@@ -966,6 +1049,11 @@ public extension Tensor {
     return Tensor(storage: storage.copy(), size: size, context: context)
   }
   
+  /// Returns a new tensor with its elements scaled to unit L2 norm.
+  ///
+  /// Divides every element by the Euclidean norm of the storage, without a stability offset.
+  ///
+  /// - Returns: A new `Tensor` normalized to unit length.
   func l2Normalized() -> Tensor {
     let sumSq = storage.sumOfSquares
     let divisor = Scalar.sqrt(sumSq)
@@ -973,6 +1061,10 @@ public extension Tensor {
     return Tensor(storage: result, size: size, context: context)
   }
   
+  /// Returns a new tensor by applying `transform` to every scalar element.
+  ///
+  /// - Parameter transform: A closure that maps each `Tensor.Scalar` to a new `Tensor.Scalar`.
+  /// - Returns: A new `Tensor` with the same shape and context, containing the transformed values.
   func map(_ transform: (Tensor.Scalar) -> Tensor.Scalar) -> Tensor {
     let result = TensorStorage.create(count: storage.count)
     let srcPtr = storage.pointer

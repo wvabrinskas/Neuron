@@ -17,14 +17,22 @@ public enum WarmupState {
 /// Conforming types ramp the learning rate from a small initial value up to a
 /// target value over a fixed number of warmup steps.
 public protocol WarmupFunction {
+  /// The current learning rate produced by this warmup schedule.
   var warmedLearningRate: Tensor.Scalar { get }
+  /// The current phase of the warmup schedule — `.warming` or `.complete`.
   var warmupState: WarmupState { get }
+  /// Resets the warmup schedule to its initial (zero) learning rate.
   func reset()
+  /// Advances the warmup schedule by one step, updating `warmedLearningRate`.
   func step()
 }
 
+/// A base class providing common state for learning rate warmup schedules.
+///
+/// Subclasses should override `step()` to implement a specific warmup formula,
+/// update `warmedLearningRate`, and call `super.step()` to advance `globalSteps`.
 open class BaseWarmupFunction: WarmupFunction {
-/// The current decayed learning rate value.
+/// The current warmed learning rate, updated on each call to `step()`.
   public var warmedLearningRate: Tensor.Scalar = Tensor.Scalar.stabilityFactor
   
   /// The current phase of the warmup schedule — `.warming` while below target, `.complete` once reached.

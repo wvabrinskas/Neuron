@@ -8,19 +8,20 @@
 import Foundation
 import NumSwift
 
-/// Stochastic Gradient Descent optimizer with optional momentum and gradient/weight clipping support.
+/// An optimizer that implements the AdaGrad (Adaptive Gradient) algorithm.
+///
+/// Accumulates squared gradients per parameter and scales the learning rate inversely
+/// by the square root of the accumulated sums, giving infrequent parameters larger updates.
 public class AdaGrad: BaseOptimizer {
   private var g: [Tensor] = []
   private var gb: [Tensor] = []
 
-  /// Creates an SGD optimizer with optional momentum and clipping.
+  /// Creates an AdaGrad optimizer.
   ///
   /// - Parameters:
   ///   - trainable: Model whose parameters will be optimized.
-  ///   - device: Execution device for forward/backward math.
-  ///   - learningRate: Step size applied to parameter updates.
+  ///   - learningRate: Base learning rate scaled adaptively per parameter.
   ///   - batchSize: Number of samples per optimization step.
-  ///   - momentum: Momentum coefficient applied to gradient velocity.
   ///   - weightClip: Optional weight clipping threshold.
   ///   - gradientClip: Optional gradient clipping threshold.
   ///   - augmenter: Optional training-time data augmenter.
@@ -46,7 +47,7 @@ public class AdaGrad: BaseOptimizer {
                augmenter: augmenter)
   }
   
-  /// Applies one SGD update using the currently accumulated gradients.
+  /// Applies one AdaGrad optimization step using the accumulated gradients.
   public override func step() {
     var gradients = gradientAccumulator.accumulate()
 

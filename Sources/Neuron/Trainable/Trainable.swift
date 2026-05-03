@@ -60,10 +60,20 @@ public protocol Trainable: AnyObject, Exportable, CustomDebugStringConvertible {
   /// Attempts to replace the weights in the network
   func importWeights(_ weights: [[Tensor]]) throws
   
-  /// Applys gradients to layers
+  /// Applies a gradient payload to all trainable layers.
+  ///
+  /// - Parameters:
+  ///   - gradients: Gradient payload where each index corresponds to a layer.
+  ///   - learningRate: Step size used by each layer's update rule.
   func apply(gradients: Tensor.Gradient, learningRate: Tensor.Scalar)
-  
-  /// Exports network
+
+  /// Exports the network to a `.smodel` file.
+  ///
+  /// - Parameters:
+  ///   - name: Optional filename prefix.
+  ///   - overrite: When `false`, appends a timestamp to avoid overwriting.
+  ///   - compress: When `true`, emits compact JSON.
+  /// - Returns: URL to the exported file, or `nil` on failure.
   @discardableResult
   func export(name: String?, overrite: Bool, compress: Bool) -> URL?
 }
