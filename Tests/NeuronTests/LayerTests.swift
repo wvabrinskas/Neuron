@@ -1649,9 +1649,9 @@ final class LayerTests: XCTestCase {
                         strides: (1, 1),
                         outChannels: 3,
                         expandRatio: 2)
-    
+
     let sequential = Sequential(rexNet)
-    
+
     sequential.isTraining = true
 
     XCTAssertTrue(rexNet.isTraining, "RexNet isTraining getter should return true")
@@ -1667,5 +1667,256 @@ final class LayerTests: XCTestCase {
     }
   }
 
+  // MARK: - PReLu
+
+  func test_prelu_forward_positiveValues_passThrough() {
+    let inputSize = TensorSize(array: [3, 1, 1])
+    let layer = PReLu(inputSize: inputSize)
+
+    let input = Tensor([Tensor.Scalar(1.0), Tensor.Scalar(2.0), Tensor.Scalar(3.0)])
+    let out = layer.forward(tensor: input, context: .init())
+
+    XCTAssertEqual(out.storage[0], 1.0, accuracy: 1e-5)
+    XCTAssertEqual(out.storage[1], 2.0, accuracy: 1e-5)
+    XCTAssertEqual(out.storage[2], 3.0, accuracy: 1e-5)
+  }
+
+  func test_prelu_forward_negativeValues_scaledByAlpha() {
+    // default alpha = 0.25
+    let inputSize = TensorSize(array: [3, 1, 1])
+    let layer = PReLu(inputSize: inputSize)
+
+    let input = Tensor([Tensor.Scalar(-1.0), Tensor.Scalar(-2.0), Tensor.Scalar(-4.0)])
+    let out = layer.forward(tensor: input, context: .init())
+
+    XCTAssertEqual(out.storage[0], -0.25, accuracy: 1e-5)
+    XCTAssertEqual(out.storage[1], -0.5,  accuracy: 1e-5)
+    XCTAssertEqual(out.storage[2], -1.0,  accuracy: 1e-5)
+  }
+
+  func test_prelu_forward_zeroValue_treatedAsNonPositive() {
+    // value == 0 falls through the <= 0 branch: alpha * 0 = 0
+    let inputSize = TensorSize(array: [1, 1, 1])
+    let layer = PReLu(inputSize: inputSize)
+
+    let input = Tensor([Tensor.Scalar(0.0)])
+    let out = layer.forward(tensor: input, context: .init())
+
+    XCTAssertEqual(out.storage[0], 0.0, accuracy: 1e-5)
+  }
+
+  func test_prelu_forward_outputShapeMatchesInput() {
+    let inputSize = TensorSize(rows: 4, columns: 4, depth: 3)
+    let layer = PReLu(inputSize: inputSize)
+
+    let input = Tensor.fillRandom(size: inputSize)
+    let out = layer.forward(tensor: input, context: .init())
+
+    XCTAssertEqual(out.shape, inputSize.asArray)
+  }
+
+  func test_prelu_forward_mixedValues() {
+    // Input: [2.0, -3.0, 0.0, 1.5, -1.0], alpha = 0.25
+    // Expected: [2.0, -0.75, 0.0, 1.5, -0.25]
+    let inputSize = TensorSize(array: [5, 1, 1])
+    let layer = PReLu(inputSize: inputSize)
+
+    let inputValues: [Tensor.Scalar] = [2.0, -3.0, 0.0, 1.5, -1.0]
+    let input = Tensor(inputValues)
+    let out = layer.forward(tensor: input, context: .init())
+
+    XCTAssertEqual(out.storage[0],  2.0,   accuracy: 1e-5)
+    XCTAssertEqual(out.storage[1], -0.75,  accuracy: 1e-5)
+    XCTAssertEqual(out.storage[2],  0.0,   accuracy: 1e-5)
+    XCTAssertEqual(out.storage[3],  1.5,   accuracy: 1e-5)
+    XCTAssertEqual(out.storage[4], -0.25,  accuracy: 1e-5)
+  }
+
+  func test_prelu_backward_inputGradient_positiveRegion() {
+    // For positive inputs, d/dx = 1, so input gradient == upstream gradient
+    let inputSize = TensorSize(array: [3, 1, 1])
+    let layer = PReLu(inputSize: inputSize)
+
+    let inputValues: [Tensor.Scalar] = [1.0, 2.0, 3.0]
+    let input = Tensor(inputValues)
+    let out = layer.forward(tensor: input, context: .init())
+    out.setGraph(input)
+
+    let errorValues: [Tensor.Scalar] = [0.5, 0.5, 0.5]
+    let error = Tensor(errorValues)
+    let grads = out.gradients(delta: error, wrt: input)
+
+    let wrtInput = grads.input[safe: 0]!
+    XCTAssertEqual(wrtInput.storage[0], 0.5, accuracy: 1e-5)
+    XCTAssertEqual(wrtInput.storage[1], 0.5, accuracy: 1e-5)
+    XCTAssertEqual(wrtInput.storage[2], 0.5, accuracy: 1e-5)
+  }
+
+  func test_prelu_backward_inputGradient_negativeRegion() {
+    // For negative inputs, d/dx = alpha (0.25), so input gradient = gradient * 0.25
+    let inputSize = TensorSize(array: [3, 1, 1])
+    let layer = PReLu(inputSize: inputSize)
+
+    let inputValues: [Tensor.Scalar] = [-1.0, -2.0, -3.0]
+    let input = Tensor(inputValues)
+    let out = layer.forward(tensor: input, context: .init())
+    out.setGraph(input)
+
+    let errorValues: [Tensor.Scalar] = [1.0, 1.0, 1.0]
+    let error = Tensor(errorValues)
+    let grads = out.gradients(delta: error, wrt: input)
+
+    let wrtInput = grads.input[safe: 0]!
+    XCTAssertEqual(wrtInput.storage[0], 0.25, accuracy: 1e-5)
+    XCTAssertEqual(wrtInput.storage[1], 0.25, accuracy: 1e-5)
+    XCTAssertEqual(wrtInput.storage[2], 0.25, accuracy: 1e-5)
+  }
+
+  func test_prelu_backward_inputGradient_mixed() {
+    // Input: [2.0, -3.0, 0.0, 1.5, -1.0], gradient all 1.0
+    // Expected input grad: [1.0, 0.25, 0.25, 1.0, 0.25]
+    // (value == 0 falls into the else-alpha branch in backward)
+    let inputSize = TensorSize(array: [5, 1, 1])
+    let layer = PReLu(inputSize: inputSize)
+
+    let inputValues: [Tensor.Scalar] = [2.0, -3.0, 0.0, 1.5, -1.0]
+    let input = Tensor(inputValues)
+    let out = layer.forward(tensor: input, context: .init())
+    out.setGraph(input)
+
+    let error = Tensor([Tensor.Scalar](repeating: 1.0, count: 5))
+    let grads = out.gradients(delta: error, wrt: input)
+
+    let wrtInput = grads.input[safe: 0]!
+    XCTAssertEqual(wrtInput.storage[0], 1.0,  accuracy: 1e-5)
+    XCTAssertEqual(wrtInput.storage[1], 0.25, accuracy: 1e-5)
+    XCTAssertEqual(wrtInput.storage[2], 0.25, accuracy: 1e-5)
+    XCTAssertEqual(wrtInput.storage[3], 1.0,  accuracy: 1e-5)
+    XCTAssertEqual(wrtInput.storage[4], 0.25, accuracy: 1e-5)
+  }
+
+  func test_prelu_backward_weightGradient_wrtAlpha() {
+    // wrtToAlpha = sum of (gradient * value) for value < 0 only
+    // Input: [2.0, -3.0, 0.0, 1.5, -1.0], gradient all 1.0
+    // Negative values: -3.0 and -1.0
+    // wrtToAlpha = 1.0 * -3.0 + 1.0 * -1.0 = -4.0
+    let inputSize = TensorSize(array: [5, 1, 1])
+    let layer = PReLu(inputSize: inputSize)
+
+    let inputValues: [Tensor.Scalar] = [2.0, -3.0, 0.0, 1.5, -1.0]
+    let input = Tensor(inputValues)
+    let out = layer.forward(tensor: input, context: .init())
+    out.setGraph(input)
+
+    let error = Tensor([Tensor.Scalar](repeating: 1.0, count: 5))
+    let grads = out.gradients(delta: error, wrt: input)
+
+    // grads.weights[0] is wrtToAlpha returned as Tensor(scalar)
+    let alphaGrad = grads.weights[safe: 0]!.asScalar()
+    XCTAssertEqual(alphaGrad, -4.0, accuracy: 1e-5)
+  }
+
+  func test_prelu_backward_weightGradient_noNegativeInputs() {
+    // When all inputs are positive, wrtToAlpha should be 0
+    let inputSize = TensorSize(array: [3, 1, 1])
+    let layer = PReLu(inputSize: inputSize)
+
+    let input = Tensor([Tensor.Scalar(1.0), Tensor.Scalar(2.0), Tensor.Scalar(3.0)])
+    let out = layer.forward(tensor: input, context: .init())
+    out.setGraph(input)
+
+    let error = Tensor([Tensor.Scalar](repeating: 1.0, count: 3))
+    let grads = out.gradients(delta: error, wrt: input)
+
+    let alphaGrad = grads.weights[safe: 0]!.asScalar()
+    XCTAssertEqual(alphaGrad, 0.0, accuracy: 1e-5)
+  }
+
+  func test_prelu_weights_getterReturnsAlpha() {
+    let layer = PReLu()
+    // default alpha is 0.25
+    XCTAssertEqual(layer.weights.asScalar(), 0.25, accuracy: 1e-5)
+  }
+
+  func test_prelu_weights_setterUpdatesAlpha() {
+    let layer = PReLu()
+    layer.weights = Tensor(Tensor.Scalar(0.5))
+
+    let inputValues: [Tensor.Scalar] = [-2.0]
+    let input = Tensor(inputValues)
+    let out = layer.forward(tensor: input, context: .init())
+
+    // With alpha = 0.5, forward of -2.0 should be 0.5 * -2.0 = -1.0
+    XCTAssertEqual(out.storage[0], -1.0, accuracy: 1e-5)
+  }
+
+  func test_prelu_apply_updatesAlpha() {
+    // alpha = alpha - lr * grad
+    // alpha_initial = 0.25, grad = -4.0, lr = 0.01
+    // alpha_new = 0.25 - 0.01 * (-4.0) = 0.29
+    let layer = PReLu()
+    let weightGrad = Tensor(Tensor.Scalar(-4.0))
+    layer.apply(gradients: (weights: weightGrad, biases: Tensor()), learningRate: 0.01)
+
+    XCTAssertEqual(layer.weights.asScalar(), 0.29, accuracy: 1e-5)
+  }
+
+  func test_prelu_encodeDecodePreservesInputSize() {
+    let inputSize = TensorSize(rows: 8, columns: 8, depth: 4)
+    let layer = PReLu(inputSize: inputSize)
+
+    do {
+      let data = try JSONEncoder().encode(layer)
+      let decoded = try JSONDecoder().decode(PReLu.self, from: data)
+      XCTAssertEqual(decoded.inputSize, inputSize)
+    } catch {
+      XCTFail(error.localizedDescription)
+    }
+  }
+
+  func test_prelu_encodeDecodePreservesLinkId() {
+    let linkId = "test-prelu-link"
+    let layer = PReLu(linkId: linkId)
+
+    do {
+      let data = try JSONEncoder().encode(layer)
+      let decoded = try JSONDecoder().decode(PReLu.self, from: data)
+      XCTAssertEqual(decoded.linkId, linkId)
+    } catch {
+      XCTFail(error.localizedDescription)
+    }
+  }
+
+  func test_prelu_inSequential_weightsUpdateViaOptimizer() {
+    let network = Sequential {
+      [
+        Dense(4, inputs: 4, initializer: .heNormal, biasEnabled: false),
+        PReLu()
+      ]
+    }
+
+    let optimizer = Adam(network, learningRate: 0.01, batchSize: 2)
+
+    let prelu = network.layers[1] as! PReLu
+    let initialAlpha = prelu.weights.asScalar()
+
+    let inputs = [
+      Tensor([Tensor.Scalar(-1.0), -2.0, -3.0, -4.0]),
+      Tensor([Tensor.Scalar(-1.0), -2.0, -3.0, -4.0])
+    ]
+    let labels = [
+      Tensor([Tensor.Scalar(1.0), 0.0, 0.0, 0.0]),
+      Tensor([Tensor.Scalar(0.0), 1.0, 0.0, 0.0])
+    ]
+
+    optimizer.zeroGradients()
+    let output = optimizer.fit(inputs, labels: labels, lossFunction: .meanSquareError)
+    optimizer.apply(output.gradients)
+    optimizer.step()
+
+    let updatedAlpha = prelu.weights.asScalar()
+    XCTAssertNotEqual(initialAlpha, updatedAlpha, accuracy: 1e-7,
+                      "PReLu alpha should update after a training step with negative inputs")
+  }
 
 }

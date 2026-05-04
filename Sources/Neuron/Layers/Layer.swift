@@ -44,6 +44,7 @@ public enum EncodingType: String, Codable {
        subtract,
        divide,
        mish,
+       prelu,
        none
 }
 
