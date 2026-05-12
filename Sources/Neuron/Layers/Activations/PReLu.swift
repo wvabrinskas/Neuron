@@ -8,8 +8,19 @@
 import Foundation
 import NumSwift
 
+/// Performs a Parametric ReLU (PReLU) activation.
+///
+/// PReLU is a variant of Leaky ReLU where the negative-slope coefficient `alpha`
+/// is a learnable parameter rather than a fixed hyperparameter. The activation
+/// computes `x` for positive inputs and `alpha * x` for negative inputs, with
+/// `alpha` updated during training via the standard gradient descent step.
 public final class PReLu: BaseActivationLayer {
-  
+
+  /// Exposes the learnable negative-slope coefficient `alpha` as a single-element tensor.
+  ///
+  /// Getting wraps the current `alpha` in a scalar tensor; setting unpacks the first
+  /// scalar of the tensor into `alpha`. This conforms to the `Layer` weights contract
+  /// so that optimizers can apply gradient updates.
   public override var weights: Tensor {
     get {
       Tensor(alpha)
@@ -18,9 +29,15 @@ public final class PReLu: BaseActivationLayer {
       alpha = newValue.asScalar()
     }
   }
-  
+
   private var alpha: Tensor.Scalar = 0.25
 
+  /// Default initializer for a PReLU activation.
+  ///
+  /// - Parameters:
+  ///   - inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
+  ///   - initializer: Weight initializer type. Retained for API symmetry; `alpha` is initialized to `0.25` regardless.
+  ///   - linkId: A unique string identifier for this layer. Defaults to a new UUID string.
   public init(inputSize: TensorSize = TensorSize(array: []),
               initializer: InitializerType = .heNormal,
               linkId: String = UUID().uuidString) {
@@ -56,6 +73,16 @@ public final class PReLu: BaseActivationLayer {
     try container.encode(alpha, forKey: .alpha)
   }
 
+  /// Applies the PReLU activation element-wise.
+  ///
+  /// For each element `x`: returns `x` when `x > 0` and `alpha * x` otherwise.
+  /// Backpropagation produces gradients both with respect to the input and the
+  /// learnable `alpha` parameter (accumulated only over negative inputs).
+  ///
+  /// - Parameters:
+  ///   - tensor: Input tensor.
+  ///   - context: Network execution context.
+  /// - Returns: Activated tensor wired into the computation graph.
   public override func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
     let forward = tensor.storage
     let newStorage = TensorStorage.create(count: forward.count)
@@ -106,6 +133,11 @@ public final class PReLu: BaseActivationLayer {
     return out
   }
   
+  /// Updates the learnable `alpha` coefficient using gradient descent.
+  ///
+  /// - Parameters:
+  ///   - gradients: Tuple containing the scalar weight gradient (w.r.t. `alpha`) and biases (unused).
+  ///   - learningRate: Step size applied to the gradient update.
   public override func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Tensor.Scalar) {
     let weightScalar = gradients.weights.asScalar()
     
