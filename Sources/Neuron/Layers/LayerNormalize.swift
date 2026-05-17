@@ -116,6 +116,7 @@ public final class LayerNormalize: BaseLayer {
     return super.forward(tensor: out, context: context)
   }
   
+  /// Called by `Sequential.compile()` when input size is propagated; sets output size and initializes gamma/beta trainables.
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     outputSize = inputSize

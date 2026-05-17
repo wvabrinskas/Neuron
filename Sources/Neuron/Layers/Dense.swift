@@ -83,6 +83,7 @@ public final class Dense: BaseLayer {
     try container.encode(linkId, forKey: .linkId)
   }
   
+  /// Called by `Sequential.compile()` when input size is propagated; initializes weights and biases.
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     precondition(inputSize.rows == 1 && inputSize.depth == 1, "Dense expects Tensor dimensions of Nx1x1 where N is the columns, got: \(inputSize)")

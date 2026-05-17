@@ -585,6 +585,7 @@ public final class LSTM: BaseLayer {
     return (normalizedEmbeddings, normalizedWeightDerivatives, normalizedBiasDerivatives)
   }
   
+  /// Called by `Sequential.compile()` when input size is propagated; sets the LSTM output shape based on vocab and sequence settings.
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     outputSize = TensorSize(rows: 1,

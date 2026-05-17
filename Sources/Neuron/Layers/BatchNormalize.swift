@@ -241,6 +241,7 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
 
   // MARK: - Input Size
 
+  /// Called by `Sequential.compile()` when input size is propagated; initializes gamma/beta trainables and resets running statistics.
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     outputSize = inputSize

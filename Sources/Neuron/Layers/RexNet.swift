@@ -131,6 +131,7 @@ public final class RexNet: BaseLayerGroup {
     case inputSize, type, linkId, expandRatio, stridesRows, stridesColumns, outChannels, squeeze, innerBlockSequential
   }
   
+  /// Called by `Sequential.compile()` when input size is propagated; sets output size from the inner block's last layer.
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     /// do something when the input size is set when calling `compile` on `Sequential`

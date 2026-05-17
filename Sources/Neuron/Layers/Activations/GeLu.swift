@@ -47,6 +47,7 @@ public final class GeLu: BaseActivationLayer {
     try container.encode(linkId, forKey: .linkId)
   }
   
+  /// Called by `Sequential.compile()` when input size is propagated; sets output size to match.
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     outputSize = inputSize

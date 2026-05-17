@@ -120,6 +120,7 @@ public final class MaxPool: BaseLayer {
     return super.forward(tensor: out, context: context)
   }
   
+  /// Called by `Sequential.compile()` when input size is propagated; computes the pooled output dimensions.
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     outputSize = TensorSize(array: [(inputSize.columns + 1) / 2, (inputSize.rows + 1) / 2, inputSize.depth])
