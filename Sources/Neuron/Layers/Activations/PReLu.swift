@@ -52,13 +52,17 @@ public final class PReLu: BaseActivationLayer {
     case inputSize, type, linkId, alpha
   }
 
+  /// Decodes a PReLU activation layer from a serialized model.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: An error if required values cannot be decoded.
   convenience public required init(from decoder: Decoder) throws {
     self.init()
     let container = try decoder.container(keyedBy: CodingKeys.self)
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
     self.linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
     self.alpha = try container.decodeIfPresent(Tensor.Scalar.self, forKey: .alpha) ?? 0.25
-    
+
     self.outputSize = inputSize
   }
   

@@ -194,6 +194,7 @@ open class ArithmeticLayer: BaseLayer {
   
   private(set) var inverse: Bool
   
+  /// Always `false`; arithmetic layers carry no trainable parameters.
   override public var usesOptimizer: Bool { get { false } set { } }
 
   init(inputSize: TensorSize? = nil,
@@ -229,6 +230,8 @@ open class ArithmeticLayer: BaseLayer {
     fatalError("override in subclass")
   }
   
+  /// Called by `Sequential.compile()` when the input size is propagated to this layer.
+  /// Sets `outputSize` to match `inputSize` when it has not already been configured.
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     /// do something when the input size is set when calling `compile` on `Sequential`
@@ -621,6 +624,7 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
     self.init(filterCount: 0, encodingType: .none)
   }
   
+  /// Called by `Sequential.compile()` to initialize convolutional filters once the input size is known.
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     initializeFilters()
@@ -719,11 +723,12 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
               encodingType: .none)
   }
   
+  /// Called by `Sequential.compile()` when input size is propagated; sets output size to match.
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     outputSize = inputSize
   }
-  
+
   /// Applies the activation function and builds backpropagation context.
   ///
   /// - Parameters:
@@ -752,10 +757,14 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
     return super.forward(tensor: out, context: context)
   }
   
+  /// No-op for activation layers; they carry no trainable weights.
+  /// - Parameter weights: Ignored.
   override public func importWeights(_ weights: [Tensor]) throws {
     // no op
   }
-  
+
+  /// Returns a single empty tensor; activation layers carry no trainable weights.
+  /// - Returns: An array containing one empty `Tensor`.
   override public func exportWeights() throws -> [Tensor] {
     [Tensor()]
   }

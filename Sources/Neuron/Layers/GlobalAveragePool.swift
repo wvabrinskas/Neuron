@@ -23,6 +23,7 @@ public final class GlobalAvgPool: BaseLayer {
     case inputSize, type, linkId
   }
   
+  /// Called by `Sequential.compile()` when input size is propagated; sets output to `(1, depth, 1)` — one average per channel.
   override public func onInputSizeSet() {
     // outputSize will effectively 'flatten' with a global average at each channel
     outputSize = .init(rows: 1, columns: inputSize.depth, depth: 1)

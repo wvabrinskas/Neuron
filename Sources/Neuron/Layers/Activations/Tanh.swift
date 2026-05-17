@@ -48,6 +48,7 @@ public final class Tanh: BaseActivationLayer {
     try container.encode(linkId, forKey: .linkId)
   }
 
+  /// Called by `Sequential.compile()` when input size is propagated; sets output size to match.
   override public func onInputSizeSet() {
     outputSize = inputSize
   }

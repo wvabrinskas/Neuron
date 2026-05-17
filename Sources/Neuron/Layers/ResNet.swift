@@ -115,11 +115,13 @@ public final class ResNet: BaseLayerGroup {
     case inputSize, type, filterCount, stride, innerBlockSequential, shortcutSequential, linkId
   }
   
+  /// Called when the batch size changes; propagates the new batch size to the shortcut sequential sub-network.
   override public func onBatchSizeSet() {
     super.onBatchSizeSet()
     shortcutSequential.batchSize = batchSize
   }
-  
+
+  /// Called by `Sequential.compile()` when input size is propagated; builds the residual block sub-networks.
   override public func onInputSizeSet() {
     let initializer = initializer.type
     

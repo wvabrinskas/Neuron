@@ -101,15 +101,17 @@ public class BaseLayerGroup: BaseLayer, LayerGrouping {
     fatalError("init(from:) has not been implemented")
   }
   
+  /// Called by `Sequential.compile()` when input size is propagated; builds and compiles the inner block.
   override public func onInputSizeSet() {
     if innerBlockSequential.layers.isEmpty {
       innerBlockSequential.layers = layers(inputSize)
     }
-    
+
     innerBlockSequential.compile()
     onBatchSizeSet()
   }
-  
+
+  /// Called when the batch size changes; propagates the new batch size to the inner sequential block.
   override public func onBatchSizeSet() {
     innerBlockSequential.batchSize = batchSize
   }
