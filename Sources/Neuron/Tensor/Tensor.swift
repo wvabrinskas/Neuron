@@ -128,17 +128,17 @@ public class Tensor: Equatable, Codable {
   }
   
   // MARK: - Flat Indexing Helpers
-  
-  /// Computes the flat index for a given (column, row, depth) coordinate.
+
+  /// Computes the flat storage index for an element at the given (column, row, depth) coordinates.
+  ///
   /// Memory layout: `index = d * rows * columns + r * columns + c`
-  @inline(__always)
-/// Computes the flat storage index for an element at the given (column, row, depth) coordinates.
   ///
   /// - Parameters:
   ///   - c: The column index.
   ///   - r: The row index.
   ///   - d: The depth index.
   /// - Returns: The corresponding flat index into the `storage` array.
+  @inline(__always)
   public func flatIndex(column c: Int, row r: Int, depth d: Int) -> Int {
     d * size.rows * size.columns + r * size.columns + c
   }
@@ -824,7 +824,7 @@ public class Tensor: Equatable, Codable {
 // MARK: - Debug Description
 
 extension Tensor: CustomDebugStringConvertible {
-/// A human-readable description of the tensor, including its shape, label, and formatted values.
+  /// A human-readable description of the tensor, including its shape, label, and formatted values.
   /// Useful for debugging; prints each depth slice with row and column layout.
   public var debugDescription: String {
     var string = """

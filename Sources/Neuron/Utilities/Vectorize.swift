@@ -31,9 +31,9 @@ public protocol Vectorizing: Exportable {
   
   /// The last integer index assigned during vectorization.
   var lastKey: Int { get }
-  /// Value that indicate starting of a vector
+  /// The integer token ID reserved for the start-of-sequence sentinel.
   var start: Int { get }
-  /// Value that indicate ending of a vector
+  /// The integer token ID reserved for the end-of-sequence sentinel.
   var end: Int { get }
   /// The current full vector storage of every value passed in keyed by the `Item`
   var vector: Vector { get }
@@ -77,9 +77,9 @@ public class Vectorizer: Vectorizing, Codable {
   /// after reserving indices for start and end tokens.
   public private(set) var lastKey: Int = 0
   
-  /// Value that indicate starting of a vactor
+  /// The integer token ID reserved for the start-of-sequence sentinel (always `0`).
   public let start: Int = 0
-  /// Value that indicate ending of a vactor
+  /// The integer token ID reserved for the end-of-sequence sentinel (always `1`).
   public let end: Int = 1
 
   /// max index is the first index we can use to identify words

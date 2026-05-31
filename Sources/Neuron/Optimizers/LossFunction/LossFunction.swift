@@ -12,24 +12,48 @@ import NumSwift
 /// Each case represents a different strategy for measuring prediction error.
 public enum LossFunction {
   /// Mean squared error: average of squared differences between prediction and target.
+  ///
+  /// Formula: `sum((predicted - correct)^2) / N`
   case meanSquareError
   /// Cross-entropy loss used without a preceding Softmax layer.
+  ///
+  /// Use when the network's final layer does NOT include `Softmax`. Applies `−log(p)` directly.
   case crossEntropy
   /// Cross-entropy loss optimized for use with a preceding Softmax layer.
+  ///
+  /// Use when the network's final layer IS a `Softmax`. The derivative simplifies to `predicted − correct`.
   case crossEntropySoftmax
   /// Cross-entropy with label smoothing, parameterized by a smoothing coefficient.
+  ///
+  /// Smooths the one-hot targets by mixing them with a uniform prior, reducing overconfidence.
+  /// The associated value is the smoothing factor `ε ∈ (0, 1)`.
   case crossEntropySoftmaxSmoothing(Tensor.Scalar)
   /// Binary cross-entropy loss used without a preceding Softmax layer.
+  ///
+  /// Suitable for binary or multi-label classification tasks. Does not assume a preceding activation.
   case binaryCrossEntropy
   /// Binary cross-entropy loss optimized for use with a preceding Softmax layer.
+  ///
+  /// Use when the network's final layer IS a `Softmax`. Shares the simplified derivative of `.crossEntropySoftmax`.
   case binaryCrossEntropySoftmax
   /// Wasserstein distance loss used for WGAN training.
+  ///
+  /// The critic returns the raw dot product of predictions and labels (no log). Use `.minimaxBinaryCrossEntropy` for standard GANs.
   case wasserstein
   /// Minimax binary cross-entropy used for standard GAN discriminator training.
+  ///
+  /// Equivalent to binary cross-entropy; typically paired with a sigmoid output layer.
   case minimaxBinaryCrossEntropy
   /// Focal loss with softmax, down-weighting easy examples using `alpha` and `gamma`.
+  ///
+  /// Reduces the relative loss for well-classified examples, focusing training on hard cases.
+  /// - `alpha`: Class-balancing weight factor.
+  /// - `gamma`: Focusing exponent; higher values suppress easy examples more aggressively.
   case focalSoftmax(alpha: Tensor.Scalar, gamma: Tensor.Scalar)
   /// Huber (smooth L1) loss with a transition threshold `delta`.
+  ///
+  /// Behaves like MSE for small errors (`|e| ≤ delta`) and like L1 for large errors,
+  /// making it less sensitive to outliers than pure MSE.
   case huber(delta: Tensor.Scalar)
   
   
