@@ -45,8 +45,8 @@ final class WarmupFunctionTests: XCTestCase {
 
     warmup.step()
 
-    // globalSteps was 0 before step, so newLr = targetLR * 0 / warmupSteps = 0
-    XCTAssertEqual(warmup.warmedLearningRate, 0, accuracy: 1e-7)
+    // After step(), globalSteps=1, so newLr = targetLR * 1 / warmupSteps
+    XCTAssertEqual(warmup.warmedLearningRate, targetLR / warmupSteps, accuracy: 1e-7)
     XCTAssertEqual(warmup.globalSteps, 1)
     XCTAssertEqual(warmup.warmupState, .warming)
   }
@@ -56,15 +56,14 @@ final class WarmupFunctionTests: XCTestCase {
     let warmupSteps: Tensor.Scalar = 4
     let warmup = LinearWarmupFunction(targetLearningRate: targetLR, warmupSteps: warmupSteps)
 
-    // step() uses globalSteps BEFORE incrementing
-    // Step 1: globalSteps=0 → 0/4 = 0.0
-    // Step 2: globalSteps=1 → 1/4 = 0.25
-    // Step 3: globalSteps=2 → 2/4 = 0.5
-    // Step 4: globalSteps=3 → 3/4 = 0.75
-    // Step 5: globalSteps=4 → 4/4 = 1.0 (target reached)
-    let expected: [Tensor.Scalar] = [0.0, 0.25, 0.5, 0.75, 1.0]
+    // step() increments globalSteps first, then computes:
+    // Step 1: globalSteps=1 → 1/4 = 0.25
+    // Step 2: globalSteps=2 → 2/4 = 0.5
+    // Step 3: globalSteps=3 → 3/4 = 0.75
+    // Step 4: globalSteps=4 → 4/4 = 1.0 (target reached)
+    let expected: [Tensor.Scalar] = [0.25, 0.5, 0.75, 1.0]
 
-    for i in 0..<Int(warmupSteps) + 1 {
+    for i in 0..<Int(warmupSteps) {
       warmup.step()
       XCTAssertEqual(warmup.warmedLearningRate, expected[i], accuracy: 1e-5,
                      "Mismatch at step \(i + 1)")
@@ -76,8 +75,8 @@ final class WarmupFunctionTests: XCTestCase {
     let warmupSteps: Tensor.Scalar = 10
     let warmup = LinearWarmupFunction(targetLearningRate: targetLR, warmupSteps: warmupSteps)
 
-    // warmupSteps + 1 calls to step() brings globalSteps to warmupSteps
-    for _ in 0..<Int(warmupSteps) + 1 {
+    // warmupSteps calls reach target: globalSteps=warmupSteps after the last step
+    for _ in 0..<Int(warmupSteps) {
       warmup.step()
     }
 
@@ -92,13 +91,13 @@ final class WarmupFunctionTests: XCTestCase {
 
     XCTAssertEqual(warmup.warmupState, .warming)
 
-    // Step through until complete
-    for _ in 0..<Int(warmupSteps) {
+    // Steps 1..<warmupSteps are still warming
+    for _ in 0..<Int(warmupSteps) - 1 {
       warmup.step()
       XCTAssertEqual(warmup.warmupState, .warming)
     }
 
-    warmup.step() // globalSteps == warmupSteps → warmedLR == targetLR
+    warmup.step() // step warmupSteps: globalSteps=warmupSteps → warmedLR==targetLR
     XCTAssertEqual(warmup.warmupState, .complete)
   }
 
@@ -121,7 +120,7 @@ final class WarmupFunctionTests: XCTestCase {
     let warmupSteps: Tensor.Scalar = 5
     let warmup = LinearWarmupFunction(targetLearningRate: targetLR, warmupSteps: warmupSteps)
 
-    for _ in 0..<Int(warmupSteps) + 1 {
+    for _ in 0..<Int(warmupSteps) {
       warmup.step()
     }
     XCTAssertEqual(warmup.warmupState, .complete)
@@ -130,9 +129,9 @@ final class WarmupFunctionTests: XCTestCase {
     XCTAssertEqual(warmup.warmupState, .warming)
     XCTAssertEqual(warmup.globalSteps, 0)
 
-    // Should produce the same progression after reset
+    // First step after reset: globalSteps=1, warmedLR = targetLR * 1/warmupSteps
     warmup.step()
-    XCTAssertEqual(warmup.warmedLearningRate, 0, accuracy: 1e-7)
+    XCTAssertEqual(warmup.warmedLearningRate, targetLR / warmupSteps, accuracy: 1e-7)
   }
 
   // MARK: - CosineWarmupFunction
@@ -143,8 +142,8 @@ final class WarmupFunctionTests: XCTestCase {
 
     warmup.step()
 
-    // globalSteps=0 → targetLR * 0.5 * (1 - cos(0)) = targetLR * 0.5 * 0 = 0
-    XCTAssertEqual(warmup.warmedLearningRate, 0, accuracy: 1e-6)
+    // After step(), globalSteps=1: targetLR * 0.5 * (1 - cos(π * 1 / warmupSteps)) ≈ 0.0002447
+    XCTAssertEqual(warmup.warmedLearningRate, 0.0002447, accuracy: 1e-6)
     XCTAssertEqual(warmup.globalSteps, 1)
   }
 
@@ -153,8 +152,8 @@ final class WarmupFunctionTests: XCTestCase {
     let warmupSteps: Tensor.Scalar = 10
     let warmup = CosineWarmupFunction(targetLearningRate: targetLR, warmupSteps: warmupSteps)
 
-    // At globalSteps == warmupSteps: 0.5 * (1 - cos(π)) = 0.5 * 2 = 1.0
-    for _ in 0..<Int(warmupSteps) + 1 {
+    // After warmupSteps steps, globalSteps=warmupSteps: 0.5 * (1 - cos(π)) = 1.0
+    for _ in 0..<Int(warmupSteps) {
       warmup.step()
     }
 
@@ -167,8 +166,8 @@ final class WarmupFunctionTests: XCTestCase {
     let warmupSteps: Tensor.Scalar = 10
     let warmup = CosineWarmupFunction(targetLearningRate: targetLR, warmupSteps: warmupSteps)
 
-    // At globalSteps == warmupSteps/2: cos(π/2) = 0 → 0.5 * (1 - 0) = 0.5
-    for _ in 0..<Int(warmupSteps) / 2 + 1 {
+    // After warmupSteps/2 steps, globalSteps=5: cos(π/2) = 0 → 0.5 * (1 - 0) = 0.5
+    for _ in 0..<Int(warmupSteps) / 2 {
       warmup.step()
     }
 
@@ -181,7 +180,7 @@ final class WarmupFunctionTests: XCTestCase {
     let warmup = CosineWarmupFunction(targetLearningRate: targetLR, warmupSteps: warmupSteps)
 
     var previous: Tensor.Scalar = -Tensor.Scalar.infinity
-    for i in 0..<Int(warmupSteps) + 1 {
+    for i in 0..<Int(warmupSteps) {
       warmup.step()
       XCTAssertGreaterThanOrEqual(warmup.warmedLearningRate, previous,
                                   "Cosine LR should be non-decreasing at step \(i + 1)")
@@ -196,12 +195,13 @@ final class WarmupFunctionTests: XCTestCase {
 
     XCTAssertEqual(warmup.warmupState, .warming)
 
-    for _ in 0..<Int(warmupSteps) {
+    // Steps 1..<warmupSteps are still warming
+    for _ in 0..<Int(warmupSteps) - 1 {
       warmup.step()
       XCTAssertEqual(warmup.warmupState, .warming)
     }
 
-    warmup.step() // globalSteps == warmupSteps → warmedLR == targetLR
+    warmup.step() // step warmupSteps: globalSteps=warmupSteps → warmedLR==targetLR
     XCTAssertEqual(warmup.warmupState, .complete)
   }
 
@@ -210,7 +210,7 @@ final class WarmupFunctionTests: XCTestCase {
     let warmupSteps: Tensor.Scalar = 5
     let warmup = CosineWarmupFunction(targetLearningRate: targetLR, warmupSteps: warmupSteps)
 
-    for _ in 0..<Int(warmupSteps) + 1 {
+    for _ in 0..<Int(warmupSteps) {
       warmup.step()
     }
     XCTAssertEqual(warmup.warmupState, .complete)

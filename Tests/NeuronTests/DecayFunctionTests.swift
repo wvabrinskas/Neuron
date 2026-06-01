@@ -55,9 +55,9 @@ final class DecayFunctionTests: XCTestCase {
     
     cosineDecay.step()
     
-    // At epoch 0: cos(π * 0 / 10) = cos(0) = 1
-    // LR = 0.001 + 0.5 * (0.1 - 0.001) * (1 + 1) = 0.001 + 0.5 * 0.099 * 2 = 0.1
-    XCTAssertEqual(cosineDecay.decayedLearningRate, maxLR, accuracy: 0.0001)
+    // After step(), globalSteps=1: cos(π * 1 / 10) ≈ 0.9511
+    // LR = 0.001 + 0.5 * (0.1 - 0.001) * (1 + 0.9511) ≈ 0.09758
+    XCTAssertEqual(cosineDecay.decayedLearningRate, 0.09758, accuracy: 0.0001)
     XCTAssertEqual(cosineDecay.globalSteps, 1)
   }
   
@@ -70,24 +70,25 @@ final class DecayFunctionTests: XCTestCase {
                                            minLearningRate: minLR,
                                            decaySteps: epochs)
     
-    // Track learning rate progression through epochs
-    var learningRates: [Tensor.Scalar] = []
-    
-    for epoch in 0...epochs {
+    // Collect initial value (maxLR), then step epochs times.
+    // At globalSteps=epochs: cos(π)=-1 → LR = minLR.
+    var learningRates: [Tensor.Scalar] = [cosineDecay.decayedLearningRate]
+
+    for _ in 0..<epochs {
       cosineDecay.step()
       learningRates.append(cosineDecay.decayedLearningRate)
     }
-    
+
     // Verify monotonic decrease
     for i in 1..<learningRates.count {
       XCTAssertLessThanOrEqual(learningRates[i], learningRates[i-1],
                                "Learning rate should decrease monotonically")
     }
-    
-    // First value should be near max
+
+    // First value should be near max (initial, before any step)
     XCTAssertEqual(learningRates[0], maxLR, accuracy: 0.0001)
-    
-    // Last value should be near min
+
+    // Last value should be near min (after epochs steps, globalSteps==epochs)
     XCTAssertEqual(learningRates[epochs], minLR, accuracy: 0.0001)
   }
 
@@ -126,26 +127,26 @@ final class DecayFunctionTests: XCTestCase {
     XCTAssertEqual(decay.globalSteps, 0)
   }
 
-  func test_linearDecay_firstStep_usesGlobalStepsZero() {
-    // LinearDecay computes rate from globalSteps BEFORE super.step() increments it,
-    // so the first step still yields the original learning rate.
+  func test_linearDecay_firstStep_usesGlobalStepsOne() {
+    // LinearDecay increments globalSteps first, then computes:
+    // After 1 step: globalSteps=1, rate = learningRate * (1 - 1/decaySteps)
     let learningRate: Tensor.Scalar = 0.01
     let decay = LinearDecay(learningRate: learningRate, decaySteps: 100)
 
     decay.step()
 
-    XCTAssertEqual(decay.decayedLearningRate, learningRate, accuracy: 1e-6)
+    XCTAssertEqual(decay.decayedLearningRate, learningRate * (1 - 1 / 100), accuracy: 1e-6)
     XCTAssertEqual(decay.globalSteps, 1)
   }
 
   func test_linearDecay_midpointValue() {
-    // After decaySteps/2 + 1 calls to step(), globalSteps == decaySteps/2 when
-    // the rate is computed, giving lr * (1 - 0.5) = lr * 0.5.
+    // After decaySteps/2 steps, globalSteps=decaySteps/2:
+    // lr * (1 - (decaySteps/2) / decaySteps) = lr * 0.5
     let learningRate: Tensor.Scalar = 0.1
     let decaySteps: Tensor.Scalar = 100
     let decay = LinearDecay(learningRate: learningRate, decaySteps: decaySteps)
 
-    for _ in 0..<Int(decaySteps / 2) + 1 {
+    for _ in 0..<Int(decaySteps / 2) {
       decay.step()
     }
 
@@ -154,13 +155,13 @@ final class DecayFunctionTests: XCTestCase {
   }
 
   func test_linearDecay_reachesZeroAtDecaySteps() {
-    // After decaySteps + 1 calls, globalSteps == decaySteps when the rate is
-    // computed: lr * (1 - decaySteps/decaySteps) == 0.
+    // After decaySteps steps, globalSteps=decaySteps:
+    // lr * (1 - decaySteps/decaySteps) == 0
     let learningRate: Tensor.Scalar = 0.01
     let decaySteps: Tensor.Scalar = 10
     let decay = LinearDecay(learningRate: learningRate, decaySteps: decaySteps)
 
-    for _ in 0..<Int(decaySteps) + 1 {
+    for _ in 0..<Int(decaySteps) {
       decay.step()
     }
 
@@ -185,7 +186,7 @@ final class DecayFunctionTests: XCTestCase {
   }
 
   func test_linearDecay_specificStep() {
-    // After 6 steps: globalSteps == 5 when rate computed → lr * (1 - 5/10) = 0.5 * lr
+    // After 6 steps: globalSteps=6 → lr * (1 - 6/10) = 0.4 * lr
     let learningRate: Tensor.Scalar = 0.1
     let decaySteps: Tensor.Scalar = 10
     let decay = LinearDecay(learningRate: learningRate, decaySteps: decaySteps)
@@ -194,7 +195,7 @@ final class DecayFunctionTests: XCTestCase {
       decay.step()
     }
 
-    let expected = learningRate * (1 - 5 / decaySteps)
+    let expected = learningRate * (1 - 6 / decaySteps)
     XCTAssertEqual(decay.decayedLearningRate, expected, accuracy: 1e-6)
   }
 
@@ -216,11 +217,11 @@ final class DecayFunctionTests: XCTestCase {
   }
 
   func test_linearDecay_defaultDecaySteps() {
-    // Default decaySteps is 1000; after 501 steps globalSteps == 500 → lr * 0.5
+    // Default decaySteps is 1000; after 500 steps globalSteps=500 → lr * 0.5
     let learningRate: Tensor.Scalar = 0.1
     let decay = LinearDecay(learningRate: learningRate)
 
-    for _ in 0..<501 {
+    for _ in 0..<500 {
       decay.step()
     }
 

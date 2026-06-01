@@ -51,8 +51,8 @@ final class LearningRateSchedulerTests: XCTestCase {
   func test_step_correctEpochType_advancesScheduler() {
     let (scheduler, _, _) = makeScheduler(initialLR: 0.0001, type: .epoch)
     scheduler.step(type: .epoch)
-    // First warmup step: globalSteps=0 → warmedLR = targetLR * 0/warmupSteps = 0
-    XCTAssertEqual(scheduler.learningRate, 0, accuracy: 1e-7)
+    // First warmup step: globalSteps=1 → warmedLR = targetLR * 1/warmupSteps = 0.025
+    XCTAssertEqual(scheduler.learningRate, 0.025, accuracy: 1e-7)
   }
 
   // MARK: - Warmup Phase
@@ -67,13 +67,13 @@ final class LearningRateSchedulerTests: XCTestCase {
   }
 
   func test_warmupPhase_linearProgression() {
-    // warmupSteps=4, targetLR=1.0
-    // Step 1: globalSteps=0 → 0/4 = 0.0
-    // Step 2: globalSteps=1 → 1/4 = 0.25
-    // Step 3: globalSteps=2 → 2/4 = 0.5
-    // Step 4: globalSteps=3 → 3/4 = 0.75
+    // warmupSteps=4, targetLR=1.0 (globalSteps increments before compute)
+    // Step 1: globalSteps=1 → 1/4 = 0.25
+    // Step 2: globalSteps=2 → 2/4 = 0.5
+    // Step 3: globalSteps=3 → 3/4 = 0.75
+    // Step 4: globalSteps=4 → 4/4 = 1.0 (target reached)
     let (scheduler, _, _) = makeScheduler(targetLR: 1.0, warmupSteps: 4)
-    let expected: [Tensor.Scalar] = [0.0, 0.25, 0.5, 0.75]
+    let expected: [Tensor.Scalar] = [0.25, 0.5, 0.75, 1.0]
 
     for i in 0..<4 {
       scheduler.step(type: .batch)
@@ -102,8 +102,8 @@ final class LearningRateSchedulerTests: XCTestCase {
     let warmupSteps: Tensor.Scalar = 3
     let (scheduler, _, decay) = makeScheduler(targetLR: targetLR, warmupSteps: warmupSteps, decayRate: 0.5, decaySteps: 1)
 
-    // Complete warmup: warmupSteps+1 calls to reach .complete
-    for _ in 0..<Int(warmupSteps) + 1 {
+    // Complete warmup: warmupSteps calls reach .complete (globalSteps=warmupSteps)
+    for _ in 0..<Int(warmupSteps) {
       scheduler.step(type: .batch)
     }
     XCTAssertEqual(scheduler.learningRate, targetLR, accuracy: 1e-6)
@@ -197,17 +197,17 @@ final class LearningRateSchedulerTests: XCTestCase {
     let warmupSteps: Tensor.Scalar = 3
     let (scheduler, _, _) = makeScheduler(targetLR: targetLR, warmupSteps: warmupSteps)
 
-    // Complete first warmup cycle
-    for _ in 0..<Int(warmupSteps) + 1 {
+    // Complete first warmup cycle: warmupSteps calls reach .complete
+    for _ in 0..<Int(warmupSteps) {
       scheduler.step(type: .batch)
     }
     XCTAssertEqual(scheduler.learningRate, targetLR, accuracy: 1e-6)
 
     scheduler.reset()
 
-    // First step after reset should restart warmup from 0
+    // First step after reset: globalSteps=1 → warmedLR = targetLR * 1/warmupSteps
     scheduler.step(type: .batch)
-    XCTAssertEqual(scheduler.learningRate, 0, accuracy: 1e-7)
+    XCTAssertEqual(scheduler.learningRate, targetLR / warmupSteps, accuracy: 1e-5)
   }
 
   // MARK: - Cosine Warmup Integration
@@ -220,7 +220,7 @@ final class LearningRateSchedulerTests: XCTestCase {
     let scheduler = SequentialLearningRateScheduler(learningRate: 0.0001, warmup: warmup, decay: decay, type: .batch)
 
     var previous: Tensor.Scalar = -Tensor.Scalar.infinity
-    for i in 0..<Int(warmupSteps) + 1 {
+    for i in 0..<Int(warmupSteps) {
       scheduler.step(type: .batch)
       XCTAssertGreaterThanOrEqual(scheduler.learningRate, previous,
                                   "Cosine warmup LR should be non-decreasing at step \(i + 1)")
