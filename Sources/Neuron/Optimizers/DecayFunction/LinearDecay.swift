@@ -26,7 +26,7 @@ public final class LinearDecay: BaseDecayFunction {
   
   /// Advances the schedule and computes the next decayed learning rate.
   public override func step() {
-    decayedLearningRate = originalLearningRate * (1 - (globalSteps / decaySteps))
     super.step()
+    decayedLearningRate = originalLearningRate * (1 - (globalSteps / decaySteps))
   }
 }
