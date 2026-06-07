@@ -7,6 +7,7 @@
 
 import Foundation
 
+/// Neuron-specific convenience additions to `String`.
 public extension String {
   /// Returns the string's Unicode scalars as an array of single-character strings.
   var characters: [String] {
