@@ -58,6 +58,7 @@ public protocol MetricLogger: AnyObject {
   func addMetric(value: Tensor.Scalar, key: Metric)
 }
 
+/// Default implementations for the `MetricLogger` protocol.
 public extension MetricLogger {
   /// Default metric-recording implementation guarded by a lock.
   ///

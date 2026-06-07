@@ -10,6 +10,7 @@ import NumSwift
 
 // MARK: - Element-wise Arithmetic (TensorStorage x TensorStorage)
 
+/// Element-wise arithmetic operators between two `TensorStorage` instances.
 public extension TensorStorage {
 
   /// Returns element-wise sum of two storages, operating on the shorter count.
@@ -47,6 +48,7 @@ public extension TensorStorage {
 
 // MARK: - Tensor.Scalar Arithmetic (TensorStorage x Tensor.Scalar)
 
+/// Arithmetic operators between a `TensorStorage` and a `Tensor.Scalar`.
 public extension TensorStorage {
 
   /// Returns a new storage with `rhs` added to every element.
@@ -80,6 +82,7 @@ public extension TensorStorage {
 
 // MARK: - Tensor.Scalar Arithmetic (Tensor.Scalar x TensorStorage)
 
+/// Reverse arithmetic operators with a `Tensor.Scalar` on the left-hand side.
 public extension TensorStorage {
 
   /// Returns a new storage with every element multiplied by the scalar `lhs`.
@@ -113,6 +116,7 @@ public extension TensorStorage {
 
 // MARK: - Reductions
 
+/// Scalar reduction properties over all elements in a `TensorStorage`.
 public extension TensorStorage {
 
   /// Sum of all elements.
@@ -136,6 +140,7 @@ public extension TensorStorage {
 
 // MARK: - Unary Operations
 
+/// Unary element-wise operations on `TensorStorage`.
 public extension TensorStorage {
 
   /// Returns a new TensorStorage with every element negated.

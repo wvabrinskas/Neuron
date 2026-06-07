@@ -78,6 +78,7 @@ public protocol Trainable: AnyObject, Exportable, CustomDebugStringConvertible {
   func export(name: String?, overrite: Bool, compress: Bool) -> URL?
 }
 
+/// Default implementations provided for all `Trainable` conformers.
 public extension Trainable {
   /// A textual representation of the network structure suitable for debugging.
   ///

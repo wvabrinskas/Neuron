@@ -1067,8 +1067,9 @@ extension Array where Element == Tensor {
 
 // MARK: - Gradient Extensions
 
+/// Utility operations for working with `Tensor.Gradient` values.
 public extension Tensor.Gradient {
-  
+
   /// Normalizes all weight and bias gradient tensors in place to unit L2 norm.
   func l2NomalizeWeightsAndBiases() {
     weights.forEach { $0.l2Normalize() }
@@ -1198,6 +1199,7 @@ public extension Tensor.Gradient {
 
 // MARK: - Static Factory Methods
 
+/// Static factory and fill utilities for constructing `Tensor` values.
 public extension Tensor {
   /// Creates a tensor whose elements are drawn uniformly at random from `range`.
   ///

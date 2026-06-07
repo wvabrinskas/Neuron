@@ -104,6 +104,7 @@ public struct TensorSize: Codable, Equatable, Comparable {
   }
 }
 
+/// Convenience conversion from integer arrays to `TensorSize`.
 public extension Array where Element == Int {
   /// Converts an integer array into a `TensorSize` using `[columns, rows, depth]` ordering.
   var tensorSize: TensorSize {

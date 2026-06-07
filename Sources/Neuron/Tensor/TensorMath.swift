@@ -8,6 +8,7 @@
 import Foundation
 import NumSwift
 
+/// Numerical stability helpers for `Float`.
 public extension Float {
   /// A small constant added to denominators and square-roots for numerical stability.
   ///
@@ -19,6 +20,7 @@ public extension Float {
 }
 
 #if arch(arm64)
+/// Numerical stability helpers for `Float16` (arm64 only).
 public extension Float16 {
   /// A small constant added to denominators and square-roots for numerical stability.
   ///
@@ -30,6 +32,7 @@ public extension Float16 {
 }
 #endif
 
+/// Axis-wise reduction and math operations on `Tensor`.
 public extension Tensor {
   /// A closure type that receives a pointer to a contiguous block of scalars and its count,
   /// and returns a single reduced scalar result (e.g., sum, mean, or max).
