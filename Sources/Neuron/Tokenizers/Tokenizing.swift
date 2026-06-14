@@ -68,9 +68,13 @@ open class BaseTokenizer: Tokenizing {
   
   /// Coding keys used for encoding and decoding the tokenizer's properties.
   public enum CodingKeys: String, CodingKey {
+    /// Key for the array of learned byte-pair merge rules.
     case mergeRules
+    /// Key for the token-to-ID vocabulary dictionary.
     case vocab
+    /// Key for the ID-to-token inverse vocabulary dictionary.
     case inverseVocab
+    /// Key for the target vocabulary size used during training.
     case targetVocabSize
   }
 
@@ -224,7 +228,6 @@ open class BaseTokenizer: Tokenizing {
   }
   
   
-  @discardableResult
   /// Exports the trainable as a `.stkns` file.
   ///
   /// - Parameters:
@@ -232,6 +235,7 @@ open class BaseTokenizer: Tokenizing {
   ///   - overrite: When `false`, appends a timestamp to avoid overwrite.
   ///   - compress: When `true`, emits compact JSON.
   /// - Returns: URL to the exported model file, or `nil` on write failure.
+  @discardableResult
   public func export(name: String?, overrite: Bool, compress: Bool) -> URL? {
     let additional = overrite == false ? "-\(Date().timeIntervalSince1970)" : ""
     

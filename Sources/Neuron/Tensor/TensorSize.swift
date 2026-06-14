@@ -39,7 +39,14 @@ public struct TensorSize: Codable, Equatable, Comparable {
   
   /// Coding keys used for encoding and decoding a `TensorSize` instance.
   public enum CodingKeys: String, CodingKey {
-    case rows, columns, depth, batchCount
+    /// Key for the number of rows.
+    case rows
+    /// Key for the number of columns.
+    case columns
+    /// Key for the depth (channel count).
+    case depth
+    /// Key for the batch count dimension.
+    case batchCount
   }
   
   /// Returns a Boolean value indicating whether the total element count of the left tensor is less than that of the right tensor.

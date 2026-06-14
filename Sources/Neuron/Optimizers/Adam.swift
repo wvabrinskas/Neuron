@@ -56,7 +56,9 @@ public class Adam: BaseOptimizer {
   /// - `none`: No weight decay is applied.
   /// - `decay`: Applies L2 weight decay with the specified scalar coefficient.
   public enum WeightDecay {
+    /// No weight decay is applied during parameter updates.
     case none
+    /// Applies decoupled L2 weight decay with the given scalar coefficient.
     case decay(Tensor.Scalar)
   }
   

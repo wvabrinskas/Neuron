@@ -11,8 +11,11 @@ import NumSwift
 public final class AvgPool: BaseLayer {
 
   private var kernelSize: TensorSize
-  /// Default initializer for max pooling.
-  /// - Parameter inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
+  /// Default initializer for average pooling.
+  /// - Parameters:
+  ///   - inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
+  ///   - kernelSize: The pooling window size in rows and columns. Defaults to `(rows: 2, columns: 2)`.
+  ///   - linkId: A unique string identifier for this layer link. Defaults to a new UUID string.
   public init(inputSize: TensorSize? = nil,
               kernelSize: (rows: Int, columns: Int) = (rows: 2, columns: 2),
               linkId: String = UUID().uuidString) {

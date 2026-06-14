@@ -16,7 +16,12 @@ import NumSwift
 /// - `end`: Append an end token to the vector.
 /// - `none`: Apply no additional formatting tokens.
 public enum VectorFormat {
-  case start, end, none
+  /// Prepend a start token to the vector.
+  case start
+  /// Append an end token to the vector.
+  case end
+  /// Apply no additional formatting tokens.
+  case none
 }
 
 
@@ -96,9 +101,13 @@ public class Vectorizer: Vectorizing, Codable {
   
   /// Coding keys for encoding and decoding `Vectorizer` state.
   public enum CodingKeys: String, CodingKey {
+    /// Key for the token-to-index vector dictionary.
     case vector
+    /// Key for the last assigned token index.
     case lastKey
+    /// Key for whether start/end encoding tokens are used.
     case startAndEndingEncoding
+    /// Key for the current maximum token index.
     case maxIndex
   }
 

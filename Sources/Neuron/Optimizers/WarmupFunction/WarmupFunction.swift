@@ -9,7 +9,10 @@ import Foundation
 
 /// Represents the current phase of a learning rate warmup schedule.
 public enum WarmupState {
-  case warming, complete
+  /// The warmup schedule is actively ramping the learning rate.
+  case warming
+  /// The warmup schedule has reached the target learning rate and is finished.
+  case complete
 }
 
 /// Defines the interface for learning rate warmup strategies.

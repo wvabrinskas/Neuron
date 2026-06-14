@@ -113,7 +113,20 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
 
   /// Coding keys used to encode and decode the batch normalization layer's parameters.
   public enum CodingKeys: String, CodingKey {
-    case gamma, beta, momentum, movingMean, movingVariance, inputSize, linkId
+    /// Key for the learnable gamma scale parameter.
+    case gamma
+    /// Key for the learnable beta shift parameter.
+    case beta
+    /// Key for the exponential averaging momentum.
+    case momentum
+    /// Key for the running mean used during inference.
+    case movingMean
+    /// Key for the running variance used during inference.
+    case movingVariance
+    /// Key for the layer's input size.
+    case inputSize
+    /// Key for the layer's stable link identifier.
+    case linkId
   }
 
   /// Decodes a BatchNormalize layer from a serialized model.

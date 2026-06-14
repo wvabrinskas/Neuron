@@ -16,7 +16,10 @@ import NumSwift
 open class GAN {
   /// Indicates whether training data is real or generated (fake).
   public enum TrainingType: String {
-    case real, fake
+    /// The data originates from the real training distribution.
+    case real
+    /// The data was produced by the generator.
+    case fake
   }
 
   /// The optimizer responsible for updating the generator network.
@@ -176,13 +179,13 @@ open class GAN {
     return out.first ?? Tensor()
   }
   
-  @discardableResult
   /// Exports discriminator and generator models.
   ///
   /// - Parameters:
   ///   - overrite: When `false`, appends timestamps to filenames.
   ///   - compress: When `true`, writes compact JSON.
   /// - Returns: Tuple of optional URLs for discriminator and generator models.
+  @discardableResult
   public func export(overrite: Bool = false, compress: Bool = false) -> (discriminator: URL?, generator: URL?) {
     var urls: (URL?, URL?) = (nil, nil)
     if let generatorS = generator.trainable as? Sequential,

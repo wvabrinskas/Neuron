@@ -9,12 +9,12 @@ import Foundation
 
 /// A namespace for global configuration constants used throughout the framework.
 public struct Constants {
-/// The default weight initializer type applied when initializing neural network layers.
+  /// The default weight initializer type applied when initializing neural network layers.
   ///
   /// Defaults to `.heNormal`, which is suitable for layers using ReLU activations.
   public static var defaultInitializer: InitializerType = .heNormal
-  
-/// The maximum number of worker threads to use for parallel operations.
+
+  /// The maximum number of worker threads to use for parallel operations.
   ///
   /// Determined at runtime by querying the number of performance CPU cores and rounding
   /// down to the nearest power of two to allow even work distribution across threads.

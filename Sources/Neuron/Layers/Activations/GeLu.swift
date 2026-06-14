@@ -11,6 +11,8 @@ import NumSwift
 /// Performs a GeLu activation.
 public final class GeLu: BaseActivationLayer {
   /// Creates a GeLU activation layer.
+  ///
+  /// - Parameter linkId: A stable identifier used to link this layer across serialization boundaries.
   public init(linkId: String = UUID().uuidString) {
     super.init(type: .geLu,
                linkId: linkId,

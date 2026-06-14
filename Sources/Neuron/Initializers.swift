@@ -35,19 +35,25 @@ public enum InitializerType: Codable, Equatable {
 /// A structure that represents a weight initializer, encapsulating an initialization strategy
 /// and an optional Gaussian distribution for generating initial weight values.
 public struct Initializer {
-/// The type of initialization strategy used by this initializer.
+  /// The type of initialization strategy used by this initializer.
   public let type: InitializerType
   private var dist: Gaussian = Gaussian(std: 1, mean: 0)
   private var normal = NormalDistribution(mean: 0, deviation: 1)
-  
-/// Coding keys used for encoding and decoding the initializer type,
+
+  /// Coding keys used for encoding and decoding the initializer type,
   /// each mapping to a corresponding `InitializerType` value.
   public enum CodingKeys: String, CodingKey, CaseIterable {
+    /// Key for Xavier normal initialization.
     case xavierNormal
+    /// Key for Xavier uniform initialization.
     case xavierUniform
+    /// Key for He normal initialization.
     case heNormal
+    /// Key for He uniform initialization.
     case heUniform
+    /// Key for normal (Gaussian) initialization.
     case normal
+    /// Key for orthogonal initialization.
     case orthogonal
     
     var type: InitializerType {
