@@ -13,7 +13,10 @@ import Foundation
 /// - `batch`: Decay is applied once per batch.
 /// - `epoch`: Decay is applied once per epoch, with an associated integer epoch index.
 public enum LearningRateScheduleStepType: Equatable {
-  case batch, epoch
+  /// Decay is applied once per training batch.
+  case batch
+  /// Decay is applied once per training epoch.
+  case epoch
 }
 
 /// Defines the interface for a combined warmup + decay learning rate schedule.

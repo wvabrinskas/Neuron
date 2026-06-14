@@ -11,9 +11,8 @@ import NumSwift
 /// A utility struct responsible for converting encoded layer data into concrete `Layer` instances.
 public struct LayerModelConverter {
   /// Coding keys used for decoding layer model data.
-  ///
-  /// - `layer`: The key corresponding to the encoded layer payload.
   public enum CodingKeys: String, CodingKey {
+    /// Key for the encoded layer payload.
     case layer
   }
   

@@ -15,37 +15,68 @@ import Atomics
 /// Each case maps to a distinct `Layer` subclass.  The raw string value is
 /// persisted inside `.smodel` files so names must not be changed.
 public enum EncodingType: String, Codable {
-  case leakyRelu,
-       relu,
-       sigmoid,
-       softmax,
-       swish,
-       tanh,
-       batchNormalize,
-       conv2d,
-       dense,
-       dropout,
-       flatten,
-       maxPool,
-       reshape,
-       transConv2d,
-       layerNormalize,
-       lstm,
-       embedding,
-       avgPool,
-       selu,
-       resNet,
-       globalAvgPool,
-       depthwiseConv2d,
-       instanceNorm,
-       rexNet,
-       add,
-       multiply,
-       subtract,
-       divide,
-       mish,
-       prelu,
-       none
+  /// Leaky ReLU activation layer.
+  case leakyRelu
+  /// ReLU activation layer.
+  case relu
+  /// Sigmoid activation layer.
+  case sigmoid
+  /// Softmax activation layer.
+  case softmax
+  /// Swish activation layer.
+  case swish
+  /// Tanh activation layer.
+  case tanh
+  /// Batch normalization layer.
+  case batchNormalize
+  /// 2D convolution layer.
+  case conv2d
+  /// Fully connected dense layer.
+  case dense
+  /// Dropout regularization layer.
+  case dropout
+  /// Flatten layer.
+  case flatten
+  /// Max pooling layer.
+  case maxPool
+  /// Reshape layer.
+  case reshape
+  /// Transposed 2D convolution (deconvolution) layer.
+  case transConv2d
+  /// Layer normalization layer.
+  case layerNormalize
+  /// Long short-term memory (LSTM) layer.
+  case lstm
+  /// Embedding lookup layer.
+  case embedding
+  /// Average pooling layer.
+  case avgPool
+  /// Scaled ELU activation layer.
+  case selu
+  /// ResNet skip-connection block.
+  case resNet
+  /// Global average pooling layer.
+  case globalAvgPool
+  /// Depthwise separable 2D convolution layer.
+  case depthwiseConv2d
+  /// Instance normalization layer.
+  case instanceNorm
+  /// RexNet building block layer.
+  case rexNet
+  /// Element-wise addition layer.
+  case add
+  /// Element-wise multiplication layer.
+  case multiply
+  /// Element-wise subtraction layer.
+  case subtract
+  /// Element-wise division layer.
+  case divide
+  /// Mish activation layer.
+  case mish
+  /// Parametric ReLU activation layer.
+  case prelu
+  /// Sentinel value indicating no layer type.
+  case none
 }
 
 /// A layer that performs an activation function.

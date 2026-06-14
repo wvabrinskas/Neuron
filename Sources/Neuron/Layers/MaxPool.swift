@@ -25,7 +25,9 @@ public final class MaxPool: BaseLayer {
   }
     
   /// Default initializer for max pooling.
-  /// - Parameter inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
+  /// - Parameters:
+  ///   - inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
+  ///   - linkId: A unique string identifier for this layer link. Defaults to a new UUID string.
   public init(inputSize: TensorSize? = nil,
               linkId: String = UUID().uuidString) {
     super.init(inputSize: inputSize,

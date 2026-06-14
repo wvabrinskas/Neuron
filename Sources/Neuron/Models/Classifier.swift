@@ -140,13 +140,13 @@ public class Classifier {
     optimizer.isTraining = false
   }
   
-  @discardableResult
   /// Exports the underlying sequential model when available.
   ///
   /// - Parameters:
   ///   - overrite: When `false`, appends a timestamp to avoid overwrite.
   ///   - compress: When `true`, writes compact JSON.
   /// - Returns: URL to exported model, or `nil` when unsupported.
+  @discardableResult
   public func export(overrite: Bool = false, compress: Bool = true) -> URL? {
     if let network = optimizer.trainable as? Sequential {
       return network.export(overrite: overrite, compress: compress)

@@ -33,7 +33,16 @@ public final class LayerNormalize: BaseLayer {
 
   /// Coding keys used for encoding and decoding the layer normalization layer.
   public enum CodingKeys: String, CodingKey {
-    case gamma, beta, epsilon, inputSize, linkId
+    /// Key for the learnable gamma scale parameter.
+    case gamma
+    /// Key for the learnable beta shift parameter.
+    case beta
+    /// Key for the epsilon stability term.
+    case epsilon
+    /// Key for the layer's input size.
+    case inputSize
+    /// Key for the layer's stable link identifier.
+    case linkId
   }
   
   /// Default initializer for layer normalization.
