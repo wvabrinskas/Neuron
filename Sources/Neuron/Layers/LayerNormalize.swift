@@ -33,7 +33,16 @@ public final class LayerNormalize: BaseLayer {
 
   /// Coding keys used for encoding and decoding the layer normalization layer.
   public enum CodingKeys: String, CodingKey {
-    case gamma, beta, epsilon, inputSize, linkId
+    /// Key for the learnable gamma scale parameter.
+    case gamma
+    /// Key for the learnable beta shift parameter.
+    case beta
+    /// Key for the epsilon stability term.
+    case epsilon
+    /// Key for the layer's input size.
+    case inputSize
+    /// Key for the layer's stable link identifier.
+    case linkId
   }
   
   /// Default initializer for layer normalization.
@@ -63,6 +72,10 @@ public final class LayerNormalize: BaseLayer {
     setupTrainables()
   }
   
+  /// Decodes a LayerNormalize layer from a serialized model.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: An error if required values cannot be decoded.
   convenience public required init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let gamma = try container.decodeIfPresent(Tensor.self, forKey: .gamma) ?? .init()
@@ -102,23 +115,24 @@ public final class LayerNormalize: BaseLayer {
   /// - Returns: Normalized tensor with layer-norm backpropagation context.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let tensorContext = TensorContext { inputs, gradient, wrt in
-      self.backwardFlat(inputs: inputs, gradient: gradient)
+      self.backward(inputs: inputs, gradient: gradient)
     }
     
-    let forwardStorage = normalizeFlat(inputs: tensor)
+    let forwardStorage = normalize(inputs: tensor)
     let out = Tensor(storage: forwardStorage, size: tensor.size, context: tensorContext)
     out.setGraph(tensor)
     
     return super.forward(tensor: out, context: context)
   }
   
+  /// Called by `Sequential.compile()` when input size is propagated; sets output size and initializes gamma/beta trainables.
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     outputSize = inputSize
     setupTrainables()
   }
 
-  private func normalizeFlat(inputs: Tensor) -> TensorStorage {
+  private func normalize(inputs: Tensor) -> TensorStorage {
     let sliceSize = inputSize.rows * inputSize.columns * inputSize.depth
     let total = Tensor.Scalar(sliceSize)
     
@@ -139,7 +153,7 @@ public final class LayerNormalize: BaseLayer {
     return scaled.storage
   }
   
-  private func backwardFlat(inputs: Tensor, gradient: Tensor) -> (input: Tensor, weight: Tensor, bias: Tensor) {
+  private func backward(inputs: Tensor, gradient: Tensor) -> (input: Tensor, weight: Tensor, bias: Tensor) {
     let gammaTensor = gamma.asScalar()
     let featureTensor = inputs
     let gradTensor = gradient

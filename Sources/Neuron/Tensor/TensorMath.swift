@@ -8,97 +8,110 @@
 import Foundation
 import NumSwift
 
+/// Numerical stability helpers for `Float`.
 public extension Float {
+  /// A small constant added to denominators and square-roots for numerical stability.
+  ///
+  /// Value is `1e-12`. Use `Tensor.Scalar.stabilityFactor` in generic contexts so
+  /// that code works for both `Float` and `Float16`.
   static var stabilityFactor: Self {
     1e-12
   }
 }
 
 #if arch(arm64)
+/// Numerical stability helpers for `Float16` (arm64 only).
 public extension Float16 {
+  /// A small constant added to denominators and square-roots for numerical stability.
+  ///
+  /// Uses a larger value (`1e-4`) than the `Float` equivalent to account for the
+  /// reduced dynamic range of `Float16`. Only available on arm64.
   static var stabilityFactor: Self {
     1e-4
   }
 }
 #endif
 
+/// Axis-wise reduction and math operations on `Tensor`.
 public extension Tensor {
-  typealias MathBlock = (_ feature: [Scalar]) -> Scalar
-  typealias MathAlongBlock = (_ feature: [Scalar], _ value: ([Scalar]?, Scalar?)) -> [Scalar]
+  /// A closure type that receives a pointer to a contiguous block of scalars and its count,
+  /// and returns a single reduced scalar result (e.g., sum, mean, or max).
+  ///
+  /// Used by `apply(axis:_:)` to perform axis-wise reductions over the tensor.
+  typealias PointerMathBlock = (_ ptr: TensorStorage.Pointer, _ count: Int) -> Scalar
   
-  /*
-      +--------+
-     /        /|
-    /        Z |
-   +---X----+  |
-   |        |  |
-   |   -1   Y  +
-   |        | /
-   |        |/
-   +--------+
-   Along axis 0 the Tensor of shape AxBxC, where A is the columns, B is the rows, and C is the depth, would perform a mathematical function along the Y axis returning a (Ax1xC) Tensor
-   
-   Along axis 1 the Tensor of shape AxBxC, where A is the columns, B is the rows, and C is the depth, would perform a mathematical function along the X axis returning a (1xBxC) Tensor
-   
-   Along axis 2 the Tensor of shape AxBxC, where A is the columns, B is the rows, and C is the depth, would perform a mathematical function along the Z axis returning a (AxBx1) Tensor
-   
-   Along axis -1 the Tensor of shape AxBxC, where A is the columns, B is the rows, and C is the depth, would perform a mathematical function along the Z axis returning a (1x1x1) Tensor Scalar
-   */
-  func apply(axis: Int, _ block: MathBlock) -> Tensor {
+  /// Applies a reduction closure along the specified axis, returning a tensor with that
+  /// dimension collapsed to size 1.
+  ///
+  /// Axis semantics for a tensor of shape `(columns A, rows B, depth C)`:
+  /// - `0`: reduce along rows (Y axis) → shape `(A, 1, C)`
+  /// - `1`: reduce along columns (X axis) → shape `(1, B, C)`
+  /// - `2`: reduce along depth (Z axis) → shape `(A, B, 1)`
+  /// - `-1`: reduce all elements → scalar shape `(1, 1, 1)`
+  ///
+  /// - Parameters:
+  ///   - axis: The dimension to reduce along (`0`, `1`, `2`, or `-1` for global).
+  ///   - block: A `PointerMathBlock` closure that maps a contiguous pointer and element
+  ///            count to a single reduced `Tensor.Scalar`.
+  /// - Returns: A new `Tensor` with the specified dimension collapsed.
+  func apply(axis: Int, _ block: PointerMathBlock) -> Tensor {
     let columns = size.columns
     let rows = size.rows
     let depth = size.depth
+    let selfPtr = storage.pointer
     
     if axis == 0 {
       // Reduce along rows -> output (columns x 1 x depth)
       let outSize = TensorSize(rows: 1, columns: columns, depth: depth)
-      var outStorage = Tensor.Value(repeating: 0, count: columns * depth)
+      let outStorage = TensorStorage.create(count: columns * depth)
+      let outPtr = outStorage.pointer
+      let scratch = TensorStorage.create(count: rows)
+      let scratchPtr = scratch.pointer
       
       for d in 0..<depth {
         for c in 0..<columns {
-          var workingRow = [Scalar]()
-          workingRow.reserveCapacity(rows)
           for r in 0..<rows {
-            workingRow.append(storage[flatIndex(column: c, row: r, depth: d)])
+            scratchPtr[r] = selfPtr[flatIndex(column: c, row: r, depth: d)]
           }
-          outStorage[d * columns + c] = block(workingRow)
+          outPtr[d * columns + c] = block(scratchPtr, rows)
         }
       }
       
-      return Tensor(outStorage, size: outSize)
+      return Tensor(storage: outStorage, size: outSize)
       
     } else if axis == 1 {
       // Reduce along columns -> output (1 x rows x depth)
       let outSize = TensorSize(rows: rows, columns: 1, depth: depth)
-      var outStorage = Tensor.Value(repeating: 0, count: rows * depth)
+      let outStorage = TensorStorage.create(count: rows * depth)
+      let outPtr = outStorage.pointer
       
       for d in 0..<depth {
         for r in 0..<rows {
           let start = flatIndex(column: 0, row: r, depth: d)
-          let row = Array(storage[start..<(start + columns)])
-          outStorage[d * rows + r] = block(row)
+          outPtr[d * rows + r] = block(selfPtr + start, columns)
         }
       }
       
-      return Tensor(outStorage, size: outSize)
+      return Tensor(storage: outStorage, size: outSize)
       
     } else if axis == 2 {
       // Reduce along depth -> output (columns x rows x 1)
       let outSize = TensorSize(rows: rows, columns: columns, depth: 1)
-      var outStorage = Tensor.Value(repeating: 0, count: columns * rows)
+      let outStorage = TensorStorage.create(count: columns * rows)
+      let outPtr = outStorage.pointer
+      let scratch = TensorStorage.create(count: depth)
+      let scratchPtr = scratch.pointer
       
       for r in 0..<rows {
         for c in 0..<columns {
-          var featureR = [Scalar]()
-          featureR.reserveCapacity(depth)
           for d in 0..<depth {
-            featureR.append(storage[flatIndex(column: c, row: r, depth: d)])
+            scratchPtr[d] = selfPtr[flatIndex(column: c, row: r, depth: d)]
           }
-          outStorage[r * columns + c] = block(featureR)
+          outPtr[r * columns + c] = block(scratchPtr, depth)
         }
       }
       
-      return Tensor(outStorage, size: outSize)
+      return Tensor(storage: outStorage, size: outSize)
     }
     
     return Tensor(storage: storage, size: size)
@@ -138,10 +151,100 @@ public extension Tensor {
     }
   }
 
-  private enum _BroadcastOp { case add, sub, mul, div }
+  private enum BroadcastOp { case add, sub, mul, div }
+
+  /// Per-channel broadcasting fast path for (W,H,D) op (1,1,D).
+  /// Applies a per-depth scalar from `value` across each spatial slice of `self`.
+  private func broadcastPerChannelFastPath(value: Tensor, op: BroadcastOp) -> Tensor? {
+    let selfSize = size
+    let inputSize = value.size
+    guard inputSize.columns == 1,
+          inputSize.rows == 1,
+          inputSize.depth == selfSize.depth else { return nil }
+
+    let columns = selfSize.columns
+    let rows = selfSize.rows
+    let depth = selfSize.depth
+    let sliceSize = columns * rows
+    let totalCount = sliceSize * depth
+    guard totalCount > 0 else { return nil }
+
+    let resultStorage = TensorStorage.create(count: totalCount)
+    let selfPtr = storage.pointer
+    let inputPtr = value.storage.pointer
+    let resultPtr = resultStorage.pointer
+
+    for d in 0..<depth {
+      let offset = d * sliceSize
+      let scalar = inputPtr[d]
+      switch op {
+      case .add: NumSwiftFlat.add(selfPtr + offset, scalar: scalar, result: resultPtr + offset, count: sliceSize)
+      case .sub: NumSwiftFlat.sub(selfPtr + offset, scalar: scalar, result: resultPtr + offset, count: sliceSize)
+      case .mul: NumSwiftFlat.mul(selfPtr + offset, scalar: scalar, result: resultPtr + offset, count: sliceSize)
+      case .div: NumSwiftFlat.div(selfPtr + offset, scalar: scalar, result: resultPtr + offset, count: sliceSize)
+      }
+    }
+
+    let context = perChannelBroadcastContext(value: value, op: op)
+    return Tensor(storage: resultStorage, size: selfSize, context: context)
+  }
+
+  /// Specialized context for (H,W,C) op (1,1,C) broadcast operations.
+  /// Correctly reduces gradients spatially (sum over H,W) when backpropagating
+  /// through the `value (1,1,C)` path, avoiding the shape mismatch that the
+  /// generic arithmetic contexts produce.
+  private func perChannelBroadcastContext(value: Tensor, op: BroadcastOp) -> TensorContext {
+    // `self` is (H,W,C), `value` is (1,1,C)
+    let selfCapture = self
+    let valueSize = value.size
+
+    func reduceSpatial(_ t: Tensor) -> Tensor {
+      let depth = valueSize.depth
+      let sliceSize = t.size.rows * t.size.columns
+      let sumStorage = TensorStorage.create(count: depth)
+      let srcPtr = t.storage.pointer
+      for d in 0..<depth {
+        var s: Tensor.Scalar = 0
+        let base = d * sliceSize
+        for i in 0..<sliceSize { s += srcPtr[base + i] }
+        sumStorage[d] = s
+      }
+      return Tensor(storage: sumStorage, size: valueSize)
+    }
+
+    return TensorContext { inputs, gradient, wrt in
+      if value.graphChain.contains(wrt.id) || value.id == wrt.id {
+        // Gradient w.r.t. value (1,1,C) — reduce spatial dims back to (1,1,C)
+        switch op {
+        case .add:
+          return (reduceSpatial(gradient), Tensor(), Tensor())
+        case .sub:
+          return (reduceSpatial(gradient * Tensor.Scalar(-1)), Tensor(), Tensor())
+        case .mul:
+          return (reduceSpatial(gradient * selfCapture.copy()), Tensor(), Tensor())
+        case .div:
+          let valueSq = value * value
+          let ratio = selfCapture.copy() / valueSq
+          return (reduceSpatial(gradient * ratio * Tensor.Scalar(-1)), Tensor(), Tensor())
+        }
+      } else {
+        // Gradient w.r.t. self (H,W,C) — broadcast, no reduction needed
+        switch op {
+        case .add:
+          return (gradient, Tensor(), Tensor())
+        case .sub:
+          return (gradient, Tensor(), Tensor())
+        case .mul:
+          return (gradient * value.copy(), Tensor(), Tensor())
+        case .div:
+          return (gradient / value.copy(), Tensor(), Tensor())
+        }
+      }
+    }
+  }
 
   /// Pointer-based fast path for *Along broadcasting. Returns result storage when applicable, nil to fall back.
-  private func _broadcastAlongFastPath(axis: Int, value: Tensor, op: _BroadcastOp) -> Tensor? {
+  private func broadcastAlongFastPath(axis: Int, value: Tensor, op: BroadcastOp) -> Tensor? {
     let inputSize = value.size
     let selfSize = size
     let columns = selfSize.columns
@@ -273,68 +376,6 @@ public extension Tensor {
     return Tensor(storage: resultStorage, size: selfSize, context: context)
   }
   
-  /// Applies a mathematical operation along a specific axis with broadcasting support.
-  /// This is the core function used by other *Along methods.
-  ///
-  /// - Parameters:
-  ///   - axis: The axis along which to perform the operation (0, 1, or 2)
-  ///   - input: The tensor to operate with, which will be broadcast along the specified axis
-  ///   - block: The mathematical operation to apply
-  /// - Returns: A new tensor with the result of the operation
-  ///
-  /// - Note: Self-assignment is supported. Methods using this function automatically detect and prevent
-  ///   reference cycles in the computation graph via ` `.
-  func applyAlong(axis: Int, input: Tensor, _ block: MathAlongBlock) -> Tensor {
-    let inputSize = input.size
-    let selfSize = self.size
-    let columns = selfSize.columns
-    let rows = selfSize.rows
-    let depth = selfSize.depth
-        
-    var result: Tensor.Value = []
-    result.reserveCapacity(selfSize.depth * selfSize.rows * selfSize.columns)
-    
-    for d in 0..<depth {
-      for r in 0..<rows {
-        // Extract the row from self
-        let selfStart = flatIndex(column: 0, row: r, depth: d)
-        let feature = storage[safe: selfStart..<(selfStart + columns), 0]
-        
-        let out: [Scalar]
-        
-        if axis == 0,
-           inputSize.columns == columns,
-           inputSize.rows == 1,
-           inputSize.depth == depth {
-          let inputStart = input.flatIndex(column: 0, row: 0, depth: d)
-          let v = input.storage[safe: inputStart..<(inputStart + inputSize.columns), 0]
-          out = block(feature, (v, nil))
-          
-        } else if axis == 1,
-                  inputSize.columns == 1,
-                  inputSize.rows == rows,
-                  inputSize.depth == depth {
-          let v = input.storage[safe: input.flatIndex(column: 0, row: r, depth: d), 0]
-          out = block(feature, (nil, v))
-          
-        } else if axis == 2,
-                  inputSize.columns == columns,
-                  inputSize.rows == rows,
-                  inputSize.depth == 1 {
-          let inputStart = input.flatIndex(column: 0, row: r, depth: 0)
-          let v = input.storage[safe: inputStart..<(inputStart + inputSize.columns), 0]
-          out = block(feature, (v, nil))
-        } else {
-          out = feature
-        }
-        
-        result.append(contentsOf: out)
-      }
-    }
-    
-    return Tensor(result, size: selfSize)
-  }
-  
   func divideContext(value: Tensor) -> TensorContext {
     let branchNode: Tensor? = if sharesGraph(with: value) {
       if self.graphChain.contains(value.id) {
@@ -354,7 +395,7 @@ public extension Tensor {
         branchNode?.setGradientBranch(gradB)
         return (gradB, Tensor(), Tensor())
       } else {
-        let gradA = gradient * (1 / value)
+        let gradA = gradient / value
         gradA.label = "division_grad_a"
         branchNode?.setGradientBranch(gradA)
         return (gradA, Tensor(), Tensor())
@@ -372,27 +413,13 @@ public extension Tensor {
   /// - Note: Self-assignment is now handled automatically. The operation detects and prevents
   ///   reference cycles in the computation graph, so manual `.copy()` calls are no longer required.
   func divideAlong(axis: Int, value: Tensor) -> Tensor {
-    if let new = _broadcastAlongFastPath(axis: axis, value: value, op: .div) {
+    if let new = broadcastAlongFastPath(axis: axis, value: value, op: .div) {
       new.label = "division"
       if graphChain.contains(value.id) { new.setGraphSafe(self); new.setGraphSafe(value) }
       else { new.setGraphSafe(value); new.setGraphSafe(self) }
       return new
     }
-    let block: MathAlongBlock = { feature, value in
-      if let valueArray = value.0 {
-        return feature / valueArray
-      } else if let valueScalar = value.1 {
-        return feature / valueScalar
-      } else {
-        return feature
-      }
-    }
-    let out = applyAlong(axis: axis, input: value, block)
-    let new = Tensor(storage: out.storage, size: out.size, context: divideContext(value: value))
-    new.label = "division"
-    if graphChain.contains(value.id) { new.setGraphSafe(self); new.setGraphSafe(value) }
-    else { new.setGraphSafe(value); new.setGraphSafe(self) }
-    return new
+    return Tensor(storage: storage.copy(), size: size, context: divideContext(value: value))
   }
   
   func multiplyContext(value: Tensor) -> TensorContext {
@@ -432,27 +459,13 @@ public extension Tensor {
   /// - Note: Self-assignment is now handled automatically. The operation detects and prevents
   ///   reference cycles in the computation graph, so manual `.copy()` calls are no longer required.
   func multiplyAlong(axis: Int, value: Tensor) -> Tensor {
-    if let new = _broadcastAlongFastPath(axis: axis, value: value, op: .mul) {
+    if let new = broadcastAlongFastPath(axis: axis, value: value, op: .mul) {
       new.label = "multiplication"
       if graphChain.contains(value.id) { new.setGraphSafe(self); new.setGraphSafe(value) }
       else { new.setGraphSafe(value); new.setGraphSafe(self) }
       return new
     }
-    let block: MathAlongBlock = { feature, value in
-      if let valueArray = value.0 {
-        return feature * valueArray
-      } else if let valueScalar = value.1 {
-        return feature * valueScalar
-      } else {
-        return feature
-      }
-    }
-    let out = applyAlong(axis: axis, input: value, block)
-    let new = Tensor(storage: out.storage, size: out.size, context: multiplyContext(value: value))
-    new.label = "multiplication"
-    if graphChain.contains(value.id) { new.setGraphSafe(self); new.setGraphSafe(value) }
-    else { new.setGraphSafe(value); new.setGraphSafe(self) }
-    return new
+    return Tensor(storage: storage.copy(), size: size, context: multiplyContext(value: value))
   }
   
   func addContext(value: Tensor) -> TensorContext {
@@ -507,39 +520,13 @@ public extension Tensor {
   /// - Note: Self-assignment is now handled automatically. The operation detects and prevents
   ///   reference cycles in the computation graph, so manual `.copy()` calls are no longer required.
   func addAlong(axis: Int, value: Tensor) -> Tensor {
-    if let new = _broadcastAlongFastPath(axis: axis, value: value, op: .add) {
+    if let new = broadcastAlongFastPath(axis: axis, value: value, op: .add) {
       new.label = "addition"
       if graphChain.contains(value.id) { new.setGraphSafe(self); new.setGraphSafe(value) }
       else { new.setGraphSafe(value); new.setGraphSafe(self) }
       return new
     }
-    // Fallback: generic applyAlong path
-    let block: MathAlongBlock = { feature, value in
-      if let valueArray = value.0 {
-        return feature + valueArray
-      } else if let valueScalar = value.1 {
-        return feature + valueScalar
-      } else {
-        return feature
-      }
-    }
-    let out = applyAlong(axis: axis, input: value, block)
-    
-    let new = Tensor(storage: out.storage, size: out.size, context: addContext(value: value))
-    
-    new.label = "addition"
-
-    if graphChain.contains(value.id) {
-      // non branched node
-      new.setGraphSafe(self)
-      new.setGraphSafe(value)
-    } else {
-      // branched node
-      new.setGraphSafe(value)
-      new.setGraphSafe(self)
-    }
-    
-    return new
+    return Tensor(storage: storage.copy(), size: size, context: addContext(value: value))
   }
   
   func subtractContext(value: Tensor) -> TensorContext {
@@ -581,33 +568,24 @@ public extension Tensor {
   /// - Note: Self-assignment is now handled automatically. The operation detects and prevents
   ///   reference cycles in the computation graph, so manual `.copy()` calls are no longer required.
   func subtractAlong(axis: Int, value: Tensor) -> Tensor {
-    if let new = _broadcastAlongFastPath(axis: axis, value: value, op: .sub) {
+    if let new = broadcastAlongFastPath(axis: axis, value: value, op: .sub) {
       new.label = "subtraction"
       if graphChain.contains(value.id) { new.setGraphSafe(self); new.setGraphSafe(value) }
       else { new.setGraphSafe(value); new.setGraphSafe(self) }
       return new
     }
-    let block: MathAlongBlock = { feature, value in
-      if let valueArray = value.0 {
-        return feature - valueArray
-      } else if let valueScalar = value.1 {
-        return feature - valueScalar
-      } else {
-        return feature
-      }
-    }
-    let out = applyAlong(axis: axis, input: value, block)
-    let new = Tensor(storage: out.storage, size: out.size, context: subtractContext(value: value))
-    new.label = "subtraction"
-    if graphChain.contains(value.id) { new.setGraphSafe(self); new.setGraphSafe(value) }
-    else { new.setGraphSafe(value); new.setGraphSafe(self) }
-    return new
+    return Tensor(storage: storage.copy(), size: size, context: subtractContext(value: value))
   }
   
+  /// Returns the sum of all scalar elements in the tensor.
+  /// - Returns: The sum of every element across all dimensions.
   func sum() -> Scalar {
     storage.sum
   }
-  
+
+  /// Asserts (in debug builds) that no element exceeds `limit`.
+  ///
+  /// - Parameter limit: The maximum allowed scalar value.
   func testLarge(limit: Scalar) {
     for val in storage {
       if val > limit {
@@ -616,17 +594,22 @@ public extension Tensor {
       }
     }
   }
-  
+
+  /// Asserts (in debug builds) that all elements are normal floating-point values.
+  ///
+  /// Triggers an assertion failure and prints the offending value when a
+  /// denormalized, infinite, or NaN element is found.
   func testInvalid() {
     for val in storage {
       if val.isNormal == false {
         print(val)
-        fatalError()
+        assertionFailure()
         return
       }
     }
   }
-  
+
+  /// Asserts (in debug builds) that no element is infinite.
   func testInf() {
     for val in storage {
       if val.isInfinite {
@@ -635,7 +618,8 @@ public extension Tensor {
       }
     }
   }
-  
+
+  /// Asserts (in debug builds) that no element is NaN.
   func testNaN() {
     for val in storage {
       if val.isNaN {
@@ -644,7 +628,13 @@ public extension Tensor {
       }
     }
   }
-  
+
+  /// Computes the batched matrix multiplication `self @ with` for matching depths.
+  ///
+  /// Requires `self.size.columns == with.size.rows` and `self.size.depth == with.size.depth`.
+  ///
+  /// - Parameter with: The right-hand matrix tensor.
+  /// - Returns: A new tensor of shape `(self.rows, with.columns, depth)`.
   func matmul(_ with: Tensor) -> Tensor {
     let aSize = self.size
     let bSize = with.size
@@ -687,22 +677,35 @@ public extension Tensor {
     return Tensor(storage: resultStorage, size: outSize)
   }
   
+  /// Returns the sum of squared elements, either globally or along a specific axis.
+  ///
+  /// - Parameter axis: The axis along which to compute the sum of squares. Pass `-1` (default)
+  ///   to reduce all elements to a single scalar tensor.
+  /// - Returns: A `Tensor` containing the sum-of-squares result.
   func sumOfSquares(axis: Int = -1) -> Tensor {
-    let block: MathBlock = { feature in
-      feature.sumOfSquares
-    }
-    
     if axis == -1 {
       return Tensor(storage.sumOfSquares)
     }
     
-    return apply(axis: axis, block)
+    return apply(axis: axis) { ptr, count in
+      NumSwiftFlat.sumOfSquares(ptr, count: count)
+    }
   }
   
+  /// Splits the tensor into chunks of size `into` along the specified axis.
+  ///
+  /// The last chunk may be smaller than `into` if the dimension is not evenly divisible.
+  ///
+  /// - Parameters:
+  ///   - into: The maximum number of slices per chunk along the chosen axis.
+  ///   - axis: The axis along which to split (`0` = rows, `1` = columns, `2` = depth). Defaults to `2`.
+  /// - Returns: An array of tensors, each covering one chunk along `axis`.
   func split(into: Int, axis: Int = 2) -> [Tensor] {
     let columns = size.columns
     let rows = size.rows
     let depth = size.depth
+    let selfPtr = storage.pointer
+    let sliceSize = rows * columns
     
     if axis == 2 {
       let chunkCount = (depth + into - 1) / into
@@ -714,19 +717,18 @@ public extension Tensor {
         let dEnd = min(dStart + into, depth)
         let chunkDepth = dEnd - dStart
         let newSize = TensorSize(rows: rows, columns: columns, depth: chunkDepth)
-        var chunkStorage = Tensor.Value(repeating: 0, count: columns * rows * chunkDepth)
+        let chunkStorage = TensorStorage.create(count: sliceSize * chunkDepth)
+        let dstPtr = chunkStorage.pointer
         
         for d in 0..<chunkDepth {
-          let srcDepth = dStart + d
-          let srcStart = flatIndex(column: 0, row: 0, depth: srcDepth)
-          let dstStart = d * rows * columns
-          for i in 0..<(rows * columns) {
-            let srcIdx = srcStart + i
-            chunkStorage[dstStart + i] = srcIdx < storage.count ? storage[srcIdx] : 0
+          let srcStart = flatIndex(column: 0, row: 0, depth: dStart + d)
+          let copyCount = min(sliceSize, storage.count - srcStart)
+          if copyCount > 0 {
+            (dstPtr + d * sliceSize).update(from: selfPtr + srcStart, count: copyCount)
           }
         }
         
-        results.append(Tensor(chunkStorage, size: newSize))
+        results.append(Tensor(storage: chunkStorage, size: newSize))
       }
       return results
       
@@ -740,20 +742,21 @@ public extension Tensor {
         let rEnd = min(rStart + into, rows)
         let chunkRows = rEnd - rStart
         let newSize = TensorSize(rows: chunkRows, columns: columns, depth: depth)
-        var chunkStorage = Tensor.Value(repeating: 0, count: columns * chunkRows * depth)
+        let chunkStorage = TensorStorage.create(count: columns * chunkRows * depth)
+        let dstPtr = chunkStorage.pointer
         
         for d in 0..<depth {
           for r in 0..<chunkRows {
             let srcStart = flatIndex(column: 0, row: rStart + r, depth: d)
             let dstStart = d * chunkRows * columns + r * columns
-            for c in 0..<columns {
-              let srcIdx = srcStart + c
-              chunkStorage[dstStart + c] = srcIdx < storage.count ? storage[srcIdx] : 0
+            let copyCount = min(columns, storage.count - srcStart)
+            if copyCount > 0 {
+              (dstPtr + dstStart).update(from: selfPtr + srcStart, count: copyCount)
             }
           }
         }
         
-        results.append(Tensor(chunkStorage, size: newSize))
+        results.append(Tensor(storage: chunkStorage, size: newSize))
       }
       return results
       
@@ -767,19 +770,20 @@ public extension Tensor {
         let cEnd = min(cStart + into, columns)
         let chunkCols = cEnd - cStart
         let newSize = TensorSize(rows: rows, columns: chunkCols, depth: depth)
-        var chunkStorage = Tensor.Value(repeating: 0, count: chunkCols * rows * depth)
+        let chunkStorage = TensorStorage.create(count: chunkCols * rows * depth)
+        let dstPtr = chunkStorage.pointer
         
         for d in 0..<depth {
           for r in 0..<rows {
             let dstStart = d * rows * chunkCols + r * chunkCols
             for c in 0..<chunkCols {
               let srcIdx = flatIndex(column: cStart + c, row: r, depth: d)
-              chunkStorage[dstStart + c] = srcIdx < storage.count ? storage[srcIdx] : 0
+              dstPtr[dstStart + c] = srcIdx < storage.count ? selfPtr[srcIdx] : 0
             }
           }
         }
         
-        results.append(Tensor(chunkStorage, size: newSize))
+        results.append(Tensor(storage: chunkStorage, size: newSize))
       }
       return results
       
@@ -788,22 +792,23 @@ public extension Tensor {
     }
   }
   
+  /// Returns a new tensor with element-wise square root, optionally adding a stability offset first.
+  ///
+  /// - Parameter adding: A small constant added to each element before taking the square root,
+  ///   to avoid numerical instability near zero. Defaults to `Tensor.Scalar.stabilityFactor`.
+  /// - Returns: A new `Tensor` with values `sqrt(element + adding)`.
   func sqrt(adding: Tensor.Scalar = .stabilityFactor) -> Tensor {
     let shifted = storage + adding
     let result = shifted.squareRoot()
     return Tensor(storage: result, size: size, context: context)
   }
   
+  /// Returns the variance of elements, either globally or along a specific axis.
+  ///
+  /// - Parameter axis: The axis along which to compute variance. Pass `-1` (default) to
+  ///   compute the global variance as a scalar tensor.
+  /// - Returns: A `Tensor` containing the variance result.
   func variance(axis: Int = -1) -> Tensor {
-    let block: MathBlock = { feature in
-      let mean = feature.mean
-      let sumOSquares = (feature - mean).sumOfSquares
-      
-      let count = feature.count
-      
-      return sumOSquares / Tensor.Scalar(count)
-    }
-    
     if axis == -1 {
       let meanVal = storage.mean
       let centered = storage - meanVal
@@ -811,32 +816,55 @@ public extension Tensor {
       return Tensor(sumSq / Scalar(storage.count))
     }
     
-    return apply(axis: axis, block)
+    return apply(axis: axis) { ptr, count in
+      let mean = NumSwiftFlat.mean(ptr, count: count)
+      var sumSq: Tensor.Scalar = 0
+      for i in 0..<count {
+        let diff = ptr[i] - mean
+        sumSq += diff * diff
+      }
+      return sumSq / Tensor.Scalar(count)
+    }
   }
   
+  /// Returns the mean of elements, either globally or along a specific axis.
+  ///
+  /// - Parameter axis: The axis along which to compute the mean. Pass `-1` (default) to
+  ///   reduce all elements to a scalar tensor.
+  /// - Returns: A `Tensor` containing the mean result.
   func mean(axis: Int = -1) -> Tensor {
-    let block: MathBlock = { feature in
-      feature.mean
-    }
-    
     if axis == -1 {
       guard !storage.isEmpty else { return Tensor(Scalar(0)) }
       return Tensor(storage.mean)
     }
     
-    return apply(axis: axis, block)
+    return apply(axis: axis) { ptr, count in
+      NumSwiftFlat.mean(ptr, count: count)
+    }
   }
   
+  /// Returns the sum of elements, either globally or along a specific axis.
+  ///
+  /// - Parameter axis: The axis along which to sum. Pass `-1` (default) to reduce
+  ///   all elements to a scalar tensor.
+  /// - Returns: A `Tensor` containing the sum result.
   func sum(axis: Int = -1) -> Tensor {
     if axis == -1 {
       return Tensor(storage.sum)
     } else {
-      return apply(axis: axis) { feature in
-        feature.sum
+      return apply(axis: axis) { ptr, count in
+        NumSwiftFlat.sum(ptr, count: count)
       }
     }
   }
   
+  /// Returns the cumulative subtraction of elements, either globally or along a specific axis.
+  ///
+  /// Starts from zero and subtracts each element in order. For global reduction (`axis == -1`)
+  /// this is equivalent to the negated sum of all elements.
+  ///
+  /// - Parameter axis: The axis along which to subtract. Pass `-1` (default) for a global result.
+  /// - Returns: A `Tensor` containing the subtraction result.
   func subtract(axis: Int = -1) -> Tensor {
     if axis == -1 {
       guard storage.count > 0 else { return Tensor(Scalar(0)) }
@@ -846,15 +874,22 @@ public extension Tensor {
       }
       return Tensor(result)
     } else {
-      return apply(axis: axis) { feature in
-        var feature = feature
-        let first = feature.first ?? 0
-        feature = Array(feature.dropFirst())
-        return feature.reduce(first, -)
+      return apply(axis: axis) { ptr, count in
+        guard count > 0 else { return 0 }
+        var result = ptr[0]
+        for i in 1..<count {
+          result -= ptr[i]
+        }
+        return result
       }
     }
   }
   
+  /// Returns the product of all elements, either globally or along a specific axis.
+  ///
+  /// - Parameter axis: The axis along which to compute the product. Pass `-1` (default) to
+  ///   reduce all elements to a scalar tensor.
+  /// - Returns: A `Tensor` containing the product result.
   func multiply(axis: Int = -1) -> Tensor {
     if axis == -1 {
       guard storage.count > 0 else { return Tensor(Scalar(1)) }
@@ -864,24 +899,44 @@ public extension Tensor {
       }
       return Tensor(result)
     } else {
-      return apply(axis: axis) { feature in
-        feature.reduce(1, *)
+      return apply(axis: axis) { ptr, count in
+        var result: Tensor.Scalar = 1
+        for i in 0..<count {
+          result *= ptr[i]
+        }
+        return result
       }
     }
   }
   
+  /// Returns the L2 norm (Euclidean length) of elements, either globally or along a specific axis.
+  ///
+  /// - Parameter axis: The axis along which to compute the norm. Pass `-1` (default) to
+  ///   compute the global norm as a scalar tensor.
+  /// - Returns: A `Tensor` containing the norm result.
   func norm(axis: Int = -1) -> Tensor {
-    let block: MathBlock = { feature in
-      Tensor.Scalar.sqrt(feature.sumOfSquares)
-    }
-    
     if axis == -1 {
       return Tensor(Tensor.Scalar.sqrt(storage.sumOfSquares))
     }
     
-    return apply(axis: axis, block)
+    return apply(axis: axis) { ptr, count in
+      Tensor.Scalar.sqrt(NumSwiftFlat.sumOfSquares(ptr, count: count))
+    }
   }
   
+  /// Concatenates another tensor to this tensor along the specified axis.
+  ///
+  /// Axis semantics:
+  /// - `0`: concatenate along rows (new rows below existing rows)
+  /// - `1`: concatenate along columns (new columns to the right)
+  /// - `2`: concatenate along depth
+  /// - `3`: concatenate along the batch dimension (both tensors must share the same unit size)
+  /// - `-1`: flat concatenation into a 1D tensor
+  ///
+  /// - Parameters:
+  ///   - tensor: The tensor to append.
+  ///   - axis: The dimension along which to concatenate. Defaults to `1` (columns).
+  /// - Returns: A new `Tensor` that is the concatenation of `self` and `tensor`.
   @discardableResult
   func concat(_ tensor: Tensor, axis: Int = 1) -> Tensor {
     if isEmpty {
@@ -948,59 +1003,60 @@ public extension Tensor {
       // Concat along rows
       let newRows = selfRows + otherRows
       let newSize = TensorSize(rows: newRows, columns: selfCols, depth: selfDepth)
-      var result = Tensor.Value(repeating: 0, count: selfCols * newRows * selfDepth)
+      let result = TensorStorage.create(count: selfCols * newRows * selfDepth)
+      let dstPtr = result.pointer
+      let selfPtr = storage.pointer
+      let otherPtr = tensor.storage.pointer
       
       for d in 0..<selfDepth {
         for r in 0..<selfRows {
           let srcStart = flatIndex(column: 0, row: r, depth: d)
           let dstStart = d * newRows * selfCols + r * selfCols
-          for c in 0..<selfCols {
-            result[dstStart + c] = storage[srcStart + c]
-          }
+          (dstPtr + dstStart).update(from: selfPtr + srcStart, count: selfCols)
         }
         let minOtherRows = min(otherRows, (d < otherDepth) ? otherRows : 0)
         for r in 0..<minOtherRows {
           let srcStart = tensor.flatIndex(column: 0, row: r, depth: d)
           let dstStart = d * newRows * selfCols + (selfRows + r) * selfCols
           let colsToCopy = min(otherCols, selfCols)
-          for c in 0..<colsToCopy {
-            result[dstStart + c] = tensor.storage[srcStart + c]
-          }
+          (dstPtr + dstStart).update(from: otherPtr + srcStart, count: colsToCopy)
         }
       }
       
-      return Tensor(result, size: newSize, context: context)
+      return Tensor(storage: result, size: newSize, context: context)
       
     } else if axis == 1 {
       // Concat along columns
       let newCols = selfCols + otherCols
       let newSize = TensorSize(rows: selfRows, columns: newCols, depth: selfDepth)
-      var result = Tensor.Value(repeating: 0, count: newCols * selfRows * selfDepth)
+      let result = TensorStorage.create(count: newCols * selfRows * selfDepth)
+      let dstPtr = result.pointer
+      let selfPtr = storage.pointer
+      let otherPtr = tensor.storage.pointer
       
       for d in 0..<selfDepth {
         for r in 0..<selfRows {
           let dstStart = d * selfRows * newCols + r * newCols
-          // Copy self row
           let srcSelfStart = flatIndex(column: 0, row: r, depth: d)
-          for c in 0..<selfCols {
-            result[dstStart + c] = storage[srcSelfStart + c]
-          }
-          // Copy other row
+          (dstPtr + dstStart).update(from: selfPtr + srcSelfStart, count: selfCols)
           if d < otherDepth && r < otherRows {
             let srcOtherStart = tensor.flatIndex(column: 0, row: r, depth: d)
-            for c in 0..<otherCols {
-              result[dstStart + selfCols + c] = tensor.storage[srcOtherStart + c]
-            }
+            (dstPtr + dstStart + selfCols).update(from: otherPtr + srcOtherStart, count: otherCols)
           }
         }
       }
       
-      return Tensor(result, size: newSize, context: context)
+      return Tensor(storage: result, size: newSize, context: context)
     }
     
     return Tensor(storage: storage.copy(), size: size, context: context)
   }
   
+  /// Returns a new tensor with its elements scaled to unit L2 norm.
+  ///
+  /// Divides every element by the Euclidean norm of the storage, without a stability offset.
+  ///
+  /// - Returns: A new `Tensor` normalized to unit length.
   func l2Normalized() -> Tensor {
     let sumSq = storage.sumOfSquares
     let divisor = Scalar.sqrt(sumSq)
@@ -1008,38 +1064,86 @@ public extension Tensor {
     return Tensor(storage: result, size: size, context: context)
   }
   
+  /// Returns a new tensor by applying `transform` to every scalar element.
+  ///
+  /// - Parameter transform: A closure that maps each `Tensor.Scalar` to a new `Tensor.Scalar`.
+  /// - Returns: A new `Tensor` with the same shape and context, containing the transformed values.
   func map(_ transform: (Tensor.Scalar) -> Tensor.Scalar) -> Tensor {
-    var result = Tensor.Value(repeating: 0, count: storage.count)
+    let result = TensorStorage.create(count: storage.count)
+    let srcPtr = storage.pointer
+    let dstPtr = result.pointer
     for i in 0..<storage.count {
-      result[i] = transform(storage[i])
+      dstPtr[i] = transform(srcPtr[i])
     }
-    return Tensor(result, size: size, context: context)
+    return Tensor(storage: result, size: size, context: context)
   }
   
+  /// Returns a new tensor where each element is `lhs` divided by the corresponding element.
+  ///
+  /// - Parameters:
+  ///   - lhs: The scalar numerator.
+  ///   - rhs: The tensor whose elements serve as denominators.
+  /// - Returns: A new `Tensor` with values `lhs / rhs[i]` for each element.
   static func /(lhs: Scalar, rhs: Tensor) -> Tensor {
     return Tensor(storage: lhs / rhs.storage, size: rhs.size, context: rhs.context)
   }
-  
+
+  /// Returns a new tensor where each element is multiplied by the scalar `lhs`.
+  ///
+  /// - Parameters:
+  ///   - lhs: The scalar multiplier.
+  ///   - rhs: The tensor to scale.
+  /// - Returns: A new `Tensor` with values `rhs[i] * lhs` for each element.
   static func *(lhs: Scalar, rhs: Tensor) -> Tensor {
     return Tensor(storage: rhs.storage * lhs, size: rhs.size, context: rhs.context)
   }
-  
+
+  /// Returns a new tensor where each element is `lhs` minus the corresponding element.
+  ///
+  /// - Parameters:
+  ///   - lhs: The scalar minuend.
+  ///   - rhs: The tensor whose elements serve as subtrahends.
+  /// - Returns: A new `Tensor` with values `lhs - rhs[i]` for each element.
   static func -(lhs: Scalar, rhs: Tensor) -> Tensor {
     return Tensor(storage: lhs - rhs.storage, size: rhs.size, context: rhs.context)
   }
-  
+
+  /// Returns a new tensor with every element divided by the scalar `rhs`.
+  ///
+  /// - Parameters:
+  ///   - lhs: The tensor to divide.
+  ///   - rhs: The scalar divisor.
+  /// - Returns: A new `Tensor` with values `lhs[i] / rhs` for each element.
   static func /(lhs: Tensor, rhs: Scalar) -> Tensor {
     return Tensor(storage: lhs.storage / rhs, size: lhs.size, context: lhs.context)
   }
-  
+
+  /// Returns a new tensor with every element multiplied by the scalar `rhs`.
+  ///
+  /// - Parameters:
+  ///   - lhs: The tensor to scale.
+  ///   - rhs: The scalar multiplier.
+  /// - Returns: A new `Tensor` with values `lhs[i] * rhs` for each element.
   static func *(lhs: Tensor, rhs: Scalar) -> Tensor {
     return Tensor(storage: lhs.storage * rhs, size: lhs.size, context: lhs.context)
   }
-  
+
+  /// Returns a new tensor with the scalar `rhs` subtracted from every element.
+  ///
+  /// - Parameters:
+  ///   - lhs: The tensor to subtract from.
+  ///   - rhs: The scalar subtrahend.
+  /// - Returns: A new `Tensor` with values `lhs[i] - rhs` for each element.
   static func -(lhs: Tensor, rhs: Scalar) -> Tensor {
     return Tensor(storage: lhs.storage - rhs, size: lhs.size, context: lhs.context)
   }
-  
+
+  /// Returns a new tensor with the scalar `rhs` added to every element.
+  ///
+  /// - Parameters:
+  ///   - lhs: The tensor to add to.
+  ///   - rhs: The scalar addend.
+  /// - Returns: A new `Tensor` with values `lhs[i] + rhs` for each element.
   static func +(lhs: Tensor, rhs: Scalar) -> Tensor {
     return Tensor(storage: lhs.storage + rhs, size: lhs.size, context: lhs.context)
   }
@@ -1051,17 +1155,22 @@ public extension Tensor {
       return lhs.addAlong(axis: axis, value: rhs)
     }
     
+    if let new = lhs.broadcastPerChannelFastPath(value: rhs, op: .add) {
+      new.label = "addition"
+      if lhs.graphChain.contains(rhs.id) { new.setGraphSafe(lhs); new.setGraphSafe(rhs) }
+      else { new.setGraphSafe(rhs); new.setGraphSafe(lhs) }
+      return new
+    }
+    
     let result = lhs.storage + rhs.storage
     
     let new = Tensor(storage: result, size: lhs.size, context: lhs.addContext(value: rhs))
     new.label = "addition"
     
     if lhs.graphChain.contains(rhs.id) {
-      // non branched node
       new.setGraphSafe(lhs)
       new.setGraphSafe(rhs)
     } else {
-      // branched node
       new.setGraphSafe(rhs)
       new.setGraphSafe(lhs)
     }
@@ -1076,17 +1185,22 @@ public extension Tensor {
       return lhs.subtractAlong(axis: axis, value: rhs)
     }
     
+    if let new = lhs.broadcastPerChannelFastPath(value: rhs, op: .sub) {
+      new.label = "subtraction"
+      if lhs.graphChain.contains(rhs.id) { new.setGraphSafe(lhs); new.setGraphSafe(rhs) }
+      else { new.setGraphSafe(rhs); new.setGraphSafe(lhs) }
+      return new
+    }
+    
     let result = lhs.storage - rhs.storage
 
     let new = Tensor(storage: result, size: lhs.size, context: lhs.subtractContext(value: rhs))
     new.label = "subtraction"
 
     if lhs.graphChain.contains(rhs.id) {
-      // non branched node
       new.setGraphSafe(lhs)
       new.setGraphSafe(rhs)
     } else {
-      // branched node
       new.setGraphSafe(rhs)
       new.setGraphSafe(lhs)
     }
@@ -1101,17 +1215,29 @@ public extension Tensor {
       return lhs.multiplyAlong(axis: axis, value: rhs)
     }
     
+    if let new = lhs.broadcastPerChannelFastPath(value: rhs, op: .mul) {
+      new.label = "multiplication"
+      
+      if lhs.graphChain.contains(rhs.id) {
+        new.setGraphSafe(lhs)
+        new.setGraphSafe(rhs)
+      } else {
+        new.setGraphSafe(rhs)
+        new.setGraphSafe(lhs)
+      }
+      
+      return new
+    }
+    
     let result = lhs.storage * rhs.storage
 
     let new = Tensor(storage: result, size: lhs.size, context: lhs.multiplyContext(value: rhs))
     new.label = "multiplication"
 
     if lhs.graphChain.contains(rhs.id) {
-      // non branched node
       new.setGraphSafe(lhs)
       new.setGraphSafe(rhs)
     } else {
-      // branched node
       new.setGraphSafe(rhs)
       new.setGraphSafe(lhs)
     }
@@ -1126,17 +1252,22 @@ public extension Tensor {
       return lhs.divideAlong(axis: axis, value: rhs)
     }
     
+    if let new = lhs.broadcastPerChannelFastPath(value: rhs, op: .div) {
+      new.label = "division"
+      if lhs.graphChain.contains(rhs.id) { new.setGraphSafe(lhs); new.setGraphSafe(rhs) }
+      else { new.setGraphSafe(rhs); new.setGraphSafe(lhs) }
+      return new
+    }
+    
     let result = lhs.storage / rhs.storage
 
     let new = Tensor(storage: result, size: lhs.size, context: lhs.divideContext(value: rhs))
     new.label = "division"
 
     if lhs.graphChain.contains(rhs.id) {
-      // non branched node
       new.setGraphSafe(lhs)
       new.setGraphSafe(rhs)
     } else {
-      // branched node
       new.setGraphSafe(rhs)
       new.setGraphSafe(lhs)
     }
@@ -1144,16 +1275,26 @@ public extension Tensor {
     return new
   }
   
+  /// Returns a new tensor of the same shape with all elements set to zero.
+  ///
+  /// - Returns: A zero-filled `Tensor` with the same `size` as `self`.
   func zerosLike() -> Tensor {
-    let zeroStorage = Tensor.Value(repeating: 0, count: storage.count)
-    return Tensor(zeroStorage, size: size)
+    return Tensor(storage: TensorStorage.create(count: storage.count), size: size)
   }
-  
+
+  /// Returns a new tensor of the same shape with all elements set to one.
+  ///
+  /// - Returns: A ones-filled `Tensor` with the same `size` as `self`.
   func onesLike() -> Tensor {
-    let oneStorage = Tensor.Value(repeating: 1, count: storage.count)
-    return Tensor(oneStorage, size: size)
+    return Tensor(storage: TensorStorage.create(repeating: 1, count: storage.count), size: size)
   }
-  
+
+  /// Returns a new tensor that is the transpose of this tensor.
+  ///
+  /// For each depth slice, rows and columns are swapped. The resulting tensor has shape
+  /// `(rows: columns, columns: rows, depth: depth)`.
+  ///
+  /// - Returns: A new `Tensor` with rows and columns exchanged for each depth slice.
   func transposed() -> Tensor {
     let columns = size.columns
     let rows = size.rows

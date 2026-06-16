@@ -11,6 +11,7 @@ import Foundation
 /// A protocol that combines `Layer` and `BaseLayer` conformance for grouped layer structures
 /// that contain an inner sequential block of sub-layers.
 public protocol LayerGrouping: Layer, BaseLayer {
+  /// The sequential container that holds the inner block of sub-layers managed by this group.
   var innerBlockSequential: Sequential { get }
 }
 
@@ -19,31 +20,32 @@ public protocol LayerGrouping: Layer, BaseLayer {
 /// supporting forward passes, weight export, and gradient application across grouped layers.
 public class BaseLayerGroup: BaseLayer, LayerGrouping {
   
-/// A type alias representing the offsets into gradient arrays for weights and biases
-/// within a layer group's inner block.
+  /// A type alias representing the offsets into gradient arrays for weights and biases
+  /// within a layer group's inner block.
   public typealias GradientOffsets = (weights: Int, biases: Int)
-  
-/// The sequential container holding the inner block of sub-layers for this layer group.
+
+  /// The sequential container holding the inner block of sub-layers for this layer group.
   public var innerBlockSequential: Sequential = .init()
   
   private var layers: (_ inputSize: TensorSize) -> [Layer]
   
-/// A Boolean indicating whether the layer group is in training mode.
-///
-/// Setting this value propagates the training state to the inner sequential block.
+  /// A Boolean indicating whether the layer group is in training mode.
+  ///
+  /// Setting this value propagates the training state to the inner sequential block.
   public override var isTraining: Bool {
     get {
       super.isTraining
     }
     set {
+      super.isTraining = newValue
       innerBlockSequential.isTraining = newValue
     }
   }
 
-/// The concatenated weights of all layers within the inner sequential block.
-///
-/// Getting this value exports and flattens weights from the inner block, concatenating
-/// them along axis 2 into a single `Tensor`. Setting is currently a no-op.
+  /// The concatenated weights of all layers within the inner sequential block.
+  ///
+  /// Getting this value exports and flattens weights from the inner block, concatenating
+  /// them along axis 2 into a single `Tensor`. Setting is currently a no-op.
   public override var weights: Tensor {
     get {
       let innerBlockWeights = (try? innerBlockSequential.exportWeights()) ?? []
@@ -54,23 +56,28 @@ public class BaseLayerGroup: BaseLayer, LayerGrouping {
         firstTensor = firstTensor.concat(t, axis: 2)
       }
       
-      return firstTensor
+      let weightTensor = Tensor(storage: firstTensor.storage.copy(),
+                                size: .init(rows: 1,
+                                            columns: firstTensor.storage.count,
+                                            depth: 1))
+      
+      return weightTensor
     }
     set {
       // todo: figure out how to apply weights
     }
   }
   
-/// Initializes a `BaseLayerGroup` with the given configuration and a closure that builds
-/// the inner sub-layers based on the resolved input size.
-///
-/// - Parameters:
-///   - inputSize: The optional input tensor size for the layer group.
-///   - initializer: The weight initializer type to use for sub-layers.
-///   - biasEnabled: Whether bias terms are enabled. Defaults to `false`.
-///   - linkId: A unique string identifier for this layer. Defaults to a new UUID string.
-///   - encodingType: The encoding strategy used for this layer group.
-///   - layers: A closure that receives the resolved input size and returns the array of sub-layers.
+  /// Initializes a `BaseLayerGroup` with the given configuration and a closure that builds
+  /// the inner sub-layers based on the resolved input size.
+  ///
+  /// - Parameters:
+  ///   - inputSize: The optional input tensor size for the layer group.
+  ///   - initializer: The weight initializer type to use for sub-layers.
+  ///   - biasEnabled: Whether bias terms are enabled. Defaults to `false`.
+  ///   - linkId: A unique string identifier for this layer. Defaults to a new UUID string.
+  ///   - encodingType: The encoding strategy used for this layer group.
+  ///   - layers: A closure that receives the resolved input size and returns the array of sub-layers.
   public init(inputSize: TensorSize?,
               initializer: InitializerType,
               biasEnabled: Bool = false,
@@ -86,19 +93,25 @@ public class BaseLayerGroup: BaseLayer, LayerGrouping {
                encodingType: encodingType)
   }
   
+  /// Not supported on `BaseLayerGroup` — subclasses must override with their own serialization logic.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: Always triggers a `fatalError`; implement in concrete subclasses.
   required convenience public init(from decoder: Decoder) throws {
     fatalError("init(from:) has not been implemented")
   }
   
+  /// Called by `Sequential.compile()` when input size is propagated; builds and compiles the inner block.
   override public func onInputSizeSet() {
     if innerBlockSequential.layers.isEmpty {
       innerBlockSequential.layers = layers(inputSize)
     }
-    
+
     innerBlockSequential.compile()
     onBatchSizeSet()
   }
-  
+
+  /// Called when the batch size changes; propagates the new batch size to the inner sequential block.
   override public func onBatchSizeSet() {
     innerBlockSequential.batchSize = batchSize
   }
@@ -113,11 +126,11 @@ public class BaseLayerGroup: BaseLayer, LayerGrouping {
     forward(tensorBatch: [tensor], context: context)[safe: 0, Tensor()]
   }
   
-/// Applies the given weight and bias gradients to the inner sequential block.
-///
-/// - Parameters:
-///   - gradients: A tuple containing weight and bias gradient tensors.
-///   - learningRate: The scalar learning rate to use when applying gradients.
+  /// Applies the given weight and bias gradients to the inner sequential block.
+  ///
+  /// - Parameters:
+  ///   - gradients: A tuple containing weight and bias gradient tensors.
+  ///   - learningRate: The scalar learning rate to use when applying gradients.
   public override func apply(gradients: (weights: Tensor, biases: Tensor), learningRate: Tensor.Scalar) {
     guard gradients.weights.isEmpty == false else {
       return

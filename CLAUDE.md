@@ -150,7 +150,7 @@ Follow the template in `.cursor/rules/trainable.mdc`:
 - Use NumSwift operations for mathematical computations
 - Minimize memory allocations in forward passes
 - Create unit tests verifying gradient computations and serialization
-- **Use `Tensor.Scalar` typealias**: All new functions that need access to a scalar type like `Float` should use `Tensor.Scalar` instead of hardcoding `Float`. This ensures compatibility with Float16 quantization (when `QUANTIZED_F16` flag is set). See `TensorSIMD.swift` for examples of this pattern.
+- **Never hardcode `Float` or `Float16` when interacting with Tensor**: Always use `Tensor.Scalar` for scalar types, numeric literals (e.g., `Tensor.Scalar(0.0)` not `Float(0.0)`), function signatures, and local variables in any code that touches Tensor. This includes layer parameters, optimizer hyperparameters (learning rate, beta, epsilon), loss function computations, weight initialization, and test assertions. This ensures compatibility with Float16 quantization (when `QUANTIZED_F16` flag is set). See `TensorSIMD.swift` for examples of this pattern.
 - **Support both Float and Float16**: Any new math functions on a Tensor should be implemented for both `Float` and `Float16` types. This ensures the framework works correctly regardless of whether quantization is enabled.
 - **Prefer pointer-based arithmetic**: Use `TensorStorage.Pointer` and `NumSwiftFlat` APIs instead of `Tensor.Value` array arithmetic. See "Pointer-Based Arithmetic" section below.
 
@@ -353,6 +353,7 @@ print(grads.input.count, grads.weights.count, grads.biases.count)
 8. **Gradient/weights layout mismatch**: Layers with multiple params (e.g. gamma, beta) must return gradients in the same order as `weights`. InstanceNormalize and LayerNormalize use `beta | gamma`; gradients must match or Adam weight decay corrupts training. See `InstanceNormalize.swift` and `AGENT_REFERENCE.md`.
 9. **Using `Tensor.Value` arithmetic in hot paths**: Prefer `NumSwiftFlat` pointer APIs to avoid intermediate array allocations. See "Pointer-Based Arithmetic" section.
 10. **Shared-memory bugs with optimizer state**: When returning optimizer state (e.g., SGD velocity) as a Tensor, use `TensorStorage.forceCopy()` to avoid the tensor mutating optimizer internals.
+11. **Tensor self-assignment creates reference cycles**: Tensor arithmetic operators (`+`, `-`, `*`, `/`) build autograd computation graphs. Writing `gamma = gamma - gradients` creates a reference cycle because the result's graph holds a reference to the old `gamma`, which is now the same variable as the new `gamma`. Instead, construct a fresh Tensor from the result's storage: `gamma = Tensor(storage: (gamma - gradients).storage, size: gamma.size)`. Alternatively, perform the arithmetic at the `TensorStorage` level (which has no autograd): `gamma = Tensor(storage: gamma.storage - gradients.storage, size: gamma.size)`. This applies anywhere a Tensor property is updated via arithmetic that references itself.
 
 ## Performance & Memory Profiling
 

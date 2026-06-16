@@ -8,35 +8,31 @@
 import Foundation
 import NumSwift
 
-/// Defines the granularity at which a decay step is applied.
-///
-/// - `batch`: Decay is applied once per batch.
-/// - `epoch`: Decay is applied once per epoch, with an associated integer epoch index.
-public enum DecayStepType {
-  case batch, epoch(Int)
-}
-
 /// A protocol defining a learning-rate decay schedule.
 ///
 /// Types conforming to `DecayFunction` provide a decayed learning rate
 /// and support resetting and stepping through the decay schedule.
 public protocol DecayFunction {
+  /// The current decayed learning rate produced by this schedule.
   var decayedLearningRate: Tensor.Scalar { get }
   /// Resets decay state back to its initial learning-rate value.
   func reset()
   /// Advances decay state by one optimization step.
-  func step(type: DecayStepType)
+  func step()
 }
 
+/// A base class that provides common state and bookkeeping for learning-rate decay schedules.
+///
+/// Subclasses should override `step()` to implement a specific decay formula,
+/// update `decayedLearningRate`, and call `super.step()` to keep `globalSteps` in sync.
 open class BaseDecayFunction: DecayFunction {
-/// The current decayed learning rate value.
+  /// The current decayed learning rate value.
   public var decayedLearningRate: Tensor.Scalar
   
   let originalLearningRate: Tensor.Scalar
   let decayRate: Tensor.Scalar
   let decaySteps: Tensor.Scalar
   var globalSteps: Tensor.Scalar = 0
-  let staircase: Bool
   
   /// Creates a base learning-rate decay schedule.
   ///
@@ -47,13 +43,11 @@ open class BaseDecayFunction: DecayFunction {
   ///   - staircase: Whether to apply discrete staircase decay.
   public init(learningRate: Tensor.Scalar,
               decayRate: Tensor.Scalar,
-              decaySteps: Tensor.Scalar,
-              staircase: Bool) {
+              decaySteps: Tensor.Scalar) {
     self.originalLearningRate = learningRate
     self.decayedLearningRate = learningRate
     self.decayRate = decayRate
     self.decaySteps = decaySteps
-    self.staircase = staircase
   }
   
   /// Restores the original learning rate and step counter.
@@ -66,7 +60,7 @@ open class BaseDecayFunction: DecayFunction {
   ///
   /// Subclasses should override to compute `decayedLearningRate` and then call
   /// `super.step()` to keep step accounting in sync.
-  open func step(type: DecayStepType) {
+  open func step() {
     // override and apply function here
     globalSteps += 1
   }

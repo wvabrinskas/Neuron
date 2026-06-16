@@ -44,6 +44,10 @@ public final class Dropout: BaseLayer {
          linkId
   }
   
+  /// Decodes a Dropout layer from a serialized model.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: An error if required values cannot be decoded.
   convenience public required init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
@@ -102,6 +106,7 @@ public final class Dropout: BaseLayer {
   ///   - learningRate: Ignored.
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {}
   
+  /// Sets `outputSize` equal to `inputSize` since dropout preserves tensor shape.
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     outputSize = inputSize

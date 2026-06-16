@@ -7,13 +7,23 @@
 
 import Foundation
 
+/// Neuron-specific convenience additions to `Int`.
 public extension Int {
+  /// Converts the integer to a `Tensor.Scalar` value (`Float` or `Float16` depending on build configuration).
   var asTensorScalar: Tensor.Scalar {
     Tensor.Scalar(self)
   }
 }
 
+/// Multi-dimensional subscript support for 3D scalar arrays.
 public extension Array where Element == [[Tensor.Scalar]] {
+  /// Extracts a 3D sub-array using separate column, row, and depth range expressions.
+  ///
+  /// - Parameters:
+  ///   - colRange: Range of column indices to extract.
+  ///   - rowRange: Range of row indices to extract.
+  ///   - depthRange: Range of depth indices to extract.
+  /// - Returns: A new 3D array containing the selected elements.
   subscript(_ colRange: some RangeExpression<Int>,
             _ rowRange: some RangeExpression<Int>,
             _ depthRange: some RangeExpression<Int>) -> [[[Tensor.Scalar]]] {

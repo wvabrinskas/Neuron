@@ -16,7 +16,12 @@ import NumSwift
 /// - `end`: Append an end token to the vector.
 /// - `none`: Apply no additional formatting tokens.
 public enum VectorFormat {
-  case start, end, none
+  /// Prepend a start token to the vector.
+  case start
+  /// Append an end token to the vector.
+  case end
+  /// Apply no additional formatting tokens.
+  case none
 }
 
 
@@ -29,10 +34,11 @@ public protocol Vectorizing: Exportable {
   typealias Vector = [Item: Int]
   typealias InverseVector = [Int: Item]
   
+  /// The last integer index assigned during vectorization.
   var lastKey: Int { get }
-  /// Value that indicate starting of a vector
+  /// The integer token ID reserved for the start-of-sequence sentinel.
   var start: Int { get }
-  /// Value that indicate ending of a vector
+  /// The integer token ID reserved for the end-of-sequence sentinel.
   var end: Int { get }
   /// The current full vector storage of every value passed in keyed by the `Item`
   var vector: Vector { get }
@@ -67,16 +73,18 @@ public protocol Vectorizing: Exportable {
 /// ex. Can take a string and apply a integer value to the word so that if it came up again
 /// it would return the same integer value for that word.
 public class Vectorizer: Vectorizing, Codable {
-/// The maximum index currently assigned, representing the next available index offset
-/// after reserving indices for start and end tokens.
+  /// The current full vector storage of every value passed in keyed by the `Item`.
   public private(set) var vector: Vector = [:]
+  /// The current full vector storage of every value passed in keyed by the `Index`.
   public private(set) var inverseVector: InverseVector = [:]
-  
+
+  /// The maximum index currently assigned, representing the next available index offset
+  /// after reserving indices for start and end tokens.
   public private(set) var lastKey: Int = 0
   
-  /// Value that indicate starting of a vactor
+  /// The integer token ID reserved for the start-of-sequence sentinel (always `0`).
   public let start: Int = 0
-  /// Value that indicate ending of a vactor
+  /// The integer token ID reserved for the end-of-sequence sentinel (always `1`).
   public let end: Int = 1
 
   /// max index is the first index we can use to identify words
@@ -91,17 +99,22 @@ public class Vectorizer: Vectorizing, Codable {
     0
   }
   
-  /// Initializes a `Vectorizer` instance by decoding it from the given decoder.
-  ///
-  /// - Parameter decoder: The decoder to read data from.
-  /// - Throws: An error if any required value cannot be decoded.
+  /// Coding keys for encoding and decoding `Vectorizer` state.
   public enum CodingKeys: String, CodingKey {
+    /// Key for the token-to-index vector dictionary.
     case vector
+    /// Key for the last assigned token index.
     case lastKey
+    /// Key for whether start/end encoding tokens are used.
     case startAndEndingEncoding
+    /// Key for the current maximum token index.
     case maxIndex
   }
-  
+
+  /// Decodes a `Vectorizer` instance from a serialized model.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: An error if required values cannot be decoded.
   public required init(from decoder: any Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     self.vector = try container.decode(Vector.self, forKey: .vector)

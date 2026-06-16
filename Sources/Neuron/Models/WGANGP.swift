@@ -9,6 +9,11 @@ import Foundation
 import NumSwift
 import Numerics
 
+/// A Wasserstein GAN with Gradient Penalty (WGAN-GP) trainer.
+///
+/// Enforces the Lipschitz constraint via a gradient penalty term computed on
+/// interpolated samples instead of weight clipping. The penalty coefficient is
+/// controlled by `lambda`.
 open class WGANGP: GAN {
   /// The label assigned to real samples in the Wasserstein GAN-GP framework.
   ///

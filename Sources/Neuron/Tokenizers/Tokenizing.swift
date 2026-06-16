@@ -13,11 +13,28 @@ public typealias TokenizerCorpus = [String]
 
 /// A protocol that defines tokenization capabilities with support for encoding, decoding, and exporting trained models.
 public protocol Tokenizing: Exportable {
+  /// Trains the tokenizer on the given corpus, building the vocabulary and merge rules.
+  ///
+  /// - Parameter corpus: An array of text strings used to fit the tokenizer.
   func train(corpus: TokenizerCorpus)
+
+  /// Encodes a text string into a sequence of integer token IDs.
+  ///
+  /// - Parameter input: The string to encode.
+  /// - Returns: A sequence of integer token IDs.
   func encode(_ input: String) -> [Int]
+
+  /// Decodes a sequence of integer token IDs back into a text string.
+  ///
+  /// - Parameter ids: The integer token IDs to decode.
+  /// - Returns: The reconstructed text string.
   func decode(_ ids: [Int]) -> String
 }
 
+/// A base Byte Pair Encoding (BPE) tokenizer that learns subword merge rules from a text corpus.
+///
+/// Subclasses may override `train(_:)`, `encode(_:)`, and `decode(_:)` to customise tokenization behaviour.
+/// The learned vocabulary and merge rules are serializable via the `Exportable` protocol.
 open class BaseTokenizer: Tokenizing {
   private var vocab: [String: Int] = [:]
   private var reverseVocab: [Int: String] = [:]
@@ -51,9 +68,13 @@ open class BaseTokenizer: Tokenizing {
   
   /// Coding keys used for encoding and decoding the tokenizer's properties.
   public enum CodingKeys: String, CodingKey {
+    /// Key for the array of learned byte-pair merge rules.
     case mergeRules
+    /// Key for the token-to-ID vocabulary dictionary.
     case vocab
+    /// Key for the ID-to-token inverse vocabulary dictionary.
     case inverseVocab
+    /// Key for the target vocabulary size used during training.
     case targetVocabSize
   }
 
@@ -88,6 +109,9 @@ open class BaseTokenizer: Tokenizing {
     try container.encode(targetVocabSize, forKey: .targetVocabSize)
   }
   
+  /// Trains the BPE tokenizer on the given text corpus, building a vocabulary up to `targetVocabSize`.
+  ///
+  /// - Parameter corpus: An array of text strings used to learn byte-pair merge rules.
   open func train(corpus: TokenizerCorpus) {
     let flatCorpus = corpus.joined(separator: " ")
     
@@ -138,8 +162,12 @@ open class BaseTokenizer: Tokenizing {
     }
   }
   
+  /// Encodes a text string into a sequence of token IDs using the learned BPE vocabulary.
+  ///
+  /// - Parameter text: The input string to encode.
+  /// - Returns: An array of integer token IDs corresponding to the input text.
   open func encode(_ text: String) -> [Int] {
-    
+
     var tokenIds: [Int] = []
     let words = text.components(separatedBy: " ")
     
@@ -181,6 +209,10 @@ open class BaseTokenizer: Tokenizing {
     return tokenIds
   }
   
+  /// Decodes a sequence of token IDs back into a human-readable string.
+  ///
+  /// - Parameter tokenIds: An array of integer token IDs to decode.
+  /// - Returns: The reconstructed string with end-of-word markers replaced by spaces.
   open func decode(_ tokenIds: [Int]) -> String {
     // Invert the vocab dictionary
     let idToToken = reverseVocab
@@ -196,7 +228,6 @@ open class BaseTokenizer: Tokenizing {
   }
   
   
-  @discardableResult
   /// Exports the trainable as a `.stkns` file.
   ///
   /// - Parameters:
@@ -204,6 +235,7 @@ open class BaseTokenizer: Tokenizing {
   ///   - overrite: When `false`, appends a timestamp to avoid overwrite.
   ///   - compress: When `true`, emits compact JSON.
   /// - Returns: URL to the exported model file, or `nil` on write failure.
+  @discardableResult
   public func export(name: String?, overrite: Bool, compress: Bool) -> URL? {
     let additional = overrite == false ? "-\(Date().timeIntervalSince1970)" : ""
     

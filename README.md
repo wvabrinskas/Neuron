@@ -130,10 +130,11 @@ let network = Sequential {
 You can see here the first layer is the only layer where the `inputSize` is specified. This is because all the other layer's `inputSize` are automatically calculated when added to an `Optimizer`. 
 
 ## Picking an Optimizer
-Neuron uses a `protocol` that defines what's needed for an `Opitmizer`. There are currently three provided optimizers bundled with Neuron. 
+Neuron uses a `protocol` that defines what's needed for an `Opitmizer`. There are currently four provided optimizers bundled with Neuron. 
 - `Adam`
 - `SGD`
 - `RMSProp`
+- `AdaGrad`
 
 All optimizers are interchangeable. Optimizers are the "brain" of the network. All function calls to train the network should be called through your specific `Optimizer`. Let's build an `Adam` optimizer for this classifier. 
 

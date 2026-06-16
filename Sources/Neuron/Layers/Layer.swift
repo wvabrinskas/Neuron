@@ -10,72 +10,145 @@ import NumSwift
 import NumSwiftC
 import Atomics
 
-/// Layer types
+/// Identifies the concrete type of a layer for serialization and reconstruction.
+///
+/// Each case maps to a distinct `Layer` subclass.  The raw string value is
+/// persisted inside `.smodel` files so names must not be changed.
 public enum EncodingType: String, Codable {
-  case leakyRelu,
-       relu,
-       sigmoid,
-       softmax,
-       swish,
-       tanh,
-       batchNormalize,
-       conv2d,
-       dense,
-       dropout,
-       flatten,
-       maxPool,
-       reshape,
-       transConv2d,
-       layerNormalize,
-       lstm,
-       embedding,
-       avgPool,
-       selu,
-       resNet,
-       globalAvgPool,
-       depthwiseConv2d,
-       instanceNorm,
-       rexNet,
-       add,
-       multiply,
-       subtract,
-       divide,
-       none
+  /// Leaky ReLU activation layer.
+  case leakyRelu
+  /// ReLU activation layer.
+  case relu
+  /// Sigmoid activation layer.
+  case sigmoid
+  /// Softmax activation layer.
+  case softmax
+  /// Swish activation layer.
+  case swish
+  /// Tanh activation layer.
+  case tanh
+  /// Batch normalization layer.
+  case batchNormalize
+  /// 2D convolution layer.
+  case conv2d
+  /// Fully connected dense layer.
+  case dense
+  /// Dropout regularization layer.
+  case dropout
+  /// Flatten layer.
+  case flatten
+  /// Max pooling layer.
+  case maxPool
+  /// Reshape layer.
+  case reshape
+  /// Transposed 2D convolution (deconvolution) layer.
+  case transConv2d
+  /// Layer normalization layer.
+  case layerNormalize
+  /// Long short-term memory (LSTM) layer.
+  case lstm
+  /// Embedding lookup layer.
+  case embedding
+  /// Average pooling layer.
+  case avgPool
+  /// Scaled ELU activation layer.
+  case selu
+  /// ResNet skip-connection block.
+  case resNet
+  /// Global average pooling layer.
+  case globalAvgPool
+  /// Depthwise separable 2D convolution layer.
+  case depthwiseConv2d
+  /// Instance normalization layer.
+  case instanceNorm
+  /// RexNet building block layer.
+  case rexNet
+  /// Element-wise addition layer.
+  case add
+  /// Element-wise multiplication layer.
+  case multiply
+  /// Element-wise subtraction layer.
+  case subtract
+  /// Element-wise division layer.
+  case divide
+  /// Mish activation layer.
+  case mish
+  /// Parametric ReLU activation layer.
+  case prelu
+  /// Sentinel value indicating no layer type.
+  case none
 }
 
-/// A layer that performs an activation function
+/// A layer that performs an activation function.
 public protocol ActivationLayer: Layer {
+  /// The specific activation function applied by this layer.
   var type: Activation { get }
 }
 
-/// A layer that performs a convolution operation
+/// A layer that performs a convolution operation.
 public protocol ConvolutionalLayer: Layer {
+  /// The number of convolutional filters in this layer.
   var filterCount: Int { get }
+  /// The learnable filter kernels for this layer.
   var filters: [Tensor] { get }
+  /// The spatial dimensions (rows and columns) of each filter kernel.
   var filterSize: (rows: Int, columns: Int) { get }
+  /// The step size used when sliding the filter over the input.
   var strides: (rows: Int, columns: Int) { get }
+  /// The padding strategy applied before convolution.
   var padding: NumSwift.ConvPadding { get }
 }
 
 /// A batch of tensors used as input or output for a layer.
 public typealias TensorBatch = [Tensor]
-/// The the object that perform ML operations
+
+/// The primary protocol that every neural network layer must conform to.
+///
+/// A `Layer` object transforms an input `Tensor` into an output `Tensor` and
+/// optionally maintains trainable parameters (`weights`, `biases`).  Layers are
+/// chained together inside a `Sequential` container; an `Optimizer` compiles the
+/// chain and drives parameter updates.
+///
+/// Implement `forward(tensor:context:)` with the forward math and attach a
+/// `TensorContext` whose `backpropagate` closure implements the backward pass.
+///
+/// ## Minimal conformance
+/// Inherit from `BaseLayer` instead of conforming directly — `BaseLayer` provides
+/// sensible defaults for all secondary properties so you only need to override
+/// `forward(tensor:context:)`, `apply(gradients:learningRate:)`, and the
+/// `Codable` methods.
 public protocol Layer: AnyObject, Codable {
+  /// A human-readable summary describing the layer's configuration and dimensions.
   var details: String { get }
+  /// The serialization identifier used when encoding and decoding this layer.
   var encodingType: EncodingType { get set }
+  /// Additional encodable values that a layer may need persisted alongside standard fields.
   var extraEncodables: [String: Codable]? { get }
+  /// The spatial dimensions expected at this layer's input.
   var inputSize: TensorSize { get set }
+  /// The spatial dimensions produced at this layer's output.
   var outputSize: TensorSize { get }
+  /// The learnable weight tensor for this layer.
   var weights: Tensor { get }
+  /// The learnable bias tensor for this layer.
   var biases: Tensor { get }
+  /// Whether a bias term is added during the forward pass.
   var biasEnabled: Bool { get set }
+  /// Whether parameter updates are applied to this layer during training.
   var trainable: Bool { get set }
+  /// Whether the layer is currently in training mode (affects dropout, batch norm, etc.).
   var isTraining: Bool { get set }
+  /// The weight initializer strategy used when constructing this layer's parameters.
   var initializer: Initializer { get }
+  /// The device type (CPU/GPU) to which this layer is assigned.
   var deviceType: DeviceType { get set }
+  /// The compute device object used to run this layer's operations.
   var device: Device { get }
+  /// Whether the optimizer manages gradient scaling before calling `apply(gradients:learningRate:)`.
   var usesOptimizer: Bool { get set }
+  /// The number of samples processed simultaneously in a single forward/backward step.
   var batchSize: Int { get set }
+  /// A stable string identifier used to reference this layer's output from arithmetic layers.
   var linkId: String { get }
   @discardableResult
   /// Runs the layer's forward transformation for a single tensor.
@@ -112,10 +185,14 @@ public protocol Layer: AnyObject, Codable {
 
 /// Errors that can occur during layer operations such as weight importing.
 public enum LayerErrors: Error, LocalizedError {
+  /// The incoming weight tensors could not be applied to the layer.
   case weightImportError
+  /// A generic layer error with a developer-supplied message.
+  ///
+  /// - Parameter error: Description of the specific problem.
   case generic(error: String)
-  
-/// A human-readable description of the error that occurred.
+
+  /// A human-readable description of the error that occurred.
   public var errorDescription: String? {
     switch self {
     case .weightImportError:
@@ -127,19 +204,28 @@ public enum LayerErrors: Error, LocalizedError {
 }
 
 extension Layer {
-/// Default implementation of `extraEncodables` returning an empty dictionary.
+  /// Default implementation of `extraEncodables` returning an empty dictionary.
   public var extraEncodables: [String: Codable]? {
     return [:]
   }
 }
 
+/// An abstract base class for element-wise binary arithmetic operations between two tensor streams.
+///
+/// `ArithmeticLayer` walks the input tensor's computation graph to locate the output of the
+/// layer identified by `linkTo`, then applies the subclass-defined `function(input:other:)`
+/// to produce a combined output.  The `inverse` flag reverses the argument order.
+///
+/// Subclass `ArithmeticLayer` (or use the concrete `Add`, `Subtract`, `Multiply`, `Divide`)
+/// to implement any custom pointwise binary operation.
 open class ArithmeticLayer: BaseLayer {
   // looks up through the tensor input graph to find the first input tensor with this label applied.
   // and applies the arithmetic to it that the layer defines along with the input to this layer
   var linkTo: String
   
-  let inverse: Bool
+  private(set) var inverse: Bool
   
+  /// Always `false`; arithmetic layers carry no trainable parameters.
   override public var usesOptimizer: Bool { get { false } set { } }
 
   init(inputSize: TensorSize? = nil,
@@ -160,22 +246,50 @@ open class ArithmeticLayer: BaseLayer {
   }
 
   enum CodingKeys: String, CodingKey {
-    case inputSize, type, linkTo, linkId
+    case inputSize, type, linkTo, linkId, inverse
   }
   
+  /// Applies the arithmetic operation to two input tensors.
+  ///
+  /// Subclasses must override this method to provide the actual element-wise operation.
+  ///
+  /// - Parameters:
+  ///   - input: The primary input tensor.
+  ///   - other: The secondary input tensor (from the linked layer).
+  /// - Returns: The result of applying the arithmetic operation.
   open func function(input: Tensor, other: Tensor) -> Tensor {
     fatalError("override in subclass")
   }
   
+  /// Called by `Sequential.compile()` when the input size is propagated to this layer.
+  /// Sets `outputSize` to match `inputSize` when it has not already been configured.
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     /// do something when the input size is set when calling `compile` on `Sequential`
     /// like setting the output size or initializing the weights
-    outputSize = inputSize
+    if outputSize.isEmpty {
+      outputSize = inputSize
+    }
   }
   
-  required convenience public init(from decoder: Decoder) throws {
-    self.init(encodingType: .add, linkTo: "")
+  /// Decodes an ArithmeticLayer from a serialized model.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: An error if required values cannot be decoded.
+  required public init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    self.linkTo = try container.decodeIfPresent(String.self, forKey: .linkTo) ?? ""
+    self.inverse = try container.decodeIfPresent(Bool.self, forKey: .inverse) ?? false
+
+    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
+    let encodingType = try container.decodeIfPresent(EncodingType.self, forKey: .type) ?? .add
+
+    super.init(inputSize: nil,
+               biasEnabled: false,
+               linkId: linkId,
+               encodingType: encodingType)
+
+    self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
   }
   
   /// Encodes the layer's properties into the given encoder.
@@ -188,6 +302,7 @@ open class ArithmeticLayer: BaseLayer {
     try container.encode(encodingType, forKey: .type)
     try container.encode(linkTo, forKey: .linkTo)
     try container.encode(linkId, forKey: .linkId)
+    try container.encode(inverse, forKey: .inverse)
   }
 
   /// Performs the forward pass by looking up the linked input tensor and applying the binary function.
@@ -197,13 +312,16 @@ open class ArithmeticLayer: BaseLayer {
   ///   - context: The network context in which the forward pass is executed.
   /// - Returns: The output tensor produced by applying the layer's function to the input and linked tensors.
   public override func forward(tensor: Tensor, context: NetworkContext) -> Tensor {
-    
     guard let other = lookupInput(input: tensor) else {
       assertionFailure("could not find reference input tensor in graph")
       return Tensor()
     }
     
-    let out = function(input: tensor, other: other)
+    let out = if inverse {
+      function(input: other, other: tensor)
+    } else {
+      function(input: tensor, other: other)
+    }
     
     return super.forward(tensor: out, context: context)
   }
@@ -213,35 +331,42 @@ open class ArithmeticLayer: BaseLayer {
   }
 }
 
-open class BaseLayer: Layer {
 /// A base class providing default implementations of common `Layer` properties and behaviors.
+///
+/// Concrete layer types should subclass `BaseLayer` and override:
+/// - `forward(tensor:context:)` for the forward math
+/// - `apply(gradients:learningRate:)` for parameter updates
+/// - `onInputSizeSet()` to react to shape changes (e.g. initialize weights)
+/// - `encode(to:)` / `init(from:)` for serialization
+open class BaseLayer: Layer {
+  /// A human-readable summary of the layer's input and output sizes.
   public var details: String {
     """
     Input: \(formatTensorSize(inputSize)) → Output: \(formatTensorSize(outputSize))
     """
   }
-  
-/// A human-readable summary of the layer's input and output sizes.
+
+  /// The encoding type used to identify this layer during serialization.
   public var encodingType: EncodingType
-/// The encoding type used to identify this layer during serialization.
+  /// The input tensor size for this layer. Setting this triggers `onInputSizeSet()` to reconfigure the layer.
   public var inputSize: TensorSize = .init() {
     didSet {
       onInputSizeSet()
     }
   }
-/// The input tensor size for this layer. Setting this triggers `onInputSizeSet()` to reconfigure the layer.
+  /// The output tensor size produced by this layer.
   public var outputSize: TensorSize = .init()
-/// The output tensor size produced by this layer.
+  /// The learnable weight parameters of this layer.
   public var weights: Tensor = .init()
-/// The learnable weight parameters of this layer.
+  /// The learnable bias parameters of this layer.
   public var biases: Tensor = .init()
-/// The learnable bias parameters of this layer.
+  /// Whether bias parameters are applied during the forward pass.
   public var biasEnabled: Bool = false
-/// Whether bias parameters are applied during the forward pass.
+  /// Whether this layer's parameters are updated during training.
   public var trainable: Bool = true
-/// Whether this layer's parameters are updated during training.
+  /// Whether this layer is currently in training mode, affecting behaviors such as dropout.
   public var isTraining: Bool = true
-/// Whether this layer is currently in training mode, affecting behaviors such as dropout.
+  /// The weight initializer strategy used to initialize this layer's parameters.
   public var initializer: Initializer
   
   /// The type of device (e.g., CPU or GPU) used for computation, updating the shared DeviceManager when set.
@@ -250,23 +375,27 @@ open class BaseLayer: Layer {
       DeviceManager.shared.type = deviceType
     }
   }
-/// The weight initializer strategy used to initialize this layer's parameters.
+
+  /// The compute device (e.g., CPU or GPU) used to execute this layer's operations.
   public var device: Device {
     DeviceManager.shared.device
   }
-/// The compute device (e.g., CPU or GPU) used to execute this layer's operations.
+
+  /// The number of samples processed in a single forward/backward pass. Setting this triggers `onBatchSizeSet()`.
   public var batchSize: Int = 1 {
     didSet {
       onBatchSizeSet()
     }
   }
-  
+
   /// Set this to reference the output of this layer in an arithmetic layer. eg a Shortcut path
   public var linkId: String = UUID().uuidString
-  
+
   // defines whether the gradients are run through the optimizer before being applied.
   // this could be useful if a layer manages its own weight updates
-/// The number of samples processed in a single forward/backward pass. Setting this triggers `onBatchSizeSet()`.
+  /// Whether the gradients for this layer are passed through the optimizer before being applied.
+  ///
+  /// Set to `false` for layers that manage their own parameter updates (e.g., `Embedding`).
   public var usesOptimizer: Bool = true
   
   /// Creates a new base layer configuration.
@@ -304,11 +433,15 @@ open class BaseLayer: Layer {
     forward(tensor: tensor, context: context)
   }
   
+  /// Not intended for direct use — concrete layer subclasses must override to implement their own deserialization.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: Always produces a default empty layer; subclasses should override.
   required convenience public init(from decoder: Decoder) throws {
     // override
     self.init(encodingType: .none)
   }
-  
+
   /// Encodes layer configuration for persistence.
   ///
   /// Subclasses should override and encode their own fields.
@@ -426,8 +559,15 @@ open class BaseLayer: Layer {
   
 }
 
+/// A base class for 2-D convolutional layers, providing shared filter storage and weight management.
+///
+/// `BaseConvolutionalLayer` owns the `filters` array, handles filter initialization via
+/// `initializeFilters()`, and consolidates `exportWeights` / `importWeights` for all
+/// convolutional subclasses.  Concrete subclasses (`Conv2d`, `TransConv2d`, `DepthwiseConv2d`)
+/// override `onInputSizeSet()` to derive `outputSize` and `forward(tensor:context:)` to
+/// implement the specific convolution algorithm.
 open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
-/// Whether gradients are passed through the optimizer before being applied. Set to `false` if the layer manages its own weight updates.
+  /// A human-readable summary including filter count, strides, and padding configuration.
   public override var details: String {
     super.details +
     """
@@ -437,35 +577,38 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
     Padding: \(padding.asString)
     """
   }
-  
-/// A human-readable summary including filter count, strides, and padding configuration.
+
+  /// A combined tensor representation of all convolutional filters, concatenated along the depth axis.
+  ///
+  /// Setting this property directly is not supported; use the `filters` array instead.
   public override var weights: Tensor {
     get {
       var reduce = filters
       let first = reduce.removeFirst()
-      
+
       let out = reduce.reduce(first) { partialResult, new in
         partialResult.concat(new, axis: 2)
       }
-      
+
       return Tensor(storage: out.storage, size: .init(rows: filterSize.rows,
                                                       columns: filterSize.columns,
                                                       depth: filterCount * inputSize.depth))
-      
+
     }
     set {
       fatalError("Please use the `filters` property instead to manage weights on Convolutional layers")
     }
   }
-/// A combined tensor representation of all convolutional filters, concatenated along the depth axis.
+
+  /// The number of convolutional filters applied at this layer.
   public var filterCount: Int
-/// The number of convolutional filters applied at this layer.
+  /// The collection of filter tensors used for convolution.
   public var filters: [Tensor] = []
-/// The collection of filter tensors used for convolution.
+  /// The spatial dimensions (rows and columns) of each filter kernel.
   public var filterSize: (rows: Int, columns: Int)
-/// The spatial dimensions (rows and columns) of each filter kernel.
+  /// The step size (rows and columns) used when sliding the filter over the input.
   public var strides: (rows: Int, columns: Int)
-/// The step size (rows and columns) used when sliding the filter over the input.
+  /// The padding strategy applied to the input before convolution.
   public var padding: NumSwift.ConvPadding
   
   /// Default initializer for a 2d convolutional layer
@@ -503,11 +646,16 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
     }
   }
   
+  /// Not intended for direct use — concrete convolutional layer subclasses must override.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: Always produces a default empty layer; subclasses should override.
   required convenience public init(from decoder: Decoder) throws {
     // override
     self.init(filterCount: 0, encodingType: .none)
   }
   
+  /// Called by `Sequential.compile()` to initialize convolutional filters once the input size is known.
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     initializeFilters()
@@ -560,14 +708,21 @@ open class BaseConvolutionalLayer: BaseLayer, ConvolutionalLayer {
   }
 }
 
+/// A base class for activation-function layers.
+///
+/// `BaseActivationLayer` implements the standard `forward(tensor:context:)` by
+/// delegating to the device's `activate(_:_:)` / `derivate(_:_:)` methods and
+/// automatically building the `TensorContext` for backpropagation.  Subclasses
+/// only need to provide the `Codable` implementation and call the designated
+/// initializer with the appropriate `Activation` case.
 open class BaseActivationLayer: BaseLayer, ActivationLayer {
-  
-/// The padding strategy applied to the input before convolution.
+
+  /// Returns an empty string; activation layers have no additional detail to display.
   public override var details: String {
       ""
   }
-  
-/// The activation function type applied by this layer.
+
+  /// The activation function type applied by this layer.
   public let type: Activation
 
   /// Creates a base activation layer.
@@ -589,12 +744,22 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
     self.usesOptimizer = false
   }
   
+  /// Not intended for direct use — concrete activation layer subclasses must override.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: Always produces a default empty activation layer; subclasses should override.
   required convenience public init(from decoder: Decoder) throws {
     self.init(inputSize: .init(),
               type: .none,
               encodingType: .none)
   }
   
+  /// Called by `Sequential.compile()` when input size is propagated; sets output size to match.
+  override public func onInputSizeSet() {
+    super.onInputSizeSet()
+    outputSize = inputSize
+  }
+
   /// Applies the activation function and builds backpropagation context.
   ///
   /// - Parameters:
@@ -623,10 +788,14 @@ open class BaseActivationLayer: BaseLayer, ActivationLayer {
     return super.forward(tensor: out, context: context)
   }
   
+  /// No-op for activation layers; they carry no trainable weights.
+  /// - Parameter weights: Ignored.
   override public func importWeights(_ weights: [Tensor]) throws {
     // no op
   }
-  
+
+  /// Returns a single empty tensor; activation layers carry no trainable weights.
+  /// - Returns: An array containing one empty `Tensor`.
   override public func exportWeights() throws -> [Tensor] {
     [Tensor()]
   }
@@ -643,10 +812,20 @@ extension NumSwift.ConvPadding {
 
 
 
+/// A base class for normalization layers that must accumulate statistics across all batch tensors
+/// before normalizing each individual tensor.
+///
+/// Subclasses override `performThreadBatchingForwardPass(tensor:context:)` to collect
+/// per-tensor statistics under a lock, then call `super.forward(tensorBatch:context:)` once
+/// all batch members have checked in.
 open class BaseThreadBatchingLayer: BaseLayer {
   let updateLock = NSLock()
   let iterations = ManagedAtomic<Int>(0)
 
+  /// Whether the layer is currently in training mode.
+  ///
+  /// Setting this to `false` also resets the internal iteration counter so the
+  /// next training epoch starts with a clean synchronization state.
   override public var isTraining: Bool {
     didSet {
       if isTraining == false {
@@ -655,6 +834,9 @@ open class BaseThreadBatchingLayer: BaseLayer {
     }
   }
 
+  /// Whether the layer should accumulate batch statistics during the forward pass.
+  ///
+  /// Returns `true` by default when the layer is in training mode.
   open var shouldPerformBatching: Bool {
     isTraining
   }

@@ -25,7 +25,9 @@ public final class MaxPool: BaseLayer {
   }
     
   /// Default initializer for max pooling.
-  /// - Parameter inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
+  /// - Parameters:
+  ///   - inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
+  ///   - linkId: A unique string identifier for this layer link. Defaults to a new UUID string.
   public init(inputSize: TensorSize? = nil,
               linkId: String = UUID().uuidString) {
     super.init(inputSize: inputSize,
@@ -40,6 +42,10 @@ public final class MaxPool: BaseLayer {
          linkId
   }
   
+  /// Decodes a MaxPool layer from a serialized model.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: An error if required values cannot be decoded.
   convenience public required init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
@@ -116,6 +122,7 @@ public final class MaxPool: BaseLayer {
     return super.forward(tensor: out, context: context)
   }
   
+  /// Called by `Sequential.compile()` when input size is propagated; computes the pooled output dimensions.
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     outputSize = TensorSize(array: [(inputSize.columns + 1) / 2, (inputSize.rows + 1) / 2, inputSize.depth])

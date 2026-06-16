@@ -10,26 +10,45 @@ import NumSwift
 
 /// An enumeration of supported metric types used to track training and evaluation statistics.
 public enum Metric: String {
+  /// Training loss computed over the current batch.
   case loss
+  /// Training accuracy computed over the current batch.
   case accuracy
+  /// Validation loss computed on the held-out validation set.
   case valLoss
+  /// Generator loss for GAN-style training.
   case generatorLoss
+  /// Critic (discriminator) loss for WGAN/GAN-style training.
   case criticLoss
+  /// Gradient penalty term used in WGAN-GP training.
   case gradientPenalty
+  /// Discriminator loss on real samples.
   case realImageLoss
+  /// Discriminator loss on fake (generated) samples.
   case fakeImageLoss
+  /// Validation accuracy computed on the held-out validation set.
   case valAccuracy
+  /// Wall-clock time taken to process one training batch (forward + backward + accumulation).
   case batchTime
+  /// Wall-clock time taken by the optimizer's `step()` call (gradient application).
   case optimizerRunTime
+  /// Average number of samples processed concurrently per worker.
   case batchConcurrency
+  /// Global L2 norm of all gradient tensors before clipping.
   case globalGradientNorm
+  /// Scaling factor applied to gradients during global norm clipping.
   case globalGradientScalingFactor
+  /// The current effective learning rate output by the active schedule.
+  case currentLearningRate
 }
 
 /// A protocol that defines the interface for objects that collect and store training metrics.
 public protocol MetricLogger: AnyObject {
+  /// The set of metrics actively gathered by this logger.
   var metricsToGather: Set<Metric> { get set }
+  /// The current scalar values for each metric, keyed by `Metric`.
   var metrics: [Metric: Tensor.Scalar] { get set }
+  /// A lock used to serialize concurrent metric writes.
   var lock: NSLock { get }
   /// Records a metric value when the metric is enabled for gathering.
   ///
@@ -39,6 +58,7 @@ public protocol MetricLogger: AnyObject {
   func addMetric(value: Tensor.Scalar, key: Metric)
 }
 
+/// Default implementations for the `MetricLogger` protocol.
 public extension MetricLogger {
   /// Default metric-recording implementation guarded by a lock.
   ///
@@ -138,32 +158,32 @@ internal extension MetricCalculator {
 @dynamicMemberLookup
 /// A class that collects, aggregates, and periodically reports training metrics during model training loops.
 public class MetricsReporter: MetricCalculator {
-/// A lock used to synchronize concurrent access to shared metric state.
+  /// A lock used to synchronize concurrent access to shared metric state.
   public var lock: NSLock = NSLock()
   internal var totalValCorrectGuesses: Int = 0
   internal var totalValGuesses: Int = 0
-  
+
   internal var totalCorrectGuesses: Int = 0
   internal var totalGuesses: Int = 0
-  
+
   private var frequency: Int
   private var currentStep: Int = 0
   private var timers: [Metric: [CFAbsoluteTime]] = [:]
-  
+
   private var timerQueue = SynchronousOperationQueue(name: "metrics_reporter")
-  
-/// The set of metrics that this reporter is configured to gather and record.
+
+  /// The set of metrics that this reporter is configured to gather and record.
   public var metricsToGather: Set<Metric>
-/// A dictionary storing the current scalar values for each recorded metric.
+  /// A dictionary storing the current scalar values for each recorded metric.
   public var metrics: [Metric : Tensor.Scalar] = [:]
-/// An optional closure called with the current metrics dictionary each time the reporting frequency threshold is reached.
+  /// An optional closure called with the current metrics dictionary each time the reporting frequency threshold is reached.
   public var receive: ((_ metrics: [Metric: Tensor.Scalar]) -> ())? = nil
   
   deinit {
     timerQueue.cancelAllOperations()
   }
   
-/// Retrieves a metric value by its raw string name using dynamic member lookup.
+  /// Retrieves a metric value by its raw string name using dynamic member lookup.
   ///
   /// - Parameter member: The raw string name of the metric to look up.
   /// - Returns: The scalar value for the matching metric, or `nil` if the name does not correspond to a known metric.

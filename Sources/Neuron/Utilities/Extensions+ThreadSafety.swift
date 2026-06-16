@@ -7,6 +7,7 @@
 
 import Foundation
 
+/// Convenience locking helper for `NSRecursiveLock`.
 public extension NSRecursiveLock {
   @discardableResult
   /// Executes a closure while holding the recursive lock.
@@ -20,6 +21,7 @@ public extension NSRecursiveLock {
   }
 }
 
+/// Convenience locking helper for `NSLock`.
 public extension NSLock {
   @discardableResult
   /// Executes a closure while holding the lock.

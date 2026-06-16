@@ -8,6 +8,12 @@
 import Foundation
 import NumSwift
 
+/// A Wasserstein GAN trainer that replaces the standard minimax loss with
+/// the Earth-Mover (Wasserstein-1) distance objective.
+///
+/// Real samples are labeled `-1.0` and fake samples `+1.0`; the critic
+/// (discriminator) aims to maximise the score difference while the generator
+/// minimises it.
 open class WGAN: GAN {
   /// The label assigned to real samples in WGAN training, set to -1.0 per the Wasserstein formulation.
   public override var realLabel: Tensor.Scalar { -1.0 }

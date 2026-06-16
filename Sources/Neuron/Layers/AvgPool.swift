@@ -11,8 +11,11 @@ import NumSwift
 public final class AvgPool: BaseLayer {
 
   private var kernelSize: TensorSize
-  /// Default initializer for max pooling.
-  /// - Parameter inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
+  /// Default initializer for average pooling.
+  /// - Parameters:
+  ///   - inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
+  ///   - kernelSize: The pooling window size in rows and columns. Defaults to `(rows: 2, columns: 2)`.
+  ///   - linkId: A unique string identifier for this layer link. Defaults to a new UUID string.
   public init(inputSize: TensorSize? = nil,
               kernelSize: (rows: Int, columns: Int) = (rows: 2, columns: 2),
               linkId: String = UUID().uuidString) {
@@ -31,6 +34,10 @@ public final class AvgPool: BaseLayer {
          linkId
   }
   
+  /// Decodes an AvgPool layer from a serialized model.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: An error if required values cannot be decoded.
   convenience public required init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
@@ -105,6 +112,7 @@ public final class AvgPool: BaseLayer {
     return super.forward(tensor: out, context: context)
   }
   
+  /// Called by `Sequential.compile()` when input size is propagated; computes the pooled output dimensions.
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     outputSize = TensorSize(array: [inputSize.columns / kernelSize.columns, inputSize.rows / kernelSize.rows, inputSize.depth])

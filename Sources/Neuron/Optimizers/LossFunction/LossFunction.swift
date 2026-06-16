@@ -11,14 +11,50 @@ import NumSwift
 /// An enumeration of common loss functions used for training neural networks.
 /// Each case represents a different strategy for measuring prediction error.
 public enum LossFunction {
+  /// Mean squared error: average of squared differences between prediction and target.
+  ///
+  /// Formula: `sum((predicted - correct)^2) / N`
   case meanSquareError
+  /// Cross-entropy loss used without a preceding Softmax layer.
+  ///
+  /// Use when the network's final layer does NOT include `Softmax`. Applies `−log(p)` directly.
   case crossEntropy
+  /// Cross-entropy loss optimized for use with a preceding Softmax layer.
+  ///
+  /// Use when the network's final layer IS a `Softmax`. The derivative simplifies to `predicted − correct`.
   case crossEntropySoftmax
+  /// Cross-entropy with label smoothing, parameterized by a smoothing coefficient.
+  ///
+  /// Smooths the one-hot targets by mixing them with a uniform prior, reducing overconfidence.
+  /// The associated value is the smoothing factor `ε ∈ (0, 1)`.
   case crossEntropySoftmaxSmoothing(Tensor.Scalar)
+  /// Binary cross-entropy loss used without a preceding Softmax layer.
+  ///
+  /// Suitable for binary or multi-label classification tasks. Does not assume a preceding activation.
   case binaryCrossEntropy
+  /// Binary cross-entropy loss optimized for use with a preceding Softmax layer.
+  ///
+  /// Use when the network's final layer IS a `Softmax`. Shares the simplified derivative of `.crossEntropySoftmax`.
   case binaryCrossEntropySoftmax
+  /// Wasserstein distance loss used for WGAN training.
+  ///
+  /// The critic returns the raw dot product of predictions and labels (no log). Use `.minimaxBinaryCrossEntropy` for standard GANs.
   case wasserstein
+  /// Minimax binary cross-entropy used for standard GAN discriminator training.
+  ///
+  /// Equivalent to binary cross-entropy; typically paired with a sigmoid output layer.
   case minimaxBinaryCrossEntropy
+  /// Focal loss with softmax, down-weighting easy examples using `alpha` and `gamma`.
+  ///
+  /// Reduces the relative loss for well-classified examples, focusing training on hard cases.
+  /// - `alpha`: Class-balancing weight factor.
+  /// - `gamma`: Focusing exponent; higher values suppress easy examples more aggressively.
+  case focalSoftmax(alpha: Tensor.Scalar, gamma: Tensor.Scalar)
+  /// Huber (smooth L1) loss with a transition threshold `delta`.
+  ///
+  /// Behaves like MSE for small errors (`|e| ≤ delta`) and like L1 for large errors,
+  /// making it less sensitive to outliers than pure MSE.
+  case huber(delta: Tensor.Scalar)
   
   
   /// Calculate the loss given a prediction tensor and a label tensor.
@@ -40,7 +76,7 @@ public enum LossFunction {
     let cols = size.columns
         
     // Build result using flat storage
-    var resultStorage = TensorStorage.create(count: depth * 1 * rows)
+    let resultStorage = TensorStorage.create(count: depth * 1 * rows)
     let depthScalar = Tensor.Scalar(depth)
     
     for d in 0..<depth {
@@ -77,8 +113,66 @@ public enum LossFunction {
   /// - Returns: The loss as a tensor object.
   public func derivative(_ predicted: Tensor, correct: Tensor) -> Tensor {
     switch self {
+    case .huber(let delta):
+      let size = predicted.size
+      let cols = size.columns
+      let rows = size.rows
+      let depth = size.depth
+      let result = TensorStorage.create(count: cols * rows * depth)
+      let C = Tensor.Scalar(cols * rows * depth)
+      
+      var i = 0
+      zip(predicted.storage, correct.storage).forEach { (pred, true_) in
+        let e = true_ - pred          // residual
+        let absE = abs(e)
+        
+        let grad: Tensor.Scalar = if absE <= delta {
+          -e                 // quadratic region: -residual
+        } else {
+          -delta * (e > 0 ? 1.0 : -1.0)   // linear region: clamped
+        }
+        
+        let val = grad / C              // account for the mean reduction
+        result[i] = val
+        i += 1
+      }
+      return Tensor(storage: result, size: predicted.size)
+      
+    case .focalSoftmax(let alpha, let gamma):
+      let size = predicted.size
+      let cols = size.columns
+      let rows = size.rows
+      let depth = size.depth
+      let result = TensorStorage.create(count: cols * rows * depth)
+      
+      for d in 0..<depth {
+        let depthOffset = d * rows * cols
+        for r in 0..<rows {
+          let rowOffset = depthOffset + r * cols
+          
+          var pt: Tensor.Scalar = .stabilityFactor
+          for c in 0..<cols where correct.storage[rowOffset + c] > 0 {
+            pt = max(min(predicted.storage[rowOffset + c], 1 - .stabilityFactor), .stabilityFactor)
+            break
+          }
+          
+          let oneMinusPt = max(1 - pt, Tensor.Scalar.stabilityFactor)
+          // G = α · (1-p_t)^(γ-1) · [(1-p_t) - γ·p_t·log(p_t)]
+          let G = alpha * Tensor.Scalar.pow(oneMinusPt, gamma - 1)
+                * (oneMinusPt - gamma * pt * Tensor.Scalar.log(pt))
+          
+          for c in 0..<cols {
+            // (p - y), not (y - p)
+            result[rowOffset + c] = G * (predicted.storage[rowOffset + c] - correct.storage[rowOffset + c])
+          }
+        }
+      }
+      
+      return Tensor(storage: result, size: size)
+
     case .meanSquareError:
-      return 2 * (predicted - correct)
+      let N = Tensor.Scalar(predicted.size.columns * predicted.size.rows * predicted.size.depth)
+      return 2 * (predicted - correct) / N
     case .crossEntropy:
       return predicted.map { -1 * (1 / $0) }
       
@@ -121,6 +215,23 @@ public enum LossFunction {
     }
     
     switch self {
+    case .huber(let delta):
+      let elementWise = zip(predicted, correct).map { (pred, true_) -> Tensor.Scalar in
+        let e = true_ - pred
+        let absE = abs(e)
+        return absE <= delta ? 0.5 * e * e : delta * (absE - 0.5 * delta)
+      }
+      return elementWise.reduce(0, +) / Tensor.Scalar(elementWise.count)
+      
+    case .focalSoftmax(let alpha, let gamma):
+      // we just need index of max because we multiply by the label and in one-hot labels
+      // all other's result in 0
+      // we take the value of predicted that corresponds to the one hot label value.
+      let indexOfMax = Int(correct.indexOfMax.0)
+      let p = predicted[indexOfMax]
+      let pClamped = max(min(p, 1 - .stabilityFactor), .stabilityFactor)
+
+      return -alpha * Tensor.Scalar.pow((1 - pClamped), gamma) * Tensor.Scalar.log(pClamped)
     case .wasserstein:
       guard correct.count == 1 && predicted.count == 1 else {
         return 0
@@ -141,16 +252,14 @@ public enum LossFunction {
       return sum / Tensor.Scalar(predicted.count)
       
     case .crossEntropySoftmax, .crossEntropy:
-      var sum: Tensor.Scalar = 0
+      // we just need index of max because we multiply by the label and in one-hot labels
+      // all other's result in 0
+      // we take the value of predicted that corresponds to the one hot label value.
+      let indexOfMax = Int(correct.indexOfMax.0)
+      let p = predicted[indexOfMax]
 
-      for i in 0..<predicted.count {
-        let predicted = predicted[i]
-        let correct = correct[i]
-        sum += -1 * (correct * Tensor.Scalar.log(predicted + .stabilityFactor))
-      }
-      
-      return sum
-      
+      return -1 * Tensor.Scalar.log(p + .stabilityFactor)
+            
     case .binaryCrossEntropy,
          .binaryCrossEntropySoftmax,
          .minimaxBinaryCrossEntropy:

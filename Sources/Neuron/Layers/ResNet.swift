@@ -115,11 +115,13 @@ public final class ResNet: BaseLayerGroup {
     case inputSize, type, filterCount, stride, innerBlockSequential, shortcutSequential, linkId
   }
   
+  /// Called when the batch size changes; propagates the new batch size to the shortcut sequential sub-network.
   override public func onBatchSizeSet() {
     super.onBatchSizeSet()
     shortcutSequential.batchSize = batchSize
   }
-  
+
+  /// Called by `Sequential.compile()` when input size is propagated; builds the residual block sub-networks.
   override public func onInputSizeSet() {
     let initializer = initializer.type
     
@@ -150,12 +152,16 @@ public final class ResNet: BaseLayerGroup {
     onBatchSizeSet()
   }
   
+  /// Decodes a ResNet block from a serialized model.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: An error if required values cannot be decoded.
   convenience public required init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let filterCount = try container.decodeIfPresent(Int.self, forKey: .filterCount) ?? 64
     let stride = try container.decodeIfPresent(Int.self, forKey: .stride) ?? 1
     let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
-    
+
     self.init(filterCount: filterCount, stride: stride, linkId: linkId)
     
     let innerBlockSequential = try container.decodeIfPresent(Sequential.self, forKey: .innerBlockSequential) ?? Sequential()

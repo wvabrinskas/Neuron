@@ -8,10 +8,18 @@
 import Foundation
 import NumSwift
 
+/// A base class implementing the standard Generative Adversarial Network training loop.
+///
+/// Manages alternating updates between a generator and discriminator network using
+/// the minimax binary cross-entropy formulation. Subclass to override training steps
+/// (e.g., `WGAN`, `WGANGP`).
 open class GAN {
   /// Indicates whether training data is real or generated (fake).
   public enum TrainingType: String {
-    case real, fake
+    /// The data originates from the real training distribution.
+    case real
+    /// The data was produced by the generator.
+    case fake
   }
 
   /// The optimizer responsible for updating the generator network.
@@ -28,8 +36,11 @@ open class GAN {
   public var validateGenerator: ((_ output: Tensor) -> ())? = nil
   /// An optional closure called when training has fully completed.
   public var onCompleted: (() -> ())? = nil
+  /// The loss function used to evaluate generator and discriminator performance.
   public private(set) var lossFunction: LossFunction = .minimaxBinaryCrossEntropy
+  /// The label value assigned to generated (fake) samples during discriminator training.
   public private(set) var fakeLabel: Tensor.Scalar = 0
+  /// The label value assigned to real samples during discriminator training.
   public private(set) var realLabel: Tensor.Scalar = 1
   /// The number of epochs for which the GAN will be trained.
   public var epochs: Int
@@ -168,13 +179,13 @@ open class GAN {
     return out.first ?? Tensor()
   }
   
-  @discardableResult
   /// Exports discriminator and generator models.
   ///
   /// - Parameters:
   ///   - overrite: When `false`, appends timestamps to filenames.
   ///   - compress: When `true`, writes compact JSON.
   /// - Returns: Tuple of optional URLs for discriminator and generator models.
+  @discardableResult
   public func export(overrite: Bool = false, compress: Bool = false) -> (discriminator: URL?, generator: URL?) {
     var urls: (URL?, URL?) = (nil, nil)
     if let generatorS = generator.trainable as? Sequential,

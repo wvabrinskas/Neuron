@@ -51,6 +51,10 @@ public final class Dense: BaseLayer {
          linkId
   }
   
+  /// Decodes a Dense layer from a serialized model.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: An error if required values cannot be decoded.
   convenience public required init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let outputSize = try container.decodeIfPresent(TensorSize.self, forKey: .outputSize) ?? TensorSize(array: [])
@@ -79,12 +83,15 @@ public final class Dense: BaseLayer {
     try container.encode(linkId, forKey: .linkId)
   }
   
+  /// Called by `Sequential.compile()` when input size is propagated; initializes weights and biases.
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     precondition(inputSize.rows == 1 && inputSize.depth == 1, "Dense expects Tensor dimensions of Nx1x1 where N is the columns, got: \(inputSize)")
     
     initializeWeights(inputs: inputSize.columns)
-    self.biases = Tensor([Tensor.Scalar](repeating: 0, count: outputSize.columns))
+    if biases.isEmpty {
+      self.biases = Tensor([Tensor.Scalar](repeating: 0, count: outputSize.columns))
+    }
   }
   
   private func initializeWeights(inputs: Int) {

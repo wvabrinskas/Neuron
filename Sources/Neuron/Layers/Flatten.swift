@@ -11,7 +11,9 @@ import NumSwift
 /// Will take an inputSize of [M, N, K] and outputs [M * N * K, 1, 1]
 public final class Flatten: BaseLayer {
   /// Default initializer for Flatten layer.
-  /// - Parameter inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
+  /// - Parameters:
+  ///   - inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
+  ///   - linkId: A unique string identifier for this layer link. Defaults to a new UUID string.
   public init(inputSize: TensorSize? = nil,
               linkId: String = UUID().uuidString) {
     super.init(inputSize: inputSize,
@@ -24,18 +26,25 @@ public final class Flatten: BaseLayer {
     case inputSize, type, linkId
   }
   
+  /// Recalculates the flat output size whenever the input size changes.
+  ///
+  /// Sets `outputSize` to `(columns: columns×rows×depth, rows: 1, depth: 1)`.
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     let total = inputSize.columns * inputSize.rows * inputSize.depth
     outputSize = TensorSize(array: [total, 1, 1])
   }
   
+  /// Decodes a Flatten layer from a serialized model.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: An error if required values cannot be decoded.
   convenience public required init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
     self.init(linkId: linkId)
     self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
-    
+
     let total = inputSize.columns * inputSize.rows * inputSize.depth
     self.outputSize = TensorSize(array: [total, 1, 1])
   }

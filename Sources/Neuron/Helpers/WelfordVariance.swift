@@ -17,6 +17,7 @@ public final class WelfordVariance {
   @Atomic public private(set) var means: [Tensor.Value] = []
   /// Per-depth-slice M2 accumulators stored as flat arrays
   @Atomic public private(set) var m2s: [Tensor.Value] = []
+  /// The number of tensor samples incorporated into the running statistics so far.
   @Atomic public private(set) var iterations: Int = 0
   
   private var inputSize: TensorSize = .init(array: [])

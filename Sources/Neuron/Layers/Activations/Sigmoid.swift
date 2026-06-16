@@ -26,6 +26,10 @@ public final class Sigmoid: BaseActivationLayer {
          linkId
   }
   
+  /// Decodes a Sigmoid layer from a serialized model.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: An error if required values cannot be decoded.
   convenience required public init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
@@ -44,6 +48,7 @@ public final class Sigmoid: BaseActivationLayer {
     try container.encode(linkId, forKey: .linkId)
   }
   
+  /// Called by `Sequential.compile()` when input size is propagated; sets output size to match.
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     outputSize = inputSize

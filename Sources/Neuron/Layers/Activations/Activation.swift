@@ -13,14 +13,27 @@ import Numerics
 /// Each case corresponds to a specific mathematical activation function
 /// that can be applied element-wise to a tensor during forward and backward passes.
 public enum Activation: Codable, Equatable {
+  /// Rectified Linear Unit: `max(0, x)`.
   case reLu
+  /// Logistic sigmoid: `1 / (1 + exp(-x))`.
   case sigmoid
+  /// Leaky ReLU with a configurable negative-slope `limit`.
   case leakyRelu(limit: Tensor.Scalar)
+  /// Swish self-gated activation: `x * sigmoid(x)`.
   case swish
+  /// Hyperbolic tangent activation.
   case tanh
+  /// Softmax normalization over a vector (requires a dedicated `Softmax` layer for full operation).
   case softmax
+  /// Scaled Exponential Linear Unit (SELU) with fixed scale and shift constants.
   case seLu
+  /// Gaussian Error Linear Unit (GELU) approximated via the error function.
   case geLu
+  /// Mish activation: `x * tanh(softplus(x))`. Uses a custom forward pass.
+  case mish
+  /// Parametric ReLU with a learnable negative-slope parameter. Uses a custom forward pass.
+  case prelu
+  /// Identity / no-op activation — passes input through unchanged.
   case none
   
   /// Returns the numeric activation identifier used by Metal kernels.
@@ -36,7 +49,9 @@ public enum Activation: Codable, Equatable {
     case .softmax: return 5
     case .seLu: return 6
     case .geLu: return 7
-    case .none: return 8
+    case .mish: return 8
+    case .prelu: return 9
+    case .none: return 10
     }
   }
   
@@ -53,6 +68,8 @@ public enum Activation: Codable, Equatable {
     case .softmax: return "softmax"
     case .seLu: return "seLu"
     case .geLu: return "geLu"
+    case .mish: return "mish"
+    case .prelu: return "prelu"
     case .none: return "none"
     }
   }
@@ -107,7 +124,8 @@ public enum Activation: Codable, Equatable {
       let denom = Tensor.Scalar.exp(x) + Tensor.Scalar.exp(-x)
 
       returnValue = num / (denom + Tensor.Scalar.stabilityFactor)
-    case .none, .softmax:
+    case .none, .softmax, .mish, .prelu:
+      // these use a custom forward pass
       returnValue = input
     }
   
@@ -153,7 +171,8 @@ public enum Activation: Codable, Equatable {
     case .tanh:
       let tan = self.activate(input: input)
       return 1 - (Tensor.Scalar.pow(tan, 2))
-    case .none, .softmax:
+    case .none, .softmax, .mish, .prelu:
+      // these use a custom backward pass
       return 1
     }
   }

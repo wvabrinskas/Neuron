@@ -19,7 +19,10 @@ public class LayerModel: Codable {
   
   /// Coding keys used for encoding and decoding the layer and its type discriminator.
   public enum CodingKeys: String, CodingKey {
-    case layer, type
+    /// Key for the encoded layer payload.
+    case layer
+    /// Key for the layer's `EncodingType` discriminator.
+    case type
   }
   
   /// Decodes a polymorphic layer wrapper by reading its `EncodingType`.
@@ -53,7 +56,7 @@ public class LayerModel: Codable {
 }
 
 
-extension NumSwift.ConvPadding: Codable {
+extension NumSwift.ConvPadding: @retroactive Codable {
   private enum CodingKeys: String, CodingKey {
     case same
     case valid

@@ -18,13 +18,14 @@ public class Classifier {
   private let killOnAccuracy: Bool
   private let accuracyMonitor: AccuracyMonitor
   
-/// An optional closure called when the target accuracy threshold is reached.
+  /// An optional closure called when the target accuracy threshold is reached.
   public var onAccuracyReached: (() -> ())? = nil
-/// An optional closure called at the completion of each training epoch.
+  /// An optional closure called at the completion of each training epoch.
   public var onEpochCompleted: (() -> ())? = nil
   
+  /// The optimizer used to update the model's weights during training.
   public private(set) var optimizer: Optimizer
-  
+
   /// Creates a classifier training wrapper around an optimizer/trainable pair.
   ///
   /// - Parameters:
@@ -139,13 +140,13 @@ public class Classifier {
     optimizer.isTraining = false
   }
   
-  @discardableResult
   /// Exports the underlying sequential model when available.
   ///
   /// - Parameters:
   ///   - overrite: When `false`, appends a timestamp to avoid overwrite.
   ///   - compress: When `true`, writes compact JSON.
   /// - Returns: URL to exported model, or `nil` when unsupported.
+  @discardableResult
   public func export(overrite: Bool = false, compress: Bool = true) -> URL? {
     if let network = optimizer.trainable as? Sequential {
       return network.export(overrite: overrite, compress: compress)

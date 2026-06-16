@@ -8,7 +8,8 @@
 import Foundation
 
 /// Object that defines a size of a Tensor
-public struct TensorSize: Codable, Equatable {
+public struct TensorSize: Codable, Equatable, Comparable {
+
   /// The number of rows in the tensor.
   public let rows: Int
   /// The number of columns in the tensor.
@@ -38,8 +39,33 @@ public struct TensorSize: Codable, Equatable {
   
   /// Coding keys used for encoding and decoding a `TensorSize` instance.
   public enum CodingKeys: String, CodingKey {
-    case rows, columns, depth, batchCount
+    /// Key for the number of rows.
+    case rows
+    /// Key for the number of columns.
+    case columns
+    /// Key for the depth (channel count).
+    case depth
+    /// Key for the batch count dimension.
+    case batchCount
   }
+  
+  /// Returns a Boolean value indicating whether the total element count of the left tensor is less than that of the right tensor.
+  /// - Parameter lhs: The left-hand side `TensorSize` to compare.
+  /// - Parameter rhs: The right-hand side `TensorSize` to compare.
+  /// - Returns: `true` if the total number of elements in `lhs` is less than in `rhs`; otherwise, `false`.
+  public static func < (lhs: TensorSize, rhs: TensorSize) -> Bool {
+    (lhs.columns * lhs.rows * lhs.depth) < (rhs.columns * rhs.rows * rhs.depth)
+  }
+  
+  
+  /// Returns a Boolean value indicating whether the total element count of the left tensor is greater than that of the right tensor.
+  /// - Parameter lhs: The left-hand side `TensorSize` to compare.
+  /// - Parameter rhs: The right-hand side `TensorSize` to compare.
+  /// - Returns: `true` if the total number of elements in `lhs` is greater than in `rhs`; otherwise, `false`.
+  public static func > (lhs: TensorSize, rhs: TensorSize) -> Bool {
+    (lhs.columns * lhs.rows * lhs.depth) > (rhs.columns * rhs.rows * rhs.depth)
+  }
+  
   
   /// Creates a `TensorSize` by decoding from the given decoder.
   /// - Parameter decoder: The decoder to read data from.
@@ -85,7 +111,9 @@ public struct TensorSize: Codable, Equatable {
   }
 }
 
+/// Convenience conversion from integer arrays to `TensorSize`.
 public extension Array where Element == Int {
+  /// Converts an integer array into a `TensorSize` using `[columns, rows, depth]` ordering.
   var tensorSize: TensorSize {
     return TensorSize(array: self)
   }

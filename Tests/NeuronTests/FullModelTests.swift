@@ -164,6 +164,52 @@ final class FullModelTests: XCTestCase {
     XCTAssertEqual(network.isCompiled, false)
   }
   
+  func testBasicClassification_focalLoss() {
+    let batchSize = 32
+    
+    let network = Sequential {
+      [
+        Dense(12, inputs: 4,
+              initializer: .xavierUniform,
+              biasEnabled: true),
+        ReLu(),
+        BatchNormalize(),
+        Dense(3, initializer: .xavierUniform),
+        Softmax()
+      ]
+    }
+    
+    let optim = Adam(network, learningRate: 0.01, batchSize: batchSize)
+    
+    let reporter = MetricsReporter(metricsToGather: [.loss,
+                                                     .accuracy,
+                                                     .valAccuracy,
+                                                     .valLoss])
+    
+    optim.metricsReporter = reporter
+    
+    let classifier = Classifier(optimizer: optim,
+                                batchSize: batchSize, // 64 or higher causes issuees with BatchNorm for some reason.
+                                accuracyThreshold: .init(value: 0.9, averageCount: 3),
+                                lossFunction: .focalSoftmax(alpha: 0.25, gamma: 2.0))
+    
+    classifier.onAccuracyReached = {
+      let red = ColorType.red.color()
+      let green = ColorType.green.color()
+      let blue = ColorType.blue.color()
+      
+      let colors = [Tensor(red), Tensor(green), Tensor(blue)]
+      let out = classifier.feed(colors)
+      
+      for i in 0..<out.count {
+        let o = out[i]
+        XCTAssert(o.asArray.indexOfMax.0 == i)
+      }
+    }
+    
+    classifier.fit(trainingData, validationData)
+  }
+  
   func testBasicClassification() {
     let batchSize = 32
     

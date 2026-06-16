@@ -46,11 +46,13 @@ public class Tensor: Equatable, Codable {
   
   /// The legacy nested-array type for tensor data. Prefer using `storage` and `size` for new code.
   public typealias Data = [[[Scalar]]]
-/// A flat contiguous array of `Scalar` values used as the internal storage for tensor data.
+  /// A flat contiguous array of `Tensor.Scalar` values used as the internal storage for tensor data.
   public typealias Value = ContiguousArray<Scalar> //[Scalar]
-/// A unique identifier type for `Tensor` instances.
+  /// A unique identifier type for `Tensor` instances.
   public typealias ID = UInt64
   
+  /// A dictionary mapping tensor IDs to their corresponding branch gradient tensors,
+  /// used to accumulate gradients from multiple downstream consumers of this tensor.
   public private(set) var branchGradients: [Tensor.ID: Tensor] = [:]
   
   /// Gradient object returned from `gradient` calculation on the Tensor. Contains gradients w.r.t to the `input`, w.r.t to the `weights`, and w.r.t to the `biases`
@@ -126,17 +128,17 @@ public class Tensor: Equatable, Codable {
   }
   
   // MARK: - Flat Indexing Helpers
-  
-  /// Computes the flat index for a given (column, row, depth) coordinate.
+
+  /// Computes the flat storage index for an element at the given (column, row, depth) coordinates.
+  ///
   /// Memory layout: `index = d * rows * columns + r * columns + c`
-  @inline(__always)
-/// Computes the flat storage index for an element at the given (column, row, depth) coordinates.
   ///
   /// - Parameters:
   ///   - c: The column index.
   ///   - r: The row index.
   ///   - d: The depth index.
   /// - Returns: The corresponding flat index into the `storage` array.
+  @inline(__always)
   public func flatIndex(column c: Int, row r: Int, depth d: Int) -> Int {
     d * size.rows * size.columns + r * size.columns + c
   }
@@ -147,7 +149,15 @@ public class Tensor: Equatable, Codable {
     set { storage[flatIndex(column: c, row: r, depth: d)] = newValue }
   }
   
-  /// only works for 3D tensors, Input is [colRange, rowRange, depthRange]
+  /// Returns a sub-tensor by slicing along all three dimensions simultaneously.
+  ///
+  /// Only works for 3D tensors. The ranges are relative to the full bounds of each dimension.
+  ///
+  /// - Parameters:
+  ///   - colRange: A range expression selecting the column indices to include.
+  ///   - rowRange: A range expression selecting the row indices to include.
+  ///   - depthRange: A range expression selecting the depth indices to include.
+  /// - Returns: A new `Tensor` containing the selected slice, sharing the same context.
   public subscript(_ colRange: some RangeExpression<Int>,
                    _ rowRange: some RangeExpression<Int>,
                    _ depthRange: some RangeExpression<Int>) -> Tensor {
@@ -181,13 +191,18 @@ public class Tensor: Equatable, Codable {
   
   // MARK: - Initializers
 
-  /// Default initializer with no context or value
+  /// Creates an empty tensor with zero dimensions and no context.
   public init() {
     self.storage = TensorStorage.create(count: 0)
     self.size = TensorSize(rows: 0, columns: 0, depth: 0)
     self.context = TensorContext()
   }
 
+  /// Decodes a `Tensor` from a serialized model, supporting both the legacy nested-array format
+  /// and the current flat `TensorStorage` format.
+  ///
+  /// - Parameter decoder: Decoder used to read tensor data.
+  /// - Throws: An error if required values cannot be decoded.
   required public init(from decoder: any Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     self.label = try container.decode(String.self, forKey: .label)
@@ -419,8 +434,12 @@ public class Tensor: Equatable, Codable {
     return Tensor(value, size: TensorSize(rows: size.rows, columns: size.columns, depth: size.depth))
   }
   
-  /// Creates a new Tensor from a single depth slice of this tensor.
-  /// The result has depth=1 and the same rows/columns.
+  /// Creates a new `Tensor` from a single depth slice of this tensor.
+  ///
+  /// The result has `depth = 1` and the same `rows` and `columns` as the original.
+  ///
+  /// - Parameter d: The depth index (0-based) to extract.
+  /// - Returns: A new `Tensor` containing only the data at depth `d`.
   public func depthSliceTensor(_ d: Int) -> Tensor {
     let sliceStorage = depthSlice(d)
     return Tensor(sliceStorage, size: TensorSize(rows: size.rows, columns: size.columns, depth: 1))
@@ -805,7 +824,7 @@ public class Tensor: Equatable, Codable {
 // MARK: - Debug Description
 
 extension Tensor: CustomDebugStringConvertible {
-/// A human-readable description of the tensor, including its shape, label, and formatted values.
+  /// A human-readable description of the tensor, including its shape, label, and formatted values.
   /// Useful for debugging; prints each depth slice with row and column layout.
   public var debugDescription: String {
     var string = """
@@ -846,14 +865,23 @@ extension Tensor: CustomDebugStringConvertible {
 // MARK: - Array<Tensor> Extensions
 
 extension Array where Element == Tensor {
-  
+
+  /// Computes the element-wise mean over an array of tensors.
+  ///
+  /// All tensors in the array must have the same shape. The result is a new
+  /// `Tensor` whose every element is the average of the corresponding elements
+  /// across all tensors in the array.
   var mean: Tensor {
     var mutableSelf = self
     let first = mutableSelf.removeFirst()
     let mean = mutableSelf.reduce(first, +) / count.asTensorScalar
     return mean
   }
-  
+
+  /// Packs an array of same-shaped tensors into a single batched tensor.
+  ///
+  /// The resulting tensor has a `batchCount` equal to the array count. Use
+  /// `tensor.batchSlice(_:)` to extract individual batch elements.
   var asTensor: Tensor {
     let firstSize = self[safe: 0, Tensor()].size
     let size = TensorSize(rows: firstSize.rows,
@@ -873,6 +901,14 @@ extension Array where Element == Tensor {
     return Tensor(storage: result, size: size)
   }
   
+  /// Computes gradients for an array of output tensors given matching delta and `wrt` tensors.
+  ///
+  /// Processes each (output, delta, wrt) triple in parallel using `Constants.maxWorkers` threads.
+  ///
+  /// - Parameters:
+  ///   - deltas: The incoming error tensors, one per output tensor.
+  ///   - wrt: The input tensors to differentiate with respect to, one per output tensor.
+  /// - Returns: An array of `Tensor.Gradient` values in the same order as `self`.
   func gradients(_ deltas: [Tensor], wrt: [Tensor]) -> [Tensor.Gradient] {
     var result = [Tensor.Gradient](repeating: .init(),
                                    count: deltas.count)
@@ -888,109 +924,164 @@ extension Array where Element == Tensor {
     return result
   }
   
+  /// Returns a new array formed by adding corresponding tensors element-wise.
+  ///
+  /// - Parameters:
+  ///   - lhs: The left-hand array of tensors.
+  ///   - rhs: The right-hand array of tensors (must be the same length as `lhs`).
+  /// - Returns: An array where each element is `lhs[i] + rhs[i]`.
   static func +(lhs: [Tensor], rhs: [Tensor]) -> Self {
     var result: [Tensor] = []
-    
+
     for i in 0..<lhs.count {
       let left = lhs[i]
       let right = rhs[i]
       result.append(left + right)
     }
-    
+
     return result
   }
-  
+
+  /// Returns a new array formed by subtracting corresponding tensors element-wise.
+  ///
+  /// - Parameters:
+  ///   - lhs: The left-hand array of tensors.
+  ///   - rhs: The right-hand array of tensors (must be the same length as `lhs`).
+  /// - Returns: An array where each element is `lhs[i] - rhs[i]`.
   static func -(lhs: [Tensor], rhs: [Tensor]) -> Self {
     var result: [Tensor] = []
-    
+
     for i in 0..<lhs.count {
       let left = lhs[i]
       let right = rhs[i]
       result.append(left - right)
     }
-    
+
     return result
   }
-  
+
+  /// Returns a new array formed by multiplying corresponding tensors element-wise.
+  ///
+  /// - Parameters:
+  ///   - lhs: The left-hand array of tensors.
+  ///   - rhs: The right-hand array of tensors (must be the same length as `lhs`).
+  /// - Returns: An array where each element is `lhs[i] * rhs[i]`.
   static func *(lhs: [Tensor], rhs: [Tensor]) -> Self {
     var result: [Tensor] = []
-    
+
     for i in 0..<lhs.count {
       let left = lhs[i]
       let right = rhs[i]
       result.append(left * right)
     }
-    
+
     return result
   }
-  
+
+  /// Returns a new array formed by dividing corresponding tensors element-wise.
+  ///
+  /// - Parameters:
+  ///   - lhs: The left-hand array of tensors.
+  ///   - rhs: The right-hand array of tensors (must be the same length as `lhs`).
+  /// - Returns: An array where each element is `lhs[i] / rhs[i]`.
   static func /(lhs: [Tensor], rhs: [Tensor]) -> Self {
     var result: [Tensor] = []
-    
+
     for i in 0..<lhs.count {
       let left = lhs[i]
       let right = rhs[i]
       result.append(left / right)
     }
-    
+
     return result
   }
 
+  /// Returns a new array by scaling every tensor by the scalar `rhs`.
+  ///
+  /// - Parameters:
+  ///   - lhs: The array of tensors to scale.
+  ///   - rhs: The scalar multiplier.
+  /// - Returns: An array where each element is `lhs[i] * rhs`.
   static func *(lhs: [Tensor], rhs: Tensor.Scalar) -> Self {
     var result: [Tensor] = []
-    
+
     for i in 0..<lhs.count {
       let left = lhs[i]
       result.append(left * rhs)
     }
-    
+
     return result
   }
-  
+
+  /// Returns a new array by subtracting the scalar `rhs` from every tensor element-wise.
+  ///
+  /// - Parameters:
+  ///   - lhs: The array of tensors.
+  ///   - rhs: The scalar to subtract.
+  /// - Returns: An array where each element is `lhs[i] - rhs`.
   static func -(lhs: [Tensor], rhs: Tensor.Scalar) -> Self {
     var result: [Tensor] = []
-    
+
     for i in 0..<lhs.count {
       let left = lhs[i]
       result.append(left - rhs)
     }
-    
+
     return result
   }
-  
+
+  /// Returns a new array by dividing every tensor by the scalar `rhs` element-wise.
+  ///
+  /// - Parameters:
+  ///   - lhs: The array of tensors.
+  ///   - rhs: The scalar divisor.
+  /// - Returns: An array where each element is `lhs[i] / rhs`.
   static func /(lhs: [Tensor], rhs: Tensor.Scalar) -> Self {
     var result: [Tensor] = []
-    
+
     for i in 0..<lhs.count {
       let left = lhs[i]
       result.append(left / rhs)
     }
-    
+
     return result
   }
-  
+
+  /// Returns a new array by adding the scalar `rhs` to every tensor element-wise.
+  ///
+  /// - Parameters:
+  ///   - lhs: The array of tensors.
+  ///   - rhs: The scalar to add.
+  /// - Returns: An array where each element is `lhs[i] + rhs`.
   static func +(lhs: [Tensor], rhs: Tensor.Scalar) -> Self {
     var result: [Tensor] = []
-    
+
     for i in 0..<lhs.count {
       let left = lhs[i]
       result.append(left + rhs)
     }
-    
+
     return result
   }
 }
 
 // MARK: - Gradient Extensions
 
+/// Utility operations for working with `Tensor.Gradient` values.
 public extension Tensor.Gradient {
-  
-  func l2NomalizeWeightsAndBiases() { 
+
+  /// Normalizes all weight and bias gradient tensors in place to unit L2 norm.
+  func l2NomalizeWeightsAndBiases() {
     weights.forEach { $0.l2Normalize() }
     biases.forEach { $0.l2Normalize() }
   }
-  
-  func gradientL2NormClip(_ value: Tensor.Scalar = 1.0, metrics: MetricsReporter? = nil) -> Tensor.Gradient {
+
+  /// Computes the global L2 norm across all weight and bias gradients.
+  ///
+  /// - Parameter metrics: Optional reporter that records the global gradient norm.
+  /// - Returns: The combined L2 norm of all weight and bias gradients.
+  @discardableResult
+  func calculateL2Norm(metrics: MetricsReporter? = nil) -> Tensor.Scalar {
     let allWeights = weights.reduce(Tensor()) { partialResult, new in
       partialResult.concat(new, axis: 2)
     }
@@ -1005,6 +1096,18 @@ public extension Tensor.Gradient {
     
     metrics?.update(metric: .globalGradientNorm, value: globalNorm)
 
+    return globalNorm
+  }
+  
+  /// Clips all weight and bias gradients by the global L2 norm, scaling them if the norm exceeds `value`.
+  ///
+  /// - Parameters:
+  ///   - value: The maximum allowed global gradient norm. Defaults to `1.0`.
+  ///   - metrics: Optional reporter that records the global norm and scaling factor applied.
+  /// - Returns: A new `Tensor.Gradient` with clipped weight and bias gradients.
+  func gradientL2NormClip(_ value: Tensor.Scalar = 1.0, metrics: MetricsReporter? = nil) -> Tensor.Gradient {
+    let globalNorm = calculateL2Norm(metrics: metrics)
+    
     guard globalNorm > value else {
       return .init(input: input, weights: weights, biases: biases)
     }
@@ -1021,6 +1124,13 @@ public extension Tensor.Gradient {
     )
   }
   
+  /// Applies a pairwise binary operation to the input, weight, and bias arrays of two gradients.
+  ///
+  /// - Parameters:
+  ///   - lhs: The left-hand `Tensor.Gradient`.
+  ///   - rhs: The right-hand `Tensor.Gradient`.
+  ///   - block: A closure applied element-wise to each gradient component array.
+  /// - Returns: A new `Tensor.Gradient` with `block` applied to each component.
   static func applyMultiple(lhs: Tensor.Gradient,
                             rhs: Tensor.Gradient,
                             block: (_ lhs: [Tensor], _ rhs: [Tensor]) -> [Tensor]) -> Tensor.Gradient {
@@ -1030,6 +1140,13 @@ public extension Tensor.Gradient {
     return Tensor.Gradient(input: input, weights: weight, biases: bias)
   }
   
+  /// Applies a scalar operation to each gradient component array.
+  ///
+  /// - Parameters:
+  ///   - lhs: The `Tensor.Gradient` to scale.
+  ///   - rhs: The scalar to apply.
+  ///   - block: A closure combining each gradient component array with `rhs`.
+  /// - Returns: A new `Tensor.Gradient` with `block` applied to each component.
   static func applyScalar(lhs: Tensor.Gradient,
                           rhs: Tensor.Scalar,
                           block: (_ lhs: [Tensor], _ rhs: Tensor.Scalar) -> [Tensor]) -> Tensor.Gradient {
@@ -1039,34 +1156,42 @@ public extension Tensor.Gradient {
     return Tensor.Gradient(input: input, weights: weight, biases: bias)
   }
   
+  /// Divides all gradient components element-wise by the corresponding components of `rhs`.
   static func /(lhs: Tensor.Gradient, rhs: Tensor.Gradient) -> Tensor.Gradient {
     applyMultiple(lhs: lhs, rhs: rhs) { lhs, rhs in lhs / rhs }
   }
-  
+
+  /// Multiplies all gradient components element-wise by the corresponding components of `rhs`.
   static func *(lhs: Tensor.Gradient, rhs: Tensor.Gradient) -> Tensor.Gradient {
     applyMultiple(lhs: lhs, rhs: rhs) { lhs, rhs in lhs * rhs }
   }
-  
+
+  /// Subtracts all gradient components element-wise from the corresponding components of `rhs`.
   static func -(lhs: Tensor.Gradient, rhs: Tensor.Gradient) -> Tensor.Gradient {
     applyMultiple(lhs: lhs, rhs: rhs) { lhs, rhs in lhs - rhs }
   }
-  
+
+  /// Adds all gradient components element-wise to the corresponding components of `rhs`.
   static func +(lhs: Tensor.Gradient, rhs: Tensor.Gradient) -> Tensor.Gradient {
     applyMultiple(lhs: lhs, rhs: rhs) { lhs, rhs in lhs + rhs }
   }
-  
+
+  /// Adds a scalar to all gradient component tensors.
   static func +(lhs: Tensor.Gradient, rhs: Tensor.Scalar) -> Tensor.Gradient {
     applyScalar(lhs: lhs, rhs: rhs) { lhs, rhs in lhs + rhs }
   }
-  
+
+  /// Subtracts a scalar from all gradient component tensors.
   static func -(lhs: Tensor.Gradient, rhs: Tensor.Scalar) -> Tensor.Gradient {
     applyScalar(lhs: lhs, rhs: rhs) { lhs, rhs in lhs - rhs }
   }
-  
+
+  /// Divides all gradient component tensors by a scalar.
   static func /(lhs: Tensor.Gradient, rhs: Tensor.Scalar) -> Tensor.Gradient {
     applyScalar(lhs: lhs, rhs: rhs) { lhs, rhs in lhs / rhs }
   }
-  
+
+  /// Multiplies all gradient component tensors by a scalar.
   static func *(lhs: Tensor.Gradient, rhs: Tensor.Scalar) -> Tensor.Gradient {
     applyScalar(lhs: lhs, rhs: rhs) { lhs, rhs in lhs * rhs }
   }
@@ -1074,7 +1199,14 @@ public extension Tensor.Gradient {
 
 // MARK: - Static Factory Methods
 
+/// Static factory and fill utilities for constructing `Tensor` values.
 public extension Tensor {
+  /// Creates a tensor whose elements are drawn uniformly at random from `range`.
+  ///
+  /// - Parameters:
+  ///   - range: The closed range of scalar values to sample from. Defaults to `0...1`.
+  ///   - size: The shape of the tensor to create.
+  /// - Returns: A new `Tensor` with random values in the specified range.
   static func fillRandom(in range: ClosedRange<Tensor.Scalar> = 0...1, size: TensorSize) -> Tensor {
     let count = size.columns * size.rows * size.depth
     let s = TensorStorage.create(count: count)
@@ -1086,6 +1218,12 @@ public extension Tensor {
     return Tensor(storage: s, size: size)
   }
   
+  /// Creates a tensor filled with a constant scalar value.
+  ///
+  /// - Parameters:
+  ///   - value: The scalar value to fill every element with.
+  ///   - size: The shape of the tensor to create.
+  /// - Returns: A new `Tensor` where every element equals `value`.
   static func fillWith(value: Tensor.Scalar, size: TensorSize) -> Tensor {
     let s = TensorStorage.create(repeating: value, count: size.columns * size.rows * size.depth)
     return Tensor(storage: s, size: size)

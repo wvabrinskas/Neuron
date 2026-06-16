@@ -193,7 +193,9 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
   
   /// Imports a serialized network from raw bytes and prepares the trainer.
   ///
-  /// - Parameter data: Serialized model data.
+  /// - Parameters:
+  ///   - data: Serialized model bytes for the Sequential network.
+  ///   - vectors: Serialized vectorizer data used to rebuild the dataset vocabulary.
   public func importFrom(data: Data?, vectors: Data?) async {
     guard let data, let vectors else { return }
     
@@ -207,7 +209,9 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
   
   /// Imports a serialized network from disk and prepares the trainer.
   ///
-  /// - Parameter url: URL to serialized model file.
+  /// - Parameters:
+  ///   - url: File URL pointing to the serialized Sequential network.
+  ///   - vectors: File URL pointing to the serialized vectorizer for the dataset vocabulary.
   public func importFrom(url: URL?, vectors: URL?) async {
     guard let url, let vectors else { return }
     

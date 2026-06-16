@@ -10,7 +10,10 @@ import NumSwift
 
 /// Represents the type of compute device available for tensor operations.
 public enum DeviceType: String, Codable {
-  case cpu, gpu
+  /// The CPU compute device, used for all standard operations.
+  case cpu
+  /// The GPU compute device. Currently a work-in-progress and falls back to CPU.
+  case gpu
   
   func device() -> Device {
     switch self {
@@ -27,9 +30,22 @@ public enum DeviceType: String, Codable {
 /// Conforming types provide hardware-specific implementations of neural network
 /// primitives such as convolution, activation, and pooling.
 public protocol Device {
+  /// The device type identifier (`.cpu` or `.gpu`).
   var type: DeviceType { get }
+  /// The Quality of Service class used for concurrent dispatch blocks on this device.
   var qosPriority: DispatchQoS.QoSClass { get set }
   
+  /// Computes a transposed 2D convolution directly into `result` using raw pointer storage.
+  ///
+  /// - Parameters:
+  ///   - signal: Pointer to the input feature-map data.
+  ///   - filter: Pointer to the transposed-convolution kernel data.
+  ///   - result: Pointer to the output buffer where results are written.
+  ///   - strides: Row/column stride of the transposed convolution.
+  ///   - padding: Padding mode applied to the operation.
+  ///   - filterSize: Kernel shape as `(rows, columns)`.
+  ///   - inputSize: Input spatial shape as `(rows, columns)`.
+  ///   - batchCount: Number of batches to process.
   func transConv2d(signal: TensorStorage.Pointer,
                           filter: TensorStorage.Pointer,
                           result: TensorStorage.Pointer,
@@ -38,7 +54,18 @@ public protocol Device {
                           filterSize: (rows: Int, columns: Int),
                           inputSize: (rows: Int, columns: Int),
                           batchCount: Int)
-  
+
+  /// Computes a 2D convolution directly into `result` using raw pointer storage.
+  ///
+  /// - Parameters:
+  ///   - signal: Pointer to the input feature-map data.
+  ///   - filter: Pointer to the convolution kernel data.
+  ///   - result: Pointer to the output buffer where results are written.
+  ///   - strides: Row/column stride of the convolution.
+  ///   - padding: Padding mode applied to the operation.
+  ///   - filterSize: Kernel shape as `(rows, columns)`.
+  ///   - inputSize: Input spatial shape as `(rows, columns)`.
+  ///   - batchCount: Number of batches to process.
   func conv2d(signal: TensorStorage.Pointer,
               filter: TensorStorage.Pointer,
               result: TensorStorage.Pointer,

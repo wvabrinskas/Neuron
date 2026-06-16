@@ -35,21 +35,21 @@ public final class Divide: ArithmeticLayer {
                linkTo: linkTo)
   }
 
-  convenience public required init(from decoder: Decoder) throws {
-    let container = try decoder.container(keyedBy: CodingKeys.self)
-    let linkTo = try container.decodeIfPresent(String.self, forKey: .linkTo) ?? ""
-    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
-    self.init(linkId: linkId, linkTo: linkTo)
-    
-    self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
-    self.linkTo = linkTo
+  /// Decodes a Divide layer from a serialized model.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: An error if required values cannot be decoded.
+  required public init(from decoder: Decoder) throws {
+    try super.init(from: decoder)
   }
-  
+
+  /// Divides `input` by `other` element-wise (or the reverse when `inverse` is `true`).
+  ///
+  /// - Parameters:
+  ///   - input: The primary input tensor (numerator by default).
+  ///   - other: The tensor from the linked layer (denominator by default).
+  /// - Returns: Element-wise quotient `input / other`.
   override public func function(input: Tensor, other: Tensor) -> Tensor {
-    if inverse {
-      other / input
-    } else {
-      input / other
-    }
+    input / other
   }
 }

@@ -22,7 +22,7 @@ import NumSwift
 /// [Description of the optimization algorithm]
 public class [OptimizerName]: BaseOptimizer {
     
-    // Algorithm-specific parameters
+    // Algorithm-specific parameters (always use Tensor.Scalar, never hardcode Float/Float16)
     private var [param1]: Tensor.Scalar
     private var [param2]: Tensor.Scalar
 
@@ -80,3 +80,6 @@ public class [OptimizerName]: BaseOptimizer {
     }
 }
 ```
+
+### Key Implementation Points:
+- **Use `Tensor.Scalar` not `Float`**: Never hardcode `Float` or `Float16` in optimizer code that interacts with Tensor. Use `Tensor.Scalar` for all hyperparameters (learning rate, beta, epsilon), numeric literals (e.g., `Tensor.Scalar(1.0)` not `1.0 as Float`), and local variables. This ensures quantization compatibility.

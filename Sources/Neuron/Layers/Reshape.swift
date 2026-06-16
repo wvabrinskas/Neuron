@@ -14,8 +14,9 @@ public final class Reshape: BaseLayer {
   
   /// Default initializer for a reshape layer.
   /// - Parameters:
-  ///   - size: The size to reshape to.
+  ///   - size: The target `TensorSize` to reshape the input into.
   ///   - inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
+  ///   - linkId: A unique string identifier for this layer link. Defaults to a new UUID string.
   public init(to size: TensorSize,
               inputSize: TensorSize? = nil,
               linkId: String = UUID().uuidString) {
@@ -36,6 +37,10 @@ public final class Reshape: BaseLayer {
          linkId
   }
   
+  /// Decodes a Reshape layer from a serialized model.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: An error if required values cannot be decoded.
   convenience public required init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
@@ -80,6 +85,7 @@ public final class Reshape: BaseLayer {
     return super.forward(tensor: out, context: context)
   }
   
+  /// Sets `outputSize` to the configured reshape target whenever the input size changes.
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     outputSize = reshapeSize

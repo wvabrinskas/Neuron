@@ -16,8 +16,9 @@ public typealias VectorizingDatasetData = (training: [DatasetModel], val: [Datas
 /// for encoding items as one-hot tensors or index-based tensors.
 public protocol VectorizingDataset {
   typealias Item = String
+  /// The vectorizer used to encode and decode dataset items.
   var vectorizer: Vectorizer { get }
-  
+  /// The total number of unique tokens in the vocabulary.
   var vocabSize: Int { get }
   /// One-hot encodes dataset items.
   ///
@@ -41,24 +42,46 @@ public protocol VectorizingDataset {
   /// - Returns: Tuple containing training and validation datasets.
   func build() async -> VectorizingDatasetData
   
+  /// Builds a dataset instance by loading a vectorizer from a file URL.
+  ///
+  /// - Parameter url: File URL from which to import vectorizer state.
+  /// - Returns: A new dataset instance initialized with the imported vectorizer.
   static func build(url: URL) -> Self
-  
+
   @_spi(Visualizer)
+  /// Builds a dataset instance by loading a vectorizer from raw data bytes.
+  ///
+  /// - Parameter data: Raw data from which to import vectorizer state.
+  /// - Returns: A new dataset instance initialized with the imported vectorizer.
   static func build(data: Data) -> Self
-  
+
+  /// Exports the dataset's vectorizer to disk and returns the resulting file URL.
+  ///
+  /// - Parameters:
+  ///   - name: Optional filename prefix for the exported file.
+  ///   - overrite: When `false`, a timestamp is appended to avoid overwriting.
+  ///   - compress: When `true`, the exported file uses compact JSON.
+  /// - Returns: URL to the exported file, or `nil` on failure.
   func export(name: String?, overrite: Bool, compress: Bool) -> URL?
 }
 
+/// A base implementation of `VectorizingDataset` backed by a `Vectorizer` instance.
+///
+/// Provides default implementations for one-hot encoding, vectorization, decoding,
+/// and model export. Subclasses should override `build()` to supply training data.
 open class VectorizableDataset: VectorizingDataset {
 
-/// The vectorizer used to encode and decode dataset items.
+  /// The vectorizer used to encode and decode dataset items.
   public let vectorizer: Vectorizer
 
-/// The number of unique tokens in the vocabulary.
-///
-/// Reflects the size of the vectorizer's internal vector mapping.
+  /// The number of unique tokens in the vocabulary.
+  ///
+  /// Reflects the size of the vectorizer's internal vector mapping.
   public var vocabSize: Int = 0
 
+  /// Creates a dataset backed by the given vectorizer.
+  ///
+  /// - Parameter vectorizer: Vectorizer used to encode and decode dataset items.
   public required init(vectorizer: Vectorizer = .init()) {
     self.vectorizer = vectorizer
     self.vocabSize = vectorizer.vector.count

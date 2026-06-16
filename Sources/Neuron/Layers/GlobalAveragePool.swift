@@ -23,11 +23,16 @@ public final class GlobalAvgPool: BaseLayer {
     case inputSize, type, linkId
   }
   
+  /// Called by `Sequential.compile()` when input size is propagated; sets output to `(1, depth, 1)` — one average per channel.
   override public func onInputSizeSet() {
     // outputSize will effectively 'flatten' with a global average at each channel
     outputSize = .init(rows: 1, columns: inputSize.depth, depth: 1)
   }
   
+  /// Decodes a GlobalAvgPool layer from a serialized model.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: An error if required values cannot be decoded.
   convenience public required init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString

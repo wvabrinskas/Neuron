@@ -11,6 +11,8 @@ import NumSwift
 /// Performs a GeLu activation.
 public final class GeLu: BaseActivationLayer {
   /// Creates a GeLU activation layer.
+  ///
+  /// - Parameter linkId: A stable identifier used to link this layer across serialization boundaries.
   public init(linkId: String = UUID().uuidString) {
     super.init(type: .geLu,
                linkId: linkId,
@@ -24,6 +26,10 @@ public final class GeLu: BaseActivationLayer {
          linkId
   }
   
+  /// Decodes a GeLU layer from a serialized model.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: An error if required values cannot be decoded.
   convenience public required init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
@@ -43,6 +49,7 @@ public final class GeLu: BaseActivationLayer {
     try container.encode(linkId, forKey: .linkId)
   }
   
+  /// Called by `Sequential.compile()` when input size is propagated; sets output size to match.
   override public func onInputSizeSet() {
     super.onInputSizeSet()
     outputSize = inputSize

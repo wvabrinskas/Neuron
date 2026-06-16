@@ -10,7 +10,6 @@ import Foundation
 
 /// A type that can be exported to a `.stkns` file on disk.
 public protocol Exportable: Codable {
-  @discardableResult
   /// Exports the trainable as a `.stkns` file.
   ///
   /// - Parameters:
@@ -18,5 +17,6 @@ public protocol Exportable: Codable {
   ///   - overrite: When `false`, appends a timestamp to avoid overwrite.
   ///   - compress: When `true`, emits compact JSON.
   /// - Returns: URL to the exported model file, or `nil` on write failure.
+  @discardableResult
   func export(name: String?, overrite: Bool, compress: Bool) -> URL?
 }

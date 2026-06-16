@@ -60,6 +60,10 @@ public final class Embedding: BaseLayer {
          linkId
   }
   
+  /// Decodes an Embedding layer from a serialized model.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: An error if required values cannot be decoded.
   convenience required public init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
 

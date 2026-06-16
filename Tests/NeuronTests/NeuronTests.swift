@@ -12,7 +12,29 @@ extension XCTestCase {
 }
 
 final class NeuronTests: XCTestCase {
-
+  
+  func test_sequentionSkipConnection_printing() {
+    let network = Sequential(
+      Dense(32, inputs: 10, linkId: "link1"),
+      ReLu(),
+      Divide(linkTo: "link1"),
+      Swish(),
+      Dense(21, linkId: "link2"),
+      Swish(),
+      Subtract(linkTo: "link2"),
+      Swish(),
+      Dense(16, linkId: "link3"),
+      Dense(16),
+      Swish(),
+      Multiply(linkTo: "link3"),
+      Dense(16),
+      Swish()
+    )
+    
+    network.compile()
+    
+    print(network)
+  }
   
   func test_addition_and_Relu() {
     let size = TensorSize(array: [5,5,1])
@@ -26,7 +48,7 @@ final class NeuronTests: XCTestCase {
     let add = inputL + inputR
     
     let out = relu.forward(tensor: add, context: .init())
-        
+    
     print(out)
     
     let delta = Tensor.fillRandom(size: size)
@@ -43,45 +65,45 @@ final class NeuronTests: XCTestCase {
   
   func test_tensor_Subscript() {
     let input: [[Tensor.Scalar]] = [[ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-                              0,  0,  0,  0,  0,  0,  0,  0,  1],
-                            [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-                              0,  0,  0,  0,  0,  0,  1,  0,  0],
-                            [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-                              0,  0,  0,  0,  1,  0,  0,  0,  0],
-                            [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-                              0,  0,  0,  0,  1,  0,  0,  0,  0],
-                            [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-                              0,  0,  0,  0,  0,  0,  0,  0,  1],
-                            [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-                              0,  0,  0,  0,  0,  0,  0,  0,  1],
-                            [ 0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-                              0,  0,  0,  0,  0,  0,  0,  0,  0],
-                            [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-                              0,  0,  0,  0,  0,  0,  1,  0,  0],
-                            [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,
-                              0,  0,  0,  0,  0,  0,  0,  0,  0],
-                            [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-                              1,  0,  0,  0,  0,  0,  0,  0,  0],
-                            [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-                              0,  0,  0,  0,  0,  0,  1,  0,  0],
-                            [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-                              0,  0,  0,  0,  0,  1,  0,  0,  0],
-                            [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-                              0,  0,  0,  0,  1,  0,  0,  0,  0],
-                            [ 0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-                              0,  0,  0,  0,  0,  0,  0,  0,  0],
-                            [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-                              0,  0,  0,  0,  0,  1,  0,  0,  0],
-                            [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-                              0,  0,  0,  0,  0,  0,  0,  0,  1],
-                            [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-                              0,  1,  0,  0,  0,  0,  0,  0,  0],
-                            [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,
-                              0,  0,  0,  0,  0,  0,  0,  0,  0],
-                            [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,
-                              0,  0,  0,  0,  0,  0,  0,  0,  0],
-                            [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-                              0,  0,  0,  0,  0,  1,  0,  0,  0]]
+                                      0,  0,  0,  0,  0,  0,  0,  0,  1],
+                                    [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+                                      0,  0,  0,  0,  0,  0,  1,  0,  0],
+                                    [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+                                      0,  0,  0,  0,  1,  0,  0,  0,  0],
+                                    [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+                                      0,  0,  0,  0,  1,  0,  0,  0,  0],
+                                    [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+                                      0,  0,  0,  0,  0,  0,  0,  0,  1],
+                                    [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+                                      0,  0,  0,  0,  0,  0,  0,  0,  1],
+                                    [ 0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+                                      0,  0,  0,  0,  0,  0,  0,  0,  0],
+                                    [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+                                      0,  0,  0,  0,  0,  0,  1,  0,  0],
+                                    [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,
+                                      0,  0,  0,  0,  0,  0,  0,  0,  0],
+                                    [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+                                      1,  0,  0,  0,  0,  0,  0,  0,  0],
+                                    [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+                                      0,  0,  0,  0,  0,  0,  1,  0,  0],
+                                    [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+                                      0,  0,  0,  0,  0,  1,  0,  0,  0],
+                                    [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+                                      0,  0,  0,  0,  1,  0,  0,  0,  0],
+                                    [ 0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+                                      0,  0,  0,  0,  0,  0,  0,  0,  0],
+                                    [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+                                      0,  0,  0,  0,  0,  1,  0,  0,  0],
+                                    [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+                                      0,  0,  0,  0,  0,  0,  0,  0,  1],
+                                    [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+                                      0,  1,  0,  0,  0,  0,  0,  0,  0],
+                                    [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,
+                                      0,  0,  0,  0,  0,  0,  0,  0,  0],
+                                    [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,
+                                      0,  0,  0,  0,  0,  0,  0,  0,  0],
+                                    [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+                                      0,  0,  0,  0,  0,  1,  0,  0,  0]]
     
     let inputTensor = Tensor(input)
     XCTAssertEqual(inputTensor[0..., ..<10, 0...].shape, [27, 10, 1])
@@ -119,15 +141,15 @@ final class NeuronTests: XCTestCase {
     let backward = out.gradients(delta: Tensor(gradients), wrt: inputTensor)
     
     let expectedGradient: [[[Tensor.Scalar]]] = [[[3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
-                                          [3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
-                                          [3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
-                                          [3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
-                                          [3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
-                                          [3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
-                                          [3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
-                                          [3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
-                                          [3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
-                                          [2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0]]]
+                                                  [3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
+                                                  [3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
+                                                  [3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
+                                                  [3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
+                                                  [3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
+                                                  [3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
+                                                  [3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
+                                                  [3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
+                                                  [2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0]]]
     
     XCTAssert(backward.input.first!.isValueEqual(to: Tensor(expectedGradient)))
     XCTAssert(TensorSize(array: backward.input.first!.shape) == inputShape)
@@ -137,7 +159,7 @@ final class NeuronTests: XCTestCase {
     let inputDepth = 8
     let filterCount = 4
     let inputShape = TensorSize(rows: 7, columns: 7, depth: inputDepth)
-
+    
     let n = Sequential {
       [
         Dense(7 * 7 * inputDepth,
@@ -161,12 +183,12 @@ final class NeuronTests: XCTestCase {
         Tanh()
       ]
     }
-
+    
     n.compile()
-
+    
     let optim = Adam(n, learningRate: 0.0002, batchSize: 1)
     let noise = Tensor((0..<100).map { _ in Tensor.Scalar.random(in: -1...1) })
-
+    
     for step in 0..<5 {
       optim.zeroGradients()
       let target = Tensor.fillRandom(in: -1...1, size: .init(rows: 14, columns: 14, depth: 1))
@@ -174,14 +196,14 @@ final class NeuronTests: XCTestCase {
                           labels: [target],
                           lossFunction: .meanSquareError,
                           requiresGradients: true)
-
+      
       let loss = out.loss
       XCTAssertFalse(loss.isNaN, "Loss became NaN at step \(step)")
       XCTAssertFalse(loss.isInfinite, "Loss became Inf at step \(step)")
-
+      
       optim.apply(out.gradients)
       optim.step()
-
+      
       for layer in n.layers {
         if let conv = layer as? Conv2d {
           for (fi, f) in conv.filters.enumerated() {
@@ -193,14 +215,14 @@ final class NeuronTests: XCTestCase {
       }
     }
   }
-
+  
   func testFlatten() {
     let r: [[[Tensor.Scalar]]] = [[[1.1,1.2,1.3],
-                           [1.4,1.5,1.6]],
-                          [[2.1,2.2,2.3],
-                           [2.4,2.5,2.6]],
-                          [[2.1,2.2,2.3],
-                           [2.4,2.5,2.6]]]
+                                   [1.4,1.5,1.6]],
+                                  [[2.1,2.2,2.3],
+                                   [2.4,2.5,2.6]],
+                                  [[2.1,2.2,2.3],
+                                   [2.4,2.5,2.6]]]
     
     let testData: Tensor = Tensor(r)
     
@@ -218,14 +240,14 @@ final class NeuronTests: XCTestCase {
   
   func testReshape() {
     let r: [Tensor.Scalar] = [1.1,1.2,1.3,
-                      1.4,1.5,1.6,
-                      1.4,1.5,1.6,
-                      2.1,2.2,2.3,
-                      2.4,2.5,2.6,
-                      2.4,2.5,2.6,
-                      2.1,2.2,2.3,
-                      2.4,2.5,2.6,
-                      2.4,2.5,2.6]
+                              1.4,1.5,1.6,
+                              1.4,1.5,1.6,
+                              2.1,2.2,2.3,
+                              2.4,2.5,2.6,
+                              2.4,2.5,2.6,
+                              2.1,2.2,2.3,
+                              2.4,2.5,2.6,
+                              2.4,2.5,2.6]
     
     let testData = Tensor(r)
     
@@ -246,14 +268,14 @@ final class NeuronTests: XCTestCase {
   
   func testMaxPool() {
     let r: [[[Tensor.Scalar]]] = [[[0,1,0],
-                           [0,2,0],
-                           [0,0,0]],
-                          [[0,1,0],
-                           [0,2,0],
-                           [0,0,0]],
-                          [[0,1,0],
-                           [0,2,0],
-                           [0,0,0]]]
+                                   [0,2,0],
+                                   [0,0,0]],
+                                  [[0,1,0],
+                                   [0,2,0],
+                                   [0,0,0]],
+                                  [[0,1,0],
+                                   [0,2,0],
+                                   [0,0,0]]]
     
     let testData = Tensor(r)
     
@@ -266,11 +288,11 @@ final class NeuronTests: XCTestCase {
     out.setGraph(data)
     
     let gradients: [[[Tensor.Scalar]]] = [[[1.0, 0.0],
-                                   [0.0, 0.0]],
-                                  [[1.0, 0.0],
-                                   [0.0, 0.0]],
-                                  [[1.0, 0.0],
-                                   [0.0, 0.0]]]
+                                           [0.0, 0.0]],
+                                          [[1.0, 0.0],
+                                           [0.0, 0.0]],
+                                          [[1.0, 0.0],
+                                           [0.0, 0.0]]]
     
     let backward = out.gradients(delta: Tensor(gradients), wrt: testData)
     
@@ -307,11 +329,11 @@ final class NeuronTests: XCTestCase {
     let gradients = Tensor.fillRandom(size: conv.outputSize)
     
     XCTAssertEqual(conv.outputSize.asArray, [14,14,filterCount])
-
+    
     let backward = out.gradients(delta: gradients, wrt: input)
     
     XCTAssertEqual(backward.weights.first?.shape, [1,1,filterCount])
-
+    
     // assert that it doesnt crash
     conv.apply(gradients: (backward.weights[0], backward.biases[0]), learningRate: 0.001)
   }
@@ -340,7 +362,7 @@ final class NeuronTests: XCTestCase {
     
     let out = conv.forward(tensor: inputTensor)
     out.setGraph(inputTensor)
-
+    
     XCTAssert(outputShape == out.shape)
     
     let gradients: [[[Tensor.Scalar]]] = NumSwift.onesLike((out.shape[safe: 1, 0], out.shape[safe: 0, 0], filterCount))
@@ -443,13 +465,13 @@ final class NeuronTests: XCTestCase {
   func testLayerNorm_3d() {
     let input = Tensor([
       [[1.0, 2.0, 3.0, 4.0],
-        [2.0, 4.0, 6.0, 8.0]]
-  ])
+       [2.0, 4.0, 6.0, 8.0]]
+    ])
     let norm = LayerNormalize(inputSize: input.shape.tensorSize)
     
     let out = norm.forward(tensor: input)
     out.setGraph(input)
-
+    
     XCTAssert(out.isValueEqual(to: Tensor([[-1.2701705, -0.8082903, -0.34641013, 0.115470044],
                                            [-0.8082903, 0.115470044, 1.0392303, 1.9629908]]), accuracy: 0.00001))
     
@@ -474,7 +496,7 @@ final class NeuronTests: XCTestCase {
     
     let out = norm.forward(tensor: input)
     out.setGraph(input)
-
+    
     XCTAssert(out.isValueEqual(to: Tensor([[0.8164965, -1.2247449, 0.8164965, -1.2247449, 0.8164965]]), accuracy: 0.00001))
     
     let delta = Tensor([[0.5, 0, 0.5, 0, 0.5]])
@@ -493,7 +515,7 @@ final class NeuronTests: XCTestCase {
     
     let out = norm.forward(tensor: input)
     out.setGraph(input)
-
+    
     XCTAssert(out.isValueEqual(to: Tensor([[0.8164965, -1.2247449, 0.8164965, -1.2247449, 0.8164965],
                                            [0.8164965, -1.2247449, 0.8164965, -1.2247449, 0.8164965]]), accuracy: 0.00001))
     
@@ -515,7 +537,7 @@ final class NeuronTests: XCTestCase {
     
     let out = norm.forward(tensor: input)
     out.setGraph(input)
-
+    
     XCTAssert(out.isValueEqual(to: Tensor([[[ -1.3416407, -0.4472136],
                                             [ 0.4472136, 1.3416407]],
                                            [[ -1.3416407, -0.4472136],
@@ -551,17 +573,17 @@ final class NeuronTests: XCTestCase {
     norm.isTraining = true
     
     batch.concurrentBatchedForEach(workers: Constants.maxWorkers) { elements, workerIndex, indexRange, processingCount, workerId in
-        let _ = norm.forward(tensorBatch: elements, context: .init(batchRange: indexRange,
-                                                           batchProcessingCount: processingCount,
-                                                           totalInBatch: batch.count,
-                                                           threadId: workerId))
+      let _ = norm.forward(tensorBatch: elements, context: .init(batchRange: indexRange,
+                                                                 batchProcessingCount: processingCount,
+                                                                 totalInBatch: batch.count,
+                                                                 threadId: workerId))
       
     }
     
     // Per-channel statistics: depth=1, all values across batch + spatial
     // 5 even [0,1,0,1,0] + 5 odd [1,0,1,0,1] → mean=0.5, var=0.25, std≈0.5
     XCTAssertEqual(norm.sampleCount, batchSize)
-    XCTAssertEqual(norm.movingMean.count, 1)
+    XCTAssertEqual(norm.movingMean.storage.count, 1)
   }
   
   func testBatchNorm2d() {
@@ -582,18 +604,18 @@ final class NeuronTests: XCTestCase {
     norm.batchSize = batchSize
     norm.isTraining = true
     
-    var outputs: [TensorBatch] = []
+    var outputs: [TensorBatch] = .init(repeating: [], count: batchSize)
     batch.concurrentBatchedForEach(workers: Constants.maxWorkers) { elements, workerIndex, indexRange, processingCount, workerId in
-        let outs = norm.forward(tensorBatch: elements, context: .init(batchRange: indexRange,
-                                                           batchProcessingCount: processingCount,
-                                                           totalInBatch: batch.count,
-                                                           threadId: workerId))
-        outputs.append(outs)
+      let outs = norm.forward(tensorBatch: elements, context: .init(batchRange: indexRange,
+                                                                    batchProcessingCount: processingCount,
+                                                                    totalInBatch: batch.count,
+                                                                    threadId: workerId))
+      outputs[workerIndex] = outs
     }
     
     XCTAssertEqual(norm.sampleCount, batchSize)
     
-    // Verify normalized output: per-channel mean ≈ 0.5, var ≈ 0.25
+        // Verify normalized output: per-channel mean ≈ 0.5, var ≈ 0.25
     // For x=0: normalized ≈ (0-0.5)/sqrt(0.25+1e-5) ≈ -1.0
     // For x=1: normalized ≈ (1-0.5)/sqrt(0.25+1e-5) ≈ 1.0
     let firstOut = outputs.flatMap { $0 }.first!
@@ -610,9 +632,9 @@ final class NeuronTests: XCTestCase {
     
     norm.batchSize = 1
     norm.isTraining = true
-
+    
     let out = norm.forward(tensorBatch: [input], context: .init())
-
+    
     XCTAssertNotNil(out.first)
     
     // Per-channel BN: mean = (1+2+3)/3 = 2, var = 2/3
@@ -642,16 +664,16 @@ final class NeuronTests: XCTestCase {
     norm.isTraining = true
     
     batch.concurrentBatchedForEach(workers: Constants.maxWorkers) { elements, workerIndex, indexRange, processingCount, workerId in
-        let _ = norm.forward(tensorBatch: elements, context: .init(batchRange: indexRange,
-                                                           batchProcessingCount: processingCount,
-                                                           totalInBatch: batch.count,
-                                                           threadId: workerId))
+      let _ = norm.forward(tensorBatch: elements, context: .init(batchRange: indexRange,
+                                                                 batchProcessingCount: processingCount,
+                                                                 totalInBatch: batch.count,
+                                                                 threadId: workerId))
       
     }
     
     XCTAssertEqual(norm.sampleCount, batchSize)
     // Per-channel: 5 channels, each with mean=0.5, var=0.25 (same data pattern per channel)
-    XCTAssertEqual(norm.movingMean.count, 5)
+    XCTAssertEqual(norm.movingMean.storage.count, 5)
   }
   
   func testDropout() {
@@ -665,7 +687,7 @@ final class NeuronTests: XCTestCase {
     
     let out = dropout.forward(tensor: input)
     out.setGraph(input)
-
+    
     XCTAssert(out.isValueEqual(to: Tensor([2,0,2,0,2].as3D())))
     
     let delta = Tensor([0.5, 0.5, 0.5, 0.5, 0.5].as3D())
@@ -868,6 +890,171 @@ final class NeuronTests: XCTestCase {
     XCTAssertEqual(tensor[0, 0, 1], 7)
     XCTAssertEqual(tensor[2, 0, 1], 9)
     XCTAssertEqual(tensor[0, 1, 1], 0) // zero-padded
+  }
+  
+  // MARK: - Per-channel broadcast context gradient tests
+  // Covers _perChannelBroadcastContext for all four ops.
+  // Layout: self is (cols:2, rows:2, depth:2), value is (cols:1, rows:1, depth:2).
+  // self depth-0 slice = [1,2,3,4], depth-1 slice = [5,6,7,8]
+  // value = [scale0, scale1]  (one scalar per depth)
+  
+  /// Helper: build a (2,2,2) self tensor and (1,1,2) value tensor, run the op,
+  /// then return gradients w.r.t. both self and value.
+  private func perChannelBroadcastGrads(
+    op: (Tensor, Tensor) -> Tensor,
+    selfValues: [Tensor.Scalar],
+    scaleValues: [Tensor.Scalar],
+    gradValues: [Tensor.Scalar]
+  ) -> (wrtSelf: Tensor, wrtValue: Tensor) {
+    let selfSize  = TensorSize(rows: 2, columns: 2, depth: 2)
+    let valueSize = TensorSize(rows: 1, columns: 1, depth: 2)
+    
+    let lhs = Tensor(Tensor.Value(selfValues), size: selfSize)
+    let rhs = Tensor(Tensor.Value(scaleValues), size: valueSize)
+    lhs.label = "lhs"
+    rhs.label = "rhs"
+    
+    let out = op(lhs, rhs)
+    out.setGraph(lhs)
+    out.setGraph(rhs)
+    
+    let gradTensor = Tensor(Tensor.Value(gradValues), size: selfSize)
+    let wrtSelf  = out.gradients(delta: gradTensor, wrt: lhs).input.first!
+    let wrtValue = out.gradients(delta: gradTensor, wrt: rhs).input.first!
+    return (wrtSelf, wrtValue)
+  }
+  
+  func testPerChannelBroadcast_add_forward() {
+    // (2×2×2) + (1×1×2): each spatial slice of depth d gets scale[d] added
+    let lhs = Tensor(Tensor.Value([1,2,3,4,5,6,7,8]), size: TensorSize(rows: 2, columns: 2, depth: 2))
+    let rhs = Tensor(Tensor.Value([10, 20]), size: TensorSize(rows: 1, columns: 1, depth: 2))
+    let out = lhs + rhs
+    // depth-0: [1+10,2+10,3+10,4+10] = [11,12,13,14]
+    // depth-1: [5+20,6+20,7+20,8+20] = [25,26,27,28]
+    XCTAssertEqual(out.asArray, [11,12,13,14,25,26,27,28])
+  }
+  
+  func testPerChannelBroadcast_add_gradWrtSelf() {
+    // d(out)/d(self) for add = 1 → grad passes through unchanged
+    let grads = perChannelBroadcastGrads(
+      op: +,
+      selfValues:  [1,2,3,4,5,6,7,8],
+      scaleValues: [10,20],
+      gradValues:  [1,1,1,1,1,1,1,1]
+    )
+    XCTAssertEqual(grads.wrtSelf.shape, [2,2,2])
+    XCTAssertEqual(grads.wrtSelf.asArray, [1,1,1,1,1,1,1,1])
+  }
+  
+  func testPerChannelBroadcast_add_gradWrtValue() {
+    // d(out)/d(value) for add = 1 → grad is summed spatially per channel
+    // all-ones gradient: sum over 4 spatial elements per depth → [4, 4]
+    let grads = perChannelBroadcastGrads(
+      op: +,
+      selfValues:  [1,2,3,4,5,6,7,8],
+      scaleValues: [10,20],
+      gradValues:  [1,1,1,1,1,1,1,1]
+    )
+    XCTAssertEqual(grads.wrtValue.shape, [1,1,2])
+    XCTAssertEqual(grads.wrtValue.asArray, [4,4])
+  }
+  
+  func testPerChannelBroadcast_sub_gradWrtSelf() {
+    // d(out)/d(self) for sub = 1 → grad passes through unchanged
+    let grads = perChannelBroadcastGrads(
+      op: -,
+      selfValues:  [1,2,3,4,5,6,7,8],
+      scaleValues: [1,2],
+      gradValues:  [1,1,1,1,2,2,2,2]
+    )
+    XCTAssertEqual(grads.wrtSelf.shape, [2,2,2])
+    XCTAssertEqual(grads.wrtSelf.asArray, [1,1,1,1,2,2,2,2])
+  }
+  
+  func testPerChannelBroadcast_sub_gradWrtValue() {
+    // d(out)/d(value) for sub = -1 → spatial sum of -gradient
+    // depth-0: sum(−1,−1,−1,−1) = −4; depth-1: sum(−2,−2,−2,−2) = −8
+    let grads = perChannelBroadcastGrads(
+      op: -,
+      selfValues:  [1,2,3,4,5,6,7,8],
+      scaleValues: [1,2],
+      gradValues:  [1,1,1,1,2,2,2,2]
+    )
+    XCTAssertEqual(grads.wrtValue.shape, [1,1,2])
+    XCTAssertEqual(grads.wrtValue.asArray, [-4,-8])
+  }
+  
+  func testPerChannelBroadcast_mul_gradWrtSelf() {
+    // d(out)/d(self) for mul = value (broadcast) → grad * scale
+    // depth-0 elements × scale0=2: [1,1,1,1]*2=[2,2,2,2]
+    // depth-1 elements × scale1=3: [1,1,1,1]*3=[3,3,3,3]
+    let grads = perChannelBroadcastGrads(
+      op: *,
+      selfValues:  [1,2,3,4,5,6,7,8],
+      scaleValues: [2,3],
+      gradValues:  [1,1,1,1,1,1,1,1]
+    )
+    XCTAssertEqual(grads.wrtSelf.shape, [2,2,2])
+    XCTAssertEqual(grads.wrtSelf.asArray, [2,2,2,2,3,3,3,3])
+  }
+  
+  func testPerChannelBroadcast_mul_gradWrtValue() {
+    // d(out)/d(value) for mul = spatial sum of (grad * self)
+    // depth-0: sum([1*1,1*2,1*3,1*4]) = 10; depth-1: sum([1*5,1*6,1*7,1*8]) = 26
+    let grads = perChannelBroadcastGrads(
+      op: *,
+      selfValues:  [1,2,3,4,5,6,7,8],
+      scaleValues: [2,3],
+      gradValues:  [1,1,1,1,1,1,1,1]
+    )
+    XCTAssertEqual(grads.wrtValue.shape, [1,1,2])
+    XCTAssertEqual(grads.wrtValue.asArray, [10,26])
+  }
+  
+  func testPerChannelBroadcast_div_gradWrtSelf() {
+    // d(out)/d(self) for div = 1/value (broadcast)
+    // depth-0: grad / scale0=2 → [0.5,0.5,0.5,0.5]
+    // depth-1: grad / scale1=4 → [0.25,0.25,0.25,0.25]
+    let grads = perChannelBroadcastGrads(
+      op: /,
+      selfValues:  [1,2,3,4,5,6,7,8],
+      scaleValues: [2,4],
+      gradValues:  [1,1,1,1,1,1,1,1]
+    )
+    XCTAssertEqual(grads.wrtSelf.shape, [2,2,2])
+    for v in grads.wrtSelf.asArray.prefix(4) { XCTAssertEqual(v, 0.5, accuracy: 1e-5) }
+    for v in grads.wrtSelf.asArray.suffix(4) { XCTAssertEqual(v, 0.25, accuracy: 1e-5) }
+  }
+  
+  func testPerChannelBroadcast_div_gradWrtValue() {
+    // d(out)/d(value) for div = spatial sum of (−grad * self / value²)
+    // depth-0: value=2 → −(1+2+3+4)/4 = −10/4 = −2.5
+    // depth-1: value=4 → −(5+6+7+8)/16 = −26/16 = −1.625
+    let grads = perChannelBroadcastGrads(
+      op: /,
+      selfValues:  [1,2,3,4,5,6,7,8],
+      scaleValues: [2,4],
+      gradValues:  [1,1,1,1,1,1,1,1]
+    )
+    XCTAssertEqual(grads.wrtValue.shape, [1,1,2])
+    XCTAssertEqual(grads.wrtValue.asArray[0], -2.5,   accuracy: 1e-5)
+    XCTAssertEqual(grads.wrtValue.asArray[1], -1.625, accuracy: 1e-5)
+  }
+  
+  func testPerChannelBroadcast_noNaN_gradients() {
+    // Smoke test: no NaN or Inf gradients produced for any op
+    let selfValues:  [Tensor.Scalar] = [1,2,3,4,5,6,7,8]
+    let scaleValues: [Tensor.Scalar] = [2,3]
+    let gradValues:  [Tensor.Scalar] = [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8]
+    let ops: [(Tensor, Tensor) -> Tensor] = [
+      { $0 + $1 }, { $0 - $1 }, { $0 * $1 }, { $0 / $1 }
+    ]
+    for op in ops {
+      let g = perChannelBroadcastGrads(op: op, selfValues: selfValues,
+                                       scaleValues: scaleValues, gradValues: gradValues)
+      for v in g.wrtSelf.asArray  { XCTAssertFalse(v.isNaN || v.isInfinite) }
+      for v in g.wrtValue.asArray { XCTAssertFalse(v.isNaN || v.isInfinite) }
+    }
   }
   
 }

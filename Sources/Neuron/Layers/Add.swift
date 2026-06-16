@@ -22,25 +22,31 @@ public final class Add: ArithmeticLayer {
   public init(inputSize: TensorSize = TensorSize(array: []),
               initializer: InitializerType = .heNormal,
               linkId: String = UUID().uuidString,
+              inverse: Bool = false,
               linkTo: String) {
     super.init(inputSize: inputSize,
                initializer: initializer,
                biasEnabled: false,
                encodingType: .add,
+               inverse: inverse,
                linkId: linkId,
                linkTo: linkTo)
   }
 
-  convenience public required init(from decoder: Decoder) throws {
-    let container = try decoder.container(keyedBy: CodingKeys.self)
-    let linkTo = try container.decodeIfPresent(String.self, forKey: .linkTo) ?? ""
-    let linkId = try container.decodeIfPresent(String.self, forKey: .linkId) ?? UUID().uuidString
-    self.init(linkId: linkId, linkTo: linkTo)
-    
-    self.inputSize = try container.decodeIfPresent(TensorSize.self, forKey: .inputSize) ?? TensorSize(array: [])
-    self.linkTo = linkTo
+  /// Decodes an Add layer from a serialized model.
+  ///
+  /// - Parameter decoder: Decoder used during model loading.
+  /// - Throws: An error if required values cannot be decoded.
+  required public init(from decoder: Decoder) throws {
+    try super.init(from: decoder)
   }
-  
+
+  /// Adds two tensors element-wise.
+  ///
+  /// - Parameters:
+  ///   - input: The primary input tensor.
+  ///   - other: The tensor from the linked layer.
+  /// - Returns: Element-wise sum of `input` and `other`.
   override public func function(input: Tensor, other: Tensor) -> Tensor {
     input + other
   }
