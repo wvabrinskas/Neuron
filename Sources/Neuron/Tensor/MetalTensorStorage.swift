@@ -110,6 +110,10 @@ public final class MetalTensorStorage: TensorStorage {
     }
   }
 
+  /// Decodes Metal-backed storage from a single-value JSON array, allocating an MTLBuffer on the system default Metal device.
+  ///
+  /// - Parameter decoder: The decoder to read scalar data from.
+  /// - Throws: A `DecodingError` if Metal is unavailable or the array cannot be decoded.
   required convenience init(from decoder: Decoder) throws {
     let container = try decoder.singleValueContainer()
     let array = try container.decode([Tensor.Scalar].self)
