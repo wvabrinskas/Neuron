@@ -9,11 +9,11 @@ import Foundation
 
 /// Convenience locking helper for `NSRecursiveLock`.
 public extension NSRecursiveLock {
-  @discardableResult
   /// Executes a closure while holding the recursive lock.
   ///
   /// - Parameter block: Work performed while locked.
   /// - Returns: Value returned from `block`.
+  @discardableResult
   func with<T>(_ block: () throws -> T) rethrows -> T {
     lock()
     defer { unlock() }
@@ -23,11 +23,11 @@ public extension NSRecursiveLock {
 
 /// Convenience locking helper for `NSLock`.
 public extension NSLock {
-  @discardableResult
   /// Executes a closure while holding the lock.
   ///
   /// - Parameter block: Work performed while locked.
   /// - Returns: Value returned from `block`.
+  @discardableResult
   func with<T>(_ block: () throws -> T) rethrows -> T {
     lock()
     defer { unlock() }
@@ -35,8 +35,8 @@ public extension NSLock {
   }
 }
 
-@propertyWrapper
 /// A property wrapper that provides thread-safe access to a value using an NSLock.
+@propertyWrapper
 public struct Atomic<Value> {
   private let lock = NSLock()
   private var value: Value
@@ -48,7 +48,7 @@ public struct Atomic<Value> {
     self.value = wrappedValue
   }
   
-/// The wrapped value, accessed and mutated in a thread-safe manner using a lock.
+  /// The wrapped value, accessed and mutated in a thread-safe manner using a lock.
   public var wrappedValue: Value {
     get {
       lock.lock()

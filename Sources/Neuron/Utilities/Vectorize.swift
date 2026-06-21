@@ -44,13 +44,13 @@ public protocol Vectorizing: Exportable {
   var vector: Vector { get }
   /// The current full vector storage of every value passed in keyed by the `Index`
   var inverseVector: InverseVector { get }
-  @discardableResult
   /// Converts items into integer token IDs.
   ///
   /// - Parameters:
   ///   - items: Items to vectorize.
   ///   - format: Optional start/end token formatting mode.
   /// - Returns: Vectorized token IDs.
+  @discardableResult
   func vectorize(_ items: [Item], format: VectorFormat) -> [Int]
   /// Converts token IDs back into their original items.
   ///
@@ -205,13 +205,13 @@ public class Vectorizer: Vectorizing, Codable {
     return Tensor(result)
   }
   
-  @discardableResult
   /// Converts input items into integer token IDs.
   ///
   /// - Parameters:
   ///   - items: Items to vectorize.
   ///   - format: Optional start/end token formatting behavior.
   /// - Returns: Vectorized token indices.
+  @discardableResult
   public func vectorize(_ items: [String], format: VectorFormat = .none) -> [Int] {
     var vectorized: [Int] = []
     
@@ -279,7 +279,6 @@ public class Vectorizer: Vectorizing, Codable {
     return items
   }
   
-  @discardableResult
   /// Exports the trainable as a `.stokens` file.
   ///
   /// - Parameters:
@@ -287,6 +286,7 @@ public class Vectorizer: Vectorizing, Codable {
   ///   - overrite: When `false`, appends a timestamp to avoid overwrite.
   ///   - compress: When `true`, emits compact JSON.
   /// - Returns: URL to the exported model file, or `nil` on write failure.
+  @discardableResult
   public func export(name: String?, overrite: Bool, compress: Bool) -> URL? {
     let additional = overrite == false ? "-\(Date().timeIntervalSince1970)" : ""
     
