@@ -8,7 +8,12 @@
 import Foundation
 import NumSwift
 
-/// Will decrease the size of the input tensor by half using a max pooling technique.
+/// Reduces the spatial dimensions of an input tensor by selecting the maximum value
+/// within each 2×2 non-overlapping pooling window.
+///
+/// Output spatial size is `ceil(input / 2)` per axis. During backpropagation,
+/// gradients are routed only to the position that held the maximum value in each window;
+/// all other positions receive zero gradient.
 public final class MaxPool: BaseLayer {
   internal struct PoolingIndex: Hashable, Codable {
     var r: Int

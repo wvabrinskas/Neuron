@@ -9,7 +9,11 @@ import Foundation
 import NumSwift
 import NumSwiftC
 
-/// A layer that performs a 2D convolution operation
+/// A 2D convolutional layer that learns spatial feature detectors.
+///
+/// Applies `filterCount` learned kernels of shape `(filterSize.rows × filterSize.columns × inputDepth)`
+/// to produce an output with `filterCount` channels. The output spatial size depends on
+/// `padding`: with `.valid` it shrinks, with `.same` it matches the input.
 public class Conv2d: BaseConvolutionalLayer {
   /// Default initializer for a 2d convolutional layer
   /// - Parameters:

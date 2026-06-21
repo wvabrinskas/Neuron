@@ -9,7 +9,11 @@ import Foundation
 import NumSwift
 import NumSwiftC
 
-/// Performs a transposed 2d convolution on the inputs. Uses the same properties and initializers of `Conv2D`
+/// An upsampling layer that applies a learned transposed (fractionally-strided) 2D convolution.
+///
+/// Commonly used in decoder networks, GANs, and super-resolution models to increase
+/// spatial resolution. With `.valid` padding the output is larger than the input;
+/// with `.same` padding the output matches the input spatial size multiplied by the stride.
 public final class TransConv2d: Conv2d {
   /// Creates a transposed-convolution layer.
   ///

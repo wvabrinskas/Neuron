@@ -8,7 +8,11 @@
 import Foundation
 import NumSwift
 
-/// Will take an inputSize of [M, N, K] and outputs [M * N * K, 1, 1]
+/// Reshapes a 3D tensor of shape `[columns, rows, depth]` into a 1D vector `[columns × rows × depth, 1, 1]`.
+///
+/// Commonly placed between a convolutional block and a `Dense` layer. The
+/// reshape is zero-copy (storage is reinterpreted, not reallocated); backpropagation
+/// simply re-shapes the gradient back to the original 3D form.
 public final class Flatten: BaseLayer {
   /// Default initializer for Flatten layer.
   /// - Parameters:

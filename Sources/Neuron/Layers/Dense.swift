@@ -8,7 +8,12 @@
 import Foundation
 import NumSwift
 
-/// A fully connected layer that performs a `sum(wx) + b` operation using matrix multiplication.
+/// A fully connected (linear) layer that applies a learned weight matrix and optional bias.
+///
+/// Expects 1D input tensors of shape `[N, 1, 1]` — place a `Flatten` layer upstream
+/// if the preceding layer produces 2D or 3D tensors. The forward pass computes `xW^T + b`
+/// where `W` has shape `[nodes × inputCount]`. Gradients w.r.t. input are `δW` and
+/// gradients w.r.t. weights are `δ^T x`.
 public final class Dense: BaseLayer {
   private var nodes: Int
 

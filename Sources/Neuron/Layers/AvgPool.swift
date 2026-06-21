@@ -7,7 +7,12 @@
 import Foundation
 import NumSwift
 
-/// Will decrease the size of the input tensor by half using a max pooling technique.
+/// Reduces the spatial dimensions of an input tensor by computing the average value
+/// within each pooling window.
+///
+/// The output spatial size is `floor(input / kernelSize)` per axis. Unlike `MaxPool`,
+/// gradients during backpropagation are distributed uniformly across all positions
+/// in the pooling window rather than routed only to the maximum element.
 public final class AvgPool: BaseLayer {
 
   private var kernelSize: TensorSize

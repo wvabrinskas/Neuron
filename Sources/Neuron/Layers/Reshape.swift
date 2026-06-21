@@ -8,7 +8,11 @@
 import Foundation
 import NumSwift
 
-/// Will take the inputSize as `[M * N * K, 1, 1]` and output a tensor of size `[M, N, K]`
+/// Reshapes a flat 1D tensor `[N, 1, 1]` into a target 3D shape `[columns, rows, depth]`.
+///
+/// Acts as the inverse of `Flatten` and is typically used in decoder paths to restore
+/// spatial structure after a `Dense` layer. The total element count must be preserved
+/// (i.e. `N == columns × rows × depth`). Backpropagation simply re-flattens the gradient.
 public final class Reshape: BaseLayer {
   private let reshapeSize: TensorSize
   
