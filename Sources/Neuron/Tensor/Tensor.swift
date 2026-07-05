@@ -12,7 +12,9 @@ import NumSwiftC
 /// A protocol that wraps a `RangeExpression<Int>` for use in tensor subscript operations.
 /// Conforming types provide a `range` property used to slice tensor dimensions.
 public protocol TensorRange {
+  /// The concrete `RangeExpression<Int>` type used by a conforming type's `range` property.
   associatedtype T: RangeExpression<Int>
+  /// The range expression describing which indices along a tensor dimension are selected.
   var range: T { get }
 }
 

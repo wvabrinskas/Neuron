@@ -110,6 +110,12 @@ public final class MetalTensorStorage: TensorStorage {
     }
   }
 
+  /// Decodes a `MetalTensorStorage` from a single-value JSON array, allocating a new
+  /// MTLBuffer-backed buffer on the default system Metal device.
+  ///
+  /// - Parameter decoder: The decoder to read scalar data from.
+  /// - Throws: `DecodingError.dataCorrupted` if no default Metal device is available,
+  ///   or an error if the scalar array cannot be decoded.
   required convenience init(from decoder: Decoder) throws {
     let container = try decoder.singleValueContainer()
     let array = try container.decode([Tensor.Scalar].self)
