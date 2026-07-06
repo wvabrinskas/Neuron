@@ -376,6 +376,15 @@ public extension Tensor {
     return Tensor(storage: resultStorage, size: selfSize, context: context)
   }
   
+  /// Creates the backpropagation context for element-wise division of `self` by `value`.
+  ///
+  /// The gradient with respect to `value` (the denominator) is `-gradient * self / value^2`;
+  /// the gradient with respect to `self` (the numerator) is `gradient / value`. When `self`
+  /// and `value` share a computation graph, the computed gradient is also registered as a
+  /// branch gradient on the shared node.
+  ///
+  /// - Parameter value: The tensor `self` is being divided by.
+  /// - Returns: A `TensorContext` that computes the correct gradient depending on `wrt`.
   func divideContext(value: Tensor) -> TensorContext {
     let branchNode: Tensor? = if sharesGraph(with: value) {
       if self.graphChain.contains(value.id) {
@@ -422,6 +431,14 @@ public extension Tensor {
     return Tensor(storage: storage.copy(), size: size, context: divideContext(value: value))
   }
   
+  /// Creates the backpropagation context for element-wise multiplication of `self` by `value`.
+  ///
+  /// The gradient with respect to either operand is the incoming gradient multiplied by the
+  /// other operand's value. When `self` and `value` share a computation graph, the computed
+  /// gradient is also registered as a branch gradient on the shared node.
+  ///
+  /// - Parameter value: The tensor `self` is being multiplied by.
+  /// - Returns: A `TensorContext` that computes the correct gradient depending on `wrt`.
   func multiplyContext(value: Tensor) -> TensorContext {
     let branchNode: Tensor? = if sharesGraph(with: value) {
       if self.graphChain.contains(value.id) {
@@ -468,6 +485,14 @@ public extension Tensor {
     return Tensor(storage: storage.copy(), size: size, context: multiplyContext(value: value))
   }
   
+  /// Creates the backpropagation context for element-wise addition of `self` and `value`.
+  ///
+  /// The gradient with respect to both operands is simply the incoming gradient, passed
+  /// through unchanged. When `self` and `value` share a computation graph, the gradient is
+  /// also registered as a branch gradient on the shared node.
+  ///
+  /// - Parameter value: The tensor being added to `self`.
+  /// - Returns: A `TensorContext` that passes the incoming gradient through to both operands.
   func addContext(value: Tensor) -> TensorContext {
     let branchNode: Tensor? = if sharesGraph(with: value) {
       /*
@@ -529,6 +554,15 @@ public extension Tensor {
     return Tensor(storage: storage.copy(), size: size, context: addContext(value: value))
   }
   
+  /// Creates the backpropagation context for element-wise subtraction of `value` from `self`.
+  ///
+  /// The gradient with respect to `self` is the incoming gradient unchanged; the gradient
+  /// with respect to `value` is the incoming gradient negated. When `self` and `value` share
+  /// a computation graph, the computed gradient is also registered as a branch gradient on
+  /// the shared node.
+  ///
+  /// - Parameter value: The tensor being subtracted from `self`.
+  /// - Returns: A `TensorContext` that computes the correct gradient depending on `wrt`.
   func subtractContext(value: Tensor) -> TensorContext {
     let branchNode: Tensor? = if sharesGraph(with: value) {
       if self.graphChain.contains(value.id) {
