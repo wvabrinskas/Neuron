@@ -4,7 +4,7 @@ import Metal
 
 final class MetalTensorStorageIntegrationTests: XCTestCase {
 
-  /// Verifies MetalTensorStorage works when explicitly created (requires NEURON_USE_METAL_STORAGE for default).
+  /// Verifies MetalTensorStorage works when explicitly created.
   func testMetalTensorStorageExplicitCreation() throws {
     try XCTSkipIf(MTLCreateSystemDefaultDevice() == nil, "Metal not available")
     guard let device = MetalContext.shared.device else { return }

@@ -81,6 +81,8 @@ public struct LayerModelConverter {
       layer = try getLayer(layer: Mish.self, container: con)
     case .prelu:
       layer = try getLayer(layer: PReLu.self, container: con)
+    case .groupNormalize:
+      layer = try getLayer(layer: GroupNormalize.self, container: con)
     case .none:
       layer = nil
     }

@@ -159,10 +159,10 @@ public class TensorStorage {
     self._buffer = buffer
   }
   
-  // MARK: - Factory (Metal-backed when NEURON_USE_METAL_STORAGE is set)
+  // MARK: - Factory (Metal-backed)
 
   /// Creates storage for `count` elements.
-  /// Uses MetalTensorStorage when Metal is available and `NEURON_USE_METAL_STORAGE` is defined.
+  /// Uses MetalTensorStorage when Metal is available.
   /// Default: CPU-backed storage for best performance until GPU compute is implemented.
   public static func create(count: Int) -> TensorStorage {
   
