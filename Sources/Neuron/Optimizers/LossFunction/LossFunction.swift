@@ -28,6 +28,22 @@ public enum LossFunction {
   /// Smooths the one-hot targets by mixing them with a uniform prior, reducing overconfidence.
   /// The associated value is the smoothing factor `ε ∈ (0, 1)`.
   case crossEntropySoftmaxSmoothing(Tensor.Scalar)
+  /// Sparse categorical cross-entropy used without a preceding Softmax layer.
+  ///
+  /// Behaves like `.crossEntropy` but expects the label to be a tensor of **integer class
+  /// indices** rather than a one-hot encoded distribution. This avoids materializing large
+  /// one-hot label tensors when the number of classes is high.
+  ///
+  /// The label tensor is expected to carry one class index per prediction distribution. For a
+  /// prediction of size `(columns: C, rows: R, depth: D)` the label should be of size
+  /// `(columns: 1, rows: R, depth: D)`, where each value is the target class index in `0..<C`.
+  case sparseCrossEntropy
+  /// Sparse categorical cross-entropy optimized for use with a preceding Softmax layer.
+  ///
+  /// Behaves like `.crossEntropySoftmax` (its derivative simplifies to `predicted − oneHot(index)`)
+  /// but expects the label to be a tensor of **integer class indices** rather than a one-hot
+  /// encoded distribution. See `.sparseCrossEntropy` for the expected label layout.
+  case sparseCrossEntropySoftmax
   /// Binary cross-entropy loss used without a preceding Softmax layer.
   ///
   /// Suitable for binary or multi-label classification tasks. Does not assume a preceding activation.
@@ -66,6 +82,15 @@ public enum LossFunction {
   ///   eg. [[[1, 0], [0, 1]]] = 2 classes
   /// - Returns: The loss as a tensor object.
   public func calculate(_ predicted: Tensor, correct: Tensor) -> Tensor {
+    // Sparse variants accept a label tensor of integer class indices whose shape intentionally
+    // differs from the prediction, so they are handled before the one-hot shape check.
+    switch self {
+    case .sparseCrossEntropy, .sparseCrossEntropySoftmax:
+      return calculateSparse(predicted, correct: correct)
+    default:
+      break
+    }
+
     guard predicted.shape == correct.shape else {
       fatalError("predicted shape does not match correct shape")
     }
@@ -99,6 +124,47 @@ public enum LossFunction {
     }
     
     // Output shape: each depth has 1 row with `rows` columns (matching how rows map to loss values)
+    let resultSize = TensorSize(rows: 1, columns: rows, depth: depth)
+    return Tensor(storage: resultStorage, size: resultSize)
+  }
+
+  /// Calculates the sparse categorical cross-entropy loss.
+  ///
+  /// - Parameters:
+  ///   - predicted: Predicted probability distributions of size `(columns: C, rows: R, depth: D)`.
+  ///   - correct: Integer class indices of size `(columns: 1, rows: R, depth: D)`; each value
+  ///     is the target class index in `0..<C` for the corresponding distribution.
+  /// - Returns: A tensor of per-distribution losses of size `(columns: R, rows: 1, depth: D)`,
+  ///   mirroring the layout produced by the one-hot cross-entropy path.
+  private func calculateSparse(_ predicted: Tensor, correct: Tensor) -> Tensor {
+    let size = predicted.size
+    let depth = size.depth
+    let rows = size.rows
+    let cols = size.columns
+
+    let expectedLabelCount = depth * rows
+    guard correct.storage.count >= expectedLabelCount else {
+      fatalError("sparse cross entropy expects \(expectedLabelCount) class indices, received \(correct.storage.count)")
+    }
+
+    let resultStorage = TensorStorage.create(count: depth * rows)
+    let depthScalar = Tensor.Scalar(depth)
+
+    for d in 0..<depth {
+      let depthOffset = d * rows * cols
+      let labelDepthOffset = d * rows
+      for r in 0..<rows {
+        let classIndex = Int(correct.storage[labelDepthOffset + r])
+        guard classIndex >= 0 && classIndex < cols else {
+          fatalError("sparse cross entropy class index \(classIndex) is out of range 0..<\(cols)")
+        }
+
+        let p = predicted.storage[depthOffset + r * cols + classIndex]
+        let loss = (-1 * Tensor.Scalar.log(p + .stabilityFactor)) / depthScalar
+        resultStorage[d * rows + r] = loss
+      }
+    }
+
     let resultSize = TensorSize(rows: 1, columns: rows, depth: depth)
     return Tensor(storage: resultStorage, size: resultSize)
   }
@@ -180,6 +246,51 @@ public enum LossFunction {
          .binaryCrossEntropySoftmax:
       //only if Softmax is the modifier
       return predicted - correct
+
+    case .sparseCrossEntropySoftmax:
+      // Equivalent to the one-hot softmax derivative `predicted - correct`, but the one-hot
+      // vector is reconstructed on the fly from the sparse class indices.
+      let size = predicted.size
+      let cols = size.columns
+      let rows = size.rows
+      let depth = size.depth
+
+      let result = predicted.storage.copy()
+      for d in 0..<depth {
+        let depthOffset = d * rows * cols
+        let labelDepthOffset = d * rows
+        for r in 0..<rows {
+          let classIndex = Int(correct.storage[labelDepthOffset + r])
+          guard classIndex >= 0 && classIndex < cols else {
+            fatalError("sparse cross entropy class index \(classIndex) is out of range 0..<\(cols)")
+          }
+          let idx = depthOffset + r * cols + classIndex
+          result[idx] = result[idx] - 1
+        }
+      }
+      return Tensor(storage: result, size: size)
+
+    case .sparseCrossEntropy:
+      // Matches `.crossEntropy`: `-1 / p` at the true class index, zero elsewhere.
+      let size = predicted.size
+      let cols = size.columns
+      let rows = size.rows
+      let depth = size.depth
+
+      let result = TensorStorage.create(count: cols * rows * depth)
+      for d in 0..<depth {
+        let depthOffset = d * rows * cols
+        let labelDepthOffset = d * rows
+        for r in 0..<rows {
+          let classIndex = Int(correct.storage[labelDepthOffset + r])
+          guard classIndex >= 0 && classIndex < cols else {
+            fatalError("sparse cross entropy class index \(classIndex) is out of range 0..<\(cols)")
+          }
+          let idx = depthOffset + r * cols + classIndex
+          result[idx] = -1 / (predicted.storage[idx] + .stabilityFactor)
+        }
+      }
+      return Tensor(storage: result, size: size)
       
     case .binaryCrossEntropy,
          .minimaxBinaryCrossEntropy:
@@ -210,6 +321,18 @@ public enum LossFunction {
   ///   - correct: Ground-truth target values for the same sample.
   /// - Returns: Scalar loss value.
   public func calculate(_ predicted: [Tensor.Scalar], correct: [Tensor.Scalar]) -> Tensor.Scalar {
+    // Sparse variants receive a single class index in `correct`, so their element count
+    // intentionally differs from `predicted`. Handle them before the equal-count check.
+    switch self {
+    case .sparseCrossEntropy, .sparseCrossEntropySoftmax:
+      guard let first = correct.first else { return 0 }
+      let classIndex = Int(first)
+      guard classIndex >= 0 && classIndex < predicted.count else { return 0 }
+      return -1 * Tensor.Scalar.log(predicted[classIndex] + .stabilityFactor)
+    default:
+      break
+    }
+
     guard predicted.count == correct.count else {
       return 0
     }
@@ -251,6 +374,11 @@ public enum LossFunction {
       
       return sum / Tensor.Scalar(predicted.count)
       
+    case .sparseCrossEntropy, .sparseCrossEntropySoftmax:
+      // Handled above, before the equal-count guard, because the sparse label carries a single
+      // class index rather than a full one-hot vector.
+      return 0
+
     case .crossEntropySoftmax, .crossEntropy:
       // we just need index of max because we multiply by the label and in one-hot labels
       // all other's result in 0
