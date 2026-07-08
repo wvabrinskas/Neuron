@@ -385,6 +385,110 @@ final class LossFunctionTests: XCTestCase {
     XCTAssertEqual(loss, 0.0, accuracy: accuracy)
   }
 
+  // MARK: - Sparse Cross Entropy
+
+  func test_sparseCrossEntropy_calculateScalar() {
+    // correct index = 1, p = 0.7, -log(0.7) ≈ 0.35667
+    let predicted: [Tensor.Scalar] = [0.1, 0.7, 0.2]
+    let correct: [Tensor.Scalar] = [1.0]
+    let loss = LossFunction.sparseCrossEntropy.calculate(predicted, correct: correct)
+    XCTAssertEqual(loss, 0.35667, accuracy: accuracy)
+  }
+
+  func test_sparseCrossEntropy_calculateTensor() {
+    // predicted is a distribution over 3 classes; label is the single class index 1.
+    let predicted = Tensor([0.1, 0.7, 0.2], size: TensorSize(rows: 1, columns: 3, depth: 1))
+    let correct = Tensor([1.0], size: TensorSize(rows: 1, columns: 1, depth: 1))
+    let loss = LossFunction.sparseCrossEntropy.calculate(predicted, correct: correct)
+    XCTAssertEqual(loss.asScalar(), 0.35667, accuracy: accuracy)
+  }
+
+  func test_sparseCrossEntropy_derivative() {
+    // -1/p at the true class index, zero elsewhere: [0, -1/0.7, 0]
+    let size = TensorSize(rows: 1, columns: 3, depth: 1)
+    let predicted = Tensor([0.1, 0.7, 0.2], size: size)
+    let correct = Tensor([1.0], size: TensorSize(rows: 1, columns: 1, depth: 1))
+    let derivative = LossFunction.sparseCrossEntropy.derivative(predicted, correct: correct)
+    let expected = Tensor([0.0, -1.0 / 0.7, 0.0] as Tensor.Value, size: size)
+    XCTAssertTrue(derivative.isValueEqual(to: expected, accuracy: accuracy))
+  }
+
+  func test_sparseCrossEntropy_matchesCrossEntropy() {
+    // Sparse label (index) should produce the same loss as the one-hot cross entropy.
+    let predicted: [Tensor.Scalar] = [0.1, 0.7, 0.2]
+    let sparseLoss = LossFunction.sparseCrossEntropy.calculate(predicted, correct: [1.0])
+    let oneHotLoss = LossFunction.crossEntropy.calculate(predicted, correct: [0.0, 1.0, 0.0])
+    XCTAssertEqual(sparseLoss, oneHotLoss, accuracy: accuracy)
+  }
+
+  func test_sparseCrossEntropy_calculateTensor_multiDepth() {
+    // Verify per-depth losses are computed and divided by depthScalar.
+    let predicted = Tensor([0.1, 0.7, 0.2,   // depth 0
+                            0.2, 0.6, 0.2],   // depth 1
+                           size: TensorSize(rows: 1, columns: 3, depth: 2))
+    let correct = Tensor([1.0, 1.0], size: TensorSize(rows: 1, columns: 1, depth: 2))
+    let loss = LossFunction.sparseCrossEntropy.calculate(predicted, correct: correct)
+    // depth 0: -log(0.7) / 2 ≈ 0.17834
+    // depth 1: -log(0.6) / 2 ≈ 0.25541
+    XCTAssertEqual(loss.shape, [1, 1, 2])
+    XCTAssertEqual(loss.storage[0], 0.17834, accuracy: accuracy)
+    XCTAssertEqual(loss.storage[1], 0.25541, accuracy: accuracy)
+  }
+
+  // MARK: - Sparse Cross Entropy Softmax
+
+  func test_sparseCrossEntropySoftmax_calculateScalar() {
+    // Same forward formula as sparseCrossEntropy
+    let predicted: [Tensor.Scalar] = [0.1, 0.7, 0.2]
+    let correct: [Tensor.Scalar] = [1.0]
+    let loss = LossFunction.sparseCrossEntropySoftmax.calculate(predicted, correct: correct)
+    XCTAssertEqual(loss, 0.35667, accuracy: accuracy)
+  }
+
+  func test_sparseCrossEntropySoftmax_calculateTensor() {
+    let predicted = Tensor([0.1, 0.7, 0.2], size: TensorSize(rows: 1, columns: 3, depth: 1))
+    let correct = Tensor([1.0], size: TensorSize(rows: 1, columns: 1, depth: 1))
+    let loss = LossFunction.sparseCrossEntropySoftmax.calculate(predicted, correct: correct)
+    XCTAssertEqual(loss.asScalar(), 0.35667, accuracy: accuracy)
+  }
+
+  func test_sparseCrossEntropySoftmax_derivative() {
+    // predicted - oneHot(index): [0.1, 0.7-1, 0.2] = [0.1, -0.3, 0.2]
+    let size = TensorSize(rows: 1, columns: 3, depth: 1)
+    let predicted = Tensor([0.1, 0.7, 0.2], size: size)
+    let correct = Tensor([1.0], size: TensorSize(rows: 1, columns: 1, depth: 1))
+    let derivative = LossFunction.sparseCrossEntropySoftmax.derivative(predicted, correct: correct)
+    let expected = Tensor([0.1, -0.3, 0.2], size: size)
+    XCTAssertTrue(derivative.isValueEqual(to: expected, accuracy: accuracy))
+  }
+
+  func test_sparseCrossEntropySoftmax_derivative_matchesOneHot() {
+    // The sparse softmax derivative should equal the one-hot softmax derivative.
+    let size = TensorSize(rows: 1, columns: 3, depth: 1)
+    let predicted = Tensor([0.1, 0.7, 0.2], size: size)
+    let sparseCorrect = Tensor([1.0], size: TensorSize(rows: 1, columns: 1, depth: 1))
+    let oneHotCorrect = Tensor([0.0, 1.0, 0.0], size: size)
+    let sparseDerivative = LossFunction.sparseCrossEntropySoftmax.derivative(predicted, correct: sparseCorrect)
+    let oneHotDerivative = LossFunction.crossEntropySoftmax.derivative(predicted, correct: oneHotCorrect)
+    XCTAssertTrue(sparseDerivative.isValueEqual(to: oneHotDerivative, accuracy: accuracy))
+  }
+
+  func test_sparseCrossEntropySoftmax_derivative_multiDepth() {
+    // Two independent distributions, each with its own class index.
+    let size = TensorSize(rows: 1, columns: 3, depth: 2)
+    let predicted = Tensor([0.1, 0.7, 0.2,   // depth 0, index 1
+                            0.5, 0.3, 0.2],   // depth 1, index 0
+                           size: size)
+    let correct = Tensor([1.0, 0.0], size: TensorSize(rows: 1, columns: 1, depth: 2))
+    let derivative = LossFunction.sparseCrossEntropySoftmax.derivative(predicted, correct: correct)
+    // depth 0: [0.1, 0.7-1, 0.2] = [0.1, -0.3, 0.2]
+    // depth 1: [0.5-1, 0.3, 0.2] = [-0.5, 0.3, 0.2]
+    let expected = Tensor([0.1, -0.3, 0.2,
+                           -0.5, 0.3, 0.2],
+                          size: size)
+    XCTAssertTrue(derivative.isValueEqual(to: expected, accuracy: accuracy))
+  }
+
   // MARK: - Edge Cases
 
   func test_calculateScalar_mismatchedCountReturnsZero() {
