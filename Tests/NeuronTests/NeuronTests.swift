@@ -265,7 +265,38 @@ final class NeuronTests: XCTestCase {
     
     XCTAssert(backward.input.first?.shape == testData.shape)
   }
-  
+
+  func testReshape_multiDimension() {
+    let r: [Tensor.Scalar] = [1.1,1.2,1.3,
+                              1.4,1.5,1.6,
+                              1.4,1.5,1.6,
+                              2.1,2.2,2.3,
+                              2.4,2.5,2.6,
+                              2.4,2.5,2.6,
+                              2.1,2.2,2.3,
+                              2.4,2.5,2.6,
+                              2.4,2.5,2.6]
+
+    let tensorStorage = TensorStorage.create(from: r)
+
+    let testData = Tensor(storage: tensorStorage, size: .init(rows: 3, columns: 3, depth: 3))
+
+    let size = TensorSize(array: [1,1,27])
+
+    let layer = Reshape(to: size)
+    layer.inputSize = testData.size
+
+    let out = layer.forward(tensor: testData)
+    out.setGraph(testData)
+
+    XCTAssert(out.shape.tensorSize == size)
+
+    let backward = out.gradients(delta: out.detached(), wrt: testData)
+
+    XCTAssert(backward.input.first?.shape == testData.shape)
+  }
+
+
   func testMaxPool() {
     let r: [[[Tensor.Scalar]]] = [[[0,1,0],
                                    [0,2,0],
