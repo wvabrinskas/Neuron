@@ -8,7 +8,7 @@
 import Foundation
 import NumSwift
 
-/// Will take the inputSize as `[M * N * K, 1, 1]` and output a tensor of size `[M, N, K]`
+/// Will take the inputSize as `[M, N, K]` and output a tensor of size `[M, N, K]`
 public final class Reshape: BaseLayer {
   private let reshapeSize: TensorSize
   
@@ -71,10 +71,9 @@ public final class Reshape: BaseLayer {
   ///   - context: Network execution context.
   /// - Returns: Reshaped tensor with inverse-reshape backpropagation context.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
-    let tensorContext = TensorContext { inputs, gradient, wrt in
-      // Reshape gradient back to flat (the input was flattened)
-      let flatSize = TensorSize(rows: 1, columns: gradient.storage.count, depth: 1)
-      return (Tensor(storage: gradient.storage, size: flatSize), Tensor(), Tensor())
+    let tensorContext = TensorContext { [inputSize] inputs, gradient, wrt in
+      // Reshape gradient back to inputSize
+      return (Tensor(storage: gradient.storage, size: inputSize), Tensor(), Tensor())
     }
     
     // Reshape: reinterpret the flat storage with the new shape
