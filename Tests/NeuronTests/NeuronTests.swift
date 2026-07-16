@@ -254,8 +254,8 @@ final class NeuronTests: XCTestCase {
     let size = TensorSize(array: [3,3,3])
     
     let layer = Reshape(to: size)
-    layer.inputSize = r.shape.tensorSize
-    
+    layer.inputSize = testData.size
+
     let out = layer.forward(tensor: testData)
     out.setGraph(testData)
     

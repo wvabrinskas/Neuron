@@ -8,7 +8,7 @@
 import Foundation
 import NumSwift
 
-/// Will take the inputSize as `[M, N, K]` and output a tensor of size `[M, N, K]`
+/// Will take the inputSize as `[M, N, K]` and output a tensor of new size `[M', N', K']`
 public final class Reshape: BaseLayer {
   private let reshapeSize: TensorSize
   
