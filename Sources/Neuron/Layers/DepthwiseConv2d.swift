@@ -67,6 +67,8 @@ public class DepthwiseConv2d: BaseConvolutionalLayer {
   ///   - initializer: Strategy used to initialise filter weights. Default: `.heNormal`
   ///   - biasEnabled: When `true`, a scalar bias is added to every output element in each channel.
   ///     Default: `false`
+  ///   - linkId: Set this to reference the output of this layer in an arithmetic layer. eg a Shortcut path
+  ///   - encodingType: Serialized layer type identifier. Default: `.depthwiseConv2d`
   public init(inputSize: TensorSize? = nil,
               strides: (rows: Int, columns: Int) = (1,1),
               padding: NumSwift.ConvPadding = .valid,

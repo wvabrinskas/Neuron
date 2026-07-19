@@ -75,9 +75,10 @@ public enum EncodingType: String, Codable {
   case mish
   /// Parametric ReLU activation layer.
   case prelu
-  
+
+  /// Group normalization layer.
   case groupNormalize
-  
+
   /// Sentinel value indicating no layer type.
   case none
 }

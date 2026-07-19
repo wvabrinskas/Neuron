@@ -15,6 +15,7 @@ public typealias VectorizingDatasetData = (training: [DatasetModel], val: [Datas
 /// Conforming types provide a vectorizer, vocabulary size, and methods
 /// for encoding items as one-hot tensors or index-based tensors.
 public protocol VectorizingDataset {
+  /// The element type this dataset vectorizes, currently fixed to `String`.
   typealias Item = String
   /// The vectorizer used to encode and decode dataset items.
   var vectorizer: Vectorizer { get }

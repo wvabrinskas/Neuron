@@ -181,6 +181,9 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
   // MARK: - Forward
 
   /// Accumulates per-channel sums for one tensor during synchronized batching.
+  /// - Parameters:
+  ///   - tensor: The tensor whose per-channel sums and sum-of-squares are accumulated.
+  ///   - context: Network execution context carrying batch/thread metadata.
   public override func performThreadBatchingForwardPass(tensor: Tensor, context: NetworkContext) {
     guard isTraining else { return }
     let sliceSize = inputSize.rows * inputSize.columns
@@ -199,6 +202,10 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
   ///
   /// Must be called **after** `forward(tensorBatch:context:)` has accumulated
   /// all batch members via `performThreadBatchingForwardPass`.
+  /// - Parameters:
+  ///   - tensor: Input tensor for this batch member.
+  ///   - context: Network execution context.
+  /// - Returns: Normalized output tensor with attached gradient context.
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     let localIterations = iterations.load(ordering: .relaxed)
 
@@ -233,6 +240,9 @@ public final class BatchNormalize: BaseThreadBatchingLayer {
   // MARK: - Apply
 
   /// Updates gamma/beta, moving stats, then resets batch accumulators.
+  /// - Parameters:
+  ///   - gradients: Weight and bias gradients for this layer (unused; gamma/beta are updated from internally accumulated deltas).
+  ///   - learningRate: Learning rate applied when updating gamma and beta.
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     super.apply(gradients: gradients, learningRate: learningRate)
 

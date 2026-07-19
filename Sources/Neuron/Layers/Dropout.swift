@@ -26,6 +26,7 @@ public final class Dropout: BaseLayer {
   /// - Parameters:
   ///   - chance: Percent change between 0 and 1 of an input node dropping out
   ///   - inputSize: Optional input size at this layer. If this is the first layer you will need to set this.
+  ///   - linkId: A unique string identifier for this layer link. Defaults to a new UUID string.
   public init(_ chance: Tensor.Scalar,
               inputSize: TensorSize? = nil,
               linkId: String = UUID().uuidString) {
@@ -60,6 +61,7 @@ public final class Dropout: BaseLayer {
   /// Encodes dropout configuration.
   ///
   /// - Parameter encoder: Encoder used for serialization.
+  /// - Throws: An error if any value fails to encode.
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
