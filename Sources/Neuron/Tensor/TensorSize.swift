@@ -103,6 +103,7 @@ public struct TensorSize: Codable, Equatable, Comparable {
   ///   - rows: Number that defines the row count
   ///   - columns: Number that defines the column count
   ///   - depth: Number that defines the depth count
+  ///   - batchCount: Number that defines the batch count. Defaults to `1`.
   public init(rows: Int = 0, columns: Int = 0, depth: Int = 0, batchCount: Int = 1) {
     self.rows = rows
     self.columns = columns

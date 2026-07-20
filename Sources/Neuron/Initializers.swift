@@ -215,6 +215,8 @@ public struct Initializer {
   }
 }
 
+/// Adds `Codable` conformance to `Initializer`, encoding/decoding via `CodingKeys` so the
+/// selected `InitializerType` (including its associated `std`/`gain` values) round-trips correctly.
 extension Initializer: Codable {
   /// Encodes the initializer strategy.
   ///

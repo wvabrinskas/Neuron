@@ -1183,6 +1183,10 @@ public extension Tensor {
   }
   
   /// Performs element-wise addition between two tensors with automatic broadcasting support.
+  /// - Parameters:
+  ///   - lhs: The left-hand side tensor.
+  ///   - rhs: The right-hand side tensor, broadcast against `lhs` if its shape allows.
+  /// - Returns: A new `Tensor` containing the element-wise sum, wired into the autograd graph.
   static func +(lhs: Tensor, rhs: Tensor) -> Tensor {
     if let axis = Tensor.axisToApplyAlong(selfSize: lhs.size,
                                           size: rhs.size) {
@@ -1213,6 +1217,10 @@ public extension Tensor {
   }
   
   /// Performs element-wise subtraction between two tensors with automatic broadcasting support.
+  /// - Parameters:
+  ///   - lhs: The tensor to subtract from.
+  ///   - rhs: The tensor to subtract, broadcast against `lhs` if its shape allows.
+  /// - Returns: A new `Tensor` containing the element-wise difference, wired into the autograd graph.
   static func -(lhs: Tensor, rhs: Tensor) -> Tensor {
     if let axis = Tensor.axisToApplyAlong(selfSize: lhs.size,
                                           size: rhs.size) {
@@ -1243,6 +1251,10 @@ public extension Tensor {
   }
   
   /// Performs element-wise multiplication between two tensors with automatic broadcasting support.
+  /// - Parameters:
+  ///   - lhs: The left-hand side tensor.
+  ///   - rhs: The right-hand side tensor, broadcast against `lhs` if its shape allows.
+  /// - Returns: A new `Tensor` containing the element-wise product, wired into the autograd graph.
   static func *(lhs: Tensor, rhs: Tensor) -> Tensor {
     if let axis = Tensor.axisToApplyAlong(selfSize: lhs.size,
                                           size: rhs.size) {
@@ -1280,6 +1292,10 @@ public extension Tensor {
   }
   
   /// Performs element-wise division between two tensors with automatic broadcasting support.
+  /// - Parameters:
+  ///   - lhs: The numerator tensor.
+  ///   - rhs: The denominator tensor, broadcast against `lhs` if its shape allows.
+  /// - Returns: A new `Tensor` containing the element-wise quotient, wired into the autograd graph.
   static func /(lhs: Tensor, rhs: Tensor) -> Tensor {
     if let axis = Tensor.axisToApplyAlong(selfSize: lhs.size,
                                           size: rhs.size) {
