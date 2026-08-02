@@ -10,7 +10,9 @@ import NumSwift
 public final class GlobalAvgPool: BaseLayer {
   /// Creates a global-average-pooling layer.
   ///
-  /// - Parameter inputSize: Optional input shape; if supplied, output shape is derived immediately.
+  /// - Parameters:
+  ///   - inputSize: Optional input shape; if supplied, output shape is derived immediately.
+  ///   - linkId: A unique string identifier for this layer link. Defaults to a new UUID string.
   public init(inputSize: TensorSize = TensorSize(array: []),
               linkId: String = UUID().uuidString) {
     super.init(inputSize: inputSize,
@@ -43,6 +45,7 @@ public final class GlobalAvgPool: BaseLayer {
   /// Encodes global-average-pooling configuration.
   ///
   /// - Parameter encoder: Encoder used for serialization.
+  /// - Throws: An error if any value fails to encode.
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
