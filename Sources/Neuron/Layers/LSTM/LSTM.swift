@@ -176,9 +176,11 @@ public final class LSTM: BaseLayer {
   ///   - inputUnits: The number of inputs in the LSTM cell
   ///   - batchLength: The number samples (eg. letters) at a given time
   ///   - returnSequence: Determines if the layer returns all outputs of the sequence or just the last output. Default:   `true`
+  ///   - biasEnabled: Whether the gate and output biases are used. Default: `false`
   ///   - initializer: Initializer funciton to use
   ///   - hiddenUnits: Number of hidden use
   ///   - vocabSize: size of the expected vocabulary
+  ///   - linkId: Unique identifier used to link this layer's weights across serialization. Defaults to a new UUID string.
   public init(inputUnits: Int,
               batchLength: Int,
               returnSequence: Bool = true,
@@ -309,7 +311,9 @@ public final class LSTM: BaseLayer {
   
   /// The forward path for the LSTM layer. Should be preceeded by an `Embedding` layer.
   /// Emdedding input size expected is `(rows: 1, columns: inputUnits, depth: batchLength)`
-  /// - Parameter tensor: The `Embedding` input `Tensor`
+  /// - Parameters:
+  ///   - tensor: The `Embedding` input `Tensor`
+  ///   - context: Network context carrying batch metadata through the forward pass.
   /// - Returns: Depending on the state of `returnSequence` it will either returng the whole sequence of size
   /// `(rows: 1, columns: vocabSize, depth: batchLength)` or just the last output of the sequence of size
   /// `(rows: 1, columns: vocabSize, depth: 1)`

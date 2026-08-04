@@ -114,6 +114,7 @@ public final class GroupNormalize: BaseLayer {
   /// Encodes group-normalization parameters.
   ///
   /// - Parameter encoder: Encoder used for serialization.
+  /// - Throws: An error if any value fails to encode.
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
