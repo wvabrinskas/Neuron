@@ -8,42 +8,42 @@
 import Foundation
 import Logger
 
-protocol ImporterPayload: Sendable {}
-protocol ResultPayload {
+public protocol ImporterPayload: Sendable {}
+public protocol ResultPayload {
   var model: Sequential { get }
 }
 
-protocol Importer {
+public protocol Importer {
   associatedtype Payload: ImporterPayload
   associatedtype ResultingPayload: ResultPayload
   func fetch(payload: Payload, precompile: Bool) async throws -> ResultingPayload
 }
 
-struct BaseResultPayload: ResultPayload {
-  let model: Sequential
+public struct BaseResultPayload: ResultPayload {
+  public let model: Sequential
 }
 
-class BaseImporter<Payload: ImporterPayload, ResultingPayload: ResultPayload>: Importer, Logger {
-  var logLevel: LogLevel = .low
+public class BaseImporter<Payload: ImporterPayload, ResultingPayload: ResultPayload>: Importer, Logger {
+  public var logLevel: LogLevel = .low
   
-  enum ImporterError: Error {
+  public enum ImporterError: Error {
     case invalidURL
     case invalidResponse
     case invalidData
   }
   
-  let session: URLSession
+  public let session: URLSession
   
-  init(session: URLSession = .shared) {
+  public init(session: URLSession = .shared) {
     self.session = session
   }
   
-  func fetch(payload: Payload, precompile: Bool = false) async throws -> ResultingPayload {
+  public func fetch(payload: Payload, precompile: Bool = false) async throws -> ResultingPayload {
     // override
     fatalError("Do not use the BaseImporter, override this")
   }
 
-  func buildModel(data: Data) throws -> Sequential {
+  public func buildModel(data: Data) throws -> Sequential {
     let network: Result<Sequential, Error> = ExportHelper.buildModel(data)
     
     switch network {

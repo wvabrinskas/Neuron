@@ -9,29 +9,29 @@ import Foundation
 import AppleArchive
 import Accelerate
 
-struct RemotePayload: ImporterPayload, Sendable {
-  let url: String
+public struct RemotePayload: ImporterPayload, Sendable {
+  public let url: String
   
-  init(url: String) {
+  public init(url: String) {
     self.url = url
   }
 }
 
-enum RemoteResultPayloadStatus {
+public enum RemoteResultPayloadStatus {
   case cacheHit, cacheMiss
 }
 
-struct RemoteResultPayload: ResultPayload {
-  let model: Sequential
-  let status: RemoteResultPayloadStatus
+public struct RemoteResultPayload: ResultPayload {
+  public let model: Sequential
+  public let status: RemoteResultPayloadStatus
 }
 
 /// Generic importer that downloads a `smodel` file directly from a remove server.
 /// Expects the downloaded object to be a `.smodel` file.
-final class RemoteImporter: BaseImporter<RemotePayload, RemoteResultPayload> {
+public final class RemoteImporter: BaseImporter<RemotePayload, RemoteResultPayload> {
   private let cache: NSCache<NSString, NSData> = .init()
   
-  override func fetch(payload: RemotePayload, precompile: Bool = false) async throws -> RemoteResultPayload {
+  public override func fetch(payload: RemotePayload, precompile: Bool = false) async throws -> RemoteResultPayload {
     guard let url = URL(string: payload.url) else {
       throw ImporterError.invalidURL
     }
