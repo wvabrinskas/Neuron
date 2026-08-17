@@ -355,8 +355,6 @@ public class Conv2d: BaseConvolutionalLayer {
     let outRows = outputSize.rows
     let outCols = outputSize.columns
     let outSliceSize = outRows * outCols
-    let inputSliceSize = inputSize.rows * inputSize.columns
-    let filterSliceSize = filterSize.rows * filterSize.columns
 
     let resultStorage = TensorStorage.create(count: outSliceSize * filterCount)
 
