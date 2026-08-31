@@ -9,20 +9,31 @@ import Foundation
 import AppleArchive
 import Accelerate
 
+/// The payload for `RemoteImporter`, specifying the remote URL to download the model from.
 public struct RemotePayload: ImporterPayload, Sendable {
+  /// The URL string pointing to the remote `.smodel` file.
   public let url: String
-  
+
+  /// Creates a new remote payload.
+  /// - Parameter url: The URL string pointing to the remote `.smodel` file.
   public init(url: String) {
     self.url = url
   }
 }
 
+/// Indicates whether a `RemoteImporter` fetch was served from the local cache or downloaded fresh.
 public enum RemoteResultPayloadStatus {
-  case cacheHit, cacheMiss
+  /// The model data was served from the local in-memory cache.
+  case cacheHit
+  /// The model data was downloaded from the network.
+  case cacheMiss
 }
 
+/// The result payload returned by `RemoteImporter`, containing the imported model and its cache status.
 public struct RemoteResultPayload: ResultPayload {
+  /// The `Sequential` model produced by the import operation.
   public let model: Sequential
+  /// Whether the model data was served from cache or freshly downloaded.
   public let status: RemoteResultPayloadStatus
 }
 
@@ -31,6 +42,12 @@ public struct RemoteResultPayload: ResultPayload {
 public final class RemoteImporter: BaseImporter<RemotePayload, RemoteResultPayload> {
   private let cache: NSCache<NSString, NSData> = .init()
   
+  /// Downloads (or serves from cache) the `.smodel` file at `payload.url` and builds the model.
+  /// - Parameters:
+  ///   - payload: The remote URL to fetch the model from.
+  ///   - precompile: Whether the resulting model should be compiled immediately after import.
+  /// - Returns: The resulting payload containing the built model and cache status.
+  /// - Throws: `BaseImporter.ImporterError` if the URL is invalid or the downloaded data is unusable.
   public override func fetch(payload: RemotePayload, precompile: Bool = false) async throws -> RemoteResultPayload {
     guard let url = URL(string: payload.url) else {
       throw ImporterError.invalidURL
