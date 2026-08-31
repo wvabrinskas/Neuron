@@ -423,13 +423,12 @@ public final class LSTM: BaseLayer {
       let outputGateWeightGrads = gLayerTensors.depthSliceTensor(3)
       
       let hiddenOutputWeightGradients = gLayerTensors[..<hiddenUnits, ..<vocabSize, 4...]
-      
-      forgetGateWeightGrads.l2Normalize()
-      inputGateWeightGrads.l2Normalize()
-      gateGateWeightGrads.l2Normalize()
-      outputGateWeightGrads.l2Normalize()
-      hiddenOutputWeightGradients.l2Normalize()
-      
+
+      // NOTE: these gradients arrive already scaled by the optimizer (Adam bakes the
+      // learning rate into the delta), exactly like `Dense.apply`. Renormalizing them
+      // here would discard that scaling and turn every update into a fixed unit-L2-norm
+      // step, which never anneals as the gradient shrinks. Use `Optimizer.gradientClip`
+      // if the sequence gradients need bounding.
       self.forgetGateWeights = self.forgetGateWeights.copy() - forgetGateWeightGrads
       self.inputGateWeights = self.inputGateWeights.copy() - inputGateWeightGrads
       self.gateGateWeights = self.gateGateWeights.copy() - gateGateWeightGrads
