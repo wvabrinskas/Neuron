@@ -122,6 +122,7 @@ public class Adam: BaseOptimizer {
   /// Applies one Adam optimization step from accumulated gradients.
   public override func step() {
     var gradients = gradientAccumulator.accumulate()
+    inspectGradientNorms(gradients)
     
     if let clip = gradientClip {
       gradients = gradients.gradientL2NormClip(clip, metrics: metricsReporter)
@@ -219,7 +220,10 @@ public class Adam: BaseOptimizer {
       let mHat = m[i] * mCorrectionFactor
       let vHat = v[i] * vCorrectionFactor
 
-      var delta = learningRate * (mHat / (sqrt(vHat + eps)))
+      // eps sits outside the sqrt (standard Adam). Inside it, eps becomes a floor on vHat
+      // that silently shrinks the step for any parameter whose gradient is small relative
+      // to sqrt(eps), which makes the update depend on gradient scale (and on clipping).
+      var delta = learningRate * (mHat / (sqrt(vHat) + eps))
 
       if let decayValue = shouldDecay, i < weights.count {
         let decayLR = learningRate * decayValue * weights[i]

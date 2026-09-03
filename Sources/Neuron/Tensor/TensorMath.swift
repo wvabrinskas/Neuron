@@ -132,6 +132,10 @@ public extension Tensor {
   /// - Returns 2 if broadcasting along depth (Z axis)
   /// - Returns nil if tensors are not compatible for broadcasting
   static func axisToApplyAlong(selfSize: TensorSize, size: TensorSize) -> Int? {
+    // NOTE: identical shapes with a unit dimension (e.g. two (W,1,D) tensors) also match these
+    // rules and take the *Along path, which iterates by declared size. That is only safe when
+    // storage equals the declared size — see the asserts in the fast paths. Packed tensors
+    // must therefore never be ragged (`LSTM.weights` packs flat along axis -1 for this reason).
     if size.columns == selfSize.columns,
        size.rows == 1,
        size.depth == selfSize.depth {
@@ -168,6 +172,8 @@ public extension Tensor {
     let sliceSize = columns * rows
     let totalCount = sliceSize * depth
     guard totalCount > 0 else { return nil }
+    assert(storage.count == totalCount && value.storage.count == depth,
+           "broadcast fast path requires storage to match the declared size (got \(storage.count) for \(totalCount))")
 
     let resultStorage = TensorStorage.create(count: totalCount)
     let selfPtr = storage.pointer
@@ -252,6 +258,8 @@ public extension Tensor {
     let depth = selfSize.depth
     let totalCount = columns * rows * depth
     guard totalCount > 0 else { return nil }
+    assert(storage.count == totalCount && value.storage.count == inputSize.columns * inputSize.rows * inputSize.depth,
+           "broadcast fast path requires storage to match the declared size (got \(storage.count) for \(totalCount))")
 
     let resultStorage = TensorStorage.create(count: totalCount)
     let selfPtr = storage.pointer
