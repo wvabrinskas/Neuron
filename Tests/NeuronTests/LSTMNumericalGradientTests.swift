@@ -10,7 +10,7 @@ final class LSTMNumericalGradientTests: XCTestCase {
   private func check(steps: Int, gateScale: Tensor.Scalar) -> [GroupResult] {
     let inputUnits = 3, hidden = 4, vocab = 5
     let lstm = LSTM(inputUnits: inputUnits, batchLength: steps, returnSequence: true, biasEnabled: true,
-                    initializer: .xavierNormal, hiddenUnits: hidden, vocabSize: vocab, recurrentErrorClip: nil)
+                    initializer: .xavierNormal, hiddenUnits: hidden, vocabSize: vocab)
     for kp in [\LSTM.forgetGateWeights, \LSTM.inputGateWeights, \LSTM.gateGateWeights, \LSTM.outputGateWeights] {
       lstm[keyPath: kp] = Tensor(storage: lstm[keyPath: kp].storage * gateScale, size: lstm[keyPath: kp].size)
     }

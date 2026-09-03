@@ -43,17 +43,6 @@ public final class LSTM: BaseLayer {
   private var batchLength: Int
   private let returnSequence: Bool
   
-  /// Maximum L2 norm allowed for the hidden-state and cell-state errors carried backward
-  /// between timesteps during BPTT. Each timestep multiplies these errors by the recurrent
-  /// weights and gate derivatives, so without a bound they grow geometrically with sequence
-  /// length. When either error's norm exceeds this value it is rescaled (direction preserved)
-  /// before being handed to the previous timestep. `nil` (the default) disables the bound.
-  ///
-  /// With correct gradients the LSTM trains stably without it; it is an opt-in safety net for
-  /// very long sequences. It bounds the gradient at its source, which a global
-  /// `Optimizer.gradientClip` cannot do in front of a scale-invariant optimizer such as `Adam`.
-  public var recurrentErrorClip: Tensor.Scalar?
-  
   /// A flat, concatenated view of all gate weight tensors (forget, input, gate, output, and hidden-output).
   ///
   /// The groups have different shapes (gates are `(inputUnits + hiddenUnits) x hiddenUnits`, the
@@ -197,7 +186,6 @@ public final class LSTM: BaseLayer {
   ///   - initializer: Initializer funciton to use
   ///   - hiddenUnits: Number of hidden use
   ///   - vocabSize: size of the expected vocabulary
-  ///   - recurrentErrorClip: Optional maximum L2 norm of the hidden/cell errors carried between timesteps during BPTT. Default: `nil` (disabled)
   ///   - linkId: Unique identifier used to link this layer's weights across serialization. Defaults to a new UUID string.
   public init(inputUnits: Int,
               batchLength: Int,
@@ -206,7 +194,6 @@ public final class LSTM: BaseLayer {
               initializer: InitializerType = .xavierNormal,
               hiddenUnits: Int,
               vocabSize: Int,
-              recurrentErrorClip: Tensor.Scalar? = nil,
               linkId: String = UUID().uuidString) {
     let inputSize = TensorSize(rows: 1,
                                columns: vocabSize,
@@ -216,7 +203,6 @@ public final class LSTM: BaseLayer {
     self.inputUnits = inputUnits
     self.batchLength = batchLength
     self.returnSequence = returnSequence
-    self.recurrentErrorClip = recurrentErrorClip
     
     super.init(inputSize: inputSize,
                initializer: initializer,
@@ -249,7 +235,6 @@ public final class LSTM: BaseLayer {
          hiddenOutputBiases,
          batchLength,
          inputUnits,
-         recurrentErrorClip,
          linkId
   }
   
@@ -273,10 +258,6 @@ public final class LSTM: BaseLayer {
               linkId: linkId)
     
     self.biasEnabled = try container.decodeIfPresent(Bool.self, forKey: .biasEnabled) ?? false
-    // Absent key (older exports) or explicit `null` both mean disabled.
-    if container.contains(.recurrentErrorClip) {
-      self.recurrentErrorClip = try container.decodeIfPresent(Tensor.Scalar.self, forKey: .recurrentErrorClip)
-    }
     self.outputSize = try container.decodeIfPresent(TensorSize.self, forKey: .outputSize) ?? TensorSize(array: [])
     self.forgetGateWeights = try container.decodeIfPresent(Tensor.self, forKey: .forgetGateWeights) ?? Tensor()
     self.inputGateWeights = try container.decodeIfPresent(Tensor.self, forKey: .inputGateWeights) ?? Tensor()
@@ -330,7 +311,6 @@ public final class LSTM: BaseLayer {
     try container.encode(gateGateBiases, forKey: .gateGateBiases)
     try container.encode(outputGateBiases, forKey: .outputGateBiases)
     try container.encode(hiddenOutputBiases, forKey: .hiddenOutputBiases)
-    try container.encode(recurrentErrorClip, forKey: .recurrentErrorClip)
     try container.encode(linkId, forKey: .linkId)
   }
   
@@ -434,11 +414,6 @@ public final class LSTM: BaseLayer {
      dForgetGateWeights, dInputGateWeights, dGateGateWeights, dOutputGateWeights, hiddenOutputWeightGradients
      */
     if let grads = splitWeightGradients(gradients.weights) {
-      // NOTE: these gradients arrive already scaled by the optimizer (Adam bakes the
-      // learning rate into the delta), exactly like `Dense.apply`. Renormalizing them
-      // here would discard that scaling and turn every update into a fixed unit-L2-norm
-      // step, which never anneals as the gradient shrinks. Gradient growth across the
-      // sequence is bounded at its source by `recurrentErrorClip` in `backward`.
       self.forgetGateWeights = self.forgetGateWeights.copy() - grads.forget
       self.inputGateWeights = self.inputGateWeights.copy() - grads.input
       self.gateGateWeights = self.gateGateWeights.copy() - grads.gate
@@ -510,15 +485,6 @@ public final class LSTM: BaseLayer {
                                     gateGateBiases,
                                     outputGateBiases,
                                     hiddenOutputBiases])
-  }
-  
-  /// Rescales `error` so its L2 norm does not exceed `recurrentErrorClip`. Direction is preserved.
-  private func clipRecurrentError(_ error: Tensor) -> Tensor {
-    guard let clip = recurrentErrorClip else { return error }
-    let norm = error.l2Norm()
-    guard norm > clip else { return error }
-    // Storage-level arithmetic: the carried error needs no autograd graph.
-    return Tensor(storage: error.storage * (clip / norm), size: error.size)
   }
   
   private func backward(inputs: Tensor, gradient: Tensor, cellCache: [Cache]) -> TensorContext.TensorBackpropResult {
@@ -609,10 +575,10 @@ public final class LSTM: BaseLayer {
         wrtEmbeddingsTensor = embeddingError.concat(wrtEmbeddingsTensor, axis: 2)
       }
       
-      // Bound the errors carried into the previous timestep so BPTT cannot grow geometrically.
+      // carry the hidden and cell errors into the previous timestep
       if previousActivationError.size.depth > 0 && previousCellError.size.depth > 0 {
-        eat = clipRecurrentError(previousActivationError.depthSliceTensor(0))
-        ect = clipRecurrentError(previousCellError.depthSliceTensor(0))
+        eat = previousActivationError.depthSliceTensor(0)
+        ect = previousCellError.depthSliceTensor(0)
       }
     }
         

@@ -19,7 +19,6 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
     let inputUnits: Int
     let embeddingInitializer: InitializerType
     let lstmInitializer: InitializerType
-    let recurrentErrorClip: Tensor.Scalar?
 
     /// Creates LSTM architecture parameters for an RNN.
     ///
@@ -28,17 +27,14 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
     ///   - inputUnits: Embedding width fed into LSTM.
     ///   - embeddingInitializer: Initializer for embedding weights.
     ///   - lstmInitializer: Initializer for LSTM gate/output weights.
-    ///   - recurrentErrorClip: Optional per-timestep bound on the BPTT error norm. See `LSTM.recurrentErrorClip`.
     public init(hiddenUnits: Int,
                 inputUnits: Int,
                 embeddingInitializer: InitializerType = .xavierUniform,
-                lstmInitializer: InitializerType = .xavierUniform,
-                recurrentErrorClip: Tensor.Scalar? = nil) {
+                lstmInitializer: InitializerType = .xavierUniform) {
       self.hiddenUnits = hiddenUnits
       self.inputUnits = inputUnits
       self.embeddingInitializer = embeddingInitializer
       self.lstmInitializer = lstmInitializer
-      self.recurrentErrorClip = recurrentErrorClip
     }
   }
   
@@ -364,8 +360,7 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
                     biasEnabled: true,
                     initializer: lstmParameters.lstmInitializer,
                     hiddenUnits: lstmParameters.hiddenUnits,
-                    vocabSize: vocabSize,
-                    recurrentErrorClip: lstmParameters.recurrentErrorClip)
+                    vocabSize: vocabSize)
     
     let embedding = Embedding(inputUnits: lstmParameters.inputUnits,
                               vocabSize: vocabSize,

@@ -16,8 +16,8 @@ final class LSTMGradientTests: XCTestCase {
   private let batchLength = 24
   
   /// Builds an `Embedding -> LSTM` pair with gate weights scaled up so the recurrent
-  /// Jacobian has gain > 1 and BPTT grows across the sequence.
-  private func makeExplodingLSTM(recurrentErrorClip: Tensor.Scalar?) -> (embedding: Embedding, lstm: LSTM) {
+  /// Jacobian has gain > 1 and gradients are non-trivial across the sequence.
+  private func makeLSTM() -> (embedding: Embedding, lstm: LSTM) {
     let embedding = Embedding(inputUnits: inputUnits,
                               vocabSize: vocabSize,
                               batchLength: batchLength)
@@ -27,8 +27,7 @@ final class LSTMGradientTests: XCTestCase {
                     biasEnabled: true,
                     initializer: .xavierNormal,
                     hiddenUnits: hiddenUnits,
-                    vocabSize: vocabSize,
-                    recurrentErrorClip: recurrentErrorClip)
+                    vocabSize: vocabSize)
     
     func scaled(_ tensor: Tensor, by factor: Tensor.Scalar) -> Tensor {
       Tensor(storage: tensor.storage * factor, size: tensor.size)
@@ -63,65 +62,18 @@ final class LSTMGradientTests: XCTestCase {
     return packed.l2Norm()
   }
   
-  // MARK: - recurrentErrorClip
+  // MARK: - Backward pass
   
-  func test_LSTM_recurrentErrorClip_boundsBackpropagatedGradient() {
-    // Same weights for both runs: build once, then toggle the clip on the same instance.
-    let (embedding, lstm) = makeExplodingLSTM(recurrentErrorClip: nil)
-    let delta = Tensor.fillWith(value: 50, size: lstm.outputSize)
-    
-    let unclipped = weightGradientNorm(embedding: embedding, lstm: lstm, delta: delta)
-    
-    lstm.recurrentErrorClip = 1.0
-    let clipped = weightGradientNorm(embedding: embedding, lstm: lstm, delta: delta)
-    
-    XCTAssertTrue(unclipped.isFinite)
-    XCTAssertTrue(clipped.isFinite)
-    XCTAssertGreaterThan(clipped, 0)
-    XCTAssertLessThan(clipped, unclipped,
-                      "bounding the carried hidden/cell error should reduce the packed weight gradient (clipped: \(clipped), unclipped: \(unclipped))")
-  }
-  
-  func test_LSTM_recurrentErrorClip_nilLeavesGradientUnchanged() {
-    let (embedding, lstm) = makeExplodingLSTM(recurrentErrorClip: nil)
+  func test_LSTM_backward_isDeterministic() {
+    let (embedding, lstm) = makeLSTM()
     let delta = Tensor.fillWith(value: 50, size: lstm.outputSize)
     
     let first = weightGradientNorm(embedding: embedding, lstm: lstm, delta: delta)
     let second = weightGradientNorm(embedding: embedding, lstm: lstm, delta: delta)
     
-    XCTAssertEqual(first, second, accuracy: first * 1e-4, "backward should be deterministic with no clip")
-  }
-  
-  func test_LSTM_recurrentErrorClip_isSerialized() {
-    func roundTrip(_ clip: Tensor.Scalar?) throws -> Tensor.Scalar? {
-      let lstm = LSTM(inputUnits: inputUnits,
-                      batchLength: batchLength,
-                      hiddenUnits: hiddenUnits,
-                      vocabSize: vocabSize,
-                      recurrentErrorClip: clip)
-      let data = try JSONEncoder().encode(lstm)
-      return try JSONDecoder().decode(LSTM.self, from: data).recurrentErrorClip
-    }
-    
-    XCTAssertEqual(try roundTrip(1.0), 1.0)
-    XCTAssertEqual(try roundTrip(0.25), 0.25)
-    XCTAssertNil(try roundTrip(nil))
-  }
-  
-  func test_LSTM_recurrentErrorClip_defaultsWhenKeyMissing() throws {
-    // Models exported before the key existed decode with the default (disabled).
-    let lstm = LSTM(inputUnits: inputUnits,
-                    batchLength: batchLength,
-                    hiddenUnits: hiddenUnits,
-                    vocabSize: vocabSize)
-    let data = try JSONEncoder().encode(lstm)
-    
-    var json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-    json.removeValue(forKey: "recurrentErrorClip")
-    let legacy = try JSONSerialization.data(withJSONObject: json)
-    
-    let decoded = try JSONDecoder().decode(LSTM.self, from: legacy)
-    XCTAssertNil(decoded.recurrentErrorClip)
+    XCTAssertTrue(first.isFinite)
+    XCTAssertGreaterThan(first, 0)
+    XCTAssertEqual(first, second, accuracy: first * 1e-4)
   }
   
   // MARK: - Packed gradient layout
@@ -131,7 +83,7 @@ final class LSTMGradientTests: XCTestCase {
   /// declared size and read past the buffer, which showed up as an exploding global gradient
   /// norm coming from nowhere. Packed gradients must always be exactly their storage.
   func test_LSTM_packedGradients_declaredSizeMatchesStorage() {
-    let (embedding, lstm) = makeExplodingLSTM(recurrentErrorClip: 1.0)
+    let (embedding, lstm) = makeLSTM()
     let embedded = embedding.forward(tensor: makeInput())
     let out = lstm.forward(tensor: embedded, context: .init())
     out.setGraph(embedded)
@@ -164,7 +116,7 @@ final class LSTMGradientTests: XCTestCase {
   }
   
   func test_LSTM_apply_updatesEveryGroup() {
-    let (embedding, lstm) = makeExplodingLSTM(recurrentErrorClip: 1.0)
+    let (embedding, lstm) = makeLSTM()
     let embedded = embedding.forward(tensor: makeInput())
     let out = lstm.forward(tensor: embedded, context: .init())
     out.setGraph(embedded)
@@ -208,7 +160,7 @@ final class LSTMGradientTests: XCTestCase {
   }
   
   func test_globalGradientNorm_matchesPerTensorSum() {
-    let (embedding, lstm) = makeExplodingLSTM(recurrentErrorClip: 1.0)
+    let (embedding, lstm) = makeLSTM()
     let embedded = embedding.forward(tensor: makeInput())
     let out = lstm.forward(tensor: embedded, context: .init())
     out.setGraph(embedded)
