@@ -47,10 +47,11 @@ public final class LSTM: BaseLayer {
   /// between timesteps during BPTT. Each timestep multiplies these errors by the recurrent
   /// weights and gate derivatives, so without a bound they grow geometrically with sequence
   /// length. When either error's norm exceeds this value it is rescaled (direction preserved)
-  /// before being handed to the previous timestep. `nil` disables the bound. Defaults to `1.0`.
+  /// before being handed to the previous timestep. `nil` (the default) disables the bound.
   ///
-  /// This bounds the gradient at its source, which a global `Optimizer.gradientClip` cannot do
-  /// in front of a scale-invariant optimizer such as `Adam`.
+  /// With correct gradients the LSTM trains stably without it; it is an opt-in safety net for
+  /// very long sequences. It bounds the gradient at its source, which a global
+  /// `Optimizer.gradientClip` cannot do in front of a scale-invariant optimizer such as `Adam`.
   public var recurrentErrorClip: Tensor.Scalar?
   
   /// A flat, concatenated view of all gate weight tensors (forget, input, gate, output, and hidden-output).
@@ -196,7 +197,7 @@ public final class LSTM: BaseLayer {
   ///   - initializer: Initializer funciton to use
   ///   - hiddenUnits: Number of hidden use
   ///   - vocabSize: size of the expected vocabulary
-  ///   - recurrentErrorClip: Maximum L2 norm of the hidden/cell errors carried between timesteps during BPTT. `nil` disables. Default: `1.0`
+  ///   - recurrentErrorClip: Optional maximum L2 norm of the hidden/cell errors carried between timesteps during BPTT. Default: `nil` (disabled)
   ///   - linkId: Unique identifier used to link this layer's weights across serialization. Defaults to a new UUID string.
   public init(inputUnits: Int,
               batchLength: Int,
@@ -205,7 +206,7 @@ public final class LSTM: BaseLayer {
               initializer: InitializerType = .xavierNormal,
               hiddenUnits: Int,
               vocabSize: Int,
-              recurrentErrorClip: Tensor.Scalar? = 1.0,
+              recurrentErrorClip: Tensor.Scalar? = nil,
               linkId: String = UUID().uuidString) {
     let inputSize = TensorSize(rows: 1,
                                columns: vocabSize,
@@ -272,7 +273,7 @@ public final class LSTM: BaseLayer {
               linkId: linkId)
     
     self.biasEnabled = try container.decodeIfPresent(Bool.self, forKey: .biasEnabled) ?? false
-    // Models exported before this key existed keep the default; an explicit `null` means disabled.
+    // Absent key (older exports) or explicit `null` both mean disabled.
     if container.contains(.recurrentErrorClip) {
       self.recurrentErrorClip = try container.decodeIfPresent(Tensor.Scalar.self, forKey: .recurrentErrorClip)
     }

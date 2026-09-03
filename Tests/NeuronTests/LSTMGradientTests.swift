@@ -105,11 +105,11 @@ final class LSTMGradientTests: XCTestCase {
     
     XCTAssertEqual(try roundTrip(1.0), 1.0)
     XCTAssertEqual(try roundTrip(0.25), 0.25)
-    XCTAssertNil(try roundTrip(nil), "an explicit nil (disabled) must survive a round trip")
+    XCTAssertNil(try roundTrip(nil))
   }
   
   func test_LSTM_recurrentErrorClip_defaultsWhenKeyMissing() throws {
-    // Models exported before the key existed decode with the default bound.
+    // Models exported before the key existed decode with the default (disabled).
     let lstm = LSTM(inputUnits: inputUnits,
                     batchLength: batchLength,
                     hiddenUnits: hiddenUnits,
@@ -121,7 +121,7 @@ final class LSTMGradientTests: XCTestCase {
     let legacy = try JSONSerialization.data(withJSONObject: json)
     
     let decoded = try JSONDecoder().decode(LSTM.self, from: legacy)
-    XCTAssertEqual(decoded.recurrentErrorClip, 1.0)
+    XCTAssertNil(decoded.recurrentErrorClip)
   }
   
   // MARK: - Packed gradient layout
