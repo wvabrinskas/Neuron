@@ -46,6 +46,7 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
     let eps: Tensor.Scalar
     let weightDecay: Adam.WeightDecay
     let metricsReporter: MetricsReporter?
+    let gradientClip: Tensor.Scalar?
     
     /// Creates optimizer hyperparameters for RNN training.
     ///
@@ -61,6 +62,7 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
                 b2: Tensor.Scalar = 0.999,
                 eps: Tensor.Scalar = .stabilityFactor,
                 weightDecay: Adam.WeightDecay = .none,
+                gradientClip: Tensor.Scalar? = nil,
                 metricsReporter: MetricsReporter? = nil) {
       self.learningRate = learningRate
       self.b1 = b1
@@ -68,6 +70,7 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
       self.eps = eps
       self.metricsReporter = metricsReporter
       self.weightDecay = weightDecay
+      self.gradientClip = gradientClip
     }
   }
   
@@ -155,7 +158,7 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
                          b2: optimizerParameters.b2,
                          eps: optimizerParameters.eps,
                          weightDecay: optimizerParameters.weightDecay,
-                         gradientClip: nil)
+                         gradientClip: optimizerParameters.gradientClip)
     
     optimizer.deviceType = device
     optimizer.metricsReporter = optimizerParameters.metricsReporter
@@ -261,6 +264,7 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
       
       if let with {
         batchTensor = dataset.vectorize([with])
+        
         name += with
 
       } else {
