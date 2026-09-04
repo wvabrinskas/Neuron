@@ -12,7 +12,7 @@ import Foundation
 public typealias TokenizerCorpus = [String]
 
 /// A protocol that defines tokenization capabilities with support for encoding, decoding, and exporting trained models.
-public protocol Tokenizing: Exportable {
+public protocol Tokenizing: Exportable, Importable {
   /// Trains the tokenizer on the given corpus, building the vocabulary and merge rules.
   ///
   /// - Parameter corpus: An array of text strings used to fit the tokenizer.
@@ -29,13 +29,14 @@ public protocol Tokenizing: Exportable {
   /// - Parameter ids: The integer token IDs to decode.
   /// - Returns: The reconstructed text string.
   func decode(_ ids: [Int]) -> String
+  
 }
 
 /// A base Byte Pair Encoding (BPE) tokenizer that learns subword merge rules from a text corpus.
 ///
 /// Subclasses may override `train(_:)`, `encode(_:)`, and `decode(_:)` to customise tokenization behaviour.
 /// The learned vocabulary and merge rules are serializable via the `Exportable` protocol.
-open class BaseTokenizer: Tokenizing {
+open class BPETokenizer: Tokenizing {
   private var vocab: [String: Int] = [:]
   private var reverseVocab: [Int: String] = [:]
   
@@ -245,6 +246,35 @@ open class BaseTokenizer: Tokenizing {
     
     return dUrl
   }
+  
+  /// Reconstructs a `Sequential` model directly from encoded model data.
+  ///
+  /// - Parameter data: Serialized model bytes.
+  /// - Returns: Decoded `Sequential` instance.
+  public static func `import`(_ data: Data) -> Self {
+    let result: Result<Self, Error> =  ExportHelper.buildModel(data)
+    switch result {
+    case .success(let model):
+      return model
+    case .failure(let error):
+      preconditionFailure(error.localizedDescription)
+    }
+  }
+  
+  /// Reconstructs a `Vectorizer` model from a serialized `.stkns` file URL.
+  ///
+  /// - Parameter url: File URL pointing to a previously exported model.
+  /// - Returns: Decoded `Sequential` instance.
+  public static func `import`(_ url: URL) -> Self {
+    let result: Result<Self, Error> =  ExportHelper.buildModel(url)
+    switch result {
+    case .success(let model):
+      return model
+    case .failure(let error):
+      preconditionFailure(error.localizedDescription)
+    }
+  }
+  
     
   private func applyMerge(
     wordFreqs: [String: Int],

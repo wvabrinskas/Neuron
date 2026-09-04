@@ -325,7 +325,7 @@ final class FullModelTests: XCTestCase {
     reporter.receive = { _ in }
     
     rnn.onEpochCompleted = {
-      let r = rnn.predict(count: 10, maxWordLength: 20, randomizeSelection: false)
+      let r = rnn.predict(count: 10, maxTokenCount: 20, randomizeSelection: false)
       print(r)
       
       let exports = rnn.exportWithVectors(overrite: true, compress: true)

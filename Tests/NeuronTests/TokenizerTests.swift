@@ -18,9 +18,9 @@ final class TokenizerTests: XCTestCase {
   ]
 
   private func makeTrainedTokenizer(corpus: [String]? = nil,
-                                    vocabSize: Int = 50) -> BaseTokenizer {
+                                    vocabSize: Int = 50) -> BPETokenizer {
     let corpus = corpus ?? defaultCorpus
-    let tokenizer = BaseTokenizer(targetVocabSize: vocabSize)
+    let tokenizer = BPETokenizer(targetVocabSize: vocabSize)
     tokenizer.train(corpus: corpus)
     return tokenizer
   }
@@ -37,7 +37,7 @@ final class TokenizerTests: XCTestCase {
 
   func test_train_vocabDoesNotExceedTargetSize() {
     // Use a tiny corpus so BPE merges are bounded by targetVocabSize
-    let tokenizer = BaseTokenizer(targetVocabSize: 10)
+    let tokenizer = BPETokenizer(targetVocabSize: 10)
     tokenizer.train(corpus: ["ab"])
     // Vocab size should be <= targetVocabSize (training stops when reached)
     // We can verify indirectly: encoding should still work
@@ -71,7 +71,7 @@ final class TokenizerTests: XCTestCase {
 
   func test_encode_unknownCharacter_fallsBackToUnkToken() {
     // Train on a small corpus that won't contain 'Z'
-    let tokenizer = BaseTokenizer(targetVocabSize: 30)
+    let tokenizer = BPETokenizer(targetVocabSize: 30)
     tokenizer.train(corpus: ["abc"])
     // Encode a character never seen during training
     let ids = tokenizer.encode("Z")
@@ -137,7 +137,7 @@ final class TokenizerTests: XCTestCase {
 
   func test_bpe_repeatedSubword_isMerged() {
     // "aa" repeated in corpus should produce a "aa" token via BPE
-    let tokenizer = BaseTokenizer(targetVocabSize: 20)
+    let tokenizer = BPETokenizer(targetVocabSize: 20)
     tokenizer.train(corpus: ["aa aa aa aa aa"])
     // After training, "aa" should be encodeable as fewer tokens than 2 characters
     let ids = tokenizer.encode("aa")
@@ -179,7 +179,7 @@ final class TokenizerTests: XCTestCase {
       return
     }
 
-    let result: Result<BaseTokenizer, Error> = ExportHelper.buildModel(url)
+    let result: Result<BPETokenizer, Error> = ExportHelper.buildModel(url)
     guard case .success(let imported) = result else {
       XCTFail("Import failed: \(result)")
       return
@@ -198,7 +198,7 @@ final class TokenizerTests: XCTestCase {
       return
     }
 
-    let result: Result<BaseTokenizer, Error> = ExportHelper.buildModel(url)
+    let result: Result<BPETokenizer, Error> = ExportHelper.buildModel(url)
     guard case .success(let imported) = result else {
       XCTFail("Import failed: \(result)")
       return
@@ -218,7 +218,7 @@ final class TokenizerTests: XCTestCase {
       return
     }
 
-    let result: Result<BaseTokenizer, Error> = ExportHelper.buildModel(data)
+    let result: Result<BPETokenizer, Error> = ExportHelper.buildModel(data)
     guard case .success(let imported) = result else {
       XCTFail("Import from Data failed")
       return
@@ -264,7 +264,7 @@ final class TokenizerTests: XCTestCase {
         "a vocabulary is built by merging the most frequent pairs of tokens iteratively"
     ]
     
-    let tokenizer = BaseTokenizer(targetVocabSize: 100)
+    let tokenizer = BPETokenizer(targetVocabSize: 100)
     tokenizer.train(corpus: corpus)
     
     // Encoding a known character should not fall back to <unk>
