@@ -9,7 +9,7 @@ import Foundation
 import NumSwift
 
 /// A recurrent neural network classifier that operates on a vectorizing dataset of `String` items.
-public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == String {
+public class RNN<Dataset: TokenizingDataset>: Classifier where Dataset.Item == String {
   
   //public typealias Dataset = VectorizingDataset
   
@@ -93,13 +93,12 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
     public init(batchSize: Int,
                 epochs: Int,
                 accuracyThreshold: AccuracyThreshold = .init(value: 0.9, averageCount: 5),
-                killOnAccuracy: Bool = true,
-                lossFunction: LossFunction = .crossEntropySoftmax) {
+                killOnAccuracy: Bool = true) {
       self.batchSize = batchSize
       self.epochs = epochs
       self.accuracyThreshold = accuracyThreshold
       self.killOnAccuracy = killOnAccuracy
-      self.lossFunction = lossFunction
+      self.lossFunction = .sparseCrossEntropySoftmax
     }
   }
   
@@ -264,7 +263,7 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
       var batchTensor: Tensor
       
       if let with {
-        batchTensor = dataset.vectorize([with])
+        batchTensor = dataset.tokenize(with)
         
         name += with
 
@@ -274,7 +273,7 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
         batchTensor = Tensor.fillWith(value: index, size: .init(rows: 1, columns: 1, depth: 1))
         
         // append random token
-        let unvec = dataset.getWord(for: batchTensor, oneHot: false).joined()
+        let unvec = dataset.item(for: batchTensor)
         name += unvec
       }
       
@@ -284,7 +283,6 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
 
       while runningChar != endingMark && currentTokenCount < maxTokenCount {
         
-        // still 1 hot encoding
         let out = optimizer.predict([batchTensor])
         
         guard let outTensor = out[safe: 0],
@@ -295,22 +293,11 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
         // Get the last depth slice (last timestep output)
         let lastDepthIdx = batchTensor.size.depth - 1
         let lastSlice = outTensor.depthSlice(min(lastDepthIdx, outTensor.size.depth - 1))
-        let flat = Array(lastSlice)
+        // convert to a Scalar because the labels will now be tokenized labels where can use sparseCrossEntropy.
+        // eg. [[[12]][[23]][[45][[45]]]
+        let value: Tensor.Scalar = lastSlice.first ?? 0
       
-        var v: Tensor.Value = Tensor.Value(repeating: 0, count: flat.count)
-        
-        let indexToChoose: Int
-        if randomizeSelection {
-          indexToChoose = NumSwift.randomChoice(in: Array(0..<vocabSize), p: flat).1
-        } else {
-          indexToChoose = Int(flat.indexOfMax.0)
-        }
-        
-        v[indexToChoose] = 1
-        
-        // one hot because we're predicting based on the output which is trained on the labels which are expected to be one-hot encoded
-        // TODO: how do we enforce this? 
-        let unvec = dataset.getWord(for: Tensor(v, size: .init(rows: 1, columns: flat.count, depth: 1)), oneHot: true).joined()
+        let unvec = dataset.item(for: Tensor(value))
         
         runningChar = unvec
         if delimiter.isEmpty == false {
@@ -319,7 +306,7 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
         name += unvec
         
         // vectorize again to append to batch using Tensor concat
-        let vectorizedLetter = dataset.vectorize([unvec])
+        let vectorizedLetter = dataset.tokenize(unvec)
         if vectorizedLetter.size.depth > 0 {
           let letterSlice = vectorizedLetter.depthSliceTensor(0)
           batchTensor = batchTensor.concat(letterSlice, axis: 2)

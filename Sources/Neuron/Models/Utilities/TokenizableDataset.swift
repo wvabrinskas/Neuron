@@ -33,7 +33,7 @@ public protocol TokenizingDataset {
   ///   - data: Tensor to decode.
   ///   - oneHot: Whether `data` is one-hot encoded.
   /// - Returns: Decoded item sequence.
-  func getWord(for data: Tensor) -> Item
+  func item(for data: Tensor) -> Item
   /// Builds training and validation datasets for RNN training.
   ///
   /// - Returns: Tuple containing training and validation datasets.
@@ -82,6 +82,7 @@ open class TokenizableDataset: TokenizingDataset {
   /// - Parameter vectorizer: Vectorizer used to encode and decode dataset items.
   public required init(tokenizer: Tokenizer) {
     self.tokenizer = tokenizer
+    self.vocabSize = tokenizer.vocabSize
   }
 
 /// Creates a dataset instance by importing a vectorizer from a file URL.
@@ -125,7 +126,7 @@ open class TokenizableDataset: TokenizingDataset {
   ///   - data: Tensor to decode.
   ///   - oneHot: Whether `data` uses one-hot encoding.
   /// - Returns: Decoded vector items.
-  public func getWord(for data: Tensor) -> String {
+  public func item(for data: Tensor) -> String {
     let intArray = data.storage.map { Int($0) }
     return tokenizer.decode(intArray)
   }

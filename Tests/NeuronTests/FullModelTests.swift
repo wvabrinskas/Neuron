@@ -10,7 +10,7 @@ import XCTest
 import NumSwift
 @testable import Neuron
 
-class MockRNNDataset: VectorizableDataset {
+class MockRNNDataset: TokenizableDataset {
   private let inputStrings: [String]
   private let labelStrings: [String]
   private let maxLength: Int
@@ -20,7 +20,8 @@ class MockRNNDataset: VectorizableDataset {
   init(inputStrings: [String], 
        labelStrings: [String]? = nil,
        trainingCount: Int = 256,
-       validationCount: Int = 10) {
+       validationCount: Int = 10,
+       targetVocabSize: Int) {
     self.inputStrings = inputStrings
     // If labels not provided, derive by removing first character
     self.labelStrings = labelStrings ?? inputStrings.map { 
@@ -30,35 +31,33 @@ class MockRNNDataset: VectorizableDataset {
     self.trainingCount = trainingCount
     self.validationCount = validationCount
     
-    super.init()
+    super.init(tokenizer: .init(targetVocabSize: targetVocabSize))
   }
   
-  required init(vectorizer: Vectorizer = .init()) {
-    fatalError("init(vectorizer:) has not been implemented")
+  required init(tokenizer: TokenizableDataset.Tokenizer) {
+    fatalError("init(tokenizer:) has not been implemented")
   }
   
   override func build() async -> Neuron.VectorizingDatasetData {
-    // First pass: vectorize all inputs to build vocabulary
-    for inputString in inputStrings {
-      vectorizer.vectorize(inputString.fill(with: ".",
-                                            max: maxLength).characters)
-    }
+    
+    // train the tokenizer
+    tokenizer.train(corpus: inputStrings)
     
     // Process each input-label pair
     var inputTensors: [Tensor] = []
     var labelTensors: [Tensor] = []
     
     for (inputString, labelString) in zip(inputStrings, labelStrings) {
-      let oneHot = vectorizer.oneHot(labelString.fill(with: ".",
-                                                      max: maxLength).characters)
-      let input = vectorize(inputString.fill(with: ".",
-                                             max: maxLength).characters)
+      let input = tokenize(inputString.fill(with: ".",
+                                             max: maxLength))
+      
+      let label = tokenize(labelString.fill(with: ".",
+                                             max: maxLength))
       
       inputTensors.append(input)
-      labelTensors.append(oneHot)
+      labelTensors.append(label)
     }
     
-    self.vocabSize = vectorizer.inverseVector.count
     // Build training and validation datasets
     var training: [DatasetModel] = []
     var val: [DatasetModel] = []
@@ -305,7 +304,8 @@ final class FullModelTests: XCTestCase {
     let dataset = MockRNNDataset(inputStrings: ["hammley",
                                                 "spammley",
                                                 "Dugley",
-                                                "Absoluteley"])
+                                                "Absoluteley"],
+                                 targetVocabSize: 10)
     
     let rnn = RNN(returnSequence: true,
                   dataset: dataset,
