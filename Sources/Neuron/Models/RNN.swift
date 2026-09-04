@@ -248,8 +248,9 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
   /// - Returns: Generated string sequences.
   public func predict(starting with: String? = nil,
                       count: Int = 1,
-                      maxWordLength: Int = 20,
+                      maxTokenCount: Int = 20,
                       randomizeSelection: Bool = false,
+                      delimiter: String = "",
                       endingMark: String = ".") -> [String] {
     optimizer.isTraining = false
     
@@ -272,12 +273,16 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
               
         batchTensor = Tensor.fillWith(value: index, size: .init(rows: 1, columns: 1, depth: 1))
         
-        // append random letter
+        // append random token
         let unvec = dataset.getWord(for: batchTensor, oneHot: false).joined()
         name += unvec
       }
+      
+      // we use tokenCount instead of `name.count` because we want to account for sentence structure as well
+      // just using count would result in sentence truncation.
+      var currentTokenCount = 1
 
-      while runningChar != endingMark && name.count < maxWordLength {
+      while runningChar != endingMark && currentTokenCount < maxTokenCount {
         
         // still 1 hot encoding
         let out = optimizer.predict([batchTensor])
@@ -308,6 +313,9 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
         let unvec = dataset.getWord(for: Tensor(v, size: .init(rows: 1, columns: flat.count, depth: 1)), oneHot: true).joined()
         
         runningChar = unvec
+        if delimiter.isEmpty == false {
+          name += delimiter
+        }
         name += unvec
         
         // vectorize again to append to batch using Tensor concat
@@ -316,6 +324,8 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
           let letterSlice = vectorizedLetter.depthSliceTensor(0)
           batchTensor = batchTensor.concat(letterSlice, axis: 2)
         }
+        
+        currentTokenCount += 1
       }
       
       names.append(name)
