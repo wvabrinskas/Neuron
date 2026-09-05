@@ -26,12 +26,14 @@ public protocol TokenizingDataset {
   var eosTokenId: Int { get }
   /// The token ID used to pad sequences to a fixed length.
   var padTokenId: Int { get }
-  
+
+  /// The token ID marking the start of a sequence.
   var bosTokenId: Int { get }
-  
+
   /// IDs of tokens that carry no surface text, such as padding and sequence markers.
   var controlTokenIds: Set<Int> { get }
 
+  /// Encodes an item into its full token sequence.
   ///
   /// - Parameter items: Items to vectorize.
   /// - Returns: Tensor containing vectorized token IDs.
@@ -129,6 +131,7 @@ public protocol TokenizingDataset {
 /// Provides default implementations for one-hot encoding, vectorization, decoding,
 /// and model export. Subclasses should override `build()` to supply training data.
 open class TokenizableDataset: TokenizingDataset {
+  /// The concrete tokenizer type used by this dataset.
   public typealias Tokenizer = BPETokenizer
 
   /// The vectorizer used to encode and decode dataset items.
