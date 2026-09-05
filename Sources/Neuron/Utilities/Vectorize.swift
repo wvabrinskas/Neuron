@@ -30,8 +30,11 @@ public enum VectorFormat {
 /// `Vectorizing` provides bidirectional mappings between
 /// items and integer indices, supporting optional start and end token formatting.
 public protocol Vectorizing: Exportable {
+  /// A single vectorizable unit, represented as a string.
   typealias Item = String
+  /// A mapping from items to their assigned integer indices.
   typealias Vector = [Item: Int]
+  /// A mapping from integer indices back to their original items.
   typealias InverseVector = [Int: Item]
   
   /// The last integer index assigned during vectorization.
