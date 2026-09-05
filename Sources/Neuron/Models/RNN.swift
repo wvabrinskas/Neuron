@@ -286,22 +286,17 @@ public class RNN<Dataset: TokenizingDataset>: Classifier where Dataset.Item == S
       var tokenIds: [Int] = []
       var finished: Bool = false
           
-      var batchTensor: Tensor
-      
       if let with {
-        batchTensor = dataset.tokenize(with)
-        tokenIds.append(contentsOf: batchTensor.storage.map { Int($0) })
+        tokenIds.append(contentsOf: dataset.tokenize(with).storage.map { Int($0) })
 
       } else {
         // Seed from a token that actually renders. Control tokens are in the ID range but
         // decode to nothing, which would silently produce an empty sequence start.
         let seedIds = (0..<vocabSize).filter { dataset.controlTokenIds.contains($0) == false }
-        let seed = seedIds.randomElement() ?? 0
-              
-        batchTensor = Tensor(seed.asTensorScalar)
-        
-        tokenIds.append(seed)
+        tokenIds.append(seedIds.randomElement() ?? 0)
       }
+
+      guard tokenIds.isEmpty == false else { continue }
       
       // we use tokenCount instead of `name.count` because we want to account for sentence structure as well
       // just using count would result in sentence truncation.
@@ -309,6 +304,14 @@ public class RNN<Dataset: TokenizingDataset>: Classifier where Dataset.Item == S
 
       while finished == false && currentTokenCount < maxTokenCount {
         
+        // `LSTM.forward` reads a fixed window `0..<batchLength` from the *start* of its input
+        // and never looks past it, so feeding the whole history freezes the context on the
+        // first `wordLength` tokens: every later token is invisible, the distribution stops
+        // changing, and generation repeats one token until `maxTokenCount`. Feed the most
+        // recent `wordLength` tokens instead -- a sliding context window.
+        let window = Array(tokenIds.suffix(Swift.max(1, wordLength)))
+        let batchTensor = Tensor(window.map { [[Tensor.Scalar($0)]] })
+
         let out = optimizer.predict([batchTensor])
         
         guard let outTensor = out[safe: 0],
@@ -316,11 +319,12 @@ public class RNN<Dataset: TokenizingDataset>: Classifier where Dataset.Item == S
           break
         }
         
-        // Get the last depth slice (last timestep output). The slice is a distribution over the
-        // vocabulary, so the next token is its argmax (or a probabilistic draw) -- NOT its first
-        // element, which is just P(token 0).
-        let lastDepthIdx = batchTensor.size.depth - 1
-        let lastSlice = Array(outTensor.depthSlice(min(lastDepthIdx, outTensor.size.depth - 1)))
+        // Take the distribution for the last *real* timestep in the window. The output is
+        // always `batchLength` deep, so a partially filled window must not read past its own
+        // content. The slice is a distribution over the vocabulary, so the next token is its
+        // argmax (or a probabilistic draw) -- NOT its first element, which is just P(token 0).
+        let lastIndex = Swift.min(window.count, outTensor.size.depth) - 1
+        let lastSlice = Array(outTensor.depthSlice(lastIndex))
 
         guard lastSlice.isEmpty == false else { break }
 
@@ -346,9 +350,6 @@ public class RNN<Dataset: TokenizingDataset>: Classifier where Dataset.Item == S
           }
         }
         
-        // Append the predicted ID itself. Re-encoding the *decoded* text would push it back
-        // through BPE, which can split one token into several and desync the sequence.
-        batchTensor = batchTensor.concat(Tensor([[[Tensor.Scalar(tokenId)]]]), axis: 2)
         
         currentTokenCount += 1
       }
