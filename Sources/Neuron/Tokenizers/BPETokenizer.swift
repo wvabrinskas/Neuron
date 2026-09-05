@@ -31,6 +31,11 @@ open class BPETokenizer: Tokenizing {
     vocab[wordPad] ?? 0
   }
 
+  /// The token ID marking the start of a sequence.
+  public var bosTokenId: Int {
+    vocab[wordBos] ?? 0
+  }
+
   /// The token ID marking the end of a generated sequence.
   public var eosTokenId: Int {
     vocab[wordEos] ?? 0

@@ -257,27 +257,27 @@ public class RNN<Dataset: TokenizingDataset>: Classifier where Dataset.Item == S
     
     for _ in 0..<count {
       
-      var name: String = ""
+      // Collect IDs and decode once at the end. Decoding token by token and concatenating
+      // loses every word boundary: `decode` turns `</w>` into a space and then trims it, so
+      // "the cat sat" comes back as "thecatsat". Only a whole-sequence decode sees the
+      // boundaries between tokens.
+      var tokenIds: [Int] = []
       var finished: Bool = false
           
       var batchTensor: Tensor
       
       if let with {
         batchTensor = dataset.tokenize(with)
-        
-        name += with
+        tokenIds.append(contentsOf: batchTensor.storage.map { Int($0) })
 
       } else {
         // Seed from a token that actually renders. Control tokens are in the ID range but
         // decode to nothing, which would silently produce an empty sequence start.
         let seedIds = (0..<vocabSize).filter { dataset.controlTokenIds.contains($0) == false }
-        let index = (seedIds.randomElement() ?? 0).asTensorScalar
+        let seed = seedIds.randomElement() ?? 0
               
-        batchTensor = Tensor.fillWith(value: index, size: .init(rows: 1, columns: 1, depth: 1))
-        
-        // append random token
-        let unvec = dataset.item(for: batchTensor)
-        name += unvec
+        batchTensor = Tensor.fillWith(value: seed.asTensorScalar, size: .init(rows: 1, columns: 1, depth: 1))
+        tokenIds.append(seed)
       }
       
       // we use tokenCount instead of `name.count` because we want to account for sentence structure as well
@@ -308,19 +308,20 @@ public class RNN<Dataset: TokenizingDataset>: Classifier where Dataset.Item == S
           tokenId = Int(lastSlice.indexOfMax.0)
         }
 
-        let unvec = dataset.item(for: Tensor(Tensor.Scalar(tokenId)))
-
         // Stop on the tokenizer's own end-of-sequence ID. Comparing decoded text can't do this
         // reliably: decoding is lossy (`</w>` becomes a space and is then trimmed away, so a
         // terminal token can render as ""), and BPE merges the ending mark into a larger token,
         // so "ley." arrives as one token that never *equals* ".".
         finished = tokenId == dataset.eosTokenId
-          || (endingMark.isEmpty == false && unvec.contains(endingMark))
-
-        if delimiter.isEmpty == false && unvec.isEmpty == false {
-          name += delimiter
+        
+        if finished == false {
+          tokenIds.append(tokenId)
+          
+          if endingMark.isEmpty == false,
+             dataset.item(for: Tensor(Tensor.Scalar(tokenId))).contains(endingMark) {
+            finished = true
+          }
         }
-        name += unvec
         
         // Append the predicted ID itself. Re-encoding the *decoded* text would push it back
         // through BPE, which can split one token into several and desync the sequence.
@@ -329,13 +330,32 @@ public class RNN<Dataset: TokenizingDataset>: Classifier where Dataset.Item == S
         currentTokenCount += 1
       }
       
-      names.append(name)
+      names.append(assemble(tokenIds: tokenIds, delimiter: delimiter))
     }
     
     optimizer.isTraining = true
 
     return names
 
+  }
+  
+  /// Renders generated token IDs as text.
+  ///
+  /// - Parameters:
+  ///   - tokenIds: IDs produced by generation, in order.
+  ///   - delimiter: Inserted between tokens. When empty the whole sequence is decoded in one
+  ///     pass so word boundaries survive; a non-empty delimiter needs per-token strings, and
+  ///     the caller has opted into that separator carrying the boundary instead.
+  /// - Returns: The generated text.
+  private func assemble(tokenIds: [Int], delimiter: String) -> String {
+    guard delimiter.isEmpty == false else {
+      return dataset.item(for: Tensor(tokenIds.map { [[Tensor.Scalar($0)]] }))
+    }
+
+    return tokenIds
+      .map { dataset.item(for: Tensor(Tensor.Scalar($0))) }
+      .filter { $0.isEmpty == false }
+      .joined(separator: delimiter)
   }
   
   /// Ensures dataset-derived network state is built and compiled once.
@@ -347,6 +367,11 @@ public class RNN<Dataset: TokenizingDataset>: Classifier where Dataset.Item == S
       datasetData = await dataset.build()
       
       vocabSize = dataset.vocabSize
+
+      // Sequences are padded to a fixed length, so most batches carry timesteps whose only
+      // correct answer is <pad>. Scoring those teaches the model nothing and reports an
+      // accuracy dominated by how much padding the batch happened to need.
+      optimizer.ignoreLabelIndex = dataset.padTokenId
 
       if let datasetData {
         compile(dataset: datasetData)

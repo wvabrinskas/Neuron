@@ -6,8 +6,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Document placement:** When creating agent references, migration summaries, or other markdown documentation, place them in the `docs/` directory rather than the project root.
 
+**Recording trade-offs:** When you make a change that is correct but not ideal — a constraint forced a compromise, you took a shortcut you can defend but don't love, or you put something somewhere it doesn't conceptually belong — add an entry to `docs/LEARNINGS.md` rather than a `TODO` comment nobody will find. Each entry states what forced the decision, what the code does now, what it cost, and the trigger that should make someone revisit it. `LEARNINGS.md` is not a bug list (fix those) and not a changelog (that's Recent Changes below).
+
 ## Recent Changes (Reference for Updates)
 
+- **BPE tokenizer + RNN next-token pipeline**: The RNN moved from `Vectorizer` (one index per character) to `BPETokenizer` (subword IDs), which broke several invariants at once. Fixed across `BPETokenizer`, `TokenizableDataset`, `RNN`, `LossFunction`, and `Metrics`:
+  - **Token tensors are depth-major**: `tokenize` returns `rows: 1, columns: 1, depth: tokenCount`. `Embedding.forward` reads one index per *depth slice*, so packing IDs along `columns` leaves the tensor at `depth: 1` and the model only ever sees the first token — and `RNN.compile` then reads `shape[2] == 1` and builds the LSTM with `batchLength: 1`.
+  - **`BPETokenizer` IDs are contiguous `0..<vocabSize`**: `nextId` is derived (`vocab.count`), not stored. Seeding it from `Vectorizer.lastKey + 1` skipped an ID, because `lastKey` is already the next free slot. `vocabSize` is `vocab.count` (merge tokens included); reporting only the base vocabulary let merge IDs index past the embedding table.
+  - **Control tokens**: `padTokenId` / `bosTokenId` / `eosTokenId` / `controlTokenIds` on `Tokenizing`. `</w>` is deliberately *not* a control token — it decodes to a space. `decode(_:skipControlTokens:)` drops the rest so a padded sequence doesn't render as `<pad><pad><pad>`.
+  - **Next-token pairs**: `TokenizableDataset.nextTokenPair(for:sequenceLength:)` wraps in `<bos>`/`<eos>`, shifts by one **token**, truncates at `sequenceLength + 1`, and pads. Shifting the *text* (`dropFirst()`) and re-encoding does not work — tokenization is not shift-equivariant, so every position after the first stays identical to the input and the model learns to copy.
+  - **Sparse loss/accuracy are mask-aware**: `LossFunction.calculate(_:correct:ignoring:)` and `.derivative(_:correct:ignoring:)` exclude an index (the pad token) from loss and emit a zero gradient row for it; `calculateAccuracy` skips those timesteps. Wired through `Optimizer.ignoreLabelIndex`, which `RNN.readyUp` sets to `dataset.padTokenId`. Without it a padded batch is scored on predicting padding.
+  - **Sparse labels need `sparse:` in accuracy**: a sparse label slice holds the class as its *value*, so `indexOfMax` is always `0`. `LossFunction.isSparse` drives this.
+  - **`RNN.predict`**: selects the next token by argmax / `randomChoice` over the output distribution (it previously read `lastSlice.first`, a *probability*, as a token ID), appends the predicted ID rather than re-encoding decoded text, stops on `eosTokenId`, and decodes the accumulated IDs in **one pass** — per-token decoding trims `</w>` and loses every space.
+  - **`RNN.compile` validates the dataset**: every sample must carry the compiled `batchLength`. `LSTM.forward` iterates a fixed `0..<batchLength`, zero-filling short samples and never reading past the window on long ones, neither of which is reported.
 - **Pointer-based arithmetic migration**: All layers and optimizers now use `TensorStorage` / `TensorStorage.Pointer` (`UnsafeMutablePointer<Tensor.Scalar>`) and `NumSwiftFlat` pointer APIs instead of `Tensor.Value` (ContiguousArray) arithmetic. See "Pointer-Based Arithmetic" section below.
 - **Tensor batching**: `TensorSize` now has a `batchCount` field. `[Tensor].asTensor` packs an array into a single batched tensor. `tensor.batchSlice(b)` extracts a single batch. Axis 3 in `tensor.adding(tensor:axis:)` concatenates along the batch dimension.
 - **Optimizer state uses TensorStorage**: Adam, SGD, and RMSProp store momentum/velocity as `[TensorStorage]` instead of `[Tensor.Value]`. SGD returns `forceCopy()` to avoid shared-memory bugs.
@@ -144,6 +155,18 @@ Follow the template in `.cursor/rules/trainable.mdc`:
 2. Manage layer array and propagate `device`, `isTraining`, `batchSize`
 3. Implement `compile()` to validate and connect layers
 4. Implement `predict(_:context:)` for forward pass
+
+## Design Principles
+
+**Localize changes.** When a feature needs new state, put it on the type that conceptually owns it and thread it through the narrowest path that works. Prefer adding a defaulted parameter to the function that needs the value over adding a stored property to a shared object; prefer a new type over widening an existing one. If a change touches four files, ask whether three of them are being touched only because the state landed in the wrong place.
+
+**`Optimizer` is not a god object.** It has accumulated training-loop policy that isn't conceptually its own — `weightClip`, `gradientClip`, `augmenter`, `ignoreLabelIndex`, `gradientNormInspector`, `learningRateScheduler`. Each was individually reasonable; together they make `Optimizer` the default dumping ground for anything the training loop touches. Before adding another property to `Optimizer` or `BaseOptimizer`:
+
+1. Can it be a parameter on the function that consumes it instead?
+2. Does it belong to the loss, the layer, the trainable, or the dataset?
+3. If it genuinely has nowhere else to live (usually a construction-order problem — see the `ignoreLabelIndex` entry in `docs/LEARNINGS.md`), add it *and* record the trade-off in `docs/LEARNINGS.md` with the trigger that should move it later.
+
+The same applies to `BaseLayer` and `Tensor`, which are similarly load-bearing. Widening a type that everything depends on is cheap once and expensive forever.
 
 ## Code Style (from .cursor/rules/general.mdc)
 
@@ -315,7 +338,8 @@ From NeuronTests.swift:
 6. Assert expected shapes and values
 
 ### Reference Documents
-- **AGENT_REFERENCE.md**: Condensed reference for AI agents (architecture, optimizer gradient layout, InstanceNormalize fix, common pitfalls)
+- **docs/AGENT_REFERENCE.md**: Condensed reference for AI agents (architecture, optimizer gradient layout, InstanceNormalize fix, common pitfalls)
+- **docs/LEARNINGS.md**: Deliberate trade-offs and deferred decisions — where a constraint forced a compromise and what should trigger a revisit. Read before "fixing" something that looks misplaced; it may be a recorded compromise with a reason.
 - **DEAD_CODE_REPORT.md**: Catalog of unused code paths identified for removal
 
 ### Key Files for Debugging

@@ -96,12 +96,15 @@ public enum LossFunction {
   ///   eg. [[[1], [1], [1]]] = 1 class
   ///   eg. [[[1, 0], [0, 1]]] = 2 classes
   /// - Returns: The loss as a tensor object.
-  public func calculate(_ predicted: Tensor, correct: Tensor) -> Tensor {
+  ///   - ignoring: Optional class index whose positions are excluded from the loss entirely --
+  ///     typically the padding token, so a padded batch is not scored on predicting padding.
+  ///     Sparse variants only.
+  public func calculate(_ predicted: Tensor, correct: Tensor, ignoring ignoreIndex: Int? = nil) -> Tensor {
     // Sparse variants accept a label tensor of integer class indices whose shape intentionally
     // differs from the prediction, so they are handled before the one-hot shape check.
     switch self {
     case .sparseCrossEntropy, .sparseCrossEntropySoftmax:
-      return calculateSparse(predicted, correct: correct)
+      return calculateSparse(predicted, correct: correct, ignoring: ignoreIndex)
     default:
       break
     }
@@ -151,7 +154,7 @@ public enum LossFunction {
   ///     is the target class index in `0..<C` for the corresponding distribution.
   /// - Returns: A tensor of per-distribution losses of size `(columns: R, rows: 1, depth: D)`,
   ///   mirroring the layout produced by the one-hot cross-entropy path.
-  private func calculateSparse(_ predicted: Tensor, correct: Tensor) -> Tensor {
+  private func calculateSparse(_ predicted: Tensor, correct: Tensor, ignoring ignoreIndex: Int? = nil) -> Tensor {
     let size = predicted.size
     let depth = size.depth
     let rows = size.rows
@@ -163,19 +166,39 @@ public enum LossFunction {
     }
 
     let resultStorage = TensorStorage.create(count: depth * rows)
-    let depthScalar = Tensor.Scalar(depth)
+
+    // Average over the positions that actually count. With nothing ignored this is exactly the
+    // previous divisor (`depth`), since `validCount` is then `depth * rows`.
+    var validCount = 0
+    if let ignoreIndex {
+      for i in 0..<expectedLabelCount where Int(correct.storage[i]) != ignoreIndex {
+        validCount += 1
+      }
+    } else {
+      validCount = expectedLabelCount
+    }
+
+    guard validCount > 0 else {
+      return Tensor(storage: resultStorage, size: TensorSize(rows: 1, columns: rows, depth: depth))
+    }
+
+    let divisor = Tensor.Scalar(validCount) / Tensor.Scalar(max(1, rows))
 
     for d in 0..<depth {
       let depthOffset = d * rows * cols
       let labelDepthOffset = d * rows
       for r in 0..<rows {
         let classIndex = Int(correct.storage[labelDepthOffset + r])
+
+        // Ignored positions keep their zero: they contribute no loss at all.
+        if let ignoreIndex, classIndex == ignoreIndex { continue }
+
         guard classIndex >= 0 && classIndex < cols else {
           fatalError("sparse cross entropy class index \(classIndex) is out of range 0..<\(cols)")
         }
 
         let p = predicted.storage[depthOffset + r * cols + classIndex]
-        let loss = (-1 * Tensor.Scalar.log(p + .stabilityFactor)) / depthScalar
+        let loss = (-1 * Tensor.Scalar.log(p + .stabilityFactor)) / divisor
         resultStorage[d * rows + r] = loss
       }
     }
@@ -192,7 +215,9 @@ public enum LossFunction {
   ///   eg. [[[1], [1], [1]]] = 1 class
   ///   eg. [[[1, 0], [0, 1]]] = 2 classes
   /// - Returns: The loss as a tensor object.
-  public func derivative(_ predicted: Tensor, correct: Tensor) -> Tensor {
+  ///   - ignoring: Optional class index whose positions produce a zero gradient row, so
+  ///     padded timesteps contribute nothing to the update. Sparse variants only.
+  public func derivative(_ predicted: Tensor, correct: Tensor, ignoring ignoreIndex: Int? = nil) -> Tensor {
     switch self {
     case .huber(let delta):
       let size = predicted.size
@@ -276,6 +301,15 @@ public enum LossFunction {
         let labelDepthOffset = d * rows
         for r in 0..<rows {
           let classIndex = Int(correct.storage[labelDepthOffset + r])
+
+          // An ignored position gets a zero row rather than `predicted - oneHot`. Leaving
+          // `predicted` in place would push every logit down at that timestep.
+          if let ignoreIndex, classIndex == ignoreIndex {
+            let rowOffset = depthOffset + r * cols
+            for c in 0..<cols { result[rowOffset + c] = 0 }
+            continue
+          }
+
           guard classIndex >= 0 && classIndex < cols else {
             fatalError("sparse cross entropy class index \(classIndex) is out of range 0..<\(cols)")
           }
@@ -298,6 +332,10 @@ public enum LossFunction {
         let labelDepthOffset = d * rows
         for r in 0..<rows {
           let classIndex = Int(correct.storage[labelDepthOffset + r])
+
+          // Storage starts zeroed, so skipping an ignored position leaves its row at zero.
+          if let ignoreIndex, classIndex == ignoreIndex { continue }
+
           guard classIndex >= 0 && classIndex < cols else {
             fatalError("sparse cross entropy class index \(classIndex) is out of range 0..<\(cols)")
           }

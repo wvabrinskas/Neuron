@@ -12,25 +12,20 @@ import NumSwift
 
 class MockRNNDataset: TokenizableDataset {
   private let inputStrings: [String]
-  private let labelStrings: [String]
-  private let maxLength: Int
   private let trainingCount: Int
   private let validationCount: Int
-  
-  init(inputStrings: [String], 
-       labelStrings: [String]? = nil,
+  private let maxSequenceLength: Int?
+
+  init(inputStrings: [String],
        trainingCount: Int = 256,
        validationCount: Int = 10,
+       maxSequenceLength: Int? = nil,
        targetVocabSize: Int) {
     self.inputStrings = inputStrings
-    // If labels not provided, derive by removing first character
-    self.labelStrings = labelStrings ?? inputStrings.map { 
-      $0.count > 1 ? String($0.dropFirst()) : $0 
-    }
-    self.maxLength = inputStrings.max(by: { $0.count < $1.count })?.count ?? 0
     self.trainingCount = trainingCount
     self.validationCount = validationCount
-    
+    self.maxSequenceLength = maxSequenceLength
+
     super.init(tokenizer: .init(targetVocabSize: targetVocabSize))
   }
   
@@ -39,46 +34,26 @@ class MockRNNDataset: TokenizableDataset {
   }
   
   override func build() async -> Neuron.VectorizingDatasetData {
-    
-    let paddedInputs = inputStrings.map { $0.fill(with: ".", max: maxLength) }
-    let paddedLabels = labelStrings.map { $0.fill(with: ".", max: maxLength) }
-    
-    // Train on exactly what gets encoded -- the *padded* strings. Training on the raw inputs
-    // leaves the fill character out of the vocabulary, so every pad position encodes as <unk>
-    // and most of each sequence is a token the model can only learn to predict as "unknown".
-    tokenizer.train(corpus: paddedInputs + paddedLabels)
-    
-    // BPE merges make token counts ragged even when the character counts match, so every
-    // sample is padded to a single sequence length -- the RNN compiles one `batchLength`
-    // and sparse cross entropy needs one label index per predicted timestep.
-    // The +1 leaves room for the <eos> the labels carry.
-    let tokenLength = ((paddedInputs + paddedLabels)
-      .map { tokenizer.encode($0).count }
-      .max() ?? 0) + 1
-    
-    // Process each input-label pair
-    var inputTensors: [Tensor] = []
-    var labelTensors: [Tensor] = []
-    
-    for (inputString, labelString) in zip(paddedInputs, paddedLabels) {
-      let input = tokenize(inputString, paddedTo: tokenLength)
-      // Labels terminate with <eos> so the model learns to stop; generation keys off that ID.
-      let label = tokenize(labelString, paddedTo: tokenLength, appendingEnd: true)
-      
-      inputTensors.append(input)
-      labelTensors.append(label)
-    }
-    
+    // Train on the raw text. Padding is applied after encoding, in token space, so the
+    // tokenizer never sees -- and never wastes merges on -- runs of a fill character.
+    tokenizer.train(corpus: inputStrings)
+
+    // One sequence length for the whole dataset: the RNN compiles a single `batchLength`.
+    let length = sequenceLength(for: inputStrings, cappedAt: maxSequenceLength)
+
+    // Labels are the inputs advanced by one token, so timestep i predicts token i + 1.
+    let pairs = inputStrings.map { nextTokenPair(for: $0, sequenceLength: length) }
+
     // Build training and validation datasets
     var training: [DatasetModel] = []
     var val: [DatasetModel] = []
     
-    for (inputTensor, labelTensor) in zip(inputTensors, labelTensors) {
-      training.append(contentsOf: [DatasetModel](repeating: DatasetModel(data: inputTensor,
-                                                                        label: labelTensor), 
+    for pair in pairs {
+      training.append(contentsOf: [DatasetModel](repeating: DatasetModel(data: pair.data,
+                                                                         label: pair.label),
                                                 count: trainingCount))
-      val.append(contentsOf: [DatasetModel](repeating: DatasetModel(data: inputTensor,
-                                                                    label: labelTensor), 
+      val.append(contentsOf: [DatasetModel](repeating: DatasetModel(data: pair.data,
+                                                                    label: pair.label),
                                            count: validationCount))
     }
     
@@ -316,7 +291,10 @@ final class FullModelTests: XCTestCase {
                                                 "spammley",
                                                 "Dugley",
                                                 "Absoluteley"],
-                                 targetVocabSize: 40)
+                                 // 21 base tokens; 24 buys a few merges without collapsing
+                                 // whole words into single tokens, which would leave the
+                                 // model nothing sequential to learn.
+                                 targetVocabSize: 24)
     
     let rnn = RNN(returnSequence: true,
                   dataset: dataset,

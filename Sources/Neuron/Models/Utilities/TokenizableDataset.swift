@@ -24,6 +24,8 @@ public protocol TokenizingDataset {
   var vocabSize: Int { get }
   /// The token ID marking the end of a generated sequence.
   var eosTokenId: Int { get }
+  /// The token ID used to pad sequences to a fixed length.
+  var padTokenId: Int { get }
   /// IDs of tokens that carry no surface text, such as padding and sequence markers.
   var controlTokenIds: Set<Int> { get }
 
@@ -180,6 +182,96 @@ open class TokenizableDataset: TokenizingDataset {
     }
 
     return tensor(for: ids)
+  }
+
+  /// The token ID marking the start of a sequence.
+  public var bosTokenId: Int {
+    tokenizer.bosTokenId
+  }
+
+  /// The token ID used to pad sequences to a fixed length.
+  public var padTokenId: Int {
+    tokenizer.padTokenId
+  }
+
+  /// The number of tokens an item occupies once encoded.
+  ///
+  /// - Parameters:
+  ///   - item: Item to measure.
+  ///   - addingBoundaryTokens: Counts the `<bos>`/`<eos>` wrapper when `true`.
+  /// - Returns: Token count.
+  public func tokenCount(for item: String, addingBoundaryTokens: Bool = true) -> Int {
+    tokenizer.encode(item).count + (addingBoundaryTokens ? 2 : 0)
+  }
+
+  /// The sequence length that fits the longest item in `items` without truncation.
+  ///
+  /// A run of `n` tokens yields `n - 1` next-token pairs -- the last token is only ever a
+  /// label, never an input -- so the returned length is one less than the longest run.
+  ///
+  /// - Parameters:
+  ///   - items: Items the model will train on.
+  ///   - cappedAt: Optional upper bound. Longer items are truncated rather than stretching
+  ///     every other sample's sequence to match, which costs an LSTM timestep per token.
+  ///   - addingBoundaryTokens: Accounts for the `<bos>`/`<eos>` wrapper when `true`.
+  /// - Returns: Sequence length to pass to `nextTokenPair(for:sequenceLength:)`.
+  public func sequenceLength(for items: [String],
+                             cappedAt cap: Int? = nil,
+                             addingBoundaryTokens: Bool = true) -> Int {
+    let longest = items
+      .map { tokenCount(for: $0, addingBoundaryTokens: addingBoundaryTokens) }
+      .max() ?? 0
+    let length = max(0, longest - 1)
+    return cap.map { min(length, $0) } ?? length
+  }
+
+  /// Builds an aligned input/label pair for next-token prediction.
+  ///
+  /// The label is the input advanced by exactly one token, so at timestep `i` the model sees
+  /// token `i` and is scored on token `i + 1`. The shift has to happen here, on the token
+  /// sequence -- shifting the *text* and re-encoding does not work, because tokenization is
+  /// not shift-equivariant: dropping the first character of "the cat" re-encodes as
+  /// `["he", "cat", ...]`, leaving every position after the first identical to the input and
+  /// training the model to copy rather than predict.
+  ///
+  /// Wrapping in `<bos>`/`<eos>` makes the first real token a prediction target and teaches
+  /// the model to terminate, which is what `RNN.predict` keys off to stop generating.
+  ///
+  /// - Parameters:
+  ///   - item: Item to build a training pair from.
+  ///   - sequenceLength: Token count both tensors are padded or truncated to.
+  ///   - addingBoundaryTokens: Wraps the item in `<bos>`/`<eos>` when `true`.
+  /// - Returns: Input and label tensors, each of depth `sequenceLength`.
+  public func nextTokenPair(for item: String,
+                            sequenceLength: Int,
+                            addingBoundaryTokens: Bool = true) -> (data: Tensor, label: Tensor) {
+    guard sequenceLength > 0 else { return (Tensor(), Tensor()) }
+
+    var ids = tokenizer.encode(item)
+
+    if addingBoundaryTokens {
+      ids.insert(tokenizer.bosTokenId, at: 0)
+      ids.append(tokenizer.eosTokenId)
+    }
+
+    // The pair spans one more token than it emits: input takes all but the last, label all
+    // but the first. Truncating to `sequenceLength` alone would cost the final label.
+    let span = sequenceLength + 1
+    if ids.count > span {
+      ids = Array(ids[0..<span])
+    }
+
+    guard ids.count >= 2 else { return (Tensor(), Tensor()) }
+
+    let inputIds = padded(Array(ids.dropLast()), to: sequenceLength)
+    let labelIds = padded(Array(ids.dropFirst()), to: sequenceLength)
+
+    return (tensor(for: inputIds), tensor(for: labelIds))
+  }
+
+  private func padded(_ ids: [Int], to length: Int) -> [Int] {
+    guard ids.count < length else { return Array(ids[0..<length]) }
+    return ids + [Int](repeating: tokenizer.padTokenId, count: length - ids.count)
   }
 
   private func tensor(for ids: [Int]) -> Tensor {

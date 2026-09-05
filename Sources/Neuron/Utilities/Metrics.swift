@@ -80,8 +80,8 @@ internal protocol MetricCalculator: MetricLogger {
   var totalValCorrectGuesses: Int { get set }
   var totalValGuesses: Int { get set }
 
-  func calculateAccuracy(_ guess: Tensor, label: Tensor, binary: Bool, sparse: Bool, running: Bool) -> Tensor.Scalar
-  func calculateValAccuracy(_ guess: Tensor, label: Tensor, binary: Bool, sparse: Bool, running: Bool) -> Tensor.Scalar
+  func calculateAccuracy(_ guess: Tensor, label: Tensor, binary: Bool, sparse: Bool, ignoring: Int?, running: Bool) -> Tensor.Scalar
+  func calculateValAccuracy(_ guess: Tensor, label: Tensor, binary: Bool, sparse: Bool, ignoring: Int?, running: Bool) -> Tensor.Scalar
   func startTimer(metric: Metric)
   func endTimer(metric: Metric)
 }
@@ -109,11 +109,22 @@ internal extension MetricCalculator {
     return 0
   }
 
-  func calculateValAccuracy(_ guess: Tensor, label: Tensor, binary: Bool, sparse: Bool = false, running: Bool = false) -> Tensor.Scalar {
+  /// Whether depth slice `d` should be scored at all.
+  ///
+  /// Padded timesteps are trivially predictable, so counting them reports an accuracy that
+  /// mostly measures how much padding the batch carried.
+  private func isScored(_ label: Tensor, depth d: Int, sparse: Bool, ignoring: Int?) -> Bool {
+    guard sparse, let ignoring, label.storage.count > d else { return true }
+    return Int(label.storage[d]) != ignoring
+  }
+
+  func calculateValAccuracy(_ guess: Tensor, label: Tensor, binary: Bool, sparse: Bool = false, ignoring: Int? = nil, running: Bool = false) -> Tensor.Scalar {
     var totalCorrect = 0
     var totalGuess = 0
 
     for d in 0..<guess.size.depth {
+      guard isScored(label, depth: d, sparse: sparse, ignoring: ignoring) else { continue }
+
       let guessMax = guess.depthSlice(d).indexOfMax
       let correct = matches(label: labelMax(label, depth: d, sparse: sparse),
                             guess: guessMax,
@@ -124,16 +135,22 @@ internal extension MetricCalculator {
       totalValGuesses += 1
     }
     
-    let runningAccuracy = Tensor.Scalar(totalValCorrectGuesses) / Tensor.Scalar(totalValGuesses) * 100.0
-    let accuracy = Tensor.Scalar(totalCorrect) / Tensor.Scalar(totalGuess) * 100.0
+    let runningAccuracy = totalValGuesses > 0
+      ? Tensor.Scalar(totalValCorrectGuesses) / Tensor.Scalar(totalValGuesses) * 100.0
+      : 0
+    let accuracy = totalGuess > 0
+      ? Tensor.Scalar(totalCorrect) / Tensor.Scalar(totalGuess) * 100.0
+      : 0
     return running ? runningAccuracy : accuracy
   }
   
-  func calculateAccuracy(_ guess: Tensor, label: Tensor, binary: Bool, sparse: Bool = false, running: Bool = false) -> Tensor.Scalar {
+  func calculateAccuracy(_ guess: Tensor, label: Tensor, binary: Bool, sparse: Bool = false, ignoring: Int? = nil, running: Bool = false) -> Tensor.Scalar {
     var totalCorrect = 0
     var totalGuess = 0
 
     for d in 0..<guess.size.depth {
+      guard isScored(label, depth: d, sparse: sparse, ignoring: ignoring) else { continue }
+
       let guessMax = guess.depthSlice(d).indexOfMax
       let correct = matches(label: labelMax(label, depth: d, sparse: sparse),
                             guess: guessMax,
@@ -144,8 +161,12 @@ internal extension MetricCalculator {
       totalGuesses += 1
     }
     
-    let runningAccuracy = Tensor.Scalar(totalCorrectGuesses) / Tensor.Scalar(totalGuesses) * 100.0
-    let accuracy = Tensor.Scalar(totalCorrect) / Tensor.Scalar(totalGuess) * 100.0
+    let runningAccuracy = totalGuesses > 0
+      ? Tensor.Scalar(totalCorrectGuesses) / Tensor.Scalar(totalGuesses) * 100.0
+      : 0
+    let accuracy = totalGuess > 0
+      ? Tensor.Scalar(totalCorrect) / Tensor.Scalar(totalGuess) * 100.0
+      : 0
     return running ? runningAccuracy : accuracy
   }
 }

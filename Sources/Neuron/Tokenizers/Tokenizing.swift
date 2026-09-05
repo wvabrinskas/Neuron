@@ -15,6 +15,8 @@ public protocol Tokenizing: Exportable, Importable {
   var vocabSize: Int { get }
   /// The token ID used to pad sequences out to a fixed length.
   var padTokenId: Int { get }
+  /// The token ID marking the start of a sequence.
+  var bosTokenId: Int { get }
   /// The token ID marking the end of a generated sequence.
   var eosTokenId: Int { get }
   /// IDs of tokens that carry no surface text, such as padding and sequence markers.
