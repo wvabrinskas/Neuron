@@ -27,7 +27,7 @@ public enum VectorFormat {
 
 /// A protocol for types that can convert sequences of items into integer vector representations.
 ///
-/// `Vectorizing` extends `Tokenizing` and provides bidirectional mappings between
+/// `Vectorizing` provides bidirectional mappings between
 /// items and integer indices, supporting optional start and end token formatting.
 public protocol Vectorizing: Exportable {
   typealias Item = String

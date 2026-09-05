@@ -34,6 +34,12 @@ public protocol Optimizer: AnyObject {
   var weightClip: Tensor.Scalar? { get set }
   /// An optional global gradient norm clip threshold applied before parameter updates.
   var gradientClip: Tensor.Scalar? { get set }
+  /// An optional class index excluded from loss, gradients, and accuracy.
+  ///
+  /// Set this to the padding token when training on padded sequences: without it the model is
+  /// scored on predicting padding, which it learns immediately, inflating accuracy and diluting
+  /// the gradient in proportion to how much padding the batch carries. Sparse losses only.
+  var ignoreLabelIndex: Int? { get set }
   /// Diagnostic hook called once per `step()` with the pre-clip L2 norm of every layer's gradients.
   var gradientNormInspector: (([GradientNormReport]) -> Void)? { get set }
   /// The accumulator that aggregates per-sample gradients across a mini-batch.
@@ -150,6 +156,8 @@ open class BaseOptimizer: Optimizer {
   public var weightClip: Tensor.Scalar?
   /// An optional threshold used to clip gradient values before applying weight updates.
   public var gradientClip: Tensor.Scalar?
+  /// An optional class index excluded from loss, gradients, and accuracy. See `Optimizer`.
+  public var ignoreLabelIndex: Int?
   /// Called once per `step()` with the pre-clip L2 norm of every layer's gradients.
   ///
   /// Diagnostic hook for finding which parameters drive a large `Metric.globalGradientNorm`.
@@ -329,6 +337,9 @@ open class BaseOptimizer: Optimizer {
         
     let concurrencySplit = Tensor.Scalar(data.count) / Tensor.Scalar(workersCount)
     
+    // Read once here rather than through `self` inside the per-worker closure below.
+    let ignoreLabelIndex = self.ignoreLabelIndex
+    
     var outputs: [[Tensor]] = [[Tensor]].init(repeating: [], count: workersCount)
 
     metricsReporter?.update(metric: .batchConcurrency, value: concurrencySplit)
@@ -376,21 +387,31 @@ open class BaseOptimizer: Optimizer {
         let label = batchLabels[index]
         let input = wrtBatch?[index] ?? elements[index]
         
-        let loss = lossFunction.calculate(out, correct: label).sum(axis: -1)
+        let loss = lossFunction.calculate(out, correct: label, ignoring: ignoreLabelIndex).sum(axis: -1)
         
         losses += loss.asScalar() / Tensor.Scalar(data.count)
         
         if let reporter = self.metricsReporter {
           if validation {
-            accuracy += reporter.calculateValAccuracy(out, label: label, binary: label.isScalar(), running: false) / Tensor.Scalar(data.count)
+            accuracy += reporter.calculateValAccuracy(out,
+                                                      label: label,
+                                                      binary: label.isScalar(),
+                                                      sparse: lossFunction.isSparse,
+                                                      ignoring: ignoreLabelIndex,
+                                                      running: false) / Tensor.Scalar(data.count)
           } else {
-            let localAccuracy = reporter.calculateAccuracy(out, label: label, binary: label.isScalar(), running: false)
+            let localAccuracy = reporter.calculateAccuracy(out,
+                                                           label: label,
+                                                           binary: label.isScalar(),
+                                                           sparse: lossFunction.isSparse,
+                                                           ignoring: ignoreLabelIndex,
+                                                           running: false)
             accuracy += localAccuracy / Tensor.Scalar(data.count)
           }
         }
         
         if requiresGradients {
-          let lossGradient = lossFunction.derivative(out, correct: label)
+          let lossGradient = lossFunction.derivative(out, correct: label, ignoring: ignoreLabelIndex)
           let gradient = out.gradients(delta: lossGradient, wrt: input)
           accumulator.insert(gradient)
         }

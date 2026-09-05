@@ -9,7 +9,7 @@ import Foundation
 import NumSwift
 
 /// A recurrent neural network classifier that operates on a vectorizing dataset of `String` items.
-public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == String {
+public class RNN<Dataset: TokenizingDataset>: Classifier where Dataset.Item == String {
   
   //public typealias Dataset = VectorizingDataset
   
@@ -93,13 +93,12 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
     public init(batchSize: Int,
                 epochs: Int,
                 accuracyThreshold: AccuracyThreshold = .init(value: 0.9, averageCount: 5),
-                killOnAccuracy: Bool = true,
-                lossFunction: LossFunction = .crossEntropySoftmax) {
+                killOnAccuracy: Bool = true) {
       self.batchSize = batchSize
       self.epochs = epochs
       self.accuracyThreshold = accuracyThreshold
       self.killOnAccuracy = killOnAccuracy
-      self.lossFunction = lossFunction
+      self.lossFunction = .sparseCrossEntropySoftmax
     }
   }
   
@@ -108,10 +107,14 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
       vocabSize = dataset.vocabSize
     }
   }
-  private var lstm: LSTM?
-  private var embedding: Embedding?
-  private var vocabSize: Int = 0
-  private var wordLength: Int = 0
+  /// The LSTM in the compiled or imported network.
+  public private(set) var lstm: LSTM?
+  /// The embedding in the compiled or imported network.
+  public private(set) var embedding: Embedding?
+  /// Vocabulary the network is sized for. After an import this comes from the imported tokenizer.
+  public private(set) var vocabSize: Int = 0
+  /// Sequence length in tokens the network is compiled for.
+  public private(set) var wordLength: Int = 0
   private var extraLayers: [Layer]
   private var ready: Bool = false
   private var datasetData: VectorizingDatasetData?
@@ -204,10 +207,7 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
     
     dataset = Dataset.build(data: vectors)
     
-    await readyUp()
-      
-    let n = Sequential.import(data)
-    optimizer.trainable = n
+    restore(network: Sequential.import(data))
   }
   
   /// Imports a serialized network from disk and prepares the trainer.
@@ -220,10 +220,31 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
     
     dataset = Dataset.build(url: vectors)
     
-    await readyUp()
-    
-    let n = Sequential.import(url)
-    optimizer.trainable = n
+    restore(network: Sequential.import(url))
+  }
+  
+  /// Adopts an imported network and the imported tokenizer as this trainer's state.
+  ///
+  /// Deliberately does **not** go through `readyUp()`. That rebuilds the dataset -- which for a
+  /// real dataset re-trains the tokenizer and discards the imported vocabulary -- and then
+  /// compiles a fresh, randomly initialised network that the imported one immediately replaces,
+  /// leaving `wordLength`, `lstm`, and `embedding` describing layers that are no longer in the
+  /// graph.
+  ///
+  /// - Parameter network: The deserialized network.
+  private func restore(network: Sequential) {
+    // Taken from the imported tokenizer, never from re-training it.
+    vocabSize = dataset.vocabSize
+    optimizer.ignoreLabelIndex = dataset.padTokenId
+
+    // The sequence length is already encoded in the imported layers, and that is the only place
+    // it can come from at import time: `compile` derives it from training data we don't have.
+    embedding = network.layers.compactMap { $0 as? Embedding }.first
+    lstm = network.layers.compactMap { $0 as? LSTM }.first
+    wordLength = lstm?.batchLength ?? embedding?.batchLength ?? 0
+
+    optimizer.trainable = network
+    ready = true
   }
   
   /// Builds dataset/network state (if needed) and runs training.
@@ -258,33 +279,39 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
     
     for _ in 0..<count {
       
-      var name: String = ""
-      var runningChar: String = ""
+      // Collect IDs and decode once at the end. Decoding token by token and concatenating
+      // loses every word boundary: `decode` turns `</w>` into a space and then trims it, so
+      // "the cat sat" comes back as "thecatsat". Only a whole-sequence decode sees the
+      // boundaries between tokens.
+      var tokenIds: [Int] = []
+      var finished: Bool = false
           
-      var batchTensor: Tensor
-      
       if let with {
-        batchTensor = dataset.vectorize([with])
-        
-        name += with
+        tokenIds.append(contentsOf: dataset.tokenize(with).storage.map { Int($0) })
 
       } else {
-        let index = Int.random(in: 0..<vocabSize).asTensorScalar
-              
-        batchTensor = Tensor.fillWith(value: index, size: .init(rows: 1, columns: 1, depth: 1))
-        
-        // append random token
-        let unvec = dataset.getWord(for: batchTensor, oneHot: false).joined()
-        name += unvec
+        // Seed from a token that actually renders. Control tokens are in the ID range but
+        // decode to nothing, which would silently produce an empty sequence start.
+        let seedIds = (0..<vocabSize).filter { dataset.controlTokenIds.contains($0) == false }
+        tokenIds.append(seedIds.randomElement() ?? 0)
       }
+
+      guard tokenIds.isEmpty == false else { continue }
       
       // we use tokenCount instead of `name.count` because we want to account for sentence structure as well
       // just using count would result in sentence truncation.
       var currentTokenCount = 1
 
-      while runningChar != endingMark && currentTokenCount < maxTokenCount {
+      while finished == false && currentTokenCount < maxTokenCount {
         
-        // still 1 hot encoding
+        // `LSTM.forward` reads a fixed window `0..<batchLength` from the *start* of its input
+        // and never looks past it, so feeding the whole history freezes the context on the
+        // first `wordLength` tokens: every later token is invisible, the distribution stops
+        // changing, and generation repeats one token until `maxTokenCount`. Feed the most
+        // recent `wordLength` tokens instead -- a sliding context window.
+        let window = Array(tokenIds.suffix(Swift.max(1, wordLength)))
+        let batchTensor = Tensor(window.map { [[Tensor.Scalar($0)]] })
+
         let out = optimizer.predict([batchTensor])
         
         guard let outTensor = out[safe: 0],
@@ -292,43 +319,42 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
           break
         }
         
-        // Get the last depth slice (last timestep output)
-        let lastDepthIdx = batchTensor.size.depth - 1
-        let lastSlice = outTensor.depthSlice(min(lastDepthIdx, outTensor.size.depth - 1))
-        let flat = Array(lastSlice)
-      
-        var v: Tensor.Value = Tensor.Value(repeating: 0, count: flat.count)
-        
-        let indexToChoose: Int
+        // Take the distribution for the last *real* timestep in the window. The output is
+        // always `batchLength` deep, so a partially filled window must not read past its own
+        // content. The slice is a distribution over the vocabulary, so the next token is its
+        // argmax (or a probabilistic draw) -- NOT its first element, which is just P(token 0).
+        let lastIndex = Swift.min(window.count, outTensor.size.depth) - 1
+        let lastSlice = Array(outTensor.depthSlice(lastIndex))
+
+        guard lastSlice.isEmpty == false else { break }
+
+        let tokenId: Int
         if randomizeSelection {
-          indexToChoose = NumSwift.randomChoice(in: Array(0..<vocabSize), p: flat).1
+          tokenId = NumSwift.randomChoice(in: Array(0..<lastSlice.count), p: lastSlice).1
         } else {
-          indexToChoose = Int(flat.indexOfMax.0)
+          tokenId = Int(lastSlice.indexOfMax.0)
+        }
+
+        // Stop on the tokenizer's own end-of-sequence ID. Comparing decoded text can't do this
+        // reliably: decoding is lossy (`</w>` becomes a space and is then trimmed away, so a
+        // terminal token can render as ""), and BPE merges the ending mark into a larger token,
+        // so "ley." arrives as one token that never *equals* ".".
+        finished = tokenId == dataset.eosTokenId
+        
+        if finished == false {
+          tokenIds.append(tokenId)
+          
+          if endingMark.isEmpty == false,
+             dataset.item(for: Tensor(Tensor.Scalar(tokenId))).contains(endingMark) {
+            finished = true
+          }
         }
         
-        v[indexToChoose] = 1
-        
-        // one hot because we're predicting based on the output which is trained on the labels which are expected to be one-hot encoded
-        // TODO: how do we enforce this? 
-        let unvec = dataset.getWord(for: Tensor(v, size: .init(rows: 1, columns: flat.count, depth: 1)), oneHot: true).joined()
-        
-        runningChar = unvec
-        if delimiter.isEmpty == false {
-          name += delimiter
-        }
-        name += unvec
-        
-        // vectorize again to append to batch using Tensor concat
-        let vectorizedLetter = dataset.vectorize([unvec])
-        if vectorizedLetter.size.depth > 0 {
-          let letterSlice = vectorizedLetter.depthSliceTensor(0)
-          batchTensor = batchTensor.concat(letterSlice, axis: 2)
-        }
         
         currentTokenCount += 1
       }
       
-      names.append(name)
+      names.append(assemble(tokenIds: tokenIds, delimiter: delimiter))
     }
     
     optimizer.isTraining = true
@@ -337,18 +363,76 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
 
   }
   
+  /// Renders generated token IDs as text.
+  ///
+  /// - Parameters:
+  ///   - tokenIds: IDs produced by generation, in order.
+  ///   - delimiter: Inserted between tokens. When empty the whole sequence is decoded in one
+  ///     pass so word boundaries survive; a non-empty delimiter needs per-token strings, and
+  ///     the caller has opted into that separator carrying the boundary instead.
+  /// - Returns: The generated text.
+  private func assemble(tokenIds: [Int], delimiter: String) -> String {
+    guard delimiter.isEmpty == false else {
+      return dataset.item(for: Tensor(tokenIds.map { [[Tensor.Scalar($0)]] }))
+    }
+
+    return tokenIds
+      .map { dataset.item(for: Tensor(Tensor.Scalar($0))) }
+      .filter { $0.isEmpty == false }
+      .joined(separator: delimiter)
+  }
+  
   /// Ensures dataset-derived network state is built and compiled once.
   public func readyUp() async {
-    // do it twice just incase we imported a dataset and there's no data to build
+    // An imported network fixes the architecture: it must not be rebuilt around new data.
+    let imported = ready
+
+    if datasetData == nil {
+      let importedVocabSize = vocabSize
+
+      datasetData = await dataset.build()
+
+      if imported, dataset.vocabSize != importedVocabSize {
+        fatalError("""
+          RNN imported a model built for a vocabulary of \(importedVocabSize), but the dataset \
+          now reports \(dataset.vocabSize). The embedding table is sized from the vocabulary, so \
+          the imported weights no longer line up. This usually means the dataset re-trained the \
+          tokenizer in build() instead of using the imported one.
+          """)
+      }
+    }
+
     vocabSize = dataset.vocabSize
 
-    if ready == false || datasetData == nil {
-      datasetData = await dataset.build()
-      
-      vocabSize = dataset.vocabSize
+    // Sequences are padded to a fixed length, so most batches carry timesteps whose only
+    // correct answer is <pad>. Scoring those teaches the model nothing and reports an
+    // accuracy dominated by how much padding the batch happened to need.
+    optimizer.ignoreLabelIndex = dataset.padTokenId
 
-      if let datasetData {
-        compile(dataset: datasetData)
+    guard let datasetData else { return }
+
+    if imported {
+      // New data has to fit the imported sequence length rather than the other way round.
+      validate(dataset: datasetData, wordLength: wordLength)
+    } else {
+      compile(dataset: datasetData)
+    }
+  }
+
+  private func validate(dataset: VectorizingDatasetData, wordLength: Int) {
+    // With `returnSequence` the model emits one distribution per timestep and the sparse loss
+    // wants an index for each; otherwise it emits only the final one.
+    let expectedLabelCount = returnSequence ? wordLength : 1
+    
+    for (name, samples) in [("training", dataset.training), ("validation", dataset.val)] {
+      for (index, sample) in samples.enumerated() {
+        guard sample.data.size.depth == wordLength else {
+          fatalError("RNN requires every sample to carry the same token count. \(name) sample \(index) has depth \(sample.data.size.depth), expected \(wordLength). Pad sequences to a fixed length when building the dataset -- see `tokenize(_:paddedTo:appendingEnd:)`.")
+        }
+        
+        guard sample.label.storage.count >= expectedLabelCount else {
+          fatalError("RNN requires at least \(expectedLabelCount) label indices per sample, one per predicted timestep. \(name) sample \(index) has \(sample.label.storage.count).")
+        }
       }
     }
   }
@@ -359,8 +443,14 @@ public class RNN<Dataset: VectorizingDataset>: Classifier where Dataset.Item == 
       return
     }
     
-    // average length of the word
-    let wordLength = first.data.shape[2] // expect int vectorized array where each value is an index into the vocab size. TODO: enforce this
+    // Sequence length in tokens. Every sample has to agree on it: `LSTM.forward` iterates a
+    // fixed `0..<batchLength`, zero-filling timesteps a short sample doesn't provide and never
+    // reading the ones a long sample carries past the window. Neither is reported, so a ragged
+    // dataset trains on silently corrupted sequences -- and BPE makes datasets ragged by
+    // default, since equal character counts no longer mean equal token counts.
+    let wordLength = first.data.shape[2]
+    
+    validate(dataset: dataset, wordLength: wordLength)
     
     self.wordLength = wordLength
     

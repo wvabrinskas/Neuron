@@ -18,9 +18,9 @@ final class TokenizerTests: XCTestCase {
   ]
 
   private func makeTrainedTokenizer(corpus: [String]? = nil,
-                                    vocabSize: Int = 50) -> BaseTokenizer {
+                                    vocabSize: Int = 50) -> BPETokenizer {
     let corpus = corpus ?? defaultCorpus
-    let tokenizer = BaseTokenizer(targetVocabSize: vocabSize)
+    let tokenizer = BPETokenizer(targetVocabSize: vocabSize)
     tokenizer.train(corpus: corpus)
     return tokenizer
   }
@@ -37,7 +37,7 @@ final class TokenizerTests: XCTestCase {
 
   func test_train_vocabDoesNotExceedTargetSize() {
     // Use a tiny corpus so BPE merges are bounded by targetVocabSize
-    let tokenizer = BaseTokenizer(targetVocabSize: 10)
+    let tokenizer = BPETokenizer(targetVocabSize: 10)
     tokenizer.train(corpus: ["ab"])
     // Vocab size should be <= targetVocabSize (training stops when reached)
     // We can verify indirectly: encoding should still work
@@ -71,7 +71,7 @@ final class TokenizerTests: XCTestCase {
 
   func test_encode_unknownCharacter_fallsBackToUnkToken() {
     // Train on a small corpus that won't contain 'Z'
-    let tokenizer = BaseTokenizer(targetVocabSize: 30)
+    let tokenizer = BPETokenizer(targetVocabSize: 30)
     tokenizer.train(corpus: ["abc"])
     // Encode a character never seen during training
     let ids = tokenizer.encode("Z")
@@ -137,7 +137,7 @@ final class TokenizerTests: XCTestCase {
 
   func test_bpe_repeatedSubword_isMerged() {
     // "aa" repeated in corpus should produce a "aa" token via BPE
-    let tokenizer = BaseTokenizer(targetVocabSize: 20)
+    let tokenizer = BPETokenizer(targetVocabSize: 20)
     tokenizer.train(corpus: ["aa aa aa aa aa"])
     // After training, "aa" should be encodeable as fewer tokens than 2 characters
     let ids = tokenizer.encode("aa")
@@ -152,6 +152,77 @@ final class TokenizerTests: XCTestCase {
     let ids1 = tokenizer.encode("cats")
     let ids2 = tokenizer.encode("cats")
     XCTAssertEqual(ids1, ids2)
+  }
+
+  // MARK: - Vocabulary invariants
+
+  func test_vocabSize_countsMergeTokens() {
+    // A target well above the base vocabulary forces merges to be created.
+    let tokenizer = makeTrainedTokenizer(vocabSize: 60)
+    let base = BPETokenizer(targetVocabSize: 0)
+    base.train(corpus: defaultCorpus)
+
+    // If vocabSize reported only special tokens + characters, merges would be uncounted and
+    // their IDs would index past anything sized against it (e.g. the Embedding table).
+    XCTAssertGreaterThan(tokenizer.vocabSize, base.vocabSize)
+  }
+
+  func test_vocabSize_boundsEveryEncodedId() {
+    let tokenizer = makeTrainedTokenizer(vocabSize: 60)
+
+    for text in defaultCorpus {
+      for id in tokenizer.encode(text) {
+        XCTAssertGreaterThanOrEqual(id, 0)
+        XCTAssertLessThan(id, tokenizer.vocabSize,
+                          "id \(id) is out of range 0..<\(tokenizer.vocabSize)")
+      }
+    }
+  }
+
+  func test_train_assignsContiguousIds() {
+    let tokenizer = makeTrainedTokenizer(vocabSize: 60)
+
+    // Every ID in 0..<vocabSize must be assigned. A hole means an ID was skipped, which
+    // pushes the largest ID past vocabSize and out of range of anything sized against it.
+    XCTAssertEqual(Set(tokenizer.reverseVocab.keys), Set(0..<tokenizer.vocabSize))
+    XCTAssertEqual(Set(tokenizer.vocab.values), Set(0..<tokenizer.vocabSize))
+  }
+
+  func test_train_isRepeatable() {
+    let tokenizer = BPETokenizer(targetVocabSize: 60)
+    tokenizer.train(corpus: defaultCorpus)
+    let firstSize = tokenizer.vocabSize
+    let firstIds = tokenizer.encode("the cat")
+
+    tokenizer.train(corpus: defaultCorpus)
+
+    XCTAssertEqual(tokenizer.vocabSize, firstSize)
+    XCTAssertEqual(tokenizer.encode("the cat"), firstIds)
+  }
+
+  // MARK: - Control tokens
+
+  func test_controlTokenIds_excludeWordEndingMarker() {
+    let tokenizer = makeTrainedTokenizer()
+    // </w> carries surface text (a space), so skipping it would run words together.
+    let ids = tokenizer.encode("the cat")
+    let decoded = tokenizer.decode(ids, skipControlTokens: true)
+    XCTAssertEqual(decoded, "the cat")
+  }
+
+  func test_decode_skipControlTokens_dropsPadding() {
+    let tokenizer = makeTrainedTokenizer()
+    let ids = tokenizer.encode("cat") + [Int](repeating: tokenizer.padTokenId, count: 5)
+
+    XCTAssertEqual(tokenizer.decode(ids, skipControlTokens: true), "cat")
+    XCTAssertTrue(tokenizer.decode(ids).contains("<pad>"))
+  }
+
+  func test_eosTokenId_isDistinctFromPadTokenId() {
+    let tokenizer = makeTrainedTokenizer()
+    XCTAssertNotEqual(tokenizer.eosTokenId, tokenizer.padTokenId)
+    XCTAssertTrue(tokenizer.controlTokenIds.contains(tokenizer.eosTokenId))
+    XCTAssertTrue(tokenizer.controlTokenIds.contains(tokenizer.padTokenId))
   }
 
   // MARK: - Export / Import
@@ -179,7 +250,7 @@ final class TokenizerTests: XCTestCase {
       return
     }
 
-    let result: Result<BaseTokenizer, Error> = ExportHelper.buildModel(url)
+    let result: Result<BPETokenizer, Error> = ExportHelper.buildModel(url)
     guard case .success(let imported) = result else {
       XCTFail("Import failed: \(result)")
       return
@@ -198,7 +269,7 @@ final class TokenizerTests: XCTestCase {
       return
     }
 
-    let result: Result<BaseTokenizer, Error> = ExportHelper.buildModel(url)
+    let result: Result<BPETokenizer, Error> = ExportHelper.buildModel(url)
     guard case .success(let imported) = result else {
       XCTFail("Import failed: \(result)")
       return
@@ -218,13 +289,66 @@ final class TokenizerTests: XCTestCase {
       return
     }
 
-    let result: Result<BaseTokenizer, Error> = ExportHelper.buildModel(data)
+    let result: Result<BPETokenizer, Error> = ExportHelper.buildModel(data)
     guard case .success(let imported) = result else {
       XCTFail("Import from Data failed")
       return
     }
 
     XCTAssertEqual(tokenizer.encode("cat"), imported.encode("cat"))
+  }
+
+  /// Round-trips through disk and returns the imported copy alongside the original.
+  private func roundTrip(_ tokenizer: BPETokenizer, name: String) -> BPETokenizer? {
+    guard let url = tokenizer.export(name: name, overrite: true, compress: true) else {
+      XCTFail("Export returned nil URL")
+      return nil
+    }
+    let result: Result<BPETokenizer, Error> = ExportHelper.buildModel(url)
+    guard case .success(let imported) = result else {
+      XCTFail("Import failed: \(result)")
+      return nil
+    }
+    return imported
+  }
+
+  func test_export_import_preservesVocabSize() {
+    let tokenizer = makeTrainedTokenizer(vocabSize: 60)
+    guard let imported = roundTrip(tokenizer, name: "test-tokenizer-vocabsize") else { return }
+
+    // `Embedding` and `LSTM` are sized from this. The internal `Vectorizer` is not serialized,
+    // so a `vocabSize` derived from it would come back as 0 and build a zero-width table.
+    XCTAssertGreaterThan(imported.vocabSize, 0)
+    XCTAssertEqual(imported.vocabSize, tokenizer.vocabSize)
+  }
+
+  func test_export_import_preservesControlTokenIds() {
+    let tokenizer = makeTrainedTokenizer(vocabSize: 60)
+    guard let imported = roundTrip(tokenizer, name: "test-tokenizer-control") else { return }
+
+    XCTAssertEqual(imported.padTokenId, tokenizer.padTokenId)
+    XCTAssertEqual(imported.bosTokenId, tokenizer.bosTokenId)
+    XCTAssertEqual(imported.eosTokenId, tokenizer.eosTokenId)
+    XCTAssertEqual(imported.controlTokenIds, tokenizer.controlTokenIds)
+  }
+
+  func test_export_import_preservesIdContiguity() {
+    let tokenizer = makeTrainedTokenizer(vocabSize: 60)
+    guard let imported = roundTrip(tokenizer, name: "test-tokenizer-contiguity") else { return }
+
+    XCTAssertEqual(Set(imported.reverseVocab.keys), Set(0..<imported.vocabSize))
+  }
+
+  func test_export_import_encodedIdsStayInVocabRange() {
+    let tokenizer = makeTrainedTokenizer(vocabSize: 60)
+    guard let imported = roundTrip(tokenizer, name: "test-tokenizer-range") else { return }
+
+    for text in defaultCorpus {
+      for id in imported.encode(text) {
+        XCTAssertLessThan(id, imported.vocabSize,
+                          "imported id \(id) is out of range 0..<\(imported.vocabSize)")
+      }
+    }
   }
 
   func test_export_noTimestamp_when_overrite_isTrue() {
@@ -264,7 +388,7 @@ final class TokenizerTests: XCTestCase {
         "a vocabulary is built by merging the most frequent pairs of tokens iteratively"
     ]
     
-    let tokenizer = BaseTokenizer(targetVocabSize: 100)
+    let tokenizer = BPETokenizer(targetVocabSize: 100)
     tokenizer.train(corpus: corpus)
     
     // Encoding a known character should not fall back to <unk>

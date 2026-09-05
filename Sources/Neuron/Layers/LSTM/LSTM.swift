@@ -40,7 +40,9 @@ public final class LSTM: BaseLayer {
   private var hiddenUnits: Int
   private var vocabSize: Int
   private var inputUnits: Int
-  private var batchLength: Int
+  /// Number of timesteps this layer was built for. Exposed so an imported model's
+  /// architecture can be recovered without training data to re-derive it from.
+  public private(set) var batchLength: Int
   private let returnSequence: Bool
   
   /// A flat, concatenated view of all gate weight tensors (forget, input, gate, output, and hidden-output).

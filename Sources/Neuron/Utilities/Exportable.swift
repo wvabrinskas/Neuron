@@ -20,3 +20,19 @@ public protocol Exportable: Codable {
   @discardableResult
   func export(name: String?, overrite: Bool, compress: Bool) -> URL?
 }
+
+/// A type that can be reconstructed from a previously exported file or its raw bytes.
+public protocol Importable: Codable {
+  
+  /// Reconstructs an instance directly from encoded bytes.
+  ///
+  /// - Parameter data: Serialized bytes produced by `Exportable.export(name:overrite:compress:)`.
+  /// - Returns: The decoded instance.
+  static func `import`(_ data: Data) -> Self
+  
+  /// Reconstructs an instance from a previously exported file.
+  ///
+  /// - Parameter url: File URL pointing to a previously exported file.
+  /// - Returns: The decoded instance.
+  static func `import`(_ url: URL) -> Self
+}

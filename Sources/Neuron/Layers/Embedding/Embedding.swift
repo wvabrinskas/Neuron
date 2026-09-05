@@ -5,7 +5,9 @@ import NumSwift
 public final class Embedding: BaseLayer {
   private let inputUnits: Int
   private let vocabSize: Int
-  private let batchLength: Int
+  /// Number of timesteps this layer was built for. Exposed so an imported model's
+  /// architecture can be recovered without training data to re-derive it from.
+  public let batchLength: Int
   
   
   /// Default initializer
