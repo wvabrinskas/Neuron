@@ -266,6 +266,14 @@ return (Tensor(storage: v[i].forceCopy(), size: gradient.size), ...)
 - **All PRs must target `develop` as the base branch**, not `main`. The `main` branch is only updated via merges from `develop`.
 - Automated tests must pass before PR merge
 
+### Commit history
+
+- **Squash-merge only.** Merge commits are disabled on the repo; every PR lands as one commit on its base branch.
+- **The PR description becomes the commit message.** The repo is set to `squash_merge_commit_title: PR_TITLE` / `squash_merge_commit_message: PR_BODY`, so whatever is in the PR body is what `git log` shows forever. Write it as release notes, not as a work log. (This was previously `COMMIT_MESSAGES`, which concatenated every commit in the PR — and, because feature squashes carried those bodies too, re-concatenated them into each release. The `develop` → `main` squash for #183 ended up 1,926 lines long and reached back to PR #39.)
+- **`.github/pull_request_template.md` deliberately contains no HTML comments.** GitHub does not strip `<!-- -->` when building the squash body, so instructional comments would land verbatim in `git log`. Keep the template short and comment-free.
+- **Pull with rebase.** `pull.rebase=true` is set locally in this repo; set it on any other machine you work from. Without it, pulling `develop` produces `Merge branch 'develop' of github.com:... into develop` commits that clutter the release PR.
+- **After each release, back-merge `main` into `develop`.** The squash commit on `main` is not an ancestor of `develop`, so without this the next release PR computes the wrong merge base and re-lists already-shipped commits.
+
 ## Important Notes
 
 - No GPU execution yet - all operations run on CPU with multi-threading
