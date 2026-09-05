@@ -1,5 +1,5 @@
 //
-//  Tokenizing.swift
+//  BPETokenizer.swift
 //  Neuron
 //
 //  Created by William Vabrinskas on 2/18/26.

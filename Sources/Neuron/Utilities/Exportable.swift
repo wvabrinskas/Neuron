@@ -21,18 +21,18 @@ public protocol Exportable: Codable {
   func export(name: String?, overrite: Bool, compress: Bool) -> URL?
 }
 
-/// A type that can be exported to a `.stkns` file on disk.
+/// A type that can be reconstructed from a previously exported file or its raw bytes.
 public protocol Importable: Codable {
   
-  /// Reconstructs a `Sequential` model directly from encoded model data.
+  /// Reconstructs an instance directly from encoded bytes.
   ///
-  /// - Parameter data: Serialized model bytes.
-  /// - Returns: Decoded `Sequential` instance.
+  /// - Parameter data: Serialized bytes produced by `Exportable.export(name:overrite:compress:)`.
+  /// - Returns: The decoded instance.
   static func `import`(_ data: Data) -> Self
   
-  /// Reconstructs a `Vectorizer` model from a serialized `.stkns` file URL.
+  /// Reconstructs an instance from a previously exported file.
   ///
-  /// - Parameter url: File URL pointing to a previously exported model.
-  /// - Returns: Decoded `Sequential` instance.
+  /// - Parameter url: File URL pointing to a previously exported file.
+  /// - Returns: The decoded instance.
   static func `import`(_ url: URL) -> Self
 }
