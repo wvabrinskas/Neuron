@@ -53,6 +53,60 @@ public protocol TokenizingDataset {
   /// - Returns: Tuple containing training and validation datasets.
   func build() async -> TokenizingDatasetData
   
+  
+  /// Exports the dataset's vectorizer to disk and returns the resulting file URL.
+  ///
+  /// - Parameters:
+  ///   - name: Optional filename prefix for the exported file.
+  ///   - overrite: When `false`, a timestamp is appended to avoid overwriting.
+  ///   - compress: When `true`, the exported file uses compact JSON.
+  /// - Returns: URL to the exported file, or `nil` on failure.
+  func export(name: String?, overrite: Bool, compress: Bool) -> URL?
+  
+  /// The number of tokens an item occupies once encoded.
+  ///
+  /// - Parameters:
+  ///   - item: Item to measure.
+  ///   - addingBoundaryTokens: Counts the `<bos>`/`<eos>` wrapper when `true`.
+  /// - Returns: Token count.
+  func tokenCount(for item: String, addingBoundaryTokens: Bool) -> Int
+  
+  /// Builds an aligned input/label pair for next-token prediction.
+  ///
+  /// The label is the input advanced by exactly one token, so at timestep `i` the model sees
+  /// token `i` and is scored on token `i + 1`. The shift has to happen here, on the token
+  /// sequence -- shifting the *text* and re-encoding does not work, because tokenization is
+  /// not shift-equivariant: dropping the first character of "the cat" re-encodes as
+  /// `["he", "cat", ...]`, leaving every position after the first identical to the input and
+  /// training the model to copy rather than predict.
+  ///
+  /// Wrapping in `<bos>`/`<eos>` makes the first real token a prediction target and teaches
+  /// the model to terminate, which is what `RNN.predict` keys off to stop generating.
+  ///
+  /// - Parameters:
+  ///   - item: Item to build a training pair from.
+  ///   - sequenceLength: Token count both tensors are padded or truncated to.
+  ///   - addingBoundaryTokens: Wraps the item in `<bos>`/`<eos>` when `true`.
+  /// - Returns: Input and label tensors, each of depth `sequenceLength`.
+  func nextTokenPair(for item: String,
+                     sequenceLength: Int,
+                     addingBoundaryTokens: Bool) -> (data: Tensor, label: Tensor)
+  
+  /// The sequence length that fits the longest item in `items` without truncation.
+  ///
+  /// A run of `n` tokens yields `n - 1` next-token pairs -- the last token is only ever a
+  /// label, never an input -- so the returned length is one less than the longest run.
+  ///
+  /// - Parameters:
+  ///   - items: Items the model will train on.
+  ///   - cappedAt: Optional upper bound. Longer items are truncated rather than stretching
+  ///     every other sample's sequence to match, which costs an LSTM timestep per token.
+  ///   - addingBoundaryTokens: Accounts for the `<bos>`/`<eos>` wrapper when `true`.
+  /// - Returns: Sequence length to pass to `nextTokenPair(for:sequenceLength:)`.
+  func sequenceLength(for items: [String],
+                      cappedAt cap: Int?,
+                      addingBoundaryTokens: Bool) -> Int
+  
   /// Builds a dataset instance by loading a vectorizer from a file URL.
   ///
   /// - Parameter url: File URL from which to import vectorizer state.
@@ -65,15 +119,6 @@ public protocol TokenizingDataset {
   /// - Parameter data: Raw data from which to import vectorizer state.
   /// - Returns: A new dataset instance initialized with the imported vectorizer.
   static func build(data: Data) -> Self
-
-  /// Exports the dataset's vectorizer to disk and returns the resulting file URL.
-  ///
-  /// - Parameters:
-  ///   - name: Optional filename prefix for the exported file.
-  ///   - overrite: When `false`, a timestamp is appended to avoid overwriting.
-  ///   - compress: When `true`, the exported file uses compact JSON.
-  /// - Returns: URL to the exported file, or `nil` on failure.
-  func export(name: String?, overrite: Bool, compress: Bool) -> URL?
 }
 
 /// A base implementation of `VectorizingDataset` backed by a `Vectorizer` instance.

@@ -340,7 +340,7 @@ From NeuronTests.swift:
 ### Reference Documents
 - **docs/AGENT_REFERENCE.md**: Condensed reference for AI agents (architecture, optimizer gradient layout, InstanceNormalize fix, common pitfalls)
 - **docs/LEARNINGS.md**: Deliberate trade-offs and deferred decisions — where a constraint forced a compromise and what should trigger a revisit. Read before "fixing" something that looks misplaced; it may be a recorded compromise with a reason.
-- **DEAD_CODE_REPORT.md**: Catalog of unused code paths identified for removal
+- **docs/GPU_ARCHITECTURE_LEARNINGS.md**: Why the Metal GPU path benchmarked ~5x slower than CPU on MNIST, and what a future attempt should do differently. The implementation it describes has been removed; the measurements and root-cause analysis are what's kept.
 
 ### Key Files for Debugging
 
