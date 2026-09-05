@@ -33,7 +33,7 @@ class MockRNNDataset: TokenizableDataset {
     fatalError("init(tokenizer:) has not been implemented")
   }
   
-  override func build() async -> Neuron.VectorizingDatasetData {
+  override func build() async -> Neuron.TokenizingDatasetData {
     // Train on the raw text. Padding is applied after encoding, in token space, so the
     // tokenizer never sees -- and never wastes merges on -- runs of a fill character.
     tokenizer.train(corpus: inputStrings)

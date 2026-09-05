@@ -10,9 +10,7 @@ import NumSwift
 
 /// A recurrent neural network classifier that operates on a vectorizing dataset of `String` items.
 public class RNN<Dataset: TokenizingDataset>: Classifier where Dataset.Item == String {
-  
-  //public typealias Dataset = VectorizingDataset
-  
+    
   /// Parameters defining the LSTM architecture used within the RNN.
   public struct RNNLSTMParameters {
     let hiddenUnits: Int
@@ -117,7 +115,7 @@ public class RNN<Dataset: TokenizingDataset>: Classifier where Dataset.Item == S
   public private(set) var wordLength: Int = 0
   private var extraLayers: [Layer]
   private var ready: Bool = false
-  private var datasetData: VectorizingDatasetData?
+  private var datasetData: TokenizingDatasetData?
   private let returnSequence: Bool
   
   private let classifierParameters: ClassifierParameters
@@ -419,7 +417,7 @@ public class RNN<Dataset: TokenizingDataset>: Classifier where Dataset.Item == S
     }
   }
 
-  private func validate(dataset: VectorizingDatasetData, wordLength: Int) {
+  private func validate(dataset: TokenizingDatasetData, wordLength: Int) {
     // With `returnSequence` the model emits one distribution per timestep and the sparse loss
     // wants an index for each; otherwise it emits only the final one.
     let expectedLabelCount = returnSequence ? wordLength : 1
@@ -437,7 +435,7 @@ public class RNN<Dataset: TokenizingDataset>: Classifier where Dataset.Item == S
     }
   }
   
-  private func compile(dataset: VectorizingDatasetData) {
+  private func compile(dataset: TokenizingDatasetData) {
     guard let first = dataset.training.first else {
       print("Could not build network with dataset")
       return

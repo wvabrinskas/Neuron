@@ -126,7 +126,7 @@ public protocol TokenizingDataset {
   static func build(data: Data) -> Self
 }
 
-/// A base implementation of `VectorizingDataset` backed by a `Vectorizer` instance.
+/// A base implementation of `TokenizableDataset` backed by a `Vectorizer` instance.
 ///
 /// Provides default implementations for one-hot encoding, vectorization, decoding,
 /// and model export. Subclasses should override `build()` to supply training data.
@@ -169,7 +169,6 @@ open class TokenizableDataset: TokenizingDataset {
     Self.init(tokenizer: Tokenizer.import(url))
   }
 
-  @_spi(Visualizer)
 /// Creates a dataset instance by importing a vectorizer from raw data.
 ///
 /// - Parameter data: The raw data from which to import the vectorizer.
