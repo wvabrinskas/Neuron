@@ -132,6 +132,10 @@ public extension Tensor {
   /// - Returns 2 if broadcasting along depth (Z axis)
   /// - Returns nil if tensors are not compatible for broadcasting
   static func axisToApplyAlong(selfSize: TensorSize, size: TensorSize) -> Int? {
+    // NOTE: identical shapes with a unit dimension (e.g. two (W,1,D) tensors) also match these
+    // rules and take the *Along path, which iterates by declared size. That is only safe when
+    // storage equals the declared size — see the asserts in the fast paths. Packed tensors
+    // must therefore never be ragged (`LSTM.weights` packs flat along axis -1 for this reason).
     if size.columns == selfSize.columns,
        size.rows == 1,
        size.depth == selfSize.depth {
@@ -168,6 +172,8 @@ public extension Tensor {
     let sliceSize = columns * rows
     let totalCount = sliceSize * depth
     guard totalCount > 0 else { return nil }
+    assert(storage.count == totalCount && value.storage.count == depth,
+           "broadcast fast path requires storage to match the declared size (got \(storage.count) for \(totalCount))")
 
     let resultStorage = TensorStorage.create(count: totalCount)
     let selfPtr = storage.pointer
@@ -252,6 +258,8 @@ public extension Tensor {
     let depth = selfSize.depth
     let totalCount = columns * rows * depth
     guard totalCount > 0 else { return nil }
+    assert(storage.count == totalCount && value.storage.count == inputSize.columns * inputSize.rows * inputSize.depth,
+           "broadcast fast path requires storage to match the declared size (got \(storage.count) for \(totalCount))")
 
     let resultStorage = TensorStorage.create(count: totalCount)
     let selfPtr = storage.pointer
@@ -376,6 +384,15 @@ public extension Tensor {
     return Tensor(storage: resultStorage, size: selfSize, context: context)
   }
   
+  /// Creates the backpropagation context for element-wise division of `self` by `value`.
+  ///
+  /// The gradient with respect to `value` (the denominator) is `-gradient * self / value^2`;
+  /// the gradient with respect to `self` (the numerator) is `gradient / value`. When `self`
+  /// and `value` share a computation graph, the computed gradient is also registered as a
+  /// branch gradient on the shared node.
+  ///
+  /// - Parameter value: The tensor `self` is being divided by.
+  /// - Returns: A `TensorContext` that computes the correct gradient depending on `wrt`.
   func divideContext(value: Tensor) -> TensorContext {
     let branchNode: Tensor? = if sharesGraph(with: value) {
       if self.graphChain.contains(value.id) {
@@ -422,6 +439,14 @@ public extension Tensor {
     return Tensor(storage: storage.copy(), size: size, context: divideContext(value: value))
   }
   
+  /// Creates the backpropagation context for element-wise multiplication of `self` by `value`.
+  ///
+  /// The gradient with respect to either operand is the incoming gradient multiplied by the
+  /// other operand's value. When `self` and `value` share a computation graph, the computed
+  /// gradient is also registered as a branch gradient on the shared node.
+  ///
+  /// - Parameter value: The tensor `self` is being multiplied by.
+  /// - Returns: A `TensorContext` that computes the correct gradient depending on `wrt`.
   func multiplyContext(value: Tensor) -> TensorContext {
     let branchNode: Tensor? = if sharesGraph(with: value) {
       if self.graphChain.contains(value.id) {
@@ -468,6 +493,14 @@ public extension Tensor {
     return Tensor(storage: storage.copy(), size: size, context: multiplyContext(value: value))
   }
   
+  /// Creates the backpropagation context for element-wise addition of `self` and `value`.
+  ///
+  /// The gradient with respect to both operands is simply the incoming gradient, passed
+  /// through unchanged. When `self` and `value` share a computation graph, the gradient is
+  /// also registered as a branch gradient on the shared node.
+  ///
+  /// - Parameter value: The tensor being added to `self`.
+  /// - Returns: A `TensorContext` that passes the incoming gradient through to both operands.
   func addContext(value: Tensor) -> TensorContext {
     let branchNode: Tensor? = if sharesGraph(with: value) {
       /*
@@ -529,6 +562,15 @@ public extension Tensor {
     return Tensor(storage: storage.copy(), size: size, context: addContext(value: value))
   }
   
+  /// Creates the backpropagation context for element-wise subtraction of `value` from `self`.
+  ///
+  /// The gradient with respect to `self` is the incoming gradient unchanged; the gradient
+  /// with respect to `value` is the incoming gradient negated. When `self` and `value` share
+  /// a computation graph, the computed gradient is also registered as a branch gradient on
+  /// the shared node.
+  ///
+  /// - Parameter value: The tensor being subtracted from `self`.
+  /// - Returns: A `TensorContext` that computes the correct gradient depending on `wrt`.
   func subtractContext(value: Tensor) -> TensorContext {
     let branchNode: Tensor? = if sharesGraph(with: value) {
       if self.graphChain.contains(value.id) {
@@ -1149,6 +1191,10 @@ public extension Tensor {
   }
   
   /// Performs element-wise addition between two tensors with automatic broadcasting support.
+  /// - Parameters:
+  ///   - lhs: The left-hand side tensor.
+  ///   - rhs: The right-hand side tensor, broadcast against `lhs` if its shape allows.
+  /// - Returns: A new `Tensor` containing the element-wise sum, wired into the autograd graph.
   static func +(lhs: Tensor, rhs: Tensor) -> Tensor {
     if let axis = Tensor.axisToApplyAlong(selfSize: lhs.size,
                                           size: rhs.size) {
@@ -1179,6 +1225,10 @@ public extension Tensor {
   }
   
   /// Performs element-wise subtraction between two tensors with automatic broadcasting support.
+  /// - Parameters:
+  ///   - lhs: The tensor to subtract from.
+  ///   - rhs: The tensor to subtract, broadcast against `lhs` if its shape allows.
+  /// - Returns: A new `Tensor` containing the element-wise difference, wired into the autograd graph.
   static func -(lhs: Tensor, rhs: Tensor) -> Tensor {
     if let axis = Tensor.axisToApplyAlong(selfSize: lhs.size,
                                           size: rhs.size) {
@@ -1209,6 +1259,10 @@ public extension Tensor {
   }
   
   /// Performs element-wise multiplication between two tensors with automatic broadcasting support.
+  /// - Parameters:
+  ///   - lhs: The left-hand side tensor.
+  ///   - rhs: The right-hand side tensor, broadcast against `lhs` if its shape allows.
+  /// - Returns: A new `Tensor` containing the element-wise product, wired into the autograd graph.
   static func *(lhs: Tensor, rhs: Tensor) -> Tensor {
     if let axis = Tensor.axisToApplyAlong(selfSize: lhs.size,
                                           size: rhs.size) {
@@ -1246,6 +1300,10 @@ public extension Tensor {
   }
   
   /// Performs element-wise division between two tensors with automatic broadcasting support.
+  /// - Parameters:
+  ///   - lhs: The numerator tensor.
+  ///   - rhs: The denominator tensor, broadcast against `lhs` if its shape allows.
+  /// - Returns: A new `Tensor` containing the element-wise quotient, wired into the autograd graph.
   static func /(lhs: Tensor, rhs: Tensor) -> Tensor {
     if let axis = Tensor.axisToApplyAlong(selfSize: lhs.size,
                                           size: rhs.size) {

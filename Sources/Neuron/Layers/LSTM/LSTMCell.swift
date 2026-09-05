@@ -173,27 +173,30 @@ class LSTMCell {
     let cellActivation = cache.cell
     let previousCellActivaion = previousCache?.cell ?? cache.cell.zerosLike() // if there's no previous state use 0s. Might need to come up with a better solution so we dont have to re-do this
     
+    // tanh(c): cached gate values are post-activation, so derivatives are formed from the
+    // activated values directly (tanh' = 1 - tanh^2, sigmoid' = s(1 - s)) rather than via
+    // `Activation.derivate`, which expects pre-activation input.
     let tanActivationOfCellActivation = Tanh().forward(tensor: cellActivation)
     
-    // output gate error
+    // output gate error: dL/do = dL/dh * tanh(c), through the sigmoid
     let oa = lstm.outputGate
     var eo = activationError * tanActivationOfCellActivation
     eo = (eo * oa) * (1 - oa)
     
-    // cell activation error
+    // cell error: dL/dc = dL/dh * o * (1 - tanh(c)^2) + carried cell error
     var cellError = activationError * oa
-    cellError = cellError * self.device.derivate(tanActivationOfCellActivation, .tanh)
+    cellError = cellError * (1 - tanActivationOfCellActivation * tanActivationOfCellActivation)
     cellError = cellError + nextCellError
     
-    // input gate error
+    // input gate error: c = f*c_prev + i*g, so dL/di = dL/dc * g, through the sigmoid
     let ia = lstm.inputGate
     let ga = lstm.gateGate
-    var ei = cellError * ia
-    ei = (ei.copy() * ia) * (1 - ia)
+    var ei = cellError * ga
+    ei = (ei * ia) * (1 - ia)
 
-    // gate gate error
+    // gate gate error: dL/dg = dL/dc * i, through the tanh
     var eg = cellError * ia
-    eg = eg * self.device.derivate(ga, .tanh)
+    eg = eg * (1 - ga * ga)
 
     // forget gate error
     let fa = lstm.forgetGate
@@ -227,10 +230,13 @@ class LSTMCell {
                                    eo: eo,
                                    eg: eg)
     
-    // get derivatives wrt to weights
+    // get derivatives wrt to weights. The gate pre-activations were computed from
+    // [embedding_t, h_{t-1}], so the weight gradient must use the *previous* hidden state
+    // (zeros at t = 0), not this step's output activation.
+    let previousActivation = previousCache?.activation ?? cache.activation.zerosLike()
     let weightDerivatives = backwardsWRTWeights(lstmError: errors,
                                                 embedding: cache.embedding,
-                                                activation: cache.activation,
+                                                activation: previousActivation,
                                                 batchSize: batchSize)
     
     let biasDerivatives = backwardsWRTBiases(lstmError: errors,

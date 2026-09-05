@@ -34,6 +34,14 @@ public protocol Optimizer: AnyObject {
   var weightClip: Tensor.Scalar? { get set }
   /// An optional global gradient norm clip threshold applied before parameter updates.
   var gradientClip: Tensor.Scalar? { get set }
+  /// An optional class index excluded from loss, gradients, and accuracy.
+  ///
+  /// Set this to the padding token when training on padded sequences: without it the model is
+  /// scored on predicting padding, which it learns immediately, inflating accuracy and diluting
+  /// the gradient in proportion to how much padding the batch carries. Sparse losses only.
+  var ignoreLabelIndex: Int? { get set }
+  /// Diagnostic hook called once per `step()` with the pre-clip L2 norm of every layer's gradients.
+  var gradientNormInspector: (([GradientNormReport]) -> Void)? { get set }
   /// The accumulator that aggregates per-sample gradients across a mini-batch.
   var gradientAccumulator: GradientAccumulator { get }
   /// An optional learning rate scheduler that applies warmup and/or decay.
@@ -148,6 +156,14 @@ open class BaseOptimizer: Optimizer {
   public var weightClip: Tensor.Scalar?
   /// An optional threshold used to clip gradient values before applying weight updates.
   public var gradientClip: Tensor.Scalar?
+  /// An optional class index excluded from loss, gradients, and accuracy. See `Optimizer`.
+  public var ignoreLabelIndex: Int?
+  /// Called once per `step()` with the pre-clip L2 norm of every layer's gradients.
+  ///
+  /// Diagnostic hook for finding which parameters drive a large `Metric.globalGradientNorm`.
+  /// Layers conforming to `GradientNormInspectable` (e.g. `LSTM`) report one entry per gate.
+  /// Nothing is computed while this is `nil`.
+  public var gradientNormInspector: (([GradientNormReport]) -> Void)?
   private var localLearningRate: Tensor.Scalar
   private let workersCount = Constants.maxWorkers
   private var augmentation: Augmenting? = nil
@@ -200,6 +216,48 @@ open class BaseOptimizer: Optimizer {
     learningRateScheduler?.reset()
   }
 
+  /// Computes per-layer (or per-group) gradient norms and hands them to `gradientNormInspector`.
+  /// Call before clipping so the reported norms reflect the raw backward pass.
+  func inspectGradientNorms(_ gradients: Tensor.Gradient) {
+    guard let inspector = gradientNormInspector else { return }
+    
+    func norm(_ tensor: Tensor) -> Tensor.Scalar {
+      tensor.isEmpty ? 0 : tensor.l2Norm()
+    }
+    
+    var reports: [GradientNormReport] = []
+    
+    for (i, layer) in trainable.layers.enumerated() {
+      let weights = gradients.weights[safe: i] ?? Tensor()
+      let biases = gradients.biases[safe: i] ?? Tensor()
+      let name = String(describing: type(of: layer))
+      
+      if let inspectable = layer as? GradientNormInspectable {
+        for group in inspectable.gradientNormBreakdown(weights: weights, biases: biases) {
+          reports.append(GradientNormReport(layerIndex: i,
+                                            layer: name,
+                                            group: group.group,
+                                            weightNorm: group.weightNorm,
+                                            biasNorm: group.biasNorm))
+        }
+        // Whole-tensor norm as a check that the groups account for the entire packed gradient.
+        reports.append(GradientNormReport(layerIndex: i,
+                                          layer: name,
+                                          group: "(all)",
+                                          weightNorm: norm(weights),
+                                          biasNorm: norm(biases)))
+      } else {
+        reports.append(GradientNormReport(layerIndex: i,
+                                          layer: name,
+                                          group: "weights",
+                                          weightNorm: norm(weights),
+                                          biasNorm: norm(biases)))
+      }
+    }
+    
+    inspector(reports)
+  }
+  
   func weightClip(layer: Layer) {
     if let clip = weightClip {
       if let con = layer as? ConvolutionalLayer {
@@ -279,6 +337,9 @@ open class BaseOptimizer: Optimizer {
         
     let concurrencySplit = Tensor.Scalar(data.count) / Tensor.Scalar(workersCount)
     
+    // Read once here rather than through `self` inside the per-worker closure below.
+    let ignoreLabelIndex = self.ignoreLabelIndex
+    
     var outputs: [[Tensor]] = [[Tensor]].init(repeating: [], count: workersCount)
 
     metricsReporter?.update(metric: .batchConcurrency, value: concurrencySplit)
@@ -326,21 +387,31 @@ open class BaseOptimizer: Optimizer {
         let label = batchLabels[index]
         let input = wrtBatch?[index] ?? elements[index]
         
-        let loss = lossFunction.calculate(out, correct: label).sum(axis: -1)
+        let loss = lossFunction.calculate(out, correct: label, ignoring: ignoreLabelIndex).sum(axis: -1)
         
         losses += loss.asScalar() / Tensor.Scalar(data.count)
         
         if let reporter = self.metricsReporter {
           if validation {
-            accuracy += reporter.calculateValAccuracy(out, label: label, binary: label.isScalar(), running: false) / Tensor.Scalar(data.count)
+            accuracy += reporter.calculateValAccuracy(out,
+                                                      label: label,
+                                                      binary: label.isScalar(),
+                                                      sparse: lossFunction.isSparse,
+                                                      ignoring: ignoreLabelIndex,
+                                                      running: false) / Tensor.Scalar(data.count)
           } else {
-            let localAccuracy = reporter.calculateAccuracy(out, label: label, binary: label.isScalar(), running: false)
+            let localAccuracy = reporter.calculateAccuracy(out,
+                                                           label: label,
+                                                           binary: label.isScalar(),
+                                                           sparse: lossFunction.isSparse,
+                                                           ignoring: ignoreLabelIndex,
+                                                           running: false)
             accuracy += localAccuracy / Tensor.Scalar(data.count)
           }
         }
         
         if requiresGradients {
-          let lossGradient = lossFunction.derivative(out, correct: label)
+          let lossGradient = lossFunction.derivative(out, correct: label, ignoring: ignoreLabelIndex)
           let gradient = out.gradients(delta: lossGradient, wrt: input)
           accumulator.insert(gradient)
         }

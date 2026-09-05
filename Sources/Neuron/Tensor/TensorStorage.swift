@@ -159,10 +159,10 @@ public class TensorStorage {
     self._buffer = buffer
   }
   
-  // MARK: - Factory (Metal-backed when NEURON_USE_METAL_STORAGE is set)
+  // MARK: - Factory (Metal-backed)
 
   /// Creates storage for `count` elements.
-  /// Uses MetalTensorStorage when Metal is available and `NEURON_USE_METAL_STORAGE` is defined.
+  /// Uses MetalTensorStorage when Metal is available.
   /// Default: CPU-backed storage for best performance until GPU compute is implemented.
   public static func create(count: Int) -> TensorStorage {
   
@@ -246,6 +246,10 @@ public class TensorStorage {
   }
 
   /// Safe range subscript returning an array, clamping to valid bounds.
+  /// - Parameters:
+  ///   - range: The desired range of indices, which may extend outside the storage's bounds.
+  ///   - defaultValue: The value used to fill positions in `range` that fall outside the storage.
+  /// - Returns: An array of `Tensor.Scalar` values covering `range`, with out-of-bounds positions set to `defaultValue`.
   public subscript(safe range: Range<Int>, defaultValue: Tensor.Scalar) -> [Tensor.Scalar] {
     let clampedLower = Swift.max(range.lowerBound, 0)
     let clampedUpper = Swift.min(range.upperBound, count)
@@ -262,6 +266,10 @@ public class TensorStorage {
   }
 
   /// Safe single-element subscript with default.
+  /// - Parameters:
+  ///   - index: The zero-based position of the element to access, which may be out of bounds.
+  ///   - defaultValue: The value returned when `index` is out of bounds.
+  /// - Returns: The scalar at `index`, or `defaultValue` if `index` is out of range.
   public subscript(safe index: Int, defaultValue: Tensor.Scalar) -> Tensor.Scalar {
     guard index >= 0 && index < count else { return defaultValue }
     return _buffer.pointer[index]

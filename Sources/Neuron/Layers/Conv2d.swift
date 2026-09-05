@@ -20,6 +20,8 @@ public class Conv2d: BaseConvolutionalLayer {
   ///   - filterSize: Size of the filter kernel. Default: `(3,3)`
   ///   - initializer: Weight / filter initializer function. Default: `.heNormal`
   ///   - biasEnabled: Boolean defining if the filters have a bias applied. Default: `false`
+  ///   - linkId: Set this to reference the output of this layer in an arithmetic layer. eg a Shortcut path
+  ///   - encodingType: Serialized layer type identifier. Default: `.conv2d`
   public override init(filterCount: Int,
                        inputSize: TensorSize? = nil,
                        strides: (rows: Int, columns: Int) = (1,1),
@@ -85,6 +87,7 @@ public class Conv2d: BaseConvolutionalLayer {
   /// Encodes convolution configuration and filter parameters.
   ///
   /// - Parameter encoder: Encoder used for serialization.
+  /// - Throws: An error if any value fails to encode.
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(inputSize, forKey: .inputSize)
@@ -352,8 +355,6 @@ public class Conv2d: BaseConvolutionalLayer {
     let outRows = outputSize.rows
     let outCols = outputSize.columns
     let outSliceSize = outRows * outCols
-    let inputSliceSize = inputSize.rows * inputSize.columns
-    let filterSliceSize = filterSize.rows * filterSize.columns
 
     let resultStorage = TensorStorage.create(count: outSliceSize * filterCount)
 

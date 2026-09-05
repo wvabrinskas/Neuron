@@ -40,33 +40,41 @@ public final class LSTM: BaseLayer {
   private var hiddenUnits: Int
   private var vocabSize: Int
   private var inputUnits: Int
-  private var batchLength: Int
+  /// Number of timesteps this layer was built for. Exposed so an imported model's
+  /// architecture can be recovered without training data to re-derive it from.
+  public private(set) var batchLength: Int
   private let returnSequence: Bool
   
-  /// A concatenated view of all gate weight tensors (forget, input, gate, output, and hidden-output).
+  /// A flat, concatenated view of all gate weight tensors (forget, input, gate, output, and hidden-output).
+  ///
+  /// The groups have different shapes (gates are `(inputUnits + hiddenUnits) x hiddenUnits`, the
+  /// hidden-output projection is `vocabSize x hiddenUnits`), so they are packed along axis `-1`
+  /// into a 1-D tensor whose declared size always equals its storage. Slice with
+  /// `splitWeightGradients` rather than by depth.
   ///
   /// Setting this property directly is not supported; use the individual gate weight properties instead.
   public override var weights: Tensor {
     get {
-      forgetGateWeights.concat(inputGateWeights, axis: 2)
-        .concat(gateGateWeights, axis: 2)
-        .concat(outputGateWeights, axis: 2)
-        .concat(hiddenOutputWeights, axis: 2)
+      forgetGateWeights.concat(inputGateWeights, axis: -1)
+        .concat(gateGateWeights, axis: -1)
+        .concat(outputGateWeights, axis: -1)
+        .concat(hiddenOutputWeights, axis: -1)
     }
     set {
       fatalError("Please use the `gate` property instead to manage weights on LSTM layers")
     }
   }
   
-  /// A concatenated view of all gate bias tensors (forget, input, gate, output, and hidden-output).
+  /// A flat, concatenated view of all gate bias tensors (forget, input, gate, output, and hidden-output),
+  /// packed along axis `-1` for the same reason as `weights`.
   ///
   /// Setting this property directly is not supported; use the individual gate bias properties instead.
   public override var biases: Tensor {
     get {
-      forgetGateBiases.concat(inputGateBiases, axis: 0)
-        .concat(gateGateBiases, axis: 0)
-        .concat(outputGateBiases, axis: 0)
-        .concat(hiddenOutputBiases, axis: 0)
+      forgetGateBiases.concat(inputGateBiases, axis: -1)
+        .concat(gateGateBiases, axis: -1)
+        .concat(outputGateBiases, axis: -1)
+        .concat(hiddenOutputBiases, axis: -1)
     }
     set {
       fatalError("Please use the `gate` property instead to manage weights on LSTM layers")
@@ -176,9 +184,11 @@ public final class LSTM: BaseLayer {
   ///   - inputUnits: The number of inputs in the LSTM cell
   ///   - batchLength: The number samples (eg. letters) at a given time
   ///   - returnSequence: Determines if the layer returns all outputs of the sequence or just the last output. Default:   `true`
+  ///   - biasEnabled: Whether the gate and output biases are used. Default: `false`
   ///   - initializer: Initializer funciton to use
   ///   - hiddenUnits: Number of hidden use
   ///   - vocabSize: size of the expected vocabulary
+  ///   - linkId: Unique identifier used to link this layer's weights across serialization. Defaults to a new UUID string.
   public init(inputUnits: Int,
               batchLength: Int,
               returnSequence: Bool = true,
@@ -282,6 +292,7 @@ public final class LSTM: BaseLayer {
   /// Encodes LSTM gate/output parameters and topology metadata.
   ///
   /// - Parameter encoder: Encoder used for serialization.
+  /// - Throws: An error if any values fail to encode.
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(outputSize, forKey: .outputSize)
@@ -308,7 +319,9 @@ public final class LSTM: BaseLayer {
   
   /// The forward path for the LSTM layer. Should be preceeded by an `Embedding` layer.
   /// Emdedding input size expected is `(rows: 1, columns: inputUnits, depth: batchLength)`
-  /// - Parameter tensor: The `Embedding` input `Tensor`
+  /// - Parameters:
+  ///   - tensor: The `Embedding` input `Tensor`
+  ///   - context: Network context carrying batch metadata through the forward pass.
   /// - Returns: Depending on the state of `returnSequence` it will either returng the whole sequence of size
   /// `(rows: 1, columns: vocabSize, depth: batchLength)` or just the last output of the sequence of size
   /// `(rows: 1, columns: vocabSize, depth: 1)`
@@ -398,72 +411,84 @@ public final class LSTM: BaseLayer {
   ///   - learningRate: Learning rate already reflected by optimizer gradient scaling.
   public override func apply(gradients: Optimizer.Gradient, learningRate: Tensor.Scalar) {
     /*
-     order of weights in tensor...
+     order of groups in the flat gradient tensor...
      
-     dForgetGateWeights = 0
-     dInputGateWeights = 1
-     dGateGateWeights = 2
-     dOutputGateWeights = 3
-     
-     hiddenOutputWeightGradients = 4
+     dForgetGateWeights, dInputGateWeights, dGateGateWeights, dOutputGateWeights, hiddenOutputWeightGradients
      */
-    
-    // Split weight gradients along depth (each gate's weights are one depth slice)
-    let gLayerTensors = gradients.weights
-    
-    if gLayerTensors.size.depth >= 5 {
-      let forgetGateWeightGrads = gLayerTensors.depthSliceTensor(0)
-      let inputGateWeightGrads = gLayerTensors.depthSliceTensor(1)
-      let gateGateWeightGrads = gLayerTensors.depthSliceTensor(2)
-      let outputGateWeightGrads = gLayerTensors.depthSliceTensor(3)
+    if let grads = splitWeightGradients(gradients.weights) {
+      self.forgetGateWeights = self.forgetGateWeights.copy() - grads.forget
+      self.inputGateWeights = self.inputGateWeights.copy() - grads.input
+      self.gateGateWeights = self.gateGateWeights.copy() - grads.gate
+      self.outputGateWeights = self.outputGateWeights.copy() - grads.output
       
-      let hiddenOutputWeightGradients = gLayerTensors[..<hiddenUnits, ..<vocabSize, 4...]
-      
-      forgetGateWeightGrads.l2Normalize()
-      inputGateWeightGrads.l2Normalize()
-      gateGateWeightGrads.l2Normalize()
-      outputGateWeightGrads.l2Normalize()
-      hiddenOutputWeightGradients.l2Normalize()
-      
-      self.forgetGateWeights = self.forgetGateWeights.copy() - forgetGateWeightGrads
-      self.inputGateWeights = self.inputGateWeights.copy() - inputGateWeightGrads
-      self.gateGateWeights = self.gateGateWeights.copy() - gateGateWeightGrads
-      self.outputGateWeights = self.outputGateWeights.copy() - outputGateWeightGrads
-      
-      self.hiddenOutputWeights = self.hiddenOutputWeights.copy() - hiddenOutputWeightGradients
+      self.hiddenOutputWeights = self.hiddenOutputWeights.copy() - grads.hiddenOutput
     }
     
-    /*
-     order of biases in tensor...
-     
-     dForgetGateBiases = 0
-     dInputGateBiases = 1
-     dGateGateBiases = 2
-     dOutputGateBiases = 3
-     
-     hiddenOutputWeightBiases = 4
-     */
-    let gBiasLayerTensors = gradients.biases
-    
-    if biasEnabled,
-       gBiasLayerTensors.size.depth >= 5 {
-      
-      let forgetGateBiasGrads = gBiasLayerTensors.depthSliceTensor(0)
-      let inputGateBiasGrads = gBiasLayerTensors.depthSliceTensor(1)
-      let gateGateBiasGrads = gBiasLayerTensors.depthSliceTensor(2)
-      let outputGateBiasGrads = gBiasLayerTensors.depthSliceTensor(3)
-      
-      let hiddenOutputBiasGradients = gBiasLayerTensors[..<vocabSize, 0..., 4...]
-      
-      forgetGateBiases = forgetGateBiases.copy() - forgetGateBiasGrads
-      inputGateBiases = inputGateBiases.copy() - inputGateBiasGrads
-      gateGateBiases = gateGateBiases.copy() - gateGateBiasGrads
-      outputGateBiases = outputGateBiases.copy() - outputGateBiasGrads
-      hiddenOutputBiases = hiddenOutputBiases.copy() - hiddenOutputBiasGradients
+    // biases use the same group order as the weights
+    if biasEnabled, let grads = splitBiasGradients(gradients.biases) {
+      forgetGateBiases = forgetGateBiases.copy() - grads.forget
+      inputGateBiases = inputGateBiases.copy() - grads.input
+      gateGateBiases = gateGateBiases.copy() - grads.gate
+      outputGateBiases = outputGateBiases.copy() - grads.output
+      hiddenOutputBiases = hiddenOutputBiases.copy() - grads.hiddenOutput
     }
   }
   
   // MARK: Private
+  
+  /// One tensor per parameter group, in the order the LSTM packs its gradients.
+  private struct GateGradients {
+    let forget: Tensor
+    let input: Tensor
+    let gate: Tensor
+    let output: Tensor
+    let hiddenOutput: Tensor
+  }
+  
+  /// Unpacks a flat gradient tensor into one tensor per group, each shaped like the matching
+  /// parameter in `shapes`. Returns `nil` unless the storage is exactly the packed length.
+  private func splitPacked(_ gradients: Tensor, shapes: [Tensor]) -> GateGradients? {
+    let counts = shapes.map { $0.storage.count }
+    guard counts.allSatisfy({ $0 > 0 }),
+          gradients.storage.count == counts.reduce(0, +) else { return nil }
+    
+    var offset = 0
+    var groups: [Tensor] = []
+    groups.reserveCapacity(shapes.count)
+    
+    for shape in shapes {
+      let count = shape.storage.count
+      let slice = TensorStorage.create(count: count)
+      slice.pointer.update(from: gradients.storage.pointer + offset, count: count)
+      groups.append(Tensor(storage: slice, size: shape.size))
+      offset += count
+    }
+    
+    return GateGradients(forget: groups[0],
+                         input: groups[1],
+                         gate: groups[2],
+                         output: groups[3],
+                         hiddenOutput: groups[4])
+  }
+  
+  /// Splits a flat weight-gradient tensor packed in `weights` order.
+  private func splitWeightGradients(_ gradients: Tensor) -> GateGradients? {
+    splitPacked(gradients, shapes: [forgetGateWeights,
+                                    inputGateWeights,
+                                    gateGateWeights,
+                                    outputGateWeights,
+                                    hiddenOutputWeights])
+  }
+  
+  /// Splits a flat bias-gradient tensor packed in `biases` order.
+  private func splitBiasGradients(_ gradients: Tensor) -> GateGradients? {
+    splitPacked(gradients, shapes: [forgetGateBiases,
+                                    inputGateBiases,
+                                    gateGateBiases,
+                                    outputGateBiases,
+                                    hiddenOutputBiases])
+  }
+  
   private func backward(inputs: Tensor, gradient: Tensor, cellCache: [Cache]) -> TensorContext.TensorBackpropResult {
     // eat and ect are kept as [[Scalar]] for LSTMCell.backward interface compatibility
     var eat: Tensor = .fillWith(value: 0, size: .init(rows: 1, columns: hiddenUnits, depth: 1))
@@ -552,20 +577,18 @@ public final class LSTM: BaseLayer {
         wrtEmbeddingsTensor = embeddingError.concat(wrtEmbeddingsTensor, axis: 2)
       }
       
-      // Convert Tensor depth slices to [[Scalar]] for LSTMCell interface
+      // carry the hidden and cell errors into the previous timestep
       if previousActivationError.size.depth > 0 && previousCellError.size.depth > 0 {
-        let paeSlice = previousActivationError.depthSliceTensor(0)
-        let pceSlice = previousCellError.depthSliceTensor(0)
-        eat = paeSlice
-        ect = pceSlice
+        eat = previousActivationError.depthSliceTensor(0)
+        ect = previousCellError.depthSliceTensor(0)
       }
     }
         
-    // merge all weights into a giant 5 depth tensor, shape will be broken here
-    let weightDerivatives = wrtLSTMCellInputWeightsDerivatives.concat().concat(wrtOutputWeightsDerivatives, axis: 2)
-    
-    // merge all biases into a giant 5 depth tensor, shape will be broken here
-    let biasDerivatives = wrtLSTMCellInputBiasDerivatives.concat().concat(wrtOutputBiasesDerivatives, axis: 2)
+    // Pack every group into one flat tensor (axis -1) in the same order as `weights` / `biases`.
+    // The hidden-output group has a different shape from the gates, so a depth concat would
+    // produce a tensor whose declared size exceeds its storage; flat packing keeps them equal.
+    let weightDerivatives = wrtLSTMCellInputWeightsDerivatives.concat().concat(wrtOutputWeightsDerivatives, axis: -1)
+    let biasDerivatives = wrtLSTMCellInputBiasDerivatives.concat().concat(wrtOutputBiasesDerivatives, axis: -1)
     
     // Normalize gradients by sequence length to prevent explosion
     // This is standard practice for RNNs - gradients are accumulated across timesteps,
@@ -665,4 +688,26 @@ public final class LSTM: BaseLayer {
     return initialCache
   }
   
+}
+
+// MARK: - GradientNormInspectable
+
+extension LSTM: GradientNormInspectable {
+  /// Reports one L2 norm per gate plus the hidden-output projection, using the same flat
+  /// packed layout `apply(gradients:learningRate:)` reads.
+  public func gradientNormBreakdown(weights: Tensor, biases: Tensor) -> [GradientNormReport.Group] {
+    let w = splitWeightGradients(weights)
+    let b = biasEnabled ? splitBiasGradients(biases) : nil
+    
+    func norm(_ tensor: Tensor?) -> Tensor.Scalar {
+      guard let tensor, tensor.isEmpty == false else { return 0 }
+      return tensor.l2Norm()
+    }
+    
+    return [("forgetGate", norm(w?.forget), norm(b?.forget)),
+            ("inputGate", norm(w?.input), norm(b?.input)),
+            ("gateGate", norm(w?.gate), norm(b?.gate)),
+            ("outputGate", norm(w?.output), norm(b?.output)),
+            ("hiddenOutput", norm(w?.hiddenOutput), norm(b?.hiddenOutput))]
+  }
 }

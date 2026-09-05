@@ -6,14 +6,32 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Document placement:** When creating agent references, migration summaries, or other markdown documentation, place them in the `docs/` directory rather than the project root.
 
+**Recording trade-offs:** When you make a change that is correct but not ideal — a constraint forced a compromise, you took a shortcut you can defend but don't love, or you put something somewhere it doesn't conceptually belong — add an entry to `docs/LEARNINGS.md` rather than a `TODO` comment nobody will find. Each entry states what forced the decision, what the code does now, what it cost, and the trigger that should make someone revisit it. `LEARNINGS.md` is not a bug list (fix those) and not a changelog (that's Recent Changes below).
+
 ## Recent Changes (Reference for Updates)
 
+- **BPE tokenizer + RNN next-token pipeline**: The RNN moved from `Vectorizer` (one index per character) to `BPETokenizer` (subword IDs), which broke several invariants at once. Fixed across `BPETokenizer`, `TokenizableDataset`, `RNN`, `LossFunction`, and `Metrics`:
+  - **Token tensors are depth-major**: `tokenize` returns `rows: 1, columns: 1, depth: tokenCount`. `Embedding.forward` reads one index per *depth slice*, so packing IDs along `columns` leaves the tensor at `depth: 1` and the model only ever sees the first token — and `RNN.compile` then reads `shape[2] == 1` and builds the LSTM with `batchLength: 1`.
+  - **`BPETokenizer` IDs are contiguous `0..<vocabSize`**: `nextId` is derived (`vocab.count`), not stored. Seeding it from `Vectorizer.lastKey + 1` skipped an ID, because `lastKey` is already the next free slot. `vocabSize` is `vocab.count` (merge tokens included); reporting only the base vocabulary let merge IDs index past the embedding table.
+  - **Control tokens**: `padTokenId` / `bosTokenId` / `eosTokenId` / `controlTokenIds` on `Tokenizing`. `</w>` is deliberately *not* a control token — it decodes to a space. `decode(_:skipControlTokens:)` drops the rest so a padded sequence doesn't render as `<pad><pad><pad>`.
+  - **Next-token pairs**: `TokenizableDataset.nextTokenPair(for:sequenceLength:)` wraps in `<bos>`/`<eos>`, shifts by one **token**, truncates at `sequenceLength + 1`, and pads. Shifting the *text* (`dropFirst()`) and re-encoding does not work — tokenization is not shift-equivariant, so every position after the first stays identical to the input and the model learns to copy.
+  - **Sparse loss/accuracy are mask-aware**: `LossFunction.calculate(_:correct:ignoring:)` and `.derivative(_:correct:ignoring:)` exclude an index (the pad token) from loss and emit a zero gradient row for it; `calculateAccuracy` skips those timesteps. Wired through `Optimizer.ignoreLabelIndex`, which `RNN.readyUp` sets to `dataset.padTokenId`. Without it a padded batch is scored on predicting padding.
+  - **Sparse labels need `sparse:` in accuracy**: a sparse label slice holds the class as its *value*, so `indexOfMax` is always `0`. `LossFunction.isSparse` drives this.
+  - **`RNN.predict`**: selects the next token by argmax / `randomChoice` over the output distribution (it previously read `lastSlice.first`, a *probability*, as a token ID), appends the predicted ID rather than re-encoding decoded text, stops on `eosTokenId`, and decodes the accumulated IDs in **one pass** — per-token decoding trims `</w>` and loses every space.
+  - **Generation slides a context window**: `LSTM.forward` iterates a fixed `0..<batchLength` from the *start* of its input and never reads past it (see the TODO at `LSTM.swift`). `RNN.predict` used to concatenate every predicted token onto the input, so once the sequence exceeded `wordLength` the context froze on the first window — the distribution stopped changing and generation repeated one token until `maxTokenCount` (default 20, commonly larger than `wordLength`). `predict` now rebuilds its input from `tokenIds.suffix(wordLength)` each step and reads the output slice for the last *real* timestep in that window.
+  - **`RNN` import restores exact state**: `importFrom` no longer calls `readyUp()` before assigning the imported network. Doing so rebuilt the dataset (re-training the tokenizer and discarding the imported vocabulary) and compiled a throwaway randomly-initialised network that the imported one then replaced — leaving `wordLength`, `lstm`, and `embedding` describing layers no longer in the graph. `restore(network:)` now takes `vocabSize`/`padTokenId` from the imported tokenizer and recovers the sequence length from the imported layers (`Embedding.batchLength` / `LSTM.batchLength`, both now public), which is the only source available at import time. `readyUp()` skips `compile` when a network was imported and instead validates new data against it, failing loudly if the vocabulary drifted.
+  - **`RNN.compile` validates the dataset**: every sample must carry the compiled `batchLength`. `LSTM.forward` iterates a fixed `0..<batchLength`, zero-filling short samples and never reading past the window on long ones, neither of which is reported.
 - **Pointer-based arithmetic migration**: All layers and optimizers now use `TensorStorage` / `TensorStorage.Pointer` (`UnsafeMutablePointer<Tensor.Scalar>`) and `NumSwiftFlat` pointer APIs instead of `Tensor.Value` (ContiguousArray) arithmetic. See "Pointer-Based Arithmetic" section below.
 - **Tensor batching**: `TensorSize` now has a `batchCount` field. `[Tensor].asTensor` packs an array into a single batched tensor. `tensor.batchSlice(b)` extracts a single batch. Axis 3 in `tensor.adding(tensor:axis:)` concatenates along the batch dimension.
 - **Optimizer state uses TensorStorage**: Adam, SGD, and RMSProp store momentum/velocity as `[TensorStorage]` instead of `[Tensor.Value]`. SGD returns `forceCopy()` to avoid shared-memory bugs.
 - **Device protocol expanded**: `Device` now has pointer-based `conv2d` and `transConv2d` methods accepting `TensorStorage.Pointer` directly.
 - **InstanceNormalize fix**: Gradient layout was reversed (gamma|beta vs beta|gamma). Backward now returns `dBeta.concat(dGamma)` to match `weights`; `apply()` uses `depthSlice(0)` for beta, `depthSlice(1)` for gamma. See `InstanceNormalize.swift`.
 - **Tensor.flatArray → asArray**: Renamed for consistency with `TensorSize.asArray`. Use `tensor.asArray` for flat `Tensor.Value`.
+- **LSTM "exploding gradient" root cause — ragged packed tensors**: `LSTM.weights`/`biases` and the packed gradients from `LSTM.backward` used to concat five differently-shaped groups along axis 2, giving a declared size larger than storage (e.g. bias `[256,1,5]` = 1280 declared vs 1077 stored). Two such tensors added in `GradientAccumulator` match the "along rows" broadcast rule (`rows == 1`) and `broadcastAlongFastPath` iterates by declared size, reading past the buffer every sample. In Release that garbage compounded through heap reuse and showed up as `globalGradientNorm` growing ~10x/step to `inf` while every real parameter gradient stayed < 1. Fix: all five groups are packed flat along axis `-1` (declared size == storage), `apply()` unpacks by offset via `splitPacked`, and the broadcast fast paths `assert` storage == declared size in debug builds. `calculateL2Norm` sums per-tensor `sumOfSquares` instead of concatenating.
+- **LSTM gradient bugs (the actual cause of unstable RNN training)**: `LSTMCell.backward` had three errors, found with a finite-difference check (`LSTMNumericalGradientTests`): (1) the input-gate error used `cellError * ia` where the chain rule for `c = f*c_prev + i*g` needs `cellError * ga`; (2) tanh derivatives were computed via `Activation.derivate` on already-activated values (`1 - tanh(tanh(x))^2`) — derivatives of cached post-activation gates must be formed directly (`1 - y^2`, `s(1 - s)`); (3) gate weight gradients used the current `h_t` for the hidden rows instead of `h_{t-1}` (`previousCache.activation`, zeros at t = 0). With these fixed, training descends monotonically with stable weight norms; the old `l2Normalize` in `apply()` (fixed unit-norm steps) only masked the wrong direction by moving fast, and diverged after a few epochs. Any change to `LSTMCell.backward` must keep the FD test passing.
+- **`l2Normalize` removed from `LSTM.apply`**: it rescaled each group's optimizer delta to unit norm (~6-14x the nominal Adam step), discarded Adam's scaling, never annealed, and only masked the gradient bugs above. No per-timestep BPTT clipping was added in its place: with correct gradients the LSTM is stable, and genuine explosion on very long sequences is the job of `Optimizer.gradientClip` (rare, spike-only firing).
+- **Adam epsilon placement**: `Adam.apply` now computes `mHat / (sqrt(vHat) + eps)` (standard). The previous `sqrt(vHat + eps)` made the step scale-dependent: parameters with small (or heavily clipped) gradients were silently frozen.
+- **Per-layer gradient norm inspector**: `Optimizer.gradientNormInspector: (([GradientNormReport]) -> Void)?` is called once per `step()` (all optimizers) with pre-clip L2 norms per layer. Layers adopting `GradientNormInspectable` (currently `LSTM`) report one entry per parameter group (gate) plus an `"(all)"` whole-tensor entry — if `(all)` exceeds the root-sum-square of the groups, storage contains values the layer never applies. Costs nothing while `nil`. See `Optimizers/GradientNormInspection.swift`.
 
 ## Overview
 
@@ -139,6 +157,18 @@ Follow the template in `.cursor/rules/trainable.mdc`:
 2. Manage layer array and propagate `device`, `isTraining`, `batchSize`
 3. Implement `compile()` to validate and connect layers
 4. Implement `predict(_:context:)` for forward pass
+
+## Design Principles
+
+**Localize changes.** When a feature needs new state, put it on the type that conceptually owns it and thread it through the narrowest path that works. Prefer adding a defaulted parameter to the function that needs the value over adding a stored property to a shared object; prefer a new type over widening an existing one. If a change touches four files, ask whether three of them are being touched only because the state landed in the wrong place.
+
+**`Optimizer` is not a god object.** It has accumulated training-loop policy that isn't conceptually its own — `weightClip`, `gradientClip`, `augmenter`, `ignoreLabelIndex`, `gradientNormInspector`, `learningRateScheduler`. Each was individually reasonable; together they make `Optimizer` the default dumping ground for anything the training loop touches. Before adding another property to `Optimizer` or `BaseOptimizer`:
+
+1. Can it be a parameter on the function that consumes it instead?
+2. Does it belong to the loss, the layer, the trainable, or the dataset?
+3. If it genuinely has nowhere else to live (usually a construction-order problem — see the `ignoreLabelIndex` entry in `docs/LEARNINGS.md`), add it *and* record the trade-off in `docs/LEARNINGS.md` with the trigger that should move it later.
+
+The same applies to `BaseLayer` and `Tensor`, which are similarly load-bearing. Widening a type that everything depends on is cheap once and expensive forever.
 
 ## Code Style (from .cursor/rules/general.mdc)
 
@@ -310,8 +340,9 @@ From NeuronTests.swift:
 6. Assert expected shapes and values
 
 ### Reference Documents
-- **AGENT_REFERENCE.md**: Condensed reference for AI agents (architecture, optimizer gradient layout, InstanceNormalize fix, common pitfalls)
-- **DEAD_CODE_REPORT.md**: Catalog of unused code paths identified for removal
+- **docs/AGENT_REFERENCE.md**: Condensed reference for AI agents (architecture, optimizer gradient layout, InstanceNormalize fix, common pitfalls)
+- **docs/LEARNINGS.md**: Deliberate trade-offs and deferred decisions — where a constraint forced a compromise and what should trigger a revisit. Read before "fixing" something that looks misplaced; it may be a recorded compromise with a reason.
+- **docs/GPU_ARCHITECTURE_LEARNINGS.md**: Why the Metal GPU path benchmarked ~5x slower than CPU on MNIST, and what a future attempt should do differently. The implementation it describes has been removed; the measurements and root-cause analysis are what's kept.
 
 ### Key Files for Debugging
 
@@ -354,6 +385,8 @@ print(grads.input.count, grads.weights.count, grads.biases.count)
 9. **Using `Tensor.Value` arithmetic in hot paths**: Prefer `NumSwiftFlat` pointer APIs to avoid intermediate array allocations. See "Pointer-Based Arithmetic" section.
 10. **Shared-memory bugs with optimizer state**: When returning optimizer state (e.g., SGD velocity) as a Tensor, use `TensorStorage.forceCopy()` to avoid the tensor mutating optimizer internals.
 11. **Tensor self-assignment creates reference cycles**: Tensor arithmetic operators (`+`, `-`, `*`, `/`) build autograd computation graphs. Writing `gamma = gamma - gradients` creates a reference cycle because the result's graph holds a reference to the old `gamma`, which is now the same variable as the new `gamma`. Instead, construct a fresh Tensor from the result's storage: `gamma = Tensor(storage: (gamma - gradients).storage, size: gamma.size)`. Alternatively, perform the arithmetic at the `TensorStorage` level (which has no autograd): `gamma = Tensor(storage: gamma.storage - gradients.storage, size: gamma.size)`. This applies anywhere a Tensor property is updated via arithmetic that references itself.
+12. **`gradientClip` cannot bound updates in front of Adam**: global-norm clipping scales every gradient by `c` before the moment update, and Adam's `mHat/sqrt(vHat)` cancels `c`. If the clip fires every step it does nothing to the weight trajectory (and pre-fix, the eps floor made it *freeze* the non-exploding parameters). Use it as rare spike protection only (e.g. ~5, not 1.0), and use `gradientNormInspector` to find which parameter group is actually large before reaching for it.
+13. **Never build a tensor whose declared size differs from its storage**: `concat(axis: 2)` of differently-shaped tensors appends storage but reports the first tensor's rows/columns, so `rows*columns*depth > storage.count`. Broadcast fast paths and `debugDescription` walk the declared size and read out of bounds (silently in Release). Pack heterogeneous groups flat with `concat(axis: -1)` and unpack by offset, as `LSTM` does. `Layer.swift`, `LayerGroup`, and `ResNet` still concat sub-layer weights along axis 2 for their `weights` views — audit before doing arithmetic on those.
 
 ## Performance & Memory Profiling
 

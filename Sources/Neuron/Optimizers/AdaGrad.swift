@@ -50,6 +50,7 @@ public class AdaGrad: BaseOptimizer {
   /// Applies one AdaGrad optimization step using the accumulated gradients.
   public override func step() {
     var gradients = gradientAccumulator.accumulate()
+    inspectGradientNorms(gradients)
 
     if let clip = gradientClip {
       gradients = gradients.gradientL2NormClip(clip)

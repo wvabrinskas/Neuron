@@ -5,7 +5,9 @@ import NumSwift
 public final class Embedding: BaseLayer {
   private let inputUnits: Int
   private let vocabSize: Int
-  private let batchLength: Int
+  /// Number of timesteps this layer was built for. Exposed so an imported model's
+  /// architecture can be recovered without training data to re-derive it from.
+  public let batchLength: Int
   
   
   /// Default initializer
@@ -15,6 +17,7 @@ public final class Embedding: BaseLayer {
   ///   - batchLength: Length of the input vector
   ///   - initializer: Weight initializer
   ///   - trainable: Whether or not to update weights
+  ///   - linkId: Unique identifier used to link this layer's weights across serialization. Defaults to a new UUID string.
   public init(inputUnits: Int,
               vocabSize: Int,
               batchLength: Int,
@@ -87,6 +90,7 @@ public final class Embedding: BaseLayer {
   /// Encodes embedding parameters and shape metadata.
   ///
   /// - Parameter encoder: Encoder used for serialization.
+  /// - Throws: An error if any values fail to encode.
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(weights, forKey: .weights)
@@ -102,8 +106,10 @@ public final class Embedding: BaseLayer {
   }
   
   /// Forward path for the layer
-  /// - Parameter tensor: Input word as a 3D tensor with size `rows: 1, columns: 1, depth: batchLength`
-  /// Expects a non one-hot encoded input tensor with each depth slice being a single vecorized number.
+  /// - Parameters:
+  ///   - tensor: Input word as a 3D tensor with size `rows: 1, columns: 1, depth: batchLength`.
+  ///     Expects a non one-hot encoded input tensor with each depth slice being a single vecorized number.
+  ///   - context: Network context carrying batch metadata through the forward pass.
   /// - Returns: An output 3D tensor of shape `rows: 1, columns: inputUnits, depth: batchLength`
   public override func forward(tensor: Tensor, context: NetworkContext = .init()) -> Tensor {
     var indicies: [Int] = []

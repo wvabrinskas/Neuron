@@ -72,6 +72,7 @@ public final class Dense: BaseLayer {
   /// Encodes dense layer parameters for persistence.
   ///
   /// - Parameter encoder: Encoder used for serialization.
+  /// - Throws: An error if any value fails to encode.
   public override func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(weights, forKey: .weights)

@@ -12,7 +12,9 @@ import NumSwiftC
 /// A protocol that wraps a `RangeExpression<Int>` for use in tensor subscript operations.
 /// Conforming types provide a `range` property used to slice tensor dimensions.
 public protocol TensorRange {
+  /// The concrete `RangeExpression<Int>` type used by a conforming type's `range` property.
   associatedtype T: RangeExpression<Int>
+  /// The range expression describing which indices along a tensor dimension are selected.
   var range: T { get }
 }
 
@@ -1082,17 +1084,12 @@ public extension Tensor.Gradient {
   /// - Returns: The combined L2 norm of all weight and bias gradients.
   @discardableResult
   func calculateL2Norm(metrics: MetricsReporter? = nil) -> Tensor.Scalar {
-    let allWeights = weights.reduce(Tensor()) { partialResult, new in
-      partialResult.concat(new, axis: 2)
-    }
-    let allBiases = biases.reduce(Tensor()) { partialResult, new in
-      partialResult.concat(new, axis: 2)
-    }
-  
-    // Single global norm across weights AND biases combined
-    let weightNormSq = allWeights.l2Norm()
-    let biasNormSq = allBiases.l2Norm()
-    let globalNorm = Tensor.Scalar(sqrt((weightNormSq * weightNormSq + biasNormSq * biasNormSq) + Tensor.Scalar.stabilityFactor))
+    // Single global norm across weights AND biases combined. Summed per tensor over its own
+    // storage rather than concatenating, so tensors of differing shapes never get packed into
+    // one declared size.
+    let weightSumSq = weights.reduce(Tensor.Scalar(0)) { $0 + $1.storage.sumOfSquares }
+    let biasSumSq = biases.reduce(Tensor.Scalar(0)) { $0 + $1.storage.sumOfSquares }
+    let globalNorm = Tensor.Scalar.sqrt(weightSumSq + biasSumSq + Tensor.Scalar.stabilityFactor)
     
     metrics?.update(metric: .globalGradientNorm, value: globalNorm)
 

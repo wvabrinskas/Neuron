@@ -54,6 +54,7 @@ public class RMSProp: BaseOptimizer {
   /// Applies one RMSProp optimization step.
   public override func step() {
     var gradients = gradientAccumulator.accumulate()
+    inspectGradientNorms(gradients)
     
     if let clip = gradientClip {
       gradients = gradients.gradientL2NormClip(clip)

@@ -49,6 +49,7 @@ public class SGD: BaseOptimizer {
   /// Applies one SGD update using the currently accumulated gradients.
   public override func step() {
     var gradients = gradientAccumulator.accumulate()
+    inspectGradientNorms(gradients)
 
     if let clip = gradientClip {
       gradients = gradients.gradientL2NormClip(clip)

@@ -18,6 +18,7 @@ public final class RexNet: BaseLayerGroup {
   private let strides: (rows: Int, columns: Int)
   private let outChannels: Int
   private let squeeze: Int
+  private let bnMomentum: Tensor.Scalar
   
   private var shouldSkip: Bool {
     strides.columns == 1 && strides.rows == 1 && outChannels == inputSize.depth
@@ -32,6 +33,9 @@ public final class RexNet: BaseLayerGroup {
   ///   - outChannels: The number of output channels produced by this block.
   ///   - squeeze: The squeeze factor used in channel reduction. Defaults to `0`.
   ///   - expandRatio: The ratio by which channels are expanded before the depthwise convolution. Defaults to `0`.
+  ///   - bnMomentum: Momentum for the internal `BatchNormalize` running statistics. Lower values let the
+  ///     inference (moving mean/variance) statistics track the training distribution faster, which matters
+  ///     for deep BN stacks where per-layer eval error compounds. Defaults to `0.99`.
   ///   - linkId: A unique string identifier used to link this layer. Defaults to a new UUID string.
   public init(inputSize: TensorSize? = nil,
               initializer: InitializerType = Constants.defaultInitializer,
@@ -39,13 +43,15 @@ public final class RexNet: BaseLayerGroup {
               outChannels: Int,
               squeeze: Int = 0,
               expandRatio: Tensor.Scalar = 0,
+              bnMomentum: Tensor.Scalar = 0.99,
               linkId: String = UUID().uuidString) {
-    
+
     self.expandRatio = expandRatio
     self.strides = strides
     self.outChannels = outChannels
     self.squeeze = squeeze
-    
+    self.bnMomentum = bnMomentum
+
     super.init(inputSize: inputSize,
                initializer: initializer,
                biasEnabled: false,
@@ -65,7 +71,7 @@ public final class RexNet: BaseLayerGroup {
                  filterSize: (1,1),
                  initializer: initializer,
                  biasEnabled: false),
-          BatchNormalize(),
+          BatchNormalize(momentum: bnMomentum),
           Swish()
         ]
         
@@ -80,7 +86,7 @@ public final class RexNet: BaseLayerGroup {
                         filterSize: (3,3),
                         initializer: initializer,
                         biasEnabled: false),
-        BatchNormalize(),
+        BatchNormalize(momentum: bnMomentum),
         Swish(linkId: "squeeze")
       ]
       
@@ -118,9 +124,9 @@ public final class RexNet: BaseLayerGroup {
                filterSize: (1,1),
                initializer: initializer,
                biasEnabled: false),
-        BatchNormalize()
+        BatchNormalize(momentum: bnMomentum)
       ]
-      
+
       layers.append(contentsOf: projectLayers)
       
       return layers
@@ -128,7 +134,7 @@ public final class RexNet: BaseLayerGroup {
   }
   
   enum CodingKeys: String, CodingKey {
-    case inputSize, type, linkId, expandRatio, stridesRows, stridesColumns, outChannels, squeeze, innerBlockSequential
+    case inputSize, type, linkId, expandRatio, stridesRows, stridesColumns, outChannels, squeeze, bnMomentum, innerBlockSequential
   }
   
   /// Called by `Sequential.compile()` when input size is propagated; sets output size from the inner block's last layer.
@@ -151,11 +157,13 @@ public final class RexNet: BaseLayerGroup {
     let stridesColumns = try container.decodeIfPresent(Int.self, forKey: .stridesColumns) ?? 1
     let outChannels = try container.decodeIfPresent(Int.self, forKey: .outChannels) ?? 1
     let squeeze = try container.decodeIfPresent(Int.self, forKey: .squeeze) ?? 0
+    let bnMomentum = try container.decodeIfPresent(Tensor.Scalar.self, forKey: .bnMomentum) ?? 0.99
 
     self.init(strides: (stridesRows, stridesColumns),
               outChannels: outChannels,
               squeeze: squeeze,
               expandRatio: expandRatio,
+              bnMomentum: bnMomentum,
               linkId: linkId)
 
     let innerBlockSequential = try container.decodeIfPresent(Sequential.self, forKey: .innerBlockSequential) ?? Sequential()
@@ -179,6 +187,7 @@ public final class RexNet: BaseLayerGroup {
     try container.encode(strides.columns, forKey: .stridesColumns)
     try container.encode(outChannels, forKey: .outChannels)
     try container.encode(squeeze, forKey: .squeeze)
+    try container.encode(bnMomentum, forKey: .bnMomentum)
     try container.encode(innerBlockSequential, forKey: .innerBlockSequential)
   }
   
