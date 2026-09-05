@@ -26,6 +26,9 @@ public protocol TokenizingDataset {
   var eosTokenId: Int { get }
   /// The token ID used to pad sequences to a fixed length.
   var padTokenId: Int { get }
+  
+  var bosTokenId: Int { get }
+  
   /// IDs of tokens that carry no surface text, such as padding and sequence markers.
   var controlTokenIds: Set<Int> { get }
 

@@ -276,7 +276,8 @@ public class RNN<Dataset: TokenizingDataset>: Classifier where Dataset.Item == S
         let seedIds = (0..<vocabSize).filter { dataset.controlTokenIds.contains($0) == false }
         let seed = seedIds.randomElement() ?? 0
               
-        batchTensor = Tensor.fillWith(value: seed.asTensorScalar, size: .init(rows: 1, columns: 1, depth: 1))
+        batchTensor = Tensor(seed.asTensorScalar)
+        
         tokenIds.append(seed)
       }
       
