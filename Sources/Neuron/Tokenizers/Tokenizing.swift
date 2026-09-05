@@ -13,6 +13,12 @@ public typealias TokenizerCorpus = [String]
 /// A protocol that defines tokenization capabilities with support for encoding, decoding, and exporting trained models.
 public protocol Tokenizing: Exportable, Importable {
   var vocabSize: Int { get }
+  /// The token ID used to pad sequences out to a fixed length.
+  var padTokenId: Int { get }
+  /// The token ID marking the end of a generated sequence.
+  var eosTokenId: Int { get }
+  /// IDs of tokens that carry no surface text, such as padding and sequence markers.
+  var controlTokenIds: Set<Int> { get }
   
   /// Trains the tokenizer on the given corpus, building the vocabulary and merge rules.
   ///
@@ -30,5 +36,14 @@ public protocol Tokenizing: Exportable, Importable {
   /// - Parameter ids: The integer token IDs to decode.
   /// - Returns: The reconstructed text string.
   func decode(_ ids: [Int]) -> String
+
+  /// Decodes a sequence of integer token IDs back into a text string.
+  ///
+  /// - Parameters:
+  ///   - ids: The integer token IDs to decode.
+  ///   - skipControlTokens: When `true`, tokens with no surface text are dropped instead of
+  ///     being rendered as their literal names.
+  /// - Returns: The reconstructed text string.
+  func decode(_ ids: [Int], skipControlTokens: Bool) -> String
   
 }

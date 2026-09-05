@@ -22,11 +22,23 @@ public protocol TokenizingDataset {
   var tokenizer: Tokenizer { get }
   /// The total number of unique tokens in the vocabulary.
   var vocabSize: Int { get }
+  /// The token ID marking the end of a generated sequence.
+  var eosTokenId: Int { get }
+  /// IDs of tokens that carry no surface text, such as padding and sequence markers.
+  var controlTokenIds: Set<Int> { get }
 
   ///
   /// - Parameter items: Items to vectorize.
   /// - Returns: Tensor containing vectorized token IDs.
   func tokenize(_ items: Item) -> Tensor
+  /// Encodes an item and pads or truncates it to a fixed token count.
+  ///
+  /// - Parameters:
+  ///   - item: Item to tokenize.
+  ///   - length: Exact number of tokens the returned tensor should carry.
+  ///   - appendingEnd: When `true`, an end-of-sequence token is placed after the content.
+  /// - Returns: Tensor of `length` token IDs, one per depth slice.
+  func tokenize(_ item: Item, paddedTo length: Int, appendingEnd: Bool) -> Tensor
   /// Decodes model output tensor values back into dataset items.
   ///
   /// - Parameters:
@@ -75,14 +87,25 @@ open class TokenizableDataset: TokenizingDataset {
   /// The number of unique tokens in the vocabulary.
   ///
   /// Reflects the size of the vectorizer's internal vector mapping.
-  public var vocabSize: Int = 0
+  public var vocabSize: Int {
+    tokenizer.vocabSize
+  }
+
+  /// The token ID marking the end of a generated sequence.
+  public var eosTokenId: Int {
+    tokenizer.eosTokenId
+  }
+
+  /// IDs of tokens that carry no surface text, such as padding and sequence markers.
+  public var controlTokenIds: Set<Int> {
+    tokenizer.controlTokenIds
+  }
 
   /// Creates a dataset backed by the given vectorizer.
   ///
   /// - Parameter vectorizer: Vectorizer used to encode and decode dataset items.
   public required init(tokenizer: Tokenizer) {
     self.tokenizer = tokenizer
-    self.vocabSize = tokenizer.vocabSize
   }
 
 /// Creates a dataset instance by importing a vectorizer from a file URL.
@@ -112,12 +135,56 @@ open class TokenizableDataset: TokenizingDataset {
     tokenizer.export(name: name, overrite: overrite, compress: compress)
   }
   
-  /// Converts items into integer token IDs wrapped in a tensor.
+  /// Converts an item into integer token IDs wrapped in a tensor.
   ///
-  /// - Parameter items: Items to vectorize.
-  /// - Returns: Tensor containing token IDs per depth slice.
+  /// Token IDs are laid out one-per-depth-slice (`rows: 1, columns: 1, depth: tokenCount`),
+  /// which is the layout `Embedding` expects: it reads a single index from each depth slice.
+  /// Packing the IDs along `columns` instead would leave the tensor at `depth: 1` and the
+  /// network would only ever see the first token.
+  ///
+  /// - Parameter item: Item to tokenize.
+  /// - Returns: Tensor containing one token ID per depth slice.
   public func tokenize(_ item: String) -> Tensor {
-    Tensor([[tokenizer.encode(item).map { Tensor.Scalar($0) }]])
+    tensor(for: tokenizer.encode(item))
+  }
+
+  /// Converts an item into token IDs padded (or truncated) to a fixed token count.
+  ///
+  /// Recurrent models compile against a single sequence length, so every sample has to
+  /// produce the same token count. BPE merges make raw encodings ragged, hence the padding.
+  ///
+  /// - Parameters:
+  ///   - item: Item to tokenize.
+  ///   - length: Exact number of tokens the returned tensor should carry.
+  ///   - appendingEnd: When `true`, an end-of-sequence token is placed after the content
+  ///     (truncating it by one if necessary) so a model trained on these sequences learns to
+  ///     emit a terminator. Generation cannot stop on its own otherwise.
+  /// - Returns: Tensor containing `length` token IDs, one per depth slice.
+  public func tokenize(_ item: String, paddedTo length: Int, appendingEnd: Bool = false) -> Tensor {
+    guard length > 0 else { return Tensor() }
+
+    var ids = tokenizer.encode(item)
+    let contentLength = appendingEnd ? length - 1 : length
+
+    if ids.count > contentLength {
+      ids = Array(ids[0..<max(0, contentLength)])
+    }
+
+    if appendingEnd {
+      ids.append(tokenizer.eosTokenId)
+    }
+
+    if ids.count < length {
+      ids.append(contentsOf: [Int](repeating: tokenizer.padTokenId,
+                                   count: length - ids.count))
+    }
+
+    return tensor(for: ids)
+  }
+
+  private func tensor(for ids: [Int]) -> Tensor {
+    guard ids.isEmpty == false else { return Tensor() }
+    return Tensor(ids.map { [[Tensor.Scalar($0)]] })
   }
   
   /// Decodes model output back into vector items.
@@ -128,7 +195,9 @@ open class TokenizableDataset: TokenizingDataset {
   /// - Returns: Decoded vector items.
   public func item(for data: Tensor) -> String {
     let intArray = data.storage.map { Int($0) }
-    return tokenizer.decode(intArray)
+    // Control tokens are skipped: they exist to shape the tensor, and rendering a padded
+    // sequence as "<pad><pad><pad>" is never what a caller wants back from a model output.
+    return tokenizer.decode(intArray, skipControlTokens: true)
   }
   
   /// Builds dataset content for RNN training.

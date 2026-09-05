@@ -382,9 +382,17 @@ open class BaseOptimizer: Optimizer {
         
         if let reporter = self.metricsReporter {
           if validation {
-            accuracy += reporter.calculateValAccuracy(out, label: label, binary: label.isScalar(), running: false) / Tensor.Scalar(data.count)
+            accuracy += reporter.calculateValAccuracy(out,
+                                                      label: label,
+                                                      binary: label.isScalar(),
+                                                      sparse: lossFunction.isSparse,
+                                                      running: false) / Tensor.Scalar(data.count)
           } else {
-            let localAccuracy = reporter.calculateAccuracy(out, label: label, binary: label.isScalar(), running: false)
+            let localAccuracy = reporter.calculateAccuracy(out,
+                                                           label: label,
+                                                           binary: label.isScalar(),
+                                                           sparse: lossFunction.isSparse,
+                                                           running: false)
             accuracy += localAccuracy / Tensor.Scalar(data.count)
           }
         }

@@ -73,6 +73,21 @@ public enum LossFunction {
   case huber(delta: Tensor.Scalar)
   
   
+  /// Indicates whether this loss expects labels as integer class indices rather than
+  /// one-hot encoded distributions.
+  ///
+  /// Consumers that interpret labels themselves (accuracy calculation, for instance) must
+  /// branch on this: a sparse label slice holds the class index as its *value*, so taking
+  /// its `indexOfMax` always yields `0`.
+  public var isSparse: Bool {
+    switch self {
+    case .sparseCrossEntropy, .sparseCrossEntropySoftmax:
+      return true
+    default:
+      return false
+    }
+  }
+
   /// Calculate the loss given a prediction tensor and a label tensor.
   /// - Parameters:
   ///   - predicted: Tensor to compare against the label

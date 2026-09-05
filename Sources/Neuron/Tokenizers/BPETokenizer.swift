@@ -14,20 +14,59 @@ import Foundation
 /// Subclasses may override `train(_:)`, `encode(_:)`, and `decode(_:)` to customise tokenization behaviour.
 /// The learned vocabulary and merge rules are serializable via the `Exportable` protocol.
 open class BPETokenizer: Tokenizing {
+  /// The number of tokens in the trained vocabulary.
+  ///
+  /// This counts merge tokens as well as the base characters and control tokens, so it is
+  /// always one past the largest assigned ID. Anything that sizes a layer against the
+  /// vocabulary (`Embedding`, `LSTM`) depends on that: reporting only the base vocabulary
+  /// would let merge IDs index past the end of the embedding table.
+  ///
+  /// Returns `0` until `train(corpus:)` has run.
   public var vocabSize: Int {
-    targetVocabSize
+    vocab.count
+  }
+
+  /// The token ID used to pad sequences out to a fixed length.
+  public var padTokenId: Int {
+    vocab[wordPad] ?? 0
+  }
+
+  /// The token ID marking the end of a generated sequence.
+  public var eosTokenId: Int {
+    vocab[wordEos] ?? 0
+  }
+
+  /// IDs of tokens that carry no surface text -- padding, unknown, and the sequence markers.
+  ///
+  /// `wordEnding` is deliberately excluded: it decodes to a space and is part of the text.
+  public var controlTokenIds: Set<Int> {
+    Set(controlTokens.compactMap { vocab[$0] })
+  }
+
+  /// The next unassigned token ID.
+  ///
+  /// Derived from the vocabulary rather than stored, which keeps IDs contiguous in
+  /// `0..<vocabSize` across training, decoding, and retraining. A stored counter drifts:
+  /// seeding it from `Vectorizer.lastKey + 1` skipped an ID, because `lastKey` is already
+  /// the next free slot.
+  private var nextId: Int {
+    vocab.count
   }
   
-  private var vocab: [String: Int] = [:]
-  private var reverseVocab: [Int: String] = [:]
+  /// Token -> ID. Internal rather than private so tests can assert on the ID space directly;
+  /// a decode round-trip can't distinguish an unassigned ID from one that renders as whitespace.
+  private(set) var vocab: [String: Int] = [:]
+  private(set) var reverseVocab: [Int: String] = [:]
   
   private let vectorizer = Vectorizer()
   
   private var corpus: TokenizerCorpus = []
-  private var nextId: Int = 0
   
   private let wordEnding: String = "</w>"
   private let wordUnknown: String = "<unk>"
+  private let wordPad: String = "<pad>"
+  private let wordBos: String = "<bos>"
+  private let wordEos: String = "<eos>"
   private let targetVocabSize: Int
   private var mergeRules: [TokenPair] = []
 
@@ -40,13 +79,15 @@ open class BPETokenizer: Tokenizing {
     }
   }
   
-  private lazy var specialTokens: [String] = [
-      "<pad>",
+  /// Tokens with no surface text. Skipped when decoding with `skipControlTokens`.
+  private lazy var controlTokens: [String] = [
+      wordPad,
       wordUnknown,
-      "<bos>",
-      "<eos>",
-      wordEnding
+      wordBos,
+      wordEos
   ]
+
+  private lazy var specialTokens: [String] = controlTokens + [wordEnding]
   
   /// Coding keys used for encoding and decoding the tokenizer's properties.
   public enum CodingKeys: String, CodingKey {
@@ -95,14 +136,17 @@ open class BPETokenizer: Tokenizing {
   ///
   /// - Parameter corpus: An array of text strings used to learn byte-pair merge rules.
   open func train(corpus: TokenizerCorpus) {
+    // Training is not incremental. Resetting the merge rules -- and reseeding `vocab` from the
+    // vectorizer below, which drops any merge tokens from a previous run -- keeps a second
+    // call from stacking stale rules on top of a rebuilt vocabulary.
+    mergeRules.removeAll()
+
     let flatCorpus = corpus.joined(separator: " ")
     
     vectorizer.vectorize(specialTokens)
     vectorizer.vectorize(flatCorpus.characters)
     vocab = vectorizer.vector
     reverseVocab = vectorizer.inverseVector
-    
-    nextId = vectorizer.lastKey + 1
     
     var wordFrequency: [String: Int] = [:]
     let words = flatCorpus.components(separatedBy: " ")
@@ -133,11 +177,11 @@ open class BPETokenizer: Tokenizing {
       }
       
       let newToken = bestPair.join()
-      vocab[newToken] = nextId
-      reverseVocab[nextId] = newToken
+      let newId = nextId
+      vocab[newToken] = newId
+      reverseVocab[newId] = newToken
       
       mergeRules.append(bestPair)
-      nextId += 1
       
       wordFrequency = applyMerge(wordFreqs: wordFrequency,
                                  pair: bestPair)
@@ -196,11 +240,25 @@ open class BPETokenizer: Tokenizing {
   /// - Parameter tokenIds: An array of integer token IDs to decode.
   /// - Returns: The reconstructed string with end-of-word markers replaced by spaces.
   open func decode(_ tokenIds: [Int]) -> String {
+    decode(tokenIds, skipControlTokens: false)
+  }
+
+  /// Decodes a sequence of token IDs back into a human-readable string.
+  ///
+  /// - Parameters:
+  ///   - tokenIds: An array of integer token IDs to decode.
+  ///   - skipControlTokens: When `true`, padding and sequence markers are dropped rather than
+  ///     rendered as their literal names. Generated text wants this; a round-trip check does not.
+  /// - Returns: The reconstructed string with end-of-word markers replaced by spaces.
+  open func decode(_ tokenIds: [Int], skipControlTokens: Bool) -> String {
     // Invert the vocab dictionary
     let idToToken = reverseVocab
-    
+    let skipped = skipControlTokens ? controlTokenIds : []
+
     // Map IDs back to token strings
-    let tokens = tokenIds.compactMap { idToToken[$0] }
+    let tokens = tokenIds
+      .filter { skipped.contains($0) == false }
+      .compactMap { idToToken[$0] }
     
     // Join and clean up end-of-word markers
     return tokens

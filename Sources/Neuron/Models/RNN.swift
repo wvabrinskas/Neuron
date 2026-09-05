@@ -258,7 +258,7 @@ public class RNN<Dataset: TokenizingDataset>: Classifier where Dataset.Item == S
     for _ in 0..<count {
       
       var name: String = ""
-      var runningChar: String = ""
+      var finished: Bool = false
           
       var batchTensor: Tensor
       
@@ -268,7 +268,10 @@ public class RNN<Dataset: TokenizingDataset>: Classifier where Dataset.Item == S
         name += with
 
       } else {
-        let index = Int.random(in: 0..<vocabSize).asTensorScalar
+        // Seed from a token that actually renders. Control tokens are in the ID range but
+        // decode to nothing, which would silently produce an empty sequence start.
+        let seedIds = (0..<vocabSize).filter { dataset.controlTokenIds.contains($0) == false }
+        let index = (seedIds.randomElement() ?? 0).asTensorScalar
               
         batchTensor = Tensor.fillWith(value: index, size: .init(rows: 1, columns: 1, depth: 1))
         
@@ -281,7 +284,7 @@ public class RNN<Dataset: TokenizingDataset>: Classifier where Dataset.Item == S
       // just using count would result in sentence truncation.
       var currentTokenCount = 1
 
-      while runningChar != endingMark && currentTokenCount < maxTokenCount {
+      while finished == false && currentTokenCount < maxTokenCount {
         
         let out = optimizer.predict([batchTensor])
         
@@ -290,27 +293,38 @@ public class RNN<Dataset: TokenizingDataset>: Classifier where Dataset.Item == S
           break
         }
         
-        // Get the last depth slice (last timestep output)
+        // Get the last depth slice (last timestep output). The slice is a distribution over the
+        // vocabulary, so the next token is its argmax (or a probabilistic draw) -- NOT its first
+        // element, which is just P(token 0).
         let lastDepthIdx = batchTensor.size.depth - 1
-        let lastSlice = outTensor.depthSlice(min(lastDepthIdx, outTensor.size.depth - 1))
-        // convert to a Scalar because the labels will now be tokenized labels where can use sparseCrossEntropy.
-        // eg. [[[12]][[23]][[45][[45]]]
-        let value: Tensor.Scalar = lastSlice.first ?? 0
-      
-        let unvec = dataset.item(for: Tensor(value))
-        
-        runningChar = unvec
-        if delimiter.isEmpty == false {
+        let lastSlice = Array(outTensor.depthSlice(min(lastDepthIdx, outTensor.size.depth - 1)))
+
+        guard lastSlice.isEmpty == false else { break }
+
+        let tokenId: Int
+        if randomizeSelection {
+          tokenId = NumSwift.randomChoice(in: Array(0..<lastSlice.count), p: lastSlice).1
+        } else {
+          tokenId = Int(lastSlice.indexOfMax.0)
+        }
+
+        let unvec = dataset.item(for: Tensor(Tensor.Scalar(tokenId)))
+
+        // Stop on the tokenizer's own end-of-sequence ID. Comparing decoded text can't do this
+        // reliably: decoding is lossy (`</w>` becomes a space and is then trimmed away, so a
+        // terminal token can render as ""), and BPE merges the ending mark into a larger token,
+        // so "ley." arrives as one token that never *equals* ".".
+        finished = tokenId == dataset.eosTokenId
+          || (endingMark.isEmpty == false && unvec.contains(endingMark))
+
+        if delimiter.isEmpty == false && unvec.isEmpty == false {
           name += delimiter
         }
         name += unvec
         
-        // vectorize again to append to batch using Tensor concat
-        let vectorizedLetter = dataset.tokenize(unvec)
-        if vectorizedLetter.size.depth > 0 {
-          let letterSlice = vectorizedLetter.depthSliceTensor(0)
-          batchTensor = batchTensor.concat(letterSlice, axis: 2)
-        }
+        // Append the predicted ID itself. Re-encoding the *decoded* text would push it back
+        // through BPE, which can split one token into several and desync the sequence.
+        batchTensor = batchTensor.concat(Tensor([[[Tensor.Scalar(tokenId)]]]), axis: 2)
         
         currentTokenCount += 1
       }
@@ -340,14 +354,43 @@ public class RNN<Dataset: TokenizingDataset>: Classifier where Dataset.Item == S
     }
   }
   
+  /// Verifies every sample carries the sequence length the network is about to compile against.
+  ///
+  /// - Parameters:
+  ///   - dataset: Training and validation samples to check.
+  ///   - wordLength: Token count taken from the first training sample.
+  private func validate(dataset: VectorizingDatasetData, wordLength: Int) {
+    // With `returnSequence` the model emits one distribution per timestep and the sparse loss
+    // wants an index for each; otherwise it emits only the final one.
+    let expectedLabelCount = returnSequence ? wordLength : 1
+    
+    for (name, samples) in [("training", dataset.training), ("validation", dataset.val)] {
+      for (index, sample) in samples.enumerated() {
+        guard sample.data.size.depth == wordLength else {
+          fatalError("RNN requires every sample to carry the same token count. \(name) sample \(index) has depth \(sample.data.size.depth), expected \(wordLength). Pad sequences to a fixed length when building the dataset -- see `tokenize(_:paddedTo:appendingEnd:)`.")
+        }
+        
+        guard sample.label.storage.count >= expectedLabelCount else {
+          fatalError("RNN requires at least \(expectedLabelCount) label indices per sample, one per predicted timestep. \(name) sample \(index) has \(sample.label.storage.count).")
+        }
+      }
+    }
+  }
+  
   private func compile(dataset: VectorizingDatasetData) {
     guard let first = dataset.training.first else {
       print("Could not build network with dataset")
       return
     }
     
-    // average length of the word
-    let wordLength = first.data.shape[2] // expect int vectorized array where each value is an index into the vocab size. TODO: enforce this
+    // Sequence length in tokens. Every sample has to agree on it: `LSTM.forward` iterates a
+    // fixed `0..<batchLength`, zero-filling timesteps a short sample doesn't provide and never
+    // reading the ones a long sample carries past the window. Neither is reported, so a ragged
+    // dataset trains on silently corrupted sequences -- and BPE makes datasets ragged by
+    // default, since equal character counts no longer mean equal token counts.
+    let wordLength = first.data.shape[2]
+    
+    validate(dataset: dataset, wordLength: wordLength)
     
     self.wordLength = wordLength
     

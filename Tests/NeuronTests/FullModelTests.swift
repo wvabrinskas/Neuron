@@ -40,19 +40,30 @@ class MockRNNDataset: TokenizableDataset {
   
   override func build() async -> Neuron.VectorizingDatasetData {
     
-    // train the tokenizer
-    tokenizer.train(corpus: inputStrings)
+    let paddedInputs = inputStrings.map { $0.fill(with: ".", max: maxLength) }
+    let paddedLabels = labelStrings.map { $0.fill(with: ".", max: maxLength) }
+    
+    // Train on exactly what gets encoded -- the *padded* strings. Training on the raw inputs
+    // leaves the fill character out of the vocabulary, so every pad position encodes as <unk>
+    // and most of each sequence is a token the model can only learn to predict as "unknown".
+    tokenizer.train(corpus: paddedInputs + paddedLabels)
+    
+    // BPE merges make token counts ragged even when the character counts match, so every
+    // sample is padded to a single sequence length -- the RNN compiles one `batchLength`
+    // and sparse cross entropy needs one label index per predicted timestep.
+    // The +1 leaves room for the <eos> the labels carry.
+    let tokenLength = ((paddedInputs + paddedLabels)
+      .map { tokenizer.encode($0).count }
+      .max() ?? 0) + 1
     
     // Process each input-label pair
     var inputTensors: [Tensor] = []
     var labelTensors: [Tensor] = []
     
-    for (inputString, labelString) in zip(inputStrings, labelStrings) {
-      let input = tokenize(inputString.fill(with: ".",
-                                             max: maxLength))
-      
-      let label = tokenize(labelString.fill(with: ".",
-                                             max: maxLength))
+    for (inputString, labelString) in zip(paddedInputs, paddedLabels) {
+      let input = tokenize(inputString, paddedTo: tokenLength)
+      // Labels terminate with <eos> so the model learns to stop; generation keys off that ID.
+      let label = tokenize(labelString, paddedTo: tokenLength, appendingEnd: true)
       
       inputTensors.append(input)
       labelTensors.append(label)
@@ -305,7 +316,7 @@ final class FullModelTests: XCTestCase {
                                                 "spammley",
                                                 "Dugley",
                                                 "Absoluteley"],
-                                 targetVocabSize: 10)
+                                 targetVocabSize: 40)
     
     let rnn = RNN(returnSequence: true,
                   dataset: dataset,

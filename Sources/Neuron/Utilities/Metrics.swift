@@ -80,37 +80,46 @@ internal protocol MetricCalculator: MetricLogger {
   var totalValCorrectGuesses: Int { get set }
   var totalValGuesses: Int { get set }
 
-  func calculateAccuracy(_ guess: Tensor, label: Tensor, binary: Bool, running: Bool) -> Tensor.Scalar
-  func calculateValAccuracy(_ guess: Tensor, label: Tensor, binary: Bool,  running: Bool) -> Tensor.Scalar
+  func calculateAccuracy(_ guess: Tensor, label: Tensor, binary: Bool, sparse: Bool, running: Bool) -> Tensor.Scalar
+  func calculateValAccuracy(_ guess: Tensor, label: Tensor, binary: Bool, sparse: Bool, running: Bool) -> Tensor.Scalar
   func startTimer(metric: Metric)
   func endTimer(metric: Metric)
 }
 
 internal extension MetricCalculator {
-  func calculateValAccuracy(_ guess: Tensor, label: Tensor, binary: Bool, running: Bool = false) -> Tensor.Scalar {
+  typealias Max = (UInt, Tensor.Scalar)
+
+  /// Resolves the target `(index, value)` pair for depth slice `d` of a label tensor.
+  ///
+  /// One-hot labels carry the class in the *position* of their maximum, sparse labels carry it
+  /// as the *value* of their single entry, so `indexOfMax` is only correct for the former.
+  private func labelMax(_ label: Tensor, depth d: Int, sparse: Bool) -> Max {
+    guard sparse else { return label.depthSlice(d).indexOfMax }
+
+    let index = label.storage.count > d ? Int(label.storage[d]) : 0
+    return (UInt(max(0, index)), Tensor.Scalar(index))
+  }
+
+  private func matches(label: Max, guess: Max, binary: Bool) -> Int {
+    if binary {
+      if label.1 - guess.1 < 0.5 { return 1 }
+    } else {
+      if label.0 == guess.0 { return 1 }
+    }
+    return 0
+  }
+
+  func calculateValAccuracy(_ guess: Tensor, label: Tensor, binary: Bool, sparse: Bool = false, running: Bool = false) -> Tensor.Scalar {
     var totalCorrect = 0
     var totalGuess = 0
-    
-    typealias Max = (UInt, Tensor.Scalar)
-    
-    func perform(max: Max, guessMax: Max) -> Int {
-      if binary {
-        if max.1 - guessMax.1 < 0.5 {
-          return 1
-        }
-      } else {
-        if max.0 == guessMax.0 {
-          return 1
-        }
-      }
-      return 0
-    }
-        
+
     for d in 0..<guess.size.depth {
       let guessMax = guess.depthSlice(d).indexOfMax
-      let labelMax = label.depthSlice(d).indexOfMax
-      totalCorrect += perform(max: labelMax, guessMax: guessMax)
-      totalValCorrectGuesses += perform(max: labelMax, guessMax: guessMax)
+      let correct = matches(label: labelMax(label, depth: d, sparse: sparse),
+                            guess: guessMax,
+                            binary: binary)
+      totalCorrect += correct
+      totalValCorrectGuesses += correct
       totalGuess += 1
       totalValGuesses += 1
     }
@@ -120,31 +129,17 @@ internal extension MetricCalculator {
     return running ? runningAccuracy : accuracy
   }
   
-  func calculateAccuracy(_ guess: Tensor, label: Tensor, binary: Bool, running: Bool = false) -> Tensor.Scalar {
-    
+  func calculateAccuracy(_ guess: Tensor, label: Tensor, binary: Bool, sparse: Bool = false, running: Bool = false) -> Tensor.Scalar {
     var totalCorrect = 0
     var totalGuess = 0
-    
-    typealias Max = (UInt, Tensor.Scalar)
-    
-    func perform(max: Max, guessMax: Max) -> Int {
-      if binary {
-        if max.1 - guessMax.1 < 0.5 {
-          return 1
-        }
-      } else {
-        if max.0 == guessMax.0 {
-          return 1
-        }
-      }
-      return 0
-    }
-        
+
     for d in 0..<guess.size.depth {
       let guessMax = guess.depthSlice(d).indexOfMax
-      let labelMax = label.depthSlice(d).indexOfMax
-      totalCorrect += perform(max: labelMax, guessMax: guessMax)
-      totalCorrectGuesses += perform(max: labelMax, guessMax: guessMax)
+      let correct = matches(label: labelMax(label, depth: d, sparse: sparse),
+                            guess: guessMax,
+                            binary: binary)
+      totalCorrect += correct
+      totalCorrectGuesses += correct
       totalGuess += 1
       totalGuesses += 1
     }
