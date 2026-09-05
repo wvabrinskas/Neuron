@@ -107,10 +107,14 @@ public class RNN<Dataset: TokenizingDataset>: Classifier where Dataset.Item == S
       vocabSize = dataset.vocabSize
     }
   }
-  private var lstm: LSTM?
-  private var embedding: Embedding?
-  private var vocabSize: Int = 0
-  private var wordLength: Int = 0
+  /// The LSTM in the compiled or imported network.
+  public private(set) var lstm: LSTM?
+  /// The embedding in the compiled or imported network.
+  public private(set) var embedding: Embedding?
+  /// Vocabulary the network is sized for. After an import this comes from the imported tokenizer.
+  public private(set) var vocabSize: Int = 0
+  /// Sequence length in tokens the network is compiled for.
+  public private(set) var wordLength: Int = 0
   private var extraLayers: [Layer]
   private var ready: Bool = false
   private var datasetData: VectorizingDatasetData?
@@ -203,10 +207,7 @@ public class RNN<Dataset: TokenizingDataset>: Classifier where Dataset.Item == S
     
     dataset = Dataset.build(data: vectors)
     
-    await readyUp()
-      
-    let n = Sequential.import(data)
-    optimizer.trainable = n
+    restore(network: Sequential.import(data))
   }
   
   /// Imports a serialized network from disk and prepares the trainer.
@@ -219,10 +220,31 @@ public class RNN<Dataset: TokenizingDataset>: Classifier where Dataset.Item == S
     
     dataset = Dataset.build(url: vectors)
     
-    await readyUp()
-    
-    let n = Sequential.import(url)
-    optimizer.trainable = n
+    restore(network: Sequential.import(url))
+  }
+  
+  /// Adopts an imported network and the imported tokenizer as this trainer's state.
+  ///
+  /// Deliberately does **not** go through `readyUp()`. That rebuilds the dataset -- which for a
+  /// real dataset re-trains the tokenizer and discards the imported vocabulary -- and then
+  /// compiles a fresh, randomly initialised network that the imported one immediately replaces,
+  /// leaving `wordLength`, `lstm`, and `embedding` describing layers that are no longer in the
+  /// graph.
+  ///
+  /// - Parameter network: The deserialized network.
+  private func restore(network: Sequential) {
+    // Taken from the imported tokenizer, never from re-training it.
+    vocabSize = dataset.vocabSize
+    optimizer.ignoreLabelIndex = dataset.padTokenId
+
+    // The sequence length is already encoded in the imported layers, and that is the only place
+    // it can come from at import time: `compile` derives it from training data we don't have.
+    embedding = network.layers.compactMap { $0 as? Embedding }.first
+    lstm = network.layers.compactMap { $0 as? LSTM }.first
+    wordLength = lstm?.batchLength ?? embedding?.batchLength ?? 0
+
+    optimizer.trainable = network
+    ready = true
   }
   
   /// Builds dataset/network state (if needed) and runs training.
@@ -361,30 +383,41 @@ public class RNN<Dataset: TokenizingDataset>: Classifier where Dataset.Item == S
   
   /// Ensures dataset-derived network state is built and compiled once.
   public func readyUp() async {
-    // do it twice just incase we imported a dataset and there's no data to build
-    vocabSize = dataset.vocabSize
+    // An imported network fixes the architecture: it must not be rebuilt around new data.
+    let imported = ready
 
-    if ready == false || datasetData == nil {
+    if datasetData == nil {
+      let importedVocabSize = vocabSize
+
       datasetData = await dataset.build()
-      
-      vocabSize = dataset.vocabSize
 
-      // Sequences are padded to a fixed length, so most batches carry timesteps whose only
-      // correct answer is <pad>. Scoring those teaches the model nothing and reports an
-      // accuracy dominated by how much padding the batch happened to need.
-      optimizer.ignoreLabelIndex = dataset.padTokenId
-
-      if let datasetData {
-        compile(dataset: datasetData)
+      if imported, dataset.vocabSize != importedVocabSize {
+        fatalError("""
+          RNN imported a model built for a vocabulary of \(importedVocabSize), but the dataset \
+          now reports \(dataset.vocabSize). The embedding table is sized from the vocabulary, so \
+          the imported weights no longer line up. This usually means the dataset re-trained the \
+          tokenizer in build() instead of using the imported one.
+          """)
       }
     }
+
+    vocabSize = dataset.vocabSize
+
+    // Sequences are padded to a fixed length, so most batches carry timesteps whose only
+    // correct answer is <pad>. Scoring those teaches the model nothing and reports an
+    // accuracy dominated by how much padding the batch happened to need.
+    optimizer.ignoreLabelIndex = dataset.padTokenId
+
+    guard let datasetData else { return }
+
+    if imported {
+      // New data has to fit the imported sequence length rather than the other way round.
+      validate(dataset: datasetData, wordLength: wordLength)
+    } else {
+      compile(dataset: datasetData)
+    }
   }
-  
-  /// Verifies every sample carries the sequence length the network is about to compile against.
-  ///
-  /// - Parameters:
-  ///   - dataset: Training and validation samples to check.
-  ///   - wordLength: Token count taken from the first training sample.
+
   private func validate(dataset: VectorizingDatasetData, wordLength: Int) {
     // With `returnSequence` the model emits one distribution per timestep and the sparse loss
     // wants an index for each; otherwise it emits only the final one.

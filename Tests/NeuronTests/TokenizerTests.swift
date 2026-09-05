@@ -298,6 +298,59 @@ final class TokenizerTests: XCTestCase {
     XCTAssertEqual(tokenizer.encode("cat"), imported.encode("cat"))
   }
 
+  /// Round-trips through disk and returns the imported copy alongside the original.
+  private func roundTrip(_ tokenizer: BPETokenizer, name: String) -> BPETokenizer? {
+    guard let url = tokenizer.export(name: name, overrite: true, compress: true) else {
+      XCTFail("Export returned nil URL")
+      return nil
+    }
+    let result: Result<BPETokenizer, Error> = ExportHelper.buildModel(url)
+    guard case .success(let imported) = result else {
+      XCTFail("Import failed: \(result)")
+      return nil
+    }
+    return imported
+  }
+
+  func test_export_import_preservesVocabSize() {
+    let tokenizer = makeTrainedTokenizer(vocabSize: 60)
+    guard let imported = roundTrip(tokenizer, name: "test-tokenizer-vocabsize") else { return }
+
+    // `Embedding` and `LSTM` are sized from this. The internal `Vectorizer` is not serialized,
+    // so a `vocabSize` derived from it would come back as 0 and build a zero-width table.
+    XCTAssertGreaterThan(imported.vocabSize, 0)
+    XCTAssertEqual(imported.vocabSize, tokenizer.vocabSize)
+  }
+
+  func test_export_import_preservesControlTokenIds() {
+    let tokenizer = makeTrainedTokenizer(vocabSize: 60)
+    guard let imported = roundTrip(tokenizer, name: "test-tokenizer-control") else { return }
+
+    XCTAssertEqual(imported.padTokenId, tokenizer.padTokenId)
+    XCTAssertEqual(imported.bosTokenId, tokenizer.bosTokenId)
+    XCTAssertEqual(imported.eosTokenId, tokenizer.eosTokenId)
+    XCTAssertEqual(imported.controlTokenIds, tokenizer.controlTokenIds)
+  }
+
+  func test_export_import_preservesIdContiguity() {
+    let tokenizer = makeTrainedTokenizer(vocabSize: 60)
+    guard let imported = roundTrip(tokenizer, name: "test-tokenizer-contiguity") else { return }
+
+    XCTAssertEqual(Set(imported.reverseVocab.keys), Set(0..<imported.vocabSize))
+  }
+
+  func test_export_import_encodedIdsStayInVocabRange() {
+    let tokenizer = makeTrainedTokenizer(vocabSize: 60)
+    guard let imported = roundTrip(tokenizer, name: "test-tokenizer-range") else { return }
+
+    for text in defaultCorpus {
+      for id in imported.encode(text) {
+        XCTAssertLessThan(id, imported.vocabSize,
+                          "imported id \(id) is out of range 0..<\(imported.vocabSize)")
+      }
+    }
+  }
+
   func test_export_noTimestamp_when_overrite_isTrue() {
     let tokenizer = makeTrainedTokenizer()
     let name = "test-no-timestamp"
