@@ -268,11 +268,14 @@ return (Tensor(storage: v[i].forceCopy(), size: gradient.size), ...)
 
 ### Commit history
 
-- **Squash-merge only.** Merge commits are disabled on the repo; every PR lands as one commit on its base branch.
-- **The PR description becomes the commit message.** The repo is set to `squash_merge_commit_title: PR_TITLE` / `squash_merge_commit_message: PR_BODY`, so whatever is in the PR body is what `git log` shows forever. Write it as release notes, not as a work log. (This was previously `COMMIT_MESSAGES`, which concatenated every commit in the PR — and, because feature squashes carried those bodies too, re-concatenated them into each release. The `develop` → `main` squash for #183 ended up 1,926 lines long and reached back to PR #39.)
-- **`.github/pull_request_template.md` deliberately contains no HTML comments.** GitHub does not strip `<!-- -->` when building the squash body, so instructional comments would land verbatim in `git log`. Keep the template short and comment-free.
+- **Feature PRs (`feature` → `develop`) are squash-merged.** One commit per PR on `develop`.
+- **Release PRs (`develop` → `main`) use "Create a merge commit", NOT squash.** Squashing was the cause of a long-standing problem: a squash puts `develop`'s *tree* on `main` but creates no ancestry link to its *commits*, so `main..develop` never resets and grows forever. By 2026-09 the release PR's Commits tab listed **243 commits going back to 2023-07-01** while the diff was correctly 8 files. A real merge makes `develop`'s commits reachable from `main`, so each release PR lists only new work.
+  - Both merge types are enabled, so GitHub defaults the green button to "Create a merge commit". **Pick "Squash and merge" explicitly on feature PRs.**
+- **The PR description becomes the commit message**, for both merge types (`merge_commit_title`/`squash_merge_commit_title: PR_TITLE`, `merge_commit_message`/`squash_merge_commit_message: PR_BODY`). Whatever is in the PR body is what `git log` shows forever — write it as release notes, not as a work log. (This was previously `COMMIT_MESSAGES`, which concatenated every commit in the PR — and, because feature squashes carried those bodies too, re-concatenated them into each release. The squash for #183 ended up 1,926 lines long and reached back to PR #39.)
+- **`.github/pull_request_template.md` deliberately contains no HTML comments.** GitHub does not strip `<!-- -->` when building the commit body, so instructional comments would land verbatim in `git log`. Keep the template short and comment-free.
 - **Pull with rebase.** `pull.rebase=true` is set locally in this repo; set it on any other machine you work from. Without it, pulling `develop` produces `Merge branch 'develop' of github.com:... into develop` commits that clutter the release PR.
-- **After each release, back-merge `main` into `develop`.** The squash commit on `main` is not an ancestor of `develop`, so without this the next release PR computes the wrong merge base and re-lists already-shipped commits.
+- **Do not back-merge `main` into `develop`.** With a real release merge, `main` is already a descendant of `develop`. The historical `Merge branch 'main' ... into develop` commits are leftovers from the squash flow, where the back-merge was needed to keep the merge base sane.
+- **`main`'s commit list is not the changelog** — release notes live in the GitHub Releases section. `main` now shows one commit per *feature*; the release-only view is `git log --first-parent main`, which the GitHub UI cannot display.
 
 ## Important Notes
 
