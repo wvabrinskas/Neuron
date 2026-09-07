@@ -10,7 +10,7 @@
 ![](https://img.shields.io/badge/watchOS-7+-darkcyan?style=flat-square)
 ![](https://img.shields.io/badge/tvOS-14+-darkcyan?style=flat-square)
 
-[![Tests](https://github.com/wvabrinskas/Neuron/actions/workflows/tests.yml/badge.svg?branch=develop)](https://github.com/wvabrinskas/Neuron/actions/workflows/tests.yml)
+[![Tests](https://github.com/wvabrinskas/Neuron/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/wvabrinskas/Neuron/actions/workflows/tests.yml)
 
 <a href="https://www.emergetools.com/app/example/ios/Neuron/release?utm_campaign=badge-data"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fwww.emergetools.com%2Fapi%2Fv2%2Fpublic_new_build%3FexampleId%3DNeuron%26platform%3Dios%26badgeOption%3Dmax_install_size_only%26buildType%3Drelease&query=$.badgeMetadata&label=Neuron&logo=apple" /></a>
 
@@ -62,9 +62,9 @@ Run `./scripts/onboard.sh` to install the Xcode templates that `Neuron` provides
 Feel free to file issues about the framework here or contact me through the [Discord](https://discord.gg/p84DYph4PW). I am open to all suggestions on how to improve the framework. 
 
 ## Pull Requests
-There are automated tests that run when a PR is created to the `develop` or `master` branches. These tests must pass before a PR can be merged. All PRs must merge into the `develop` branch. 
+There are automated tests that run when a PR is created to the `main` branch. These tests must pass before a PR can be merged. All PRs must merge into the `main` branch. 
 ## Branching
-All features must be branched off the `develop` branch. 
+All features must be branched off the `main` branch. 
 
 # Background
 

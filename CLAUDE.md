@@ -260,22 +260,28 @@ return (Tensor(storage: v[i].forceCopy(), size: gradient.size), ...)
 
 ## Branch Strategy
 
-- `main`: Stable production branch
-- `develop`: Development branch for integration
-- Feature branches: Branch off `develop`, PR into `develop`
-- **All PRs must target `develop` as the base branch**, not `main`. The `main` branch is only updated via merges from `develop`.
-- Automated tests must pass before PR merge
+- `main`: the only long-lived branch. All development happens here.
+- Feature branches: Branch off `main`, PR into `main`.
+- **All PRs must target `main` as the base branch.**
+- Automated tests must pass before PR merge (`.github/workflows/tests.yml` runs on PRs to `main`).
+- The `develop` branch was retired on 2026-09-07. Anything below describing a two-branch release flow is history, not current practice.
 
 ### Commit history
 
-- **Feature PRs (`feature` → `develop`) are squash-merged.** One commit per PR on `develop`.
-- **Release PRs (`develop` → `main`) use "Create a merge commit", NOT squash.** Squashing was the cause of a long-standing problem: a squash puts `develop`'s *tree* on `main` but creates no ancestry link to its *commits*, so `main..develop` never resets and grows forever. By 2026-09 the release PR's Commits tab listed **243 commits going back to 2023-07-01** while the diff was correctly 8 files. A real merge makes `develop`'s commits reachable from `main`, so each release PR lists only new work.
-  - Both merge types are enabled, so GitHub defaults the green button to "Create a merge commit". **Pick "Squash and merge" explicitly on feature PRs.**
-- **The PR description becomes the commit message**, for both merge types (`merge_commit_title`/`squash_merge_commit_title: PR_TITLE`, `merge_commit_message`/`squash_merge_commit_message: PR_BODY`). Whatever is in the PR body is what `git log` shows forever — write it as release notes, not as a work log. (This was previously `COMMIT_MESSAGES`, which concatenated every commit in the PR — and, because feature squashes carried those bodies too, re-concatenated them into each release. The squash for #183 ended up 1,926 lines long and reached back to PR #39.)
+- **Feature PRs (`feature` → `main`) are squash-merged.** One commit per PR on `main`, so `main`'s log reads one line per feature.
+  - Merge commits are also enabled, so GitHub may default the green button to "Create a merge commit". **Pick "Squash and merge" explicitly.**
+- **The PR description becomes the commit message** (`squash_merge_commit_title: PR_TITLE`, `squash_merge_commit_message: PR_BODY`). Whatever is in the PR body is what `git log` shows forever — write it as release notes, not as a work log. (This was previously `COMMIT_MESSAGES`, which concatenated every commit in the PR; the squash for #183 ended up 1,926 lines long and reached back to PR #39.)
 - **`.github/pull_request_template.md` deliberately contains no HTML comments.** GitHub does not strip `<!-- -->` when building the commit body, so instructional comments would land verbatim in `git log`. Keep the template short and comment-free.
-- **Pull with rebase.** `pull.rebase=true` is set locally in this repo; set it on any other machine you work from. Without it, pulling `develop` produces `Merge branch 'develop' of github.com:... into develop` commits that clutter the release PR.
-- **Do not back-merge `main` into `develop`.** With a real release merge, `main` is already a descendant of `develop`. The historical `Merge branch 'main' ... into develop` commits are leftovers from the squash flow, where the back-merge was needed to keep the merge base sane.
-- **`main`'s commit list is not the changelog** — release notes live in the GitHub Releases section. `main` now shows one commit per *feature*; the release-only view is `git log --first-parent main`, which the GitHub UI cannot display.
+- **Pull with rebase.** `pull.rebase=true` is set locally in this repo; set it on any other machine you work from. Without it, pulling `main` produces `Merge branch 'main' of github.com:... into main` commits.
+- **`main`'s commit list is not the changelog** — release notes live in the GitHub Releases section, cut from tags.
+
+#### Why `develop` was retired
+
+The two-branch flow's failure mode is recorded here because it constrains how release PRs must be merged if the flow ever comes back: squash-merging `develop` → `main` puts `develop`'s *tree* on `main` but creates no ancestry link to its *commits*, so `main..develop` never resets and grows forever. By 2026-09 the release PR's Commits tab listed **243 commits going back to 2023-07-01** while the diff was correctly 8 files. A real merge commit (not a squash) is what makes `develop`'s commits reachable from `main`.
+
+### Releases & documentation
+
+- Documentation (`.github/workflows/docs.yml`) publishes on **version tag pushes** (`*.*.*`, e.g. `2.2.6`) and on manual `workflow_dispatch` — not on every push to `main`. Tag a release when the docs should be regenerated and pushed to `wvabrinskas.github.io/pages`.
 
 ## Important Notes
 

@@ -26,9 +26,9 @@ alwaysApply: true
 - Test serialization/deserialization
 
 ### Branching & PRs:
-- All PRs must target `develop` as the base branch, never `main`
-- Feature branches should be created off `develop`
-- `main` is only updated via merges from `develop`
+- All PRs must target `main` as the base branch
+- Feature branches should be created off `main`
+- Feature PRs are squash-merged, one commit per PR
 
 ### Tensor Self-Assignment:
 - **NEVER** write `tensor = tensor op value` where `op` is `+`, `-`, `*`, or `/` on Tensor types. The autograd operators build a computation graph that references the old tensor, creating a reference cycle when assigned back to the same variable.
