@@ -12,6 +12,7 @@ public typealias TokenizerCorpus = [String]
 
 /// A protocol that defines tokenization capabilities with support for encoding, decoding, and exporting trained models.
 public protocol Tokenizing: Exportable, Importable {
+  /// The total number of unique tokens in the vocabulary, including merge and control tokens.
   var vocabSize: Int { get }
   /// The token ID used to pad sequences out to a fixed length.
   var padTokenId: Int { get }
